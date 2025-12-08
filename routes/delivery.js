@@ -175,17 +175,27 @@ router.post('/', requireAuth, upload.single('screenshot'), async (req, res) => {
         
         const screenshot_url = req.file ? `/uploads/${req.file.filename}` : null;
         
+        console.log('📦 Criando delivery:', { userId, week, description, screenshot_url });
+        
         // Criar a entrega principal com a semana
         const result = await runQuery(
             'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url) VALUES (?, ?, ?, ?, ?)',
             [userId, week.start, week.end, description || '', screenshot_url]
         );
         
+        console.log('📦 Delivery criado, result:', result);
+        
         const deliveryId = result.lastID;
+        
+        if (!deliveryId) {
+            console.error('❌ Erro: deliveryId não retornado');
+            return res.status(500).json({ error: 'Erro ao criar entrega - ID não retornado' });
+        }
         
         // Inserir os itens de cada material
         for (const item of materialsArray) {
             if (item.amount > 0) {
+                console.log('📦 Inserindo item:', { deliveryId, material_id: item.material_id, amount: item.amount });
                 await runQuery(
                     'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
                     [deliveryId, parseInt(item.material_id), parseInt(item.amount)]
@@ -199,6 +209,7 @@ router.post('/', requireAuth, upload.single('screenshot'), async (req, res) => {
             deliveryId: deliveryId
         });
     } catch (error) {
+        console.error('❌ Erro em POST /delivery:', error);
         res.status(500).json({ error: error.message });
     }
 });
