@@ -46,7 +46,12 @@ const getCurrentWeek = () => {
 
 // Helper functions para PostgreSQL
 const runQueryPG = async (sql, params = []) => {
-    const result = await pool.query(sql, params);
+    // Adicionar RETURNING id para INSERTs no PostgreSQL
+    let modifiedSql = sql;
+    if (sql.trim().toUpperCase().startsWith('INSERT') && !sql.toUpperCase().includes('RETURNING')) {
+        modifiedSql = sql.replace(/;?\s*$/, '') + ' RETURNING id';
+    }
+    const result = await pool.query(modifiedSql, params);
     return { lastID: result.rows[0]?.id, changes: result.rowCount };
 };
 
