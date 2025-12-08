@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghosts Farm Control - Cadastro</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container login-container">
+        <div class="login-box register-box">
+            <div class="logo">
+                <h1>👻 GHOSTS</h1>
+                <p>Cadastro de Membro</p>
+            </div>
+            
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="name">Nome Completo *</label>
+                    <input type="text" id="name" name="name" required placeholder="Seu nome no jogo">
+                </div>
+                
+                <div class="form-group">
+                    <label for="passport">Passaporte *</label>
+                    <input type="text" id="passport" name="passport" required placeholder="Seu passaporte (será seu login)">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="Seu email (opcional)">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Senha *</label>
+                    <input type="password" id="password" name="password" required placeholder="Crie uma senha" minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Confirmar Senha *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Confirme sua senha">
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Cadastrar</button>
+            </form>
+            
+            <div id="message" class="message"></div>
+            
+            <div class="register-link">
+                <p>Já tem uma conta? <a href="/">Fazer Login</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/register.js"></script>
+</body>
+</html>

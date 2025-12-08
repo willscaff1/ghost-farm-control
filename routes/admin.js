@@ -1,0 +1,1126 @@
+const express = require('express');
+const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
+
+const router = express.Router();
+
+// Cargos administrativos (qualquer um pode aprovar)
+const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
+
+// Nomes amigáveis dos cargos
+const roleNames = {
+    'member': 'Membro',
+    '01': '01',
+    '02': '02',
+    'gerente_farm': 'Gerente de Farm',
+    'gerente_geral': 'Gerente Geral'
+};
+
+// Helper para calcular semana com offset
+const getWeekWithOffset = (offset = 0) => {
+    const now = new Date();
+    now.setDate(now.getDate() + (offset * 7));
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    monday.setHours(0, 0, 0, 0);
+    
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    
+    return {
+        start: monday.toISOString().split('T')[0],
+        end: sunday.toISOString().split('T')[0],
+        label: `${monday.toLocaleDateString('pt-BR')} até ${sunday.toLocaleDateString('pt-BR')}`
+    };
+};
+
+// Middleware para verificar se é cargo administrativo
+const requireAdmin = (req, res, next) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Não autenticado' });
+    }
+    if (!adminRoles.includes(req.session.user.role)) {
+        return res.status(403).json({ error: 'Acesso negado' });
+    }
+    next();
+};
+
+// Obter semana com offset
+router.get('/week/:offset', requireAdmin, async (req, res) => {
+    try {
+        const offset = parseInt(req.params.offset) || 0;
+        const week = getWeekWithOffset(offset);
+        res.json({ week });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Obter semana atual
+router.get('/current-week', requireAdmin, async (req, res) => {
+    try {
+        const week = getCurrentWeek();
+        res.json({ week });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Listar todas as entregas pendentes (da semana selecionada)
+router.get('/deliveries/pending', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        
+        let query = `
+            SELECT d.*, u.name, u.passport
+            FROM deliveries d
+            JOIN users u ON d.user_id = u.id
+            WHERE d.status = 'pending'
+        `;
+        const params = [];
+        
+        if (week_start && week_end) {
+            query += ` AND d.week_start = ? AND d.week_end = ?`;
+            params.push(week_start, week_end);
+        }
+        
+        query += ` ORDER BY d.week_start DESC, d.created_at ASC`;
+        
+        const deliveries = await getAll(query, params);
+        
+        // Para cada entrega, buscar os itens
+        for (let delivery of deliveries) {
+            delivery.items = await getAll(`
+                SELECT di.*, m.name as material_name, m.icon as material_icon
+                FROM delivery_items di
+                JOIN materials m ON di.material_id = m.id
+                WHERE di.delivery_id = ?
+            `, [delivery.id]);
+        }
+        
+        res.json({ deliveries });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Listar todas as entregas
+router.get('/deliveries/all', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        let deliveries;
+        
+        if (week_start && week_end) {
+            deliveries = await getAll(`
+                SELECT d.*, u.name, u.passport, a.name as approved_by_name
+                FROM deliveries d
+                JOIN users u ON d.user_id = u.id
+                LEFT JOIN users a ON d.approved_by = a.id
+                WHERE d.week_start = ? AND d.week_end = ?
+                ORDER BY d.created_at DESC
+            `, [week_start, week_end]);
+        } else {
+            deliveries = await getAll(`
+                SELECT d.*, u.name, u.passport, a.name as approved_by_name
+                FROM deliveries d
+                JOIN users u ON d.user_id = u.id
+                LEFT JOIN users a ON d.approved_by = a.id
+                ORDER BY d.created_at DESC
+            `);
+        }
+        
+        // Para cada entrega, buscar os itens
+        for (let delivery of deliveries) {
+            delivery.items = await getAll(`
+                SELECT di.*, m.name as material_name, m.icon as material_icon
+                FROM delivery_items di
+                JOIN materials m ON di.material_id = m.id
+                WHERE di.delivery_id = ?
+            `, [delivery.id]);
+        }
+        
+        res.json({ deliveries });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Aprovar entrega
+router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
+    try {
+        const deliveryId = req.params.id;
+        const userId = req.session.user.id;
+        
+        // Verificar se a entrega existe e está pendente
+        const delivery = await getOne('SELECT * FROM deliveries WHERE id = ? AND status = ?', [deliveryId, 'pending']);
+        if (!delivery) {
+            return res.status(404).json({ error: 'Entrega não encontrada ou já processada' });
+        }
+        
+        // Aprovar diretamente
+        await runQuery(
+            'UPDATE deliveries SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['approved', userId, deliveryId]
+        );
+        
+        res.json({ success: true, message: 'Entrega aprovada! ✅' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Rejeitar entrega
+router.post('/deliveries/:id/reject', requireAdmin, async (req, res) => {
+    try {
+        const deliveryId = req.params.id;
+        const userId = req.session.user.id;
+        
+        // Verificar se a entrega existe e está pendente
+        const delivery = await getOne('SELECT * FROM deliveries WHERE id = ? AND status = ?', [deliveryId, 'pending']);
+        if (!delivery) {
+            return res.status(404).json({ error: 'Entrega não encontrada ou já processada' });
+        }
+        
+        // Rejeitar diretamente
+        await runQuery(
+            'UPDATE deliveries SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['rejected', userId, deliveryId]
+        );
+        
+        res.json({ success: true, message: 'Entrega rejeitada' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Listar todos os membros
+router.get('/members', requireAdmin, async (req, res) => {
+    try {
+        const members = await getAll(`
+            SELECT u.id, u.name, u.passport, u.email, u.role, u.created_at, u.active,
+                   COALESCE((
+                       SELECT SUM(di.amount) 
+                       FROM delivery_items di 
+                       JOIN deliveries d ON di.delivery_id = d.id 
+                       WHERE d.user_id = u.id AND d.status = 'approved'
+                   ), 0) as total_materials,
+                   (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'pending') as pending_count,
+                   (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as approved_count
+            FROM users u
+            ORDER BY total_materials DESC
+        `);
+        
+        res.json({ members, roleNames });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Ativar/Desativar membro
+router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
+    try {
+        const memberId = req.params.id;
+        
+        const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        const newStatus = member.active ? 0 : 1;
+        await runQuery('UPDATE users SET active = ? WHERE id = ?', [newStatus, memberId]);
+        
+        res.json({ success: true, message: newStatus ? 'Membro ativado' : 'Membro desativado' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Alterar cargo do membro (somente passaporte 6999)
+router.post('/members/:id/role', requireAdmin, async (req, res) => {
+    try {
+        // Só passaporte 6999 pode alterar cargos
+        if (req.session.user.passport !== '6999') {
+            return res.status(403).json({ error: 'Apenas o administrador principal pode alterar cargos' });
+        }
+        
+        const memberId = req.params.id;
+        const { role } = req.body;
+        
+        // Validar cargo
+        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_geral'];
+        if (!validRoles.includes(role)) {
+            return res.status(400).json({ error: 'Cargo inválido' });
+        }
+        
+        const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Não pode alterar o passaporte 6999
+        if (member.passport === '6999') {
+            return res.status(400).json({ error: 'Não é possível alterar este usuário' });
+        }
+        
+        await runQuery('UPDATE users SET role = ? WHERE id = ?', [role, memberId]);
+        
+        res.json({ success: true, message: `Cargo alterado para ${roleNames[role] || role}` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Editar informações do membro (somente passaporte 6999)
+router.put('/members/:id', requireAdmin, async (req, res) => {
+    try {
+        if (req.session.user.passport !== '6999') {
+            return res.status(403).json({ error: 'Apenas o administrador principal pode editar membros' });
+        }
+        
+        const memberId = req.params.id;
+        const { name, passport, email } = req.body;
+        
+        const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Não pode editar o passaporte 6999
+        if (member.passport === '6999') {
+            return res.status(400).json({ error: 'Não é possível editar este usuário' });
+        }
+        
+        // Verificar se novo passaporte já existe
+        if (passport && passport !== member.passport) {
+            const existing = await getOne('SELECT * FROM users WHERE passport = ? AND id != ?', [passport.toUpperCase(), memberId]);
+            if (existing) {
+                return res.status(400).json({ error: 'Este passaporte já está em uso' });
+            }
+        }
+        
+        await runQuery(
+            'UPDATE users SET name = ?, passport = ?, email = ? WHERE id = ?',
+            [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, memberId]
+        );
+        
+        res.json({ success: true, message: 'Membro atualizado com sucesso' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Deletar membro (somente passaporte 6999)
+router.delete('/members/:id', requireAdmin, async (req, res) => {
+    try {
+        if (req.session.user.passport !== '6999') {
+            return res.status(403).json({ error: 'Apenas o administrador principal pode deletar membros' });
+        }
+        
+        const memberId = req.params.id;
+        
+        const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Não pode deletar o passaporte 6999
+        if (member.passport === '6999') {
+            return res.status(400).json({ error: 'Não é possível deletar este usuário' });
+        }
+        
+        // Deletar entregas e itens relacionados
+        const deliveries = await getAll('SELECT id FROM deliveries WHERE user_id = ?', [memberId]);
+        for (const delivery of deliveries) {
+            await runQuery('DELETE FROM delivery_items WHERE delivery_id = ?', [delivery.id]);
+        }
+        await runQuery('DELETE FROM deliveries WHERE user_id = ?', [memberId]);
+        await runQuery('DELETE FROM justifications WHERE user_id = ?', [memberId]);
+        await runQuery('DELETE FROM users WHERE id = ?', [memberId]);
+        
+        res.json({ success: true, message: 'Membro deletado com sucesso' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Estatísticas gerais (por semana)
+router.get('/stats', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        
+        let pendingQuery = 'SELECT COUNT(*) as count FROM deliveries WHERE status = \'pending\'';
+        let approvedQuery = 'SELECT COUNT(*) as count FROM deliveries WHERE status = \'approved\'';
+        const params = [];
+        
+        if (week_start && week_end) {
+            pendingQuery += ' AND week_start = ? AND week_end = ?';
+            approvedQuery += ' AND week_start = ? AND week_end = ?';
+        }
+        
+        // Contar TODOS os membros ativos (incluindo admin)
+        const totalMembers = await getOne('SELECT COUNT(*) as count FROM users WHERE active = 1');
+        const pendingDeliveries = await getOne(pendingQuery, week_start ? [week_start, week_end] : []);
+        const approvedDeliveries = await getOne(approvedQuery, week_start ? [week_start, week_end] : []);
+        
+        res.json({ 
+            stats: {
+                total_members: totalMembers.count,
+                pending_deliveries: pendingDeliveries.count,
+                approved_count: approvedDeliveries.count
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Ranking por número de farms entregues
+router.get('/ranking', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        let ranking;
+        
+        if (week_start && week_end) {
+            // Ranking filtrado por semana
+            // Farms: apenas da semana selecionada
+            // ADVs: da semana selecionada OU sem semana definida (ADVs antigas)
+            ranking = await getAll(`
+                SELECT u.id, u.name, u.passport,
+                       (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved' AND week_start = ? AND week_end = ?) as farms_count,
+                       (SELECT COUNT(*) FROM warnings WHERE user_id = u.id AND (week_start = ? AND week_end = ? OR week_start IS NULL)) as warnings_count
+                FROM users u
+                WHERE u.active = 1
+                ORDER BY farms_count DESC, warnings_count ASC
+            `, [week_start, week_end, week_start, week_end]);
+        } else {
+            // Ranking geral (todos os farms e ADVs)
+            ranking = await getAll(`
+                SELECT u.id, u.name, u.passport,
+                       (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as farms_count,
+                       (SELECT COUNT(*) FROM warnings WHERE user_id = u.id) as warnings_count
+                FROM users u
+                WHERE u.active = 1
+                ORDER BY farms_count DESC, warnings_count ASC
+            `);
+        }
+        
+        res.json({ ranking });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Estatísticas por material
+router.get('/materials-stats', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        let stats;
+        
+        if (week_start && week_end) {
+            stats = await getAll(`
+                SELECT m.name, m.icon,
+                       COALESCE(SUM(CASE WHEN d.status = 'approved' AND d.week_start = ? AND d.week_end = ? THEN di.amount ELSE 0 END), 0) as total,
+                       COUNT(CASE WHEN d.status = 'approved' AND d.week_start = ? AND d.week_end = ? THEN 1 END) as deliveries_count
+                FROM materials m
+                LEFT JOIN delivery_items di ON m.id = di.material_id
+                LEFT JOIN deliveries d ON di.delivery_id = d.id
+                WHERE m.active = 1
+                GROUP BY m.id
+                ORDER BY total DESC
+            `, [week_start, week_end, week_start, week_end]);
+        } else {
+            stats = await getAll(`
+                SELECT m.name, m.icon,
+                       COALESCE(SUM(CASE WHEN d.status = 'approved' THEN di.amount ELSE 0 END), 0) as total,
+                       COUNT(CASE WHEN d.status = 'approved' THEN 1 END) as deliveries_count
+                FROM materials m
+                LEFT JOIN delivery_items di ON m.id = di.material_id
+                LEFT JOIN deliveries d ON di.delivery_id = d.id
+                WHERE m.active = 1
+                GROUP BY m.id
+                ORDER BY total DESC
+            `);
+        }
+        
+        res.json({ stats });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Gerenciar materiais
+router.get('/materials', requireAdmin, async (req, res) => {
+    try {
+        const materials = await getAll('SELECT * FROM materials ORDER BY name');
+        res.json({ materials });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Lista de membros com status de farm
+router.get('/members-farm-status', requireAdmin, async (req, res) => {
+    try {
+        // Membros com farm pendente
+        const pendingMembers = await getAll(`
+            SELECT DISTINCT u.id, u.name, u.passport, u.role,
+                   (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'pending') as pending_count,
+                   (SELECT MAX(created_at) FROM deliveries WHERE user_id = u.id AND status = 'pending') as last_pending
+            FROM users u
+            JOIN deliveries d ON u.id = d.user_id
+            WHERE d.status = 'pending' AND u.active = 1
+            ORDER BY last_pending ASC
+        `);
+        
+        // Para cada membro pendente, buscar detalhes dos farms
+        for (let member of pendingMembers) {
+            member.pending_deliveries = await getAll(`
+                SELECT d.id, d.created_at, d.screenshot
+                FROM deliveries d
+                WHERE d.user_id = ? AND d.status = 'pending'
+                ORDER BY d.created_at ASC
+            `, [member.id]);
+            
+            // Buscar itens de cada entrega pendente
+            for (let delivery of member.pending_deliveries) {
+                delivery.items = await getAll(`
+                    SELECT di.amount, m.name, m.icon
+                    FROM delivery_items di
+                    JOIN materials m ON di.material_id = m.id
+                    WHERE di.delivery_id = ?
+                `, [delivery.id]);
+            }
+        }
+        
+        // Membros com farm completo (aprovado)
+        const completedMembers = await getAll(`
+            SELECT u.id, u.name, u.passport, u.role,
+                   (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as approved_count,
+                   COALESCE((
+                       SELECT SUM(di.amount) 
+                       FROM delivery_items di 
+                       JOIN deliveries d ON di.delivery_id = d.id 
+                       WHERE d.user_id = u.id AND d.status = 'approved'
+                   ), 0) as total_materials
+            FROM users u
+            WHERE u.active = 1 AND u.role = 'member'
+            AND EXISTS (SELECT 1 FROM deliveries WHERE user_id = u.id AND status = 'approved')
+            ORDER BY total_materials DESC
+        `);
+        
+        res.json({ pendingMembers, completedMembers, roleNames });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/materials', requireAdmin, async (req, res) => {
+    try {
+        const { name, icon } = req.body;
+        
+        if (!name) {
+            return res.status(400).json({ error: 'Nome do material é obrigatório' });
+        }
+        
+        await runQuery(
+            'INSERT INTO materials (name, icon) VALUES (?, ?)',
+            [name, icon || '📦']
+        );
+        
+        res.json({ success: true, message: 'Material adicionado' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/materials/:id/toggle', requireAdmin, async (req, res) => {
+    try {
+        const materialId = req.params.id;
+        
+        const material = await getOne('SELECT * FROM materials WHERE id = ?', [materialId]);
+        if (!material) {
+            return res.status(404).json({ error: 'Material não encontrado' });
+        }
+        
+        const newStatus = material.active ? 0 : 1;
+        await runQuery('UPDATE materials SET active = ? WHERE id = ?', [newStatus, materialId]);
+        
+        res.json({ success: true, message: newStatus ? 'Material ativado' : 'Material desativado' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Status semanal dos membros
+router.get('/weekly-status', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        
+        // Usar semana passada ou semana atual
+        let weekStart, weekEnd;
+        if (week_start && week_end) {
+            weekStart = week_start;
+            weekEnd = week_end;
+        } else {
+            const week = getCurrentWeek();
+            weekStart = week.start;
+            weekEnd = week.end;
+        }
+        
+        // Verificar se a semana já passou
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const weekEndDate = new Date(weekEnd);
+        const weekPassed = today > weekEndDate;
+        
+        // Buscar membros na whitelist
+        const whitelist = await getAll(`SELECT user_id FROM farm_whitelist`);
+        const whitelistIds = whitelist.map(w => w.user_id);
+        
+        // Todos os membros ativos (exceto os da whitelist)
+        const allMembers = await getAll(`
+            SELECT id, name, passport, role FROM users 
+            WHERE active = 1
+            ORDER BY name
+        `);
+        
+        // Filtrar membros da whitelist
+        const membersToCheck = allMembers.filter(m => !whitelistIds.includes(m.id));
+        
+        const completed = [];      // Farm aprovado
+        const pendingApproval = []; // Farm enviado, aguardando aprovação
+        const notDelivered = [];   // Não enviou nada
+        const justified = [];      // Justificativa aprovada
+        
+        for (const member of membersToCheck) {
+            // Verificar se tem farm na semana
+            const delivery = await getOne(`
+                SELECT d.*, d.created_at as delivered_at
+                FROM deliveries d
+                WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
+            `, [member.id, weekStart, weekEnd]);
+            
+            // Buscar itens do delivery se existir
+            let deliveryItems = [];
+            if (delivery) {
+                deliveryItems = await getAll(`
+                    SELECT di.amount, m.name as material_name, m.icon as material_icon
+                    FROM delivery_items di
+                    JOIN materials m ON di.material_id = m.id
+                    WHERE di.delivery_id = ?
+                `, [delivery.id]);
+            }
+            
+            // Verificar se tem justificativa
+            const justification = await getOne(`
+                SELECT * FROM justifications 
+                WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [member.id, weekStart, weekEnd]);
+            
+            if (delivery && delivery.status === 'approved') {
+                // Farm aprovado
+                completed.push({
+                    ...member,
+                    delivery_id: delivery.id,
+                    delivered_at: delivery.delivered_at,
+                    screenshot: delivery.screenshot,
+                    description: delivery.description,
+                    items: deliveryItems
+                });
+            } else if (delivery && delivery.status === 'pending') {
+                // Farm enviado, aguardando aprovação
+                pendingApproval.push({
+                    ...member,
+                    delivery_id: delivery.id,
+                    delivered_at: delivery.delivered_at,
+                    screenshot: delivery.screenshot,
+                    description: delivery.description,
+                    items: deliveryItems
+                });
+            } else if (justification && justification.status === 'approved') {
+                // Justificativa aprovada
+                justified.push({
+                    ...member,
+                    justification_id: justification.id,
+                    justification_reason: justification.reason,
+                    justification_approved_at: justification.updated_at
+                });
+            } else if (justification && justification.status === 'pending') {
+                // Tem justificativa pendente - conta como pendente
+                pendingApproval.push({
+                    ...member,
+                    has_justification_pending: true,
+                    justification_id: justification.id,
+                    justification_reason: justification.reason,
+                    justification_created_at: justification.created_at
+                });
+            } else {
+                // Não enviou nada
+                notDelivered.push({
+                    ...member
+                });
+            }
+        }
+        
+        res.json({ 
+            completed, 
+            pendingApproval, 
+            notDelivered, 
+            justified, 
+            week: { start: weekStart, end: weekEnd },
+            weekPassed
+        });
+    } catch (error) {
+        console.error('Erro em weekly-status:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Visão geral de todos os membros (farm + ADVs)
+router.get('/members-overview', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        
+        // Usar semana passada ou semana atual
+        let weekStart, weekEnd;
+        if (week_start && week_end) {
+            weekStart = week_start;
+            weekEnd = week_end;
+        } else {
+            const week = getCurrentWeek();
+            weekStart = week.start;
+            weekEnd = week.end;
+        }
+        
+        // Buscar membros na whitelist
+        const whitelist = await getAll(`SELECT user_id FROM farm_whitelist`);
+        const whitelistIds = whitelist.map(w => w.user_id);
+        
+        // Todos os membros ativos
+        const allMembers = await getAll(`
+            SELECT id, name, passport, role FROM users 
+            WHERE active = 1
+            ORDER BY name
+        `);
+        
+        const members = [];
+        
+        for (const member of allMembers) {
+            // Se está na whitelist, pula
+            if (whitelistIds.includes(member.id)) continue;
+            
+            // Verificar se tem farm na semana
+            const delivery = await getOne(`
+                SELECT id, status, created_at FROM deliveries 
+                WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [member.id, weekStart, weekEnd]);
+            
+            // Verificar se tem justificativa na semana
+            const justification = await getOne(`
+                SELECT id, status, reason FROM justifications 
+                WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [member.id, weekStart, weekEnd]);
+            
+            // Contar total de ADVs
+            const warningsCount = await getOne(`
+                SELECT COUNT(*) as total FROM warnings WHERE user_id = ?
+            `, [member.id]);
+            
+            // Determinar status do farm
+            let farmStatus = 'not_delivered';
+            let deliveryId = null;
+            let deliveredAt = null;
+            if (delivery) {
+                farmStatus = delivery.status; // 'approved', 'pending', 'rejected'
+                deliveryId = delivery.id;
+                deliveredAt = delivery.created_at;
+            } else if (justification) {
+                // Se aprovada = justificada, se pendente = aguardando, se rejeitada = não entregue
+                if (justification.status === 'approved') {
+                    farmStatus = 'justified';
+                } else if (justification.status === 'pending') {
+                    farmStatus = 'justification_pending';
+                }
+                // Se rejeitada, mantém 'not_delivered'
+            }
+            
+            members.push({
+                ...member,
+                farmStatus,
+                deliveryId,
+                deliveredAt,
+                warningsCount: warningsCount.total
+            });
+        }
+        
+        res.json({ members, week: { start: weekStart, end: weekEnd } });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Buscar detalhes do farm de um membro (para modal de extrato)
+router.get('/member-farm-details/:memberId', requireAdmin, async (req, res) => {
+    try {
+        const { memberId } = req.params;
+        const { week_start, week_end } = req.query;
+        
+        // Buscar dados do membro
+        const member = await getOne('SELECT id, name, passport, role FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Buscar delivery da semana
+        const delivery = await getOne(`
+            SELECT d.*, u.name as approved_by_name
+            FROM deliveries d
+            LEFT JOIN users u ON d.approved_by = u.id
+            WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
+        `, [memberId, week_start, week_end]);
+        
+        let items = [];
+        if (delivery) {
+            // Buscar itens do delivery
+            items = await getAll(`
+                SELECT di.*, m.name as material_name, m.icon as material_icon
+                FROM delivery_items di
+                JOIN materials m ON di.material_id = m.id
+                WHERE di.delivery_id = ?
+            `, [delivery.id]);
+        }
+        
+        // Buscar justificativa da semana (se houver)
+        const justification = await getOne(`
+            SELECT j.*, u.name as approved_by_name
+            FROM justifications j
+            LEFT JOIN users u ON j.approved_by = u.id
+            WHERE j.user_id = ? AND j.week_start = ? AND j.week_end = ?
+        `, [memberId, week_start, week_end]);
+        
+        res.json({ 
+            success: true,
+            member, 
+            delivery, 
+            items, 
+            justification,
+            week: { start: week_start, end: week_end }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Buscar advertências de um membro (para modal)
+router.get('/member-warnings/:memberId', requireAdmin, async (req, res) => {
+    try {
+        const { memberId } = req.params;
+        
+        // Buscar dados do membro
+        const member = await getOne('SELECT id, name, passport, role FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Buscar todas as advertências
+        const warnings = await getAll(`
+            SELECT w.*, u.name as given_by_name
+            FROM warnings w
+            JOIN users u ON w.given_by = u.id
+            WHERE w.user_id = ?
+            ORDER BY w.created_at DESC
+        `, [memberId]);
+        
+        res.json({ 
+            success: true,
+            member, 
+            warnings,
+            count: warnings.length
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Listar justificativas pendentes (da semana)
+router.get('/justifications/pending', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        
+        let query = `
+            SELECT j.*, u.name, u.passport, u.role
+            FROM justifications j
+            JOIN users u ON j.user_id = u.id
+            WHERE j.status = 'pending'
+        `;
+        const params = [];
+        
+        if (week_start && week_end) {
+            query += ` AND j.week_start = ? AND j.week_end = ?`;
+            params.push(week_start, week_end);
+        }
+        
+        query += ` ORDER BY j.week_start DESC, j.created_at ASC`;
+        
+        const justifications = await getAll(query, params);
+        
+        res.json(justifications);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Aprovar justificativa
+router.put('/justifications/:id/approve', requireAdmin, async (req, res) => {
+    try {
+        const justificationId = req.params.id;
+        const userId = req.session.user.id;
+        
+        const justification = await getOne('SELECT * FROM justifications WHERE id = ? AND status = ?', [justificationId, 'pending']);
+        if (!justification) {
+            return res.status(404).json({ error: 'Justificativa não encontrada ou já processada' });
+        }
+        
+        await runQuery(
+            'UPDATE justifications SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['approved', userId, justificationId]
+        );
+        
+        res.json({ success: true, message: 'Justificativa aprovada! ✅' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Rejeitar justificativa
+router.put('/justifications/:id/reject', requireAdmin, async (req, res) => {
+    try {
+        const justificationId = req.params.id;
+        const userId = req.session.user.id;
+        const { rejection_reason } = req.body;
+        
+        const justification = await getOne('SELECT * FROM justifications WHERE id = ? AND status = ?', [justificationId, 'pending']);
+        if (!justification) {
+            return res.status(404).json({ error: 'Justificativa não encontrada ou já processada' });
+        }
+        
+        await runQuery(
+            'UPDATE justifications SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['rejected', userId, justificationId]
+        );
+        
+        res.json({ success: true, message: 'Justificativa rejeitada' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ===================== ADVERTÊNCIAS =====================
+
+// Listar advertências de um membro
+router.get('/members/:id/warnings', requireAdmin, async (req, res) => {
+    try {
+        const memberId = req.params.id;
+        
+        const warnings = await getAll(`
+            SELECT w.*, u.name as given_by_name
+            FROM warnings w
+            JOIN users u ON w.given_by = u.id
+            WHERE w.user_id = ?
+            ORDER BY w.created_at DESC
+        `, [memberId]);
+        
+        res.json({ warnings });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Aplicar advertência (qualquer admin)
+router.post('/members/:id/warnings', requireAdmin, async (req, res) => {
+    try {
+        const memberId = req.params.id;
+        const { reason, week_start, week_end } = req.body;
+        const adminId = req.session.user.id;
+        
+        if (!reason || reason.trim() === '') {
+            return res.status(400).json({ error: 'Informe o motivo da advertência' });
+        }
+        
+        const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Não pode dar ADV no passaporte 6999
+        if (member.passport === '6999') {
+            return res.status(400).json({ error: 'Não é possível advertir este usuário' });
+        }
+        
+        // Inserir com ou sem referência de semana
+        if (week_start && week_end) {
+            await runQuery(
+                'INSERT INTO warnings (user_id, reason, given_by, week_start, week_end) VALUES (?, ?, ?, ?, ?)',
+                [memberId, reason.trim(), adminId, week_start, week_end]
+            );
+        } else {
+            await runQuery(
+                'INSERT INTO warnings (user_id, reason, given_by) VALUES (?, ?, ?)',
+                [memberId, reason.trim(), adminId]
+            );
+        }
+        
+        // Contar total de advertências
+        const count = await getOne('SELECT COUNT(*) as total FROM warnings WHERE user_id = ?', [memberId]);
+        
+        res.json({ 
+            success: true, 
+            message: `Advertência aplicada. ${member.name} agora tem ${count.total} ADV(s).` 
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Remover advertência (somente passaporte 6999)
+router.delete('/warnings/:id', requireAdmin, async (req, res) => {
+    try {
+        if (req.session.user.passport !== '6999') {
+            return res.status(403).json({ error: 'Apenas o administrador principal pode remover advertências' });
+        }
+        
+        const warningId = req.params.id;
+        
+        const warning = await getOne('SELECT * FROM warnings WHERE id = ?', [warningId]);
+        if (!warning) {
+            return res.status(404).json({ error: 'Advertência não encontrada' });
+        }
+        
+        await runQuery('DELETE FROM warnings WHERE id = ?', [warningId]);
+        
+        res.json({ success: true, message: 'Advertência removida' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Listar todas as advertências
+router.get('/warnings', requireAdmin, async (req, res) => {
+    try {
+        const warnings = await getAll(`
+            SELECT w.*, u.name as member_name, u.passport as member_passport, a.name as given_by_name
+            FROM warnings w
+            JOIN users u ON w.user_id = u.id
+            JOIN users a ON w.given_by = a.id
+            ORDER BY w.created_at DESC
+        `);
+        
+        res.json({ warnings });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Contar advertências de um membro
+router.get('/members/:id/warnings/count', requireAdmin, async (req, res) => {
+    try {
+        const memberId = req.params.id;
+        const count = await getOne('SELECT COUNT(*) as total FROM warnings WHERE user_id = ?', [memberId]);
+        res.json({ count: count.total });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ===== WHITELIST (Isenção de Farm) =====
+
+// Listar whitelist
+router.get('/whitelist', requireAdmin, async (req, res) => {
+    try {
+        const whitelist = await getAll(`
+            SELECT w.*, u.name as member_name, u.passport as member_passport, a.name as added_by_name
+            FROM farm_whitelist w
+            JOIN users u ON w.user_id = u.id
+            JOIN users a ON w.added_by = a.id
+            ORDER BY w.created_at DESC
+        `);
+        
+        res.json({ whitelist });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Adicionar à whitelist
+router.post('/whitelist', requireAdmin, async (req, res) => {
+    try {
+        const { user_id, reason } = req.body;
+        const addedBy = req.session.user.id;
+        
+        // Verificar se o usuário existe
+        const user = await getOne('SELECT * FROM users WHERE id = ?', [user_id]);
+        if (!user) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Verificar se já está na whitelist
+        const existing = await getOne('SELECT * FROM farm_whitelist WHERE user_id = ?', [user_id]);
+        if (existing) {
+            return res.status(400).json({ error: 'Membro já está na whitelist' });
+        }
+        
+        await runQuery(
+            'INSERT INTO farm_whitelist (user_id, reason, added_by) VALUES (?, ?, ?)',
+            [user_id, reason || 'Sem motivo especificado', addedBy]
+        );
+        
+        res.json({ success: true, message: `${user.name} adicionado à whitelist!` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Remover da whitelist
+router.delete('/whitelist/:userId', requireAdmin, async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        const existing = await getOne('SELECT * FROM farm_whitelist WHERE user_id = ?', [userId]);
+        if (!existing) {
+            return res.status(404).json({ error: 'Membro não está na whitelist' });
+        }
+        
+        await runQuery('DELETE FROM farm_whitelist WHERE user_id = ?', [userId]);
+        
+        res.json({ success: true, message: 'Membro removido da whitelist' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ===== MEMBERS WITH ADV COUNT =====
+
+// Buscar todos os membros com contagem de ADVs
+router.get('/members-with-advs', requireAdmin, async (req, res) => {
+    try {
+        const members = await getAll(`
+            SELECT 
+                u.id,
+                u.name,
+                u.passport,
+                u.role,
+                u.active,
+                (SELECT COUNT(*) FROM warnings WHERE user_id = u.id) as adv_count
+            FROM users u
+            WHERE u.active = 1
+            ORDER BY adv_count DESC, u.name ASC
+        `);
+        
+        res.json({ success: true, members });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+module.exports = router;

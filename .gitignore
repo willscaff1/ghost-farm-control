@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Database
+database/*.db
+
+# Uploads
+uploads/
+
+# Environment
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

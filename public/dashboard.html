@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghosts Farm Control - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">👻 GHOSTS - Controle de Farm</div>
+        <div class="nav-user">
+            <span id="userName"></span>
+            <button id="adminBtn" class="btn btn-small btn-secondary" style="display: none;" onclick="location.href='/admin'">Painel Admin</button>
+            <button class="btn btn-small btn-danger" onclick="logout()">Sair</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Week Info -->
+        <div class="week-banner" id="weekBanner">
+            <div class="week-info">
+                <h2>📅 Semana Atual</h2>
+                <p id="weekLabel">Carregando...</p>
+            </div>
+            <div class="week-status" id="weekStatus">
+                <!-- Status da semana será carregado aqui -->
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid stats-simple">
+            <div class="stat-card approved">
+                <div class="stat-number" id="farmsDelivered">0</div>
+                <div class="stat-label">Farms Entregues</div>
+            </div>
+            <div class="stat-card rejected clickable" id="warningsCard" onclick="showMyWarnings()">
+                <div class="stat-number" id="warningsCount">0</div>
+                <div class="stat-label">Advertências</div>
+                <div class="click-hint">Clique para ver detalhes</div>
+            </div>
+        </div>
+
+        <!-- New Delivery Form -->
+        <div class="card" id="deliveryCard">
+            <h2>📦 Registrar Farm</h2>
+            <form id="deliveryForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="weekSelect">Selecione a Semana *</label>
+                    <select id="weekSelect" name="week_offset" class="form-control" required>
+                        <option value="">Carregando semanas...</option>
+                    </select>
+                </div>
+                
+                <h3>Materiais do Farm</h3>
+                <div id="materialsInputs" class="materials-inputs">
+                    <!-- Inputs de materiais serão carregados aqui -->
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Descrição / Observações</label>
+                    <input type="text" id="description" name="description" placeholder="Ex: Farm realizado dia X">
+                </div>
+                
+                <div class="form-group">
+                    <label for="screenshot">Print do Farm *</label>
+                    <input type="file" id="screenshot" name="screenshot" accept="image/*" required>
+                    <small>Formatos: JPG, PNG, GIF, WEBP (máx. 5MB)</small>
+                </div>
+                
+                <div id="imagePreview" class="image-preview"></div>
+                
+                <button type="submit" class="btn btn-primary">📤 Enviar para Aprovação</button>
+            </form>
+            <div id="formMessage" class="message"></div>
+        </div>
+
+        <!-- Absence Justification Form -->
+        <div class="card" id="absenceCard">
+            <h2>📝 Justificar Ausência</h2>
+            <p class="info-text">Não vai conseguir fazer o farm esta semana? Justifique sua ausência para os líderes.</p>
+            <form id="absenceForm">
+                <div class="form-group">
+                    <label for="absenceReason">Motivo da Ausência *</label>
+                    <textarea id="absenceReason" rows="4" placeholder="Explique o motivo pelo qual não poderá fazer o farm esta semana (mínimo 10 caracteres)" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-warning">📤 Enviar Justificativa</button>
+            </form>
+            <div id="absenceMessage" class="message"></div>
+        </div>
+
+        <!-- My Deliveries List -->
+        <div class="card">
+            <h2>📋 Histórico de Entregas</h2>
+            <div id="deliveriesList" class="deliveries-list">
+                <p class="loading">Carregando...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <img id="modalImage" class="modal-content">
+    </div>
+
+    <!-- Warnings Modal -->
+    <div id="warningsModal" class="modal warnings-modal">
+        <div class="warnings-modal-content">
+            <div class="warnings-modal-header">
+                <h2>⚠️ Minhas Advertências</h2>
+                <button class="modal-close-btn" onclick="closeWarningsModal()">&times;</button>
+            </div>
+            <div class="warnings-modal-body" id="warningsModalBody">
+                <!-- Conteúdo carregado via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
