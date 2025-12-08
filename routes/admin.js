@@ -476,7 +476,7 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
         // Para cada membro pendente, buscar detalhes dos farms
         for (let member of pendingMembers) {
             member.pending_deliveries = await getAll(`
-                SELECT d.id, d.created_at, d.screenshot
+                SELECT d.id, d.created_at, d.screenshot_url
                 FROM deliveries d
                 WHERE d.user_id = ? AND d.status = 'pending'
                 ORDER BY d.created_at ASC
@@ -624,7 +624,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     ...member,
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
-                    screenshot: delivery.screenshot,
+                    screenshot_url: delivery.screenshot_url,
                     description: delivery.description,
                     items: deliveryItems
                 });
@@ -634,7 +634,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     ...member,
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
-                    screenshot: delivery.screenshot,
+                    screenshot_url: delivery.screenshot_url,
                     description: delivery.description,
                     items: deliveryItems
                 });

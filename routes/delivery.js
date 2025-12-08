@@ -173,12 +173,12 @@ router.post('/', requireAuth, upload.single('screenshot'), async (req, res) => {
             return res.status(400).json({ error: 'Informe pelo menos um material' });
         }
         
-        const screenshot = req.file ? req.file.filename : null;
+        const screenshot_url = req.file ? `/uploads/${req.file.filename}` : null;
         
         // Criar a entrega principal com a semana
         const result = await runQuery(
-            'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot) VALUES (?, ?, ?, ?, ?)',
-            [userId, week.start, week.end, description || '', screenshot]
+            'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url) VALUES (?, ?, ?, ?, ?)',
+            [userId, week.start, week.end, description || '', screenshot_url]
         );
         
         const deliveryId = result.lastID;
