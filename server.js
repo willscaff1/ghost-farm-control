@@ -8,6 +8,12 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production' || process.env.DATABASE_URL;
+
+// Trust proxy para Railway
+if (isProduction) {
+    app.set('trust proxy', 1);
+}
 
 // Middleware
 app.use(express.json());
@@ -17,11 +23,13 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Session
 app.use(session({
-    secret: 'ghosts-farm-secret-key-2024',
+    secret: process.env.SESSION_SECRET || 'ghosts-farm-secret-key-2024',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: false,
+        secure: isProduction, // HTTPS em produção
+        httpOnly: true,
+        sameSite: isProduction ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 horas
     }
 }));
