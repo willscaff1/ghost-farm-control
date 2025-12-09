@@ -1826,7 +1826,8 @@ function renderMembersAdvGrid(members) {
     }
     
     container.innerHTML = members.map(member => {
-        const advCountClass = member.adv_count === 0 ? 'zero' : (member.adv_count >= 3 ? 'high' : '');
+        const advCount = parseInt(member.adv_count) || 0;
+        const advCountClass = advCount === 0 ? 'zero' : (advCount >= 3 ? 'high' : '');
         
         return `
             <div class="member-adv-card">
@@ -1837,10 +1838,10 @@ function renderMembersAdvGrid(members) {
                         <span class="role">👤 ${formatRole(member.role)}</span>
                     </div>
                     <div class="adv-count-badge ${advCountClass}">
-                        ${member.adv_count} ADV${member.adv_count !== 1 ? 's' : ''}
+                        ${advCount} ADV${advCount !== 1 ? 's' : ''}
                     </div>
                 </div>
-                <button class="btn-apply-adv" onclick="showAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', ${member.adv_count})">
+                <button class="btn-apply-adv" onclick="showAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', ${advCount})">
                     ⚠️ Aplicar ADV
                 </button>
             </div>
@@ -1851,8 +1852,8 @@ function renderMembersAdvGrid(members) {
 // Atualizar estatísticas
 function updateMembersAdvStats(members) {
     const totalMembers = members.length;
-    const membersWithAdv = members.filter(m => m.adv_count > 0).length;
-    const totalAdvs = members.reduce((sum, m) => sum + m.adv_count, 0);
+    const membersWithAdv = members.filter(m => parseInt(m.adv_count) > 0).length;
+    const totalAdvs = members.reduce((sum, m) => sum + (parseInt(m.adv_count) || 0), 0);
     
     // Atualizar se existirem elementos de stats
     const statsContainer = document.querySelector('.members-adv-stats');
