@@ -12,15 +12,32 @@
     <nav class="navbar">
         <div class="nav-brand">👻 GHOSTS - Painel Admin</div>
         <div class="nav-user">
-            <span id="userName"></span>
-            <span id="userRole" class="role-badge"></span>
             <!-- Sino de Notificações Admin -->
             <div class="notification-bell" id="notificationBell" onclick="toggleAdminNotifications()">
                 🔔
                 <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
             </div>
-            <button class="btn btn-small btn-secondary" onclick="location.href='/dashboard'">Meu Dashboard</button>
-            <button class="btn btn-small btn-danger" onclick="logout()">Sair</button>
+            
+            <!-- User Dropdown -->
+            <div class="user-dropdown-container">
+                <div class="user-dropdown-trigger" onclick="toggleUserDropdown()">
+                    <span id="userName">Usuário</span>
+                    <span id="userRole" class="role-badge-mini"></span>
+                    <span class="dropdown-arrow">▼</span>
+                </div>
+                <div class="user-dropdown" id="userDropdown">
+                    <div class="dropdown-header">
+                        <span class="dropdown-user-name" id="dropdownUserName"></span>
+                        <span class="dropdown-user-role" id="dropdownUserRole"></span>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <a href="/dashboard" class="dropdown-item">📊 Meu Dashboard</a>
+                    <a href="#" class="dropdown-item" onclick="showTab('new-member'); closeUserDropdown();">➕ Cadastrar Membro</a>
+                    <a href="#" class="dropdown-item" onclick="showTab('manage-materials'); closeUserDropdown();">📦 Gerenciar Materiais</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="#" class="dropdown-item dropdown-item-danger" onclick="logout()">🚪 Sair</a>
+                </div>
+            </div>
         </div>
     </nav>
 

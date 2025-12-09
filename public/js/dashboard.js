@@ -23,10 +23,15 @@ async function checkAuth() {
         
         if (data.user) {
             currentUser = data.user;
-            document.getElementById('userName').textContent = `${currentUser.name}`;
+            document.getElementById('userName').textContent = currentUser.name;
             
+            // Dropdown info
+            document.getElementById('dropdownUserName').textContent = currentUser.name;
+            document.getElementById('dropdownUserRole').textContent = roleNames[currentUser.role] || currentUser.role;
+            
+            // Mostrar link de admin se for admin
             if (adminRoles.includes(currentUser.role)) {
-                document.getElementById('adminBtn').style.display = 'inline-block';
+                document.getElementById('dropdownAdminBtn').style.display = 'flex';
             }
             
             loadAvailableWeeks();
@@ -40,6 +45,22 @@ async function checkAuth() {
     } catch (error) {
         window.location.href = '/';
     }
+}
+
+// Toggle User Dropdown
+function toggleUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    const container = document.querySelector('.user-dropdown-container');
+    dropdown.classList.toggle('show');
+    container.classList.toggle('open');
+}
+
+// Fechar User Dropdown
+function closeUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    const container = document.querySelector('.user-dropdown-container');
+    dropdown.classList.remove('show');
+    container.classList.remove('open');
 }
 
 // ==================== SISTEMA DE NOTIFICAÇÕES ====================
@@ -172,9 +193,17 @@ function toggleNotifications() {
 document.addEventListener('click', (e) => {
     const dropdown = document.getElementById('notificationsDropdown');
     const bell = document.getElementById('notificationBell');
+    const userDropdown = document.getElementById('userDropdown');
+    const userTrigger = document.querySelector('.user-dropdown-trigger');
     
+    // Fechar notificações
     if (dropdown && bell && !dropdown.contains(e.target) && !bell.contains(e.target)) {
         dropdown.classList.remove('show');
+    }
+    
+    // Fechar dropdown de usuário
+    if (userDropdown && userTrigger && !userDropdown.contains(e.target) && !userTrigger.contains(e.target)) {
+        closeUserDropdown();
     }
 });
 

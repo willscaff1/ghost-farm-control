@@ -12,14 +12,30 @@
     <nav class="navbar">
         <div class="nav-brand">👻 GHOSTS - Farm Control</div>
         <div class="nav-user">
-            <span id="userName"></span>
             <!-- Sino de Notificações -->
             <div class="notification-bell" id="notificationBell" onclick="toggleNotifications()">
                 🔔
                 <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
             </div>
-            <button id="adminBtn" class="btn btn-small btn-secondary" style="display: none;" onclick="location.href='/admin'">Admin</button>
-            <button class="btn btn-small btn-danger" onclick="logout()">Sair</button>
+            
+            <!-- User Dropdown -->
+            <div class="user-dropdown-container">
+                <div class="user-dropdown-trigger" onclick="toggleUserDropdown()">
+                    <span id="userName">Usuário</span>
+                    <span class="dropdown-arrow">▼</span>
+                </div>
+                <div class="user-dropdown" id="userDropdown">
+                    <div class="dropdown-header">
+                        <span class="dropdown-user-name" id="dropdownUserName"></span>
+                        <span class="dropdown-user-role" id="dropdownUserRole"></span>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <a href="/admin" class="dropdown-item" id="dropdownAdminBtn" style="display: none;">⚙️ Painel Admin</a>
+                    <a href="#" class="dropdown-item" onclick="showMyWarnings(); closeUserDropdown();">⚠️ Minhas Advertências</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="#" class="dropdown-item dropdown-item-danger" onclick="logout()">🚪 Sair</a>
+                </div>
+            </div>
         </div>
     </nav>
 

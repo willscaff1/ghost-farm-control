@@ -21,9 +21,13 @@ async function checkAuth() {
         
         if (data.user && adminRoles.includes(data.user.role)) {
             currentUser = data.user;
-            document.getElementById('userName').textContent = `👤 ${currentUser.name}`;
+            document.getElementById('userName').textContent = currentUser.name;
             document.getElementById('userRole').textContent = roleNames[currentUser.role] || currentUser.role;
-            document.getElementById('userRole').className = `role-badge role-${currentUser.role}`;
+            document.getElementById('userRole').className = 'role-badge-mini';
+            
+            // Dropdown info
+            document.getElementById('dropdownUserName').textContent = currentUser.name;
+            document.getElementById('dropdownUserRole').textContent = roleNames[currentUser.role] || currentUser.role;
             
             await loadSelectedWeek();
             loadAll();
@@ -33,6 +37,50 @@ async function checkAuth() {
         }
     } catch (error) {
         window.location.href = '/';
+    }
+}
+
+// Toggle User Dropdown
+function toggleUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    const container = document.querySelector('.user-dropdown-container');
+    dropdown.classList.toggle('show');
+    container.classList.toggle('open');
+}
+
+// Fechar User Dropdown
+function closeUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    const container = document.querySelector('.user-dropdown-container');
+    dropdown.classList.remove('show');
+    container.classList.remove('open');
+}
+
+// Mostrar Tab específica (para uso no dropdown)
+function showTab(tabId) {
+    document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    
+    // Ativar o item da sidebar correspondente
+    const sidebarItem = document.querySelector(`.sidebar-item[data-tab="${tabId}"]`);
+    if (sidebarItem) sidebarItem.classList.add('active');
+    
+    // Mostrar a tab
+    const tab = document.getElementById(`${tabId}-tab`);
+    if (tab) tab.classList.add('active');
+    
+    // Carregar dados da tab
+    switch (tabId) {
+        case 'weekly-status': loadWeeklyStatus(); break;
+        case 'members-overview': loadMembersOverview(); break;
+        case 'absences': loadJustifications(); break;
+        case 'pending': loadPendingDeliveries(); break;
+        case 'members': loadMembers(); break;
+        case 'new-member': break;
+        case 'manage-materials': loadMaterials(); break;
+        case 'whitelist': loadWhitelist(); break;
+        case 'ranking': loadRanking(); break;
+        case 'all-deliveries': loadAllDeliveries(); break;
     }
 }
 
@@ -2135,6 +2183,8 @@ document.addEventListener('click', function(e) {
     const memberWarningsModal = document.getElementById('memberWarningsModal');
     const notificationsDropdown = document.getElementById('notificationsDropdown');
     const notificationBell = document.getElementById('notificationBell');
+    const userDropdown = document.getElementById('userDropdown');
+    const userTrigger = document.querySelector('.user-dropdown-trigger');
     
     if (e.target === advModal) {
         closeAdvModal();
@@ -2149,6 +2199,11 @@ document.addEventListener('click', function(e) {
     if (notificationsDropdown && notificationBell && 
         !notificationsDropdown.contains(e.target) && !notificationBell.contains(e.target)) {
         notificationsDropdown.classList.remove('show');
+    }
+    // Fechar dropdown de usuário ao clicar fora
+    if (userDropdown && userTrigger && 
+        !userDropdown.contains(e.target) && !userTrigger.contains(e.target)) {
+        closeUserDropdown();
     }
 });
 

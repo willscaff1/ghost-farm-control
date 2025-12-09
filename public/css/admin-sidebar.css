@@ -11,6 +11,123 @@
     object-fit: contain;
 }
 
+/* User Dropdown */
+.user-dropdown-container {
+    position: relative;
+}
+
+.user-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.user-dropdown-trigger:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.user-dropdown-trigger #userName {
+    font-weight: 600;
+    color: #fff;
+}
+
+.role-badge-mini {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(108, 92, 231, 0.3);
+    color: #a29bfe;
+}
+
+.dropdown-arrow {
+    font-size: 0.7rem;
+    color: #888;
+    transition: transform 0.2s;
+}
+
+.user-dropdown-container.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 220px;
+    background: linear-gradient(145deg, #1e1e2e, #12121f);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 10001;
+    display: none;
+    overflow: hidden;
+}
+
+.user-dropdown.show {
+    display: block;
+    animation: dropdownSlide 0.2s ease;
+}
+
+@keyframes dropdownSlide {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-header {
+    padding: 15px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dropdown-user-name {
+    display: block;
+    font-weight: 600;
+    color: #fff;
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.dropdown-user-role {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 0;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 15px;
+    color: #ccc;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+.dropdown-item-danger {
+    color: #e74c3c;
+}
+
+.dropdown-item-danger:hover {
+    background: rgba(231, 76, 60, 0.1);
+    color: #ff6b6b;
+}
+
 /* Notification Bell - Admin */
 .notification-bell {
     position: relative;
