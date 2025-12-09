@@ -106,6 +106,11 @@
                         <div class="summary-number" id="completedCount">0</div>
                         <div class="summary-label">Farm Completo</div>
                     </div>
+                    <div class="summary-card partial">
+                        <div class="summary-icon">⚡</div>
+                        <div class="summary-number" id="partialCount">0</div>
+                        <div class="summary-label">Parcialmente Pago</div>
+                    </div>
                     <div class="summary-card pending">
                         <div class="summary-icon">⏳</div>
                         <div class="summary-number" id="pendingApprovalCount">0</div>
@@ -128,6 +133,16 @@
                         <div class="card">
                             <h3>✅ Farm Completo</h3>
                             <div id="weeklyCompletedList" class="weekly-members-list">
+                                <p class="loading">Carregando...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="weekly-column">
+                        <div class="card card-partial">
+                            <h3>⚡ Parcialmente Pago</h3>
+                            <p class="column-hint">Falta completar 700 de cada material</p>
+                            <div id="weeklyPartialList" class="weekly-members-list">
                                 <p class="loading">Carregando...</p>
                             </div>
                         </div>

@@ -653,7 +653,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         // Filtrar membros da whitelist
         const membersToCheck = allMembers.filter(m => !whitelistIds.includes(m.id));
         
-        const completed = [];      // Farm aprovado
+        const completed = [];      // Farm aprovado COMPLETO (700+ de cada)
+        const partial = [];        // Farm aprovado PARCIAL (menos de 700 em algum)
         const pendingApproval = []; // Farm enviado, aguardando aprovação
         const notDelivered = [];   // Não enviou nada
         const justified = [];      // Justificativa aprovada
@@ -661,7 +662,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         for (const member of membersToCheck) {
             // Verificar se tem farm na semana
             const delivery = await getOne(`
-                SELECT d.*, d.created_at as delivered_at
+                SELECT d.*, d.created_at as delivered_at, d.is_partial
                 FROM deliveries d
                 WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
             `, [member.id, weekStart, weekEnd]);
@@ -684,15 +685,22 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             `, [member.id, weekStart, weekEnd]);
             
             if (delivery && delivery.status === 'approved') {
-                // Farm aprovado
-                completed.push({
+                // Farm aprovado - verificar se é completo ou parcial
+                const memberData = {
                     ...member,
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
                     screenshot_url: delivery.screenshot_url,
                     description: delivery.description,
-                    items: deliveryItems
-                });
+                    items: deliveryItems,
+                    is_partial: delivery.is_partial || false
+                };
+                
+                if (delivery.is_partial) {
+                    partial.push(memberData);
+                } else {
+                    completed.push(memberData);
+                }
             } else if (delivery && delivery.status === 'pending') {
                 // Farm enviado, aguardando aprovação
                 pendingApproval.push({
@@ -730,6 +738,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         
         res.json({ 
             completed, 
+            partial,
             pendingApproval, 
             notDelivered, 
             justified, 

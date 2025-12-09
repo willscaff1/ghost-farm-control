@@ -251,7 +251,7 @@ async function loadWeeklyStatus() {
         
         const weekPassed = data.weekPassed;
         
-        // Membros completos (farm aprovado) - clicável para ver extrato
+        // Membros completos (farm aprovado com 700+ de cada) - clicável para ver extrato
         const completedList = document.getElementById('weeklyCompletedList');
         if (data.completed.length === 0) {
             completedList.innerHTML = '<div class="empty-state">😴 Nenhum membro completou o farm nesta semana</div>';
@@ -265,6 +265,31 @@ async function loadWeeklyStatus() {
                     <div class="member-status">
                         <span class="status-badge approved">✅ Farm Completo</span>
                         <span class="delivery-date">Entregue em ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                    <div class="click-hint">🔍 Clique para ver detalhes</div>
+                </div>
+            `).join('');
+        }
+        
+        // Membros com farm parcial (menos de 700 em algum material)
+        const partialList = document.getElementById('weeklyPartialList');
+        if (data.partial && data.partial.length === 0) {
+            partialList.innerHTML = '<div class="empty-state">✨ Nenhum farm parcial</div>';
+        } else if (data.partial) {
+            partialList.innerHTML = data.partial.map(member => `
+                <div class="weekly-member-card partial clickable" onclick="showDeliveryExtract(${JSON.stringify(member).replace(/"/g, '&quot;')})">
+                    <div class="member-info">
+                        <span class="member-name">👤 ${member.name}</span>
+                        <span class="member-role">${roleNames[member.role] || member.role}</span>
+                    </div>
+                    <div class="member-status">
+                        <span class="status-badge partial">⚡ Parcialmente Pago</span>
+                        <span class="delivery-date">Entregue em ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                    <div class="partial-items">
+                        ${member.items ? member.items.map(item => `
+                            <span class="partial-item ${item.amount < 700 ? 'below' : 'ok'}">${item.material_icon} ${item.amount}</span>
+                        `).join('') : ''}
                     </div>
                     <div class="click-hint">🔍 Clique para ver detalhes</div>
                 </div>
@@ -345,6 +370,7 @@ async function loadWeeklyStatus() {
         
         // Contadores
         document.getElementById('completedCount').textContent = data.completed.length;
+        document.getElementById('partialCount').textContent = data.partial ? data.partial.length : 0;
         document.getElementById('pendingApprovalCount').textContent = data.pendingApproval.length;
         document.getElementById('notDeliveredCount').textContent = data.notDelivered.length;
         document.getElementById('justifiedCount').textContent = data.justified.length;

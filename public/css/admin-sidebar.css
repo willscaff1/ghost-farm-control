@@ -220,9 +220,14 @@ body.admin-layout {
     background: rgba(40, 167, 69, 0.08);
 }
 
-.summary-card.pending {
+.summary-card.partial {
     border-color: rgba(255, 193, 7, 0.4);
     background: rgba(255, 193, 7, 0.08);
+}
+
+.summary-card.pending {
+    border-color: rgba(74, 144, 226, 0.4);
+    background: rgba(74, 144, 226, 0.08);
 }
 
 .summary-card.missing {
@@ -259,8 +264,26 @@ body.admin-layout {
 /* Weekly Columns */
 .weekly-columns {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 20px;
+}
+
+@media (max-width: 1600px) {
+    .weekly-columns {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 1200px) {
+    .weekly-columns {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .weekly-columns {
+        grid-template-columns: 1fr;
+    }
 }
 
 .weekly-column .card {
@@ -269,6 +292,18 @@ body.admin-layout {
     border-radius: 16px;
     padding: 20px;
     height: fit-content;
+}
+
+.weekly-column .card.card-partial {
+    border-color: rgba(255, 193, 7, 0.3);
+    background: rgba(255, 193, 7, 0.05);
+}
+
+.weekly-column .card .column-hint {
+    font-size: 11px;
+    color: #f39c12;
+    margin: -10px 0 15px 0;
+    opacity: 0.8;
 }
 
 .weekly-column .card h3 {
@@ -519,8 +554,13 @@ body.admin-layout {
     border-left: 4px solid #28a745;
 }
 
+.weekly-member-card.partial {
+    border-left: 4px solid #f39c12;
+    background: rgba(243, 156, 18, 0.05);
+}
+
 .weekly-member-card.pending {
-    border-left: 4px solid #ffc107;
+    border-left: 4px solid #4a90e2;
 }
 
 .weekly-member-card.missing {
@@ -568,9 +608,43 @@ body.admin-layout {
     color: #4caf50;
 }
 
+.weekly-member-card .status-badge.partial {
+    background: rgba(243, 156, 18, 0.15);
+    color: #f39c12;
+}
+
 .weekly-member-card .status-badge.pending {
-    background: rgba(255, 193, 7, 0.15);
-    color: #ffc107;
+    background: rgba(74, 144, 226, 0.15);
+    color: #4a90e2;
+}
+
+/* Itens parciais no card */
+.partial-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.partial-item {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #aaa;
+}
+
+.partial-item.below {
+    background: rgba(243, 156, 18, 0.2);
+    color: #f39c12;
+    font-weight: 600;
+}
+
+.partial-item.ok {
+    background: rgba(40, 167, 69, 0.2);
+    color: #4caf50;
 }
 
 .weekly-member-card .status-badge.missing {
