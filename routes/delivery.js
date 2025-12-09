@@ -548,6 +548,7 @@ router.get('/my', requireAuth, async (req, res) => {
             LEFT JOIN users a ON d.approved_by = a.id
             WHERE d.user_id = ?
             ORDER BY d.week_start DESC, d.created_at DESC
+            LIMIT 10
         `, [userId]);
         
         // Para cada entrega, buscar os itens e screenshots
@@ -587,6 +588,7 @@ router.get('/my-justifications', requireAuth, async (req, res) => {
             LEFT JOIN users u ON j.approved_by = u.id
             WHERE j.user_id = ?
             ORDER BY j.week_start DESC
+            LIMIT 10
         `, [userId]);
         
         res.json({ justifications });
