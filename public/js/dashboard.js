@@ -206,16 +206,48 @@ async function loadMaterials() {
                                min="0" 
                                max="99999"
                                value="0"
-                               placeholder="0">
+                               placeholder="0"
+                               oninput="updateSubmitButton()">
                         <span class="material-goal">/ ${matGoal}</span>
                     </div>
                 `;
             });
+            
+            // Atualizar botão após carregar materiais
+            setTimeout(updateSubmitButton, 100);
         } else {
             container.innerHTML = '<p class="info-text">Nenhum material disponível no momento.</p>';
         }
     } catch (error) {
         console.error('Erro ao carregar materiais:', error);
+    }
+}
+
+// Função para atualizar texto do botão de submit baseado nos valores
+function updateSubmitButton() {
+    const btn = document.getElementById('submitDeliveryBtn');
+    if (!btn) return;
+    
+    const materialInputs = document.querySelectorAll('.material-amount-input');
+    let allComplete = true;
+    let hasAnyValue = false;
+    
+    materialInputs.forEach(input => {
+        const amount = parseInt(input.value) || 0;
+        const goal = parseInt(input.dataset.goal) || 700;
+        
+        if (amount > 0) hasAnyValue = true;
+        if (amount < goal) allComplete = false;
+    });
+    
+    if (allComplete && hasAnyValue) {
+        btn.textContent = '📤 Submeter para Aprovação';
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+    } else {
+        btn.textContent = '💾 Salvar Progresso';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
     }
 }
 
@@ -335,7 +367,7 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     // Se for semana futura, pedir confirmação
     if (weekOffset > 0) {
         const selectedWeekText = weekSelect.selectedOptions[0].textContent;
-        const confirmMsg = `⚠️ ATENÇÃO!\n\nVocê está prestes a pagar o farm de uma SEMANA FUTURA:\n\n📅 ${selectedWeekText}\n\nTem certeza que deseja antecipar este pagamento?\n\n(O farm ainda será enviado para aprovação dos gerentes)`;
+        const confirmMsg = `⚠️ ATENÇÃO!\n\nVocê está prestes a registrar farm de uma SEMANA FUTURA:\n\n📅 ${selectedWeekText}\n\nTem certeza?`;
         
         if (!confirm(confirmMsg)) {
             return;
@@ -345,41 +377,21 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     // Coletar todos os materiais com quantidade > 0
     const materialInputs = document.querySelectorAll('.material-amount-input');
     const materials = [];
-    let isPartial = false;
-    let partialDetails = [];
 
     materialInputs.forEach(input => {
         const amount = parseInt(input.value) || 0;
         if (amount > 0) {
             const matId = input.dataset.materialId;
-            const matGoal = parseInt(input.dataset.goal) || 700;
-            
             materials.push({
                 material_id: matId,
                 amount: amount
             });
-            
-            // Verificar se está abaixo da meta específica deste material
-            if (amount < matGoal) {
-                isPartial = true;
-                const label = input.closest('.material-input-row').querySelector('.material-label').textContent;
-                partialDetails.push(`${label}: ${amount}/${matGoal}`);
-            }
         }
     });
     
     if (materials.length === 0) {
         alert('Informe a quantidade de pelo menos um material!');
         return;
-    }
-    
-    // Avisar se é entrega parcial
-    if (isPartial) {
-        const detailsText = partialDetails.length > 0 ? `\n\nMateriais abaixo da meta:\n${partialDetails.join('\n')}` : '';
-        const confirmPartial = confirm(`⚠️ ENTREGA PARCIAL${detailsText}\n\nSua entrega será marcada como "Parcialmente Pago".\n\nDeseja continuar?`);
-        if (!confirmPartial) {
-            return;
-        }
     }
     
     // Verificar se tem screenshots
