@@ -26,16 +26,8 @@ const getWeekWithOffset = (offset = 0) => {
     };
 };
 
-// Configuração do multer para upload de imagens
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, '..', 'uploads'));
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname);
-        cb(null, `${uuidv4()}${ext}`);
-    }
-});
+// Configuração do multer para upload de imagens (memória para produção)
+const storage = multer.memoryStorage();
 
 const upload = multer({
     storage,
@@ -173,9 +165,15 @@ router.post('/', requireAuth, upload.single('screenshot'), async (req, res) => {
             return res.status(400).json({ error: 'Informe pelo menos um material' });
         }
         
-        const screenshot_url = req.file ? `/uploads/${req.file.filename}` : null;
+        // Converter imagem para base64 (funciona em produção sem disco)
+        let screenshot_url = null;
+        if (req.file) {
+            const base64 = req.file.buffer.toString('base64');
+            const mimeType = req.file.mimetype;
+            screenshot_url = `data:${mimeType};base64,${base64}`;
+        }
         
-        console.log('📦 Criando delivery:', { userId, week, description, screenshot_url });
+        console.log('📦 Criando delivery:', { userId, week, description, hasScreenshot: !!screenshot_url });
         
         // Criar a entrega principal com a semana
         const result = await runQuery(
