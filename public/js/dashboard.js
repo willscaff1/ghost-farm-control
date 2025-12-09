@@ -558,8 +558,6 @@ function handleScreenshotSelect(event) {
     
     // Limpar input para permitir selecionar o mesmo arquivo novamente
     event.target.value = '';
-    
-    updateScreenshotsCount();
 }
 
 // Renderizar preview de um screenshot
@@ -593,20 +591,13 @@ function removeScreenshot(id) {
         element.classList.add('removing');
         setTimeout(() => element.remove(), 200);
     }
-    
-    updateScreenshotsCount();
 }
 
 // Limpar todos os screenshots
 function clearAllScreenshots() {
     uploadedScreenshots = [];
-    document.getElementById('screenshotsPreview').innerHTML = '';
-    updateScreenshotsCount();
-}
-
-// Atualizar contador
-function updateScreenshotsCount() {
-    document.getElementById('screenshotsCount').value = uploadedScreenshots.length;
+    const container = document.getElementById('screenshotsPreview');
+    if (container) container.innerHTML = '';
 }
 
 // Modal de imagem
