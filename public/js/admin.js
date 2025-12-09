@@ -1273,7 +1273,7 @@ async function loadAllDeliveries() {
                                 <span class="material-tag">${item.material_icon} ${item.material_name}: ${formatNumber(item.amount)}</span>
                             `).join('')}
                         </div>
-                        <p>${delivery.description || 'Sem descrição'}</p>
+                        ${delivery.description ? `<p>📝 ${delivery.description}</p>` : ''}
                         <p>📅 ${formatDate(delivery.created_at)}</p>
                         <span class="status ${delivery.status}">${getStatusText(delivery.status)}</span>
                         ${delivery.approved_by_name ? `<p style="margin-top: 10px;">Por: <strong>${delivery.approved_by_name}</strong></p>` : ''}
@@ -1515,7 +1515,8 @@ function getStatusText(status) {
     const texts = {
         pending: '⏳ Aguardando Aprovação',
         approved: '✅ Aprovado',
-        rejected: '❌ Rejeitado'
+        rejected: '❌ Rejeitado',
+        in_progress: '⚡ Em Progresso'
     };
     return texts[status] || status;
 }

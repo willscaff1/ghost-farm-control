@@ -1993,6 +1993,19 @@ body.admin-layout {
     border-left-color: #e74c3c;
 }
 
+.farm-details-status.in_progress {
+    border-left-color: #3498db;
+}
+
+/* Status badges para histórico */
+.status.in_progress {
+    background: rgba(52, 152, 219, 0.2);
+    color: #3498db;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
 .farm-details-status .status-badge {
     font-weight: 600;
     color: #fff;
