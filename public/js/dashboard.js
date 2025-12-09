@@ -140,14 +140,15 @@ async function loadCurrentWeek() {
             weekStatus.innerHTML = `<span class="week-status-badge missing">⚠️ Farm Pendente</span>`;
         }
         
-        // Formulário de entrega visível se pode entregar
-        // Formulário de justificativa só aparece se não tem nada ainda
+        // Formulário de entrega SEMPRE visível (pode pagar semanas futuras)
+        // Formulário de justificativa só aparece se não tem nada na semana atual
         const deliveryCard = document.getElementById('deliveryCard');
         const absenceCard = document.getElementById('absenceCard');
         
-        // Pode entregar se: não tem nada, ou tem parcial em progresso
-        const canShowDeliveryForm = data.canDeliver !== false;
-        deliveryCard.style.display = canShowDeliveryForm ? 'block' : 'none';
+        // Formulário de entrega sempre visível
+        deliveryCard.style.display = 'block';
+        
+        // Justificativa só se não tem nada na semana atual
         absenceCard.style.display = (!data.hasDelivery && !data.hasJustification) ? 'block' : 'none';
         
         // Atualizar título do card de entrega se for adicional
@@ -155,7 +156,7 @@ async function loadCurrentWeek() {
         if (data.isPartial && data.canDeliver) {
             deliveryCardTitle.textContent = '📦 Adicionar Mais ao Farm';
         } else {
-            deliveryCardTitle.textContent = '📦 Registrar Farm da Semana';
+            deliveryCardTitle.textContent = '📦 Registrar Farm';
         }
         
     } catch (error) {

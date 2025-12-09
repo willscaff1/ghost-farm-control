@@ -17,7 +17,7 @@
         </div>
     </nav>
 
-    <div class="container">
+    <div class="container dashboard-container">
         <!-- Week Info -->
         <div class="week-banner" id="weekBanner">
             <div class="week-info">
@@ -38,68 +38,76 @@
             <div class="stat-card rejected clickable" id="warningsCard" onclick="showMyWarnings()">
                 <div class="stat-number" id="warningsCount">0</div>
                 <div class="stat-label">Advertências</div>
-                <div class="click-hint">Clique para ver detalhes</div>
+                <div class="click-hint">Clique para ver</div>
             </div>
         </div>
 
-        <!-- New Delivery Form -->
-        <div class="card" id="deliveryCard">
-            <h2>📦 Registrar Farm</h2>
-            <form id="deliveryForm" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label for="weekSelect">Selecione a Semana *</label>
-                    <select id="weekSelect" name="week_offset" class="form-control" required>
-                        <option value="">Carregando semanas...</option>
-                    </select>
+        <!-- Layout em duas colunas -->
+        <div class="dashboard-grid">
+            <!-- Coluna Principal - Formulário -->
+            <div class="dashboard-main">
+                <!-- New Delivery Form -->
+                <div class="card" id="deliveryCard">
+                    <h2>📦 Registrar Farm</h2>
+                    <form id="deliveryForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="weekSelect">Selecione a Semana *</label>
+                            <select id="weekSelect" name="week_offset" class="form-control" required>
+                                <option value="">Carregando semanas...</option>
+                            </select>
+                        </div>
+                        
+                        <h3>Materiais <span class="goal-hint">(Meta: <span id="weeklyGoal">700</span> de cada)</span></h3>
+                        <div id="materialsInputs" class="materials-inputs">
+                            <!-- Inputs de materiais serão carregados aqui -->
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="description">Observações (opcional)</label>
+                            <input type="text" id="description" name="description" placeholder="Ex: Farm realizado dia X">
+                        </div>
+                        
+                        <div class="form-group screenshots-section">
+                            <label>Prints do Farm * <span class="file-hint">(anexe um ou mais)</span></label>
+                            <div class="screenshots-upload-area">
+                                <button type="button" class="btn-add-screenshot" onclick="addScreenshot()">
+                                    📷 Adicionar Print
+                                </button>
+                                <input type="file" id="screenshotInput" accept="image/*" style="display: none;" onchange="handleScreenshotSelect(event)">
+                                <small>JPG, PNG, GIF, WEBP (máx. 5MB)</small>
+                            </div>
+                            <div id="screenshotsPreview" class="screenshots-preview-grid"></div>
+                            <input type="hidden" id="screenshotsCount" value="0">
+                        </div>
+                        
+                        <button type="submit" id="submitDeliveryBtn" class="btn btn-secondary btn-block">💾 Salvar Progresso</button>
+                    </form>
+                    <div id="formMessage" class="message"></div>
                 </div>
-                
-                <h3>Materiais do Farm <span class="goal-hint">(Meta: <span id="weeklyGoal">700</span> de cada)</span></h3>
-                <div id="materialsInputs" class="materials-inputs">
-                    <!-- Inputs de materiais serão carregados aqui -->
+
+                <!-- Absence Justification Form -->
+                <div class="card" id="absenceCard">
+                    <h2>📝 Justificar Ausência</h2>
+                    <p class="info-text">Não vai conseguir fazer o farm esta semana? Justifique sua ausência.</p>
+                    <form id="absenceForm">
+                        <div class="form-group">
+                            <label for="absenceReason">Motivo da Ausência *</label>
+                            <textarea id="absenceReason" rows="3" placeholder="Explique o motivo (mínimo 10 caracteres)" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-warning btn-block">📤 Enviar Justificativa</button>
+                    </form>
+                    <div id="absenceMessage" class="message"></div>
                 </div>
-                
-                <div class="form-group">
-                    <label for="description">Descrição / Observações</label>
-                    <input type="text" id="description" name="description" placeholder="Ex: Farm realizado dia X">
-                </div>
-                
-                <div class="form-group screenshots-section">
-                    <label>Prints do Farm * <span class="file-hint">(anexe um ou mais prints)</span></label>
-                    <div class="screenshots-upload-area">
-                        <button type="button" class="btn-add-screenshot" onclick="addScreenshot()">
-                            📷 Adicionar Print
-                        </button>
-                        <input type="file" id="screenshotInput" accept="image/*" style="display: none;" onchange="handleScreenshotSelect(event)">
-                        <small>Formatos: JPG, PNG, GIF, WEBP (máx. 5MB cada)</small>
+            </div>
+
+            <!-- Coluna Lateral - Histórico -->
+            <div class="dashboard-sidebar">
+                <div class="card">
+                    <h2>📋 Histórico</h2>
+                    <div id="deliveriesList" class="deliveries-list">
+                        <p class="loading">Carregando...</p>
                     </div>
-                    <div id="screenshotsPreview" class="screenshots-preview-grid"></div>
-                    <input type="hidden" id="screenshotsCount" value="0">
                 </div>
-                
-                <button type="submit" id="submitDeliveryBtn" class="btn btn-primary">💾 Salvar Progresso</button>
-            </form>
-            <div id="formMessage" class="message"></div>
-        </div>
-
-        <!-- Absence Justification Form -->
-        <div class="card" id="absenceCard">
-            <h2>📝 Justificar Ausência</h2>
-            <p class="info-text">Não vai conseguir fazer o farm esta semana? Justifique sua ausência para os líderes.</p>
-            <form id="absenceForm">
-                <div class="form-group">
-                    <label for="absenceReason">Motivo da Ausência *</label>
-                    <textarea id="absenceReason" rows="4" placeholder="Explique o motivo pelo qual não poderá fazer o farm esta semana (mínimo 10 caracteres)" required></textarea>
-                </div>
-                <button type="submit" class="btn btn-warning">📤 Enviar Justificativa</button>
-            </form>
-            <div id="absenceMessage" class="message"></div>
-        </div>
-
-        <!-- My Deliveries List -->
-        <div class="card">
-            <h2>📋 Histórico de Entregas</h2>
-            <div id="deliveriesList" class="deliveries-list">
-                <p class="loading">Carregando...</p>
             </div>
         </div>
     </div>
