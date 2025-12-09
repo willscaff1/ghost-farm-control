@@ -372,25 +372,61 @@ async function loadWeekData(offset = 0) {
             absenceCard.style.display = (!data.hasDelivery && !data.hasJustification && data.canDeliver) ? 'block' : 'none';
         }
         
-        // Atualizar título do form
-        const formTitle = document.getElementById('formTitle');
-        if (formTitle) {
-            if (data.isPartial && data.canDeliver) {
-                formTitle.textContent = '📦 Adicionar ao Farm';
-            } else {
-                formTitle.textContent = '📦 Registrar Farm';
-            }
-        }
-        
-        // Habilitar/desabilitar formulário baseado no status
+        // Atualizar painel de entrega baseado no status
         const deliveryPanel = document.getElementById('deliveryPanel');
+        const lockedMessage = document.getElementById('lockedMessage');
+        
         if (deliveryPanel) {
             if (data.canDeliver) {
+                // Pode entregar - mostrar formulário
+                deliveryPanel.style.display = 'block';
                 deliveryPanel.style.opacity = '1';
                 deliveryPanel.style.pointerEvents = 'auto';
+                if (lockedMessage) lockedMessage.style.display = 'none';
+                
+                // Atualizar título do form
+                const formTitle = document.getElementById('formTitle');
+                if (formTitle) {
+                    if (data.isPartial) {
+                        formTitle.textContent = '📦 Adicionar ao Farm';
+                    } else {
+                        formTitle.textContent = '📦 Registrar Farm';
+                    }
+                }
             } else {
-                deliveryPanel.style.opacity = '0.5';
-                deliveryPanel.style.pointerEvents = 'none';
+                // Não pode entregar - esconder formulário e mostrar mensagem
+                deliveryPanel.style.display = 'none';
+                
+                // Mostrar mensagem de bloqueio
+                if (lockedMessage) {
+                    lockedMessage.style.display = 'block';
+                    
+                    let lockIcon = '🔒';
+                    let lockTitle = 'Entregas Bloqueadas';
+                    let lockText = data.statusMessage || 'Não é possível fazer entregas nesta semana.';
+                    
+                    if (data.deliveryStatus === 'approved') {
+                        lockIcon = '✅';
+                        lockTitle = 'Farm Aprovado!';
+                        lockText = 'Parabéns! Seu farm desta semana já foi aprovado. Aguarde a próxima semana.';
+                    } else if (data.deliveryStatus === 'pending' && !data.isPartial) {
+                        lockIcon = '⏳';
+                        lockTitle = 'Aguardando Aprovação';
+                        lockText = 'Seu farm completo está aguardando aprovação de um administrador.';
+                    } else if (data.hasJustification) {
+                        lockIcon = '📋';
+                        lockTitle = 'Semana Justificada';
+                        lockText = data.justificationStatus === 'approved' 
+                            ? 'Sua justificativa foi aceita. Você não precisa entregar farm esta semana.'
+                            : 'Sua justificativa está aguardando aprovação.';
+                    }
+                    
+                    lockedMessage.innerHTML = `
+                        <div class="locked-icon">${lockIcon}</div>
+                        <h3>${lockTitle}</h3>
+                        <p>${lockText}</p>
+                    `;
+                }
             }
         }
         

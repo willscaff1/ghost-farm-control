@@ -426,6 +426,60 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Locked Panel - Farm Aprovado/Bloqueado */
+.locked-panel {
+    text-align: center;
+    padding: 50px 30px;
+    background: linear-gradient(145deg, #1a2a1a, #1e3e1e);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.locked-panel .locked-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.85; }
+}
+
+.locked-panel h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #2ecc71;
+    margin: 0 0 12px 0;
+}
+
+.locked-panel p {
+    color: #aaa;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0;
+    max-width: 350px;
+    margin: 0 auto;
+}
+
+/* Variações de estado do locked panel */
+.locked-panel.pending-approval {
+    background: linear-gradient(145deg, #2a2a1a, #3e3e1e);
+    border-color: rgba(241, 196, 15, 0.3);
+}
+
+.locked-panel.pending-approval h3 {
+    color: #f1c40f;
+}
+
+.locked-panel.justified {
+    background: linear-gradient(145deg, #1a1a2a, #1e1e3e);
+    border-color: rgba(52, 152, 219, 0.3);
+}
+
+.locked-panel.justified h3 {
+    color: #3498db;
+}
+
 .panel.full-width {
     margin-bottom: 20px;
 }
