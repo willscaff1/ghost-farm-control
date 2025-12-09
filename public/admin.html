@@ -262,42 +262,64 @@
             </div>
             
             <!-- Modal Editar Membro -->
-            <div id="editMemberModal" class="modal" style="display: none;">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>✏️ Editar Membro</h2>
+            <div id="editMemberModal" class="modal edit-member-modal" style="display: none;">
+                <div class="modal-content edit-member-content">
+                    <div class="modal-header edit-member-header">
+                        <div class="header-icon">✏️</div>
+                        <h2>Editar Membro</h2>
                         <button class="modal-close" onclick="closeEditMemberModal()">&times;</button>
                     </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="editMemberName">Nome *</label>
-                            <input type="text" id="editMemberName" placeholder="Nome completo" required>
+                    <div class="modal-body edit-member-body">
+                        <div class="edit-form-row">
+                            <div class="edit-form-group">
+                                <label for="editMemberPassport">
+                                    <span class="label-icon">🎫</span>
+                                    Passaporte
+                                </label>
+                                <input type="text" id="editMemberPassport" placeholder="Ex: 1234" required>
+                            </div>
+                            <div class="edit-form-group">
+                                <label for="editMemberRole">
+                                    <span class="label-icon">👔</span>
+                                    Cargo
+                                </label>
+                                <select id="editMemberRole">
+                                    <option value="member">Membro</option>
+                                    <option value="01">01 (Primeiro Líder)</option>
+                                    <option value="02">02 (Segundo Líder)</option>
+                                    <option value="gerente_farm">Gerente de Farm</option>
+                                    <option value="gerente_geral">Gerente Geral</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="editMemberPassport">Passaporte *</label>
-                            <input type="text" id="editMemberPassport" placeholder="Passaporte" required>
+                        <div class="edit-form-group full-width">
+                            <label for="editMemberName">
+                                <span class="label-icon">👤</span>
+                                Nome Completo
+                            </label>
+                            <input type="text" id="editMemberName" placeholder="Nome do membro" required>
                         </div>
-                        <div class="form-group">
-                            <label for="editMemberEmail">Email</label>
-                            <input type="email" id="editMemberEmail" placeholder="Email (opcional)">
+                        <div class="edit-form-group full-width">
+                            <label for="editMemberEmail">
+                                <span class="label-icon">📧</span>
+                                Email <span class="optional">(opcional)</span>
+                            </label>
+                            <input type="email" id="editMemberEmail" placeholder="email@exemplo.com">
                         </div>
-                        <div class="form-group">
-                            <label for="editMemberRole">Cargo</label>
-                            <select id="editMemberRole">
-                                <option value="member">Membro</option>
-                                <option value="01">01 (Primeiro Líder)</option>
-                                <option value="02">02 (Segundo Líder)</option>
-                                <option value="gerente_farm">Gerente de Farm</option>
-                                <option value="gerente_geral">Gerente Geral</option>
-                            </select>
+                        <div class="edit-form-group full-width password-group">
+                            <label for="editMemberPassword">
+                                <span class="label-icon">🔒</span>
+                                Nova Senha <span class="optional">(deixe em branco para manter)</span>
+                            </label>
+                            <input type="password" id="editMemberPassword" placeholder="••••••••">
                         </div>
-                        <div class="form-group">
-                            <label for="editMemberPassword">Nova Senha <small>(deixe em branco para manter)</small></label>
-                            <input type="password" id="editMemberPassword" placeholder="Nova senha (opcional)">
-                        </div>
-                        <div class="modal-actions">
-                            <button class="btn-cancel" onclick="closeEditMemberModal()">Cancelar</button>
-                            <button class="btn-save" onclick="saveEditMember()">💾 Salvar</button>
+                        <div class="edit-modal-actions">
+                            <button class="btn-cancel-edit" onclick="closeEditMemberModal()">
+                                Cancelar
+                            </button>
+                            <button class="btn-save-edit" onclick="saveEditMember()">
+                                💾 Salvar Alterações
+                            </button>
                         </div>
                     </div>
                 </div>

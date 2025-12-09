@@ -2568,48 +2568,145 @@ body.admin-layout {
     background: linear-gradient(135deg, #666 0%, #444 100%);
 }
 
-/* Edit Member Modal */
-#editMemberModal .modal-content {
-    max-width: 500px;
+/* Edit Member Modal - Redesigned */
+.edit-member-modal {
+    z-index: 10000;
 }
 
-#editMemberModal .form-group {
-    margin-bottom: 18px;
+.edit-member-content {
+    max-width: 520px !important;
+    background: linear-gradient(180deg, #1e1e32 0%, #151525 100%) !important;
+    border: 1px solid rgba(102, 126, 234, 0.3) !important;
+    border-radius: 20px !important;
+    overflow: hidden;
 }
 
-#editMemberModal .form-group label {
-    display: block;
-    color: #aaa;
+.edit-member-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    padding: 25px 30px !important;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-bottom: none !important;
+}
+
+.edit-member-header .header-icon {
+    font-size: 28px;
+    background: rgba(255, 255, 255, 0.2);
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.edit-member-header h2 {
+    color: #fff !important;
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+    flex: 1;
+}
+
+.edit-member-header .modal-close {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #fff !important;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+}
+
+.edit-member-header .modal-close:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.edit-member-body {
+    padding: 25px 30px 30px !important;
+}
+
+.edit-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.edit-form-group {
+    margin-bottom: 15px;
+}
+
+.edit-form-group.full-width {
+    margin-bottom: 15px;
+}
+
+.edit-form-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ccc;
     font-size: 13px;
-    margin-bottom: 6px;
     font-weight: 500;
+    margin-bottom: 8px;
 }
 
-#editMemberModal .form-group label small {
+.edit-form-group label .label-icon {
+    font-size: 14px;
+}
+
+.edit-form-group label .optional {
     color: #666;
     font-weight: 400;
+    font-size: 11px;
 }
 
-#editMemberModal .form-group input,
-#editMemberModal .form-group select {
+.edit-form-group input,
+.edit-form-group select {
     width: 100%;
-    padding: 12px 15px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
+    padding: 14px 16px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
     background: rgba(255, 255, 255, 0.05);
     color: #fff;
-    font-size: 14px;
-    transition: all 0.2s;
+    font-size: 15px;
+    transition: all 0.25s ease;
+    box-sizing: border-box;
 }
 
-#editMemberModal .form-group input:focus,
-#editMemberModal .form-group select:focus {
+.edit-form-group input::placeholder {
+    color: #555;
+}
+
+.edit-form-group input:focus,
+.edit-form-group select:focus {
     outline: none;
     border-color: #667eea;
     background: rgba(102, 126, 234, 0.1);
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
 }
 
-#editMemberModal .modal-actions {
+.edit-form-group select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    padding-right: 40px;
+}
+
+.edit-form-group select option {
+    background: #1e1e32;
+    color: #fff;
+    padding: 10px;
+}
+
+.password-group {
+    margin-top: 5px;
+    padding-top: 15px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.edit-modal-actions {
     display: flex;
     gap: 12px;
     justify-content: flex-end;
@@ -2618,35 +2715,62 @@ body.admin-layout {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-#editMemberModal .btn-cancel {
-    padding: 12px 25px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
+.btn-cancel-edit {
+    padding: 14px 28px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
     background: transparent;
     color: #aaa;
     font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.25s ease;
 }
 
-#editMemberModal .btn-cancel:hover {
+.btn-cancel-edit:hover {
     background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.25);
     color: #fff;
 }
 
-#editMemberModal .btn-save {
-    padding: 12px 25px;
+.btn-save-edit {
+    padding: 14px 28px;
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     background: linear-gradient(135deg, #27ae60 0%, #219a52 100%);
     color: #fff;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
 }
 
-#editMemberModal .btn-save:hover {
+.btn-save-edit:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(39, 174, 96, 0.4);
+    box-shadow: 0 6px 25px rgba(39, 174, 96, 0.45);
+}
+
+.btn-save-edit:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 500px) {
+    .edit-form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .edit-member-content {
+        margin: 10px;
+    }
+    
+    .edit-modal-actions {
+        flex-direction: column;
+    }
+    
+    .btn-cancel-edit,
+    .btn-save-edit {
+        width: 100%;
+        justify-content: center;
+    }
 }
