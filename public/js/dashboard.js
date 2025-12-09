@@ -4,6 +4,7 @@ let currentWeekOffset = 0;
 let weeklyGoal = 700;
 let materialsGoals = {};
 let availableWeeksData = [];
+let notifications = [];
 const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
 
 const roleNames = {
@@ -32,6 +33,7 @@ async function checkAuth() {
             loadMaterials();
             loadStats();
             loadMyDeliveries();
+            checkNotifications(); // Verificar notificações
         } else {
             window.location.href = '/';
         }
@@ -39,6 +41,196 @@ async function checkAuth() {
         window.location.href = '/';
     }
 }
+
+// ==================== SISTEMA DE NOTIFICAÇÕES ====================
+
+// Verificar e gerar notificações
+async function checkNotifications() {
+    notifications = [];
+    
+    try {
+        // Buscar status da semana atual
+        const response = await fetch('/api/delivery/current-week?offset=0');
+        const data = await response.json();
+        
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+        
+        // Verificar se é uma nova semana (Segunda-feira)
+        const lastWeekCheck = localStorage.getItem('lastWeekCheck');
+        const currentWeekStart = data.week.start;
+        
+        if (lastWeekCheck !== currentWeekStart) {
+            // Nova semana começou!
+            notifications.push({
+                id: 'new_week',
+                type: 'info',
+                icon: '📅',
+                title: 'Nova Semana!',
+                message: `A semana ${data.week.label} começou. Não esqueça de fazer seu farm!`,
+                time: 'Agora'
+            });
+            localStorage.setItem('lastWeekCheck', currentWeekStart);
+        }
+        
+        // Se não tem entrega e não tem justificativa
+        if (!data.hasDelivery && !data.hasJustification) {
+            // Verificar se está nos últimos 2 dias da semana (Sábado ou Domingo)
+            if (dayOfWeek === 6 || dayOfWeek === 0) {
+                notifications.push({
+                    id: 'urgent_farm',
+                    type: 'warning',
+                    icon: '⚠️',
+                    title: 'URGENTE: Farm Pendente!',
+                    message: dayOfWeek === 0 
+                        ? 'ÚLTIMO DIA! Entregue seu farm HOJE ou receberá ADV!' 
+                        : 'Faltam 2 dias! Entregue seu farm até amanhã para evitar ADV.',
+                    time: 'Agora'
+                });
+            } 
+            // Sexta-feira - lembrete
+            else if (dayOfWeek === 5) {
+                notifications.push({
+                    id: 'reminder_farm',
+                    type: 'info',
+                    icon: '📦',
+                    title: 'Lembrete de Farm',
+                    message: 'Você ainda não entregou o farm desta semana. Restam 2 dias!',
+                    time: 'Agora'
+                });
+            }
+        }
+        
+        // Se tem entrega parcial (em progresso)
+        if (data.hasDelivery && data.isPartial && data.canDeliver) {
+            // Verificar se está nos últimos dias
+            if (dayOfWeek === 6 || dayOfWeek === 0) {
+                notifications.push({
+                    id: 'complete_farm',
+                    type: 'warning',
+                    icon: '⚡',
+                    title: 'Complete seu Farm!',
+                    message: 'Seu farm está incompleto. Complete até 700 de cada material!',
+                    time: 'Agora'
+                });
+            }
+        }
+        
+        // Se farm foi aprovado recentemente (verificar localStorage)
+        const lastApprovedCheck = localStorage.getItem('lastApprovedDelivery');
+        if (data.hasDelivery && data.deliveryStatus === 'approved' && !data.isPartial) {
+            if (lastApprovedCheck !== currentWeekStart + '_approved') {
+                notifications.push({
+                    id: 'farm_approved',
+                    type: 'success',
+                    icon: '✅',
+                    title: 'Farm Aprovado!',
+                    message: 'Seu farm desta semana foi aprovado. Parabéns!',
+                    time: 'Recente'
+                });
+                localStorage.setItem('lastApprovedDelivery', currentWeekStart + '_approved');
+            }
+        }
+        
+        updateNotificationBadge();
+        
+    } catch (error) {
+        console.error('Erro ao verificar notificações:', error);
+    }
+}
+
+// Atualizar badge do sino
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    const bell = document.getElementById('notificationBell');
+    
+    // Contar apenas não lidas
+    const readIds = JSON.parse(localStorage.getItem('readNotifications') || '[]');
+    const unreadCount = notifications.filter(n => !readIds.includes(n.id)).length;
+    
+    if (unreadCount > 0) {
+        badge.textContent = unreadCount;
+        badge.style.display = 'flex';
+        bell.classList.add('has-notifications');
+    } else {
+        badge.style.display = 'none';
+        bell.classList.remove('has-notifications');
+    }
+}
+
+// Toggle dropdown de notificações
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationsDropdown');
+    dropdown.classList.toggle('show');
+    
+    if (dropdown.classList.contains('show')) {
+        renderNotifications();
+    }
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('notificationsDropdown');
+    const bell = document.getElementById('notificationBell');
+    
+    if (dropdown && bell && !dropdown.contains(e.target) && !bell.contains(e.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+
+// Renderizar lista de notificações
+function renderNotifications() {
+    const list = document.getElementById('notificationsList');
+    
+    if (notifications.length === 0) {
+        list.innerHTML = '<div class="notification-empty">🔕 Nenhuma notificação</div>';
+        return;
+    }
+    
+    const readIds = JSON.parse(localStorage.getItem('readNotifications') || '[]');
+    
+    list.innerHTML = notifications.map(n => {
+        const isRead = readIds.includes(n.id);
+        return `
+            <div class="notification-item ${n.type} ${isRead ? 'read' : 'unread'}" onclick="handleNotificationClick('${n.id}')">
+                <span class="notification-icon">${n.icon}</span>
+                <div class="notification-content">
+                    <div class="notification-title">${n.title}</div>
+                    <div class="notification-message">${n.message}</div>
+                    <div class="notification-time">${n.time}</div>
+                </div>
+                ${!isRead ? '<span class="unread-dot"></span>' : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// Lidar com clique na notificação
+function handleNotificationClick(id) {
+    // Fechar dropdown
+    document.getElementById('notificationsDropdown').classList.remove('show');
+    
+    // Ação baseada no tipo
+    if (id === 'urgent_farm' || id === 'reminder_farm' || id === 'complete_farm') {
+        // Scroll para o formulário
+        document.getElementById('deliveryPanel').scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+// Marcar todas como lidas
+function markAllAsRead() {
+    const readIds = JSON.parse(localStorage.getItem('readNotifications') || '[]');
+    notifications.forEach(n => {
+        if (!readIds.includes(n.id)) {
+            readIds.push(n.id);
+        }
+    });
+    localStorage.setItem('readNotifications', JSON.stringify(readIds));
+    updateNotificationBadge();
+    renderNotifications();
+}
+
+// ==================== FIM SISTEMA DE NOTIFICAÇÕES ====================
 
 // Carregar semanas disponíveis
 async function loadAvailableWeeks() {

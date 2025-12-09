@@ -2,6 +2,7 @@ let currentUser = null;
 let currentWeek = null;
 let selectedWeekOffset = 0; // 0 = semana atual, +1 = próxima, +2 = próxima+1, etc
 let selectedWeek = null;
+let adminNotifications = [];
 const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
 
 const roleNames = {
@@ -26,6 +27,7 @@ async function checkAuth() {
             
             await loadSelectedWeek();
             loadAll();
+            loadAdminNotifications(); // Carregar notificações
         } else {
             window.location.href = '/dashboard';
         }
@@ -2131,6 +2133,8 @@ document.addEventListener('click', function(e) {
     const advModal = document.getElementById('advMemberModal');
     const farmDetailsModal = document.getElementById('farmDetailsModal');
     const memberWarningsModal = document.getElementById('memberWarningsModal');
+    const notificationsDropdown = document.getElementById('notificationsDropdown');
+    const notificationBell = document.getElementById('notificationBell');
     
     if (e.target === advModal) {
         closeAdvModal();
@@ -2141,7 +2145,246 @@ document.addEventListener('click', function(e) {
     if (e.target === memberWarningsModal) {
         closeMemberWarningsModal();
     }
+    // Fechar dropdown de notificações ao clicar fora
+    if (notificationsDropdown && notificationBell && 
+        !notificationsDropdown.contains(e.target) && !notificationBell.contains(e.target)) {
+        notificationsDropdown.classList.remove('show');
+    }
 });
+
+// ==================== SISTEMA DE NOTIFICAÇÕES ADMIN ====================
+
+// Carregar notificações do admin
+async function loadAdminNotifications() {
+    adminNotifications = [];
+    
+    try {
+        // Buscar farms pendentes
+        const pendingRes = await fetch('/api/admin/pending');
+        const pendingData = await pendingRes.json();
+        
+        // Buscar justificativas pendentes
+        const justRes = await fetch('/api/admin/justifications/pending');
+        const justData = await justRes.json();
+        
+        // Buscar membros sem farm na semana atual
+        const statusRes = await fetch('/api/admin/week-status');
+        const statusData = await statusRes.json();
+        
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        
+        // Notificações de farms pendentes de aprovação
+        if (pendingData.deliveries && pendingData.deliveries.length > 0) {
+            pendingData.deliveries.forEach(d => {
+                adminNotifications.push({
+                    id: `pending_${d.id}`,
+                    type: 'pending',
+                    icon: '📦',
+                    title: 'Farm para Aprovar',
+                    message: `${d.user_name} (${d.user_passport}) submeteu farm para aprovação`,
+                    time: formatTimeAgo(d.created_at),
+                    action: 'pending',
+                    userId: d.user_id
+                });
+            });
+        }
+        
+        // Notificações de justificativas pendentes
+        if (justData.justifications && justData.justifications.length > 0) {
+            justData.justifications.forEach(j => {
+                adminNotifications.push({
+                    id: `just_${j.id}`,
+                    type: 'info',
+                    icon: '📝',
+                    title: 'Justificativa Pendente',
+                    message: `${j.user_name} enviou justificativa de ausência`,
+                    time: formatTimeAgo(j.created_at),
+                    action: 'absences',
+                    userId: j.user_id
+                });
+            });
+        }
+        
+        // Notificações de membros sem farm (nos últimos 2 dias da semana)
+        if ((dayOfWeek === 6 || dayOfWeek === 0) && statusData.members) {
+            const missingFarm = statusData.members.filter(m => 
+                m.status === 'missing' && !m.is_exempt
+            );
+            
+            if (missingFarm.length > 0) {
+                // Agrupar em uma notificação
+                adminNotifications.push({
+                    id: 'missing_farms',
+                    type: 'warning',
+                    icon: '⚠️',
+                    title: 'Membros sem Farm!',
+                    message: `${missingFarm.length} membro(s) ainda não pagaram o farm esta semana`,
+                    time: dayOfWeek === 0 ? 'ÚLTIMO DIA!' : 'Faltam 2 dias',
+                    action: 'weekly-status'
+                });
+                
+                // Notificação individual para os primeiros 5
+                missingFarm.slice(0, 5).forEach(m => {
+                    adminNotifications.push({
+                        id: `missing_${m.id}`,
+                        type: 'warning',
+                        icon: '❌',
+                        title: 'Farm Pendente',
+                        message: `${m.name} (${m.passport}) não entregou farm`,
+                        time: 'Esta semana',
+                        action: 'adv',
+                        userId: m.id,
+                        userName: m.name
+                    });
+                });
+            }
+        }
+        
+        updateAdminNotificationBadge();
+        
+    } catch (error) {
+        console.error('Erro ao carregar notificações:', error);
+    }
+}
+
+// Atualizar badge de notificações do admin
+function updateAdminNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    const bell = document.getElementById('notificationBell');
+    
+    const readIds = JSON.parse(localStorage.getItem('adminReadNotifications') || '[]');
+    const unreadCount = adminNotifications.filter(n => !readIds.includes(n.id)).length;
+    
+    if (unreadCount > 0) {
+        badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+        badge.style.display = 'flex';
+        bell.classList.add('has-notifications');
+    } else {
+        badge.style.display = 'none';
+        bell.classList.remove('has-notifications');
+    }
+}
+
+// Toggle dropdown de notificações
+function toggleAdminNotifications() {
+    const dropdown = document.getElementById('notificationsDropdown');
+    dropdown.classList.toggle('show');
+    
+    if (dropdown.classList.contains('show')) {
+        renderAdminNotifications();
+    }
+}
+
+// Renderizar notificações do admin
+function renderAdminNotifications() {
+    const list = document.getElementById('notificationsList');
+    
+    if (adminNotifications.length === 0) {
+        list.innerHTML = '<div class="notification-empty">🔕 Nenhuma notificação</div>';
+        return;
+    }
+    
+    const readIds = JSON.parse(localStorage.getItem('adminReadNotifications') || '[]');
+    
+    list.innerHTML = adminNotifications.map(n => {
+        const isRead = readIds.includes(n.id);
+        let actionBtn = '';
+        
+        if (n.action === 'adv' && n.userId) {
+            actionBtn = `<div class="notification-action"><button class="btn btn-small btn-danger" onclick="openAdvModalFromNotification(${n.userId}, '${n.userName}')">Aplicar ADV</button></div>`;
+        } else if (n.action === 'pending') {
+            actionBtn = `<div class="notification-action"><button class="btn btn-small btn-primary" onclick="goToTabFromNotification('pending')">Ver Farm</button></div>`;
+        } else if (n.action === 'absences') {
+            actionBtn = `<div class="notification-action"><button class="btn btn-small btn-secondary" onclick="goToTabFromNotification('absences')">Ver Justificativa</button></div>`;
+        } else if (n.action === 'weekly-status') {
+            actionBtn = `<div class="notification-action"><button class="btn btn-small btn-warning" onclick="goToTabFromNotification('weekly-status')">Ver Status</button></div>`;
+        }
+        
+        return `
+            <div class="notification-item ${n.type} ${isRead ? 'read' : 'unread'}" onclick="markAdminNotificationRead('${n.id}')">
+                <span class="notification-icon">${n.icon}</span>
+                <div class="notification-content">
+                    <div class="notification-title">${n.title}</div>
+                    <div class="notification-message">${n.message}</div>
+                    <div class="notification-time">${n.time}</div>
+                    ${actionBtn}
+                </div>
+                ${!isRead ? '<span class="unread-dot"></span>' : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// Marcar notificação como lida
+function markAdminNotificationRead(id) {
+    const readIds = JSON.parse(localStorage.getItem('adminReadNotifications') || '[]');
+    if (!readIds.includes(id)) {
+        readIds.push(id);
+        localStorage.setItem('adminReadNotifications', JSON.stringify(readIds));
+        updateAdminNotificationBadge();
+        renderAdminNotifications();
+    }
+}
+
+// Marcar todas como lidas
+function markAllAdminAsRead() {
+    const readIds = JSON.parse(localStorage.getItem('adminReadNotifications') || '[]');
+    adminNotifications.forEach(n => {
+        if (!readIds.includes(n.id)) {
+            readIds.push(n.id);
+        }
+    });
+    localStorage.setItem('adminReadNotifications', JSON.stringify(readIds));
+    updateAdminNotificationBadge();
+    renderAdminNotifications();
+}
+
+// Ir para aba a partir da notificação
+function goToTabFromNotification(tabName) {
+    document.getElementById('notificationsDropdown').classList.remove('show');
+    
+    // Ativar a tab
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.tab === tabName) {
+            item.classList.add('active');
+        }
+    });
+    
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    const targetTab = document.getElementById(`${tabName}-tab`);
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+}
+
+// Abrir modal de ADV a partir da notificação
+function openAdvModalFromNotification(userId, userName) {
+    document.getElementById('notificationsDropdown').classList.remove('show');
+    openAdvModal(userId, userName);
+}
+
+// Formatar tempo relativo
+function formatTimeAgo(dateStr) {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Agora';
+    if (diffMins < 60) return `${diffMins}min atrás`;
+    if (diffHours < 24) return `${diffHours}h atrás`;
+    if (diffDays < 7) return `${diffDays}d atrás`;
+    return date.toLocaleDateString('pt-BR');
+}
+
+// ==================== FIM SISTEMA DE NOTIFICAÇÕES ADMIN ====================
 
 // Inicializa
 checkAuth();

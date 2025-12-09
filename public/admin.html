@@ -14,10 +14,26 @@
         <div class="nav-user">
             <span id="userName"></span>
             <span id="userRole" class="role-badge"></span>
+            <!-- Sino de Notificações Admin -->
+            <div class="notification-bell" id="notificationBell" onclick="toggleAdminNotifications()">
+                🔔
+                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </div>
             <button class="btn btn-small btn-secondary" onclick="location.href='/dashboard'">Meu Dashboard</button>
             <button class="btn btn-small btn-danger" onclick="logout()">Sair</button>
         </div>
     </nav>
+
+    <!-- Dropdown de Notificações Admin -->
+    <div class="notifications-dropdown" id="notificationsDropdown">
+        <div class="notifications-header">
+            <span>🔔 Notificações</span>
+            <button class="btn-clear-notifications" onclick="markAllAdminAsRead()">Marcar como lidas</button>
+        </div>
+        <div class="notifications-list" id="notificationsList">
+            <div class="notification-empty">Carregando...</div>
+        </div>
+    </div>
 
     <div class="admin-container">
         <!-- Sidebar -->
