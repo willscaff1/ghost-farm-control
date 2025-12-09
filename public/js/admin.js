@@ -521,6 +521,10 @@ document.addEventListener('click', (e) => {
 
 // ========== FIM PAINEL DE MEMBROS ==========
 
+// Variável global para armazenar os dados do status semanal
+let weeklyStatusData = null;
+let currentFilter = 'all';
+
 // Carregar status semanal (da semana selecionada)
 async function loadWeeklyStatus() {
     try {
@@ -528,125 +532,7 @@ async function loadWeeklyStatus() {
         const response = await fetch(`/api/admin/weekly-status${params}`);
         const data = await response.json();
         
-        const weekPassed = data.weekPassed;
-        
-        // Membros completos (farm aprovado com 700+ de cada) - clicável para ver extrato
-        const completedList = document.getElementById('weeklyCompletedList');
-        if (data.completed.length === 0) {
-            completedList.innerHTML = '<div class="empty-state">😴 Nenhum membro completou o farm nesta semana</div>';
-        } else {
-            completedList.innerHTML = data.completed.map(member => `
-                <div class="weekly-member-card completed clickable" onclick="showDeliveryExtract(${JSON.stringify(member).replace(/"/g, '&quot;')})">
-                    <div class="member-info">
-                        <span class="member-name">👤 ${member.name}</span>
-                        <span class="member-role">${roleNames[member.role] || member.role}</span>
-                    </div>
-                    <div class="member-status">
-                        <span class="status-badge approved">✅ Farm Completo</span>
-                        <span class="delivery-date">Entregue em ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                    <div class="click-hint">🔍 Clique para ver detalhes</div>
-                </div>
-            `).join('');
-        }
-        
-        // Membros com farm em progresso (ainda não completou 700 de cada)
-        const partialList = document.getElementById('weeklyPartialList');
-        if (data.partial && data.partial.length === 0) {
-            partialList.innerHTML = '<div class="empty-state">✨ Nenhum farm em progresso</div>';
-        } else if (data.partial) {
-            partialList.innerHTML = data.partial.map(member => `
-                <div class="weekly-member-card partial clickable" onclick="showDeliveryExtract(${JSON.stringify(member).replace(/"/g, '&quot;')})">
-                    <div class="member-info">
-                        <span class="member-name">👤 ${member.name}</span>
-                        <span class="member-role">${roleNames[member.role] || member.role}</span>
-                    </div>
-                    <div class="member-status">
-                        <span class="status-badge partial">⚡ Em Progresso</span>
-                        <span class="delivery-date">Iniciado em ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                    <div class="partial-items">
-                        ${member.items ? member.items.map(item => {
-                            const goal = item.weekly_goal || 700;
-                            return `<span class="partial-item ${item.amount >= goal ? 'ok' : 'below'}">${item.material_icon} ${item.amount}/${goal}</span>`;
-                        }).join('') : ''}
-                    </div>
-                    <div class="click-hint">🔍 Clique para ver detalhes</div>
-                </div>
-            `).join('');
-        }
-        
-        // Membros aguardando aprovação - clicável para aprovar
-        const pendingApprovalList = document.getElementById('weeklyPendingApprovalList');
-        if (data.pendingApproval.length === 0) {
-            pendingApprovalList.innerHTML = '<div class="empty-state">✨ Nenhum farm aguardando aprovação</div>';
-        } else {
-            pendingApprovalList.innerHTML = data.pendingApproval.map(member => `
-                <div class="weekly-member-card pending clickable" onclick="${member.has_justification_pending ? 
-                    `showJustificationModal(${JSON.stringify(member).replace(/"/g, '&quot;')})` : 
-                    `showApprovalModal(${JSON.stringify(member).replace(/"/g, '&quot;')})`}">
-                    <div class="member-info">
-                        <span class="member-name">👤 ${member.name}</span>
-                        <span class="member-role">${roleNames[member.role] || member.role}</span>
-                    </div>
-                    <div class="member-status">
-                        ${member.has_justification_pending ? 
-                            '<span class="status-badge justification-pending">📝 Justificativa Aguardando</span>' :
-                            '<span class="status-badge pending">⏳ Farm Aguardando Aprovação</span>'
-                        }
-                    </div>
-                    <div class="click-hint">👆 Clique para ${member.has_justification_pending ? 'avaliar justificativa' : 'aprovar/rejeitar'}</div>
-                </div>
-            `).join('');
-        }
-        
-        // Membros que não entregaram - ADV só se semana passou
-        const notDeliveredList = document.getElementById('weeklyNotDeliveredList');
-        if (data.notDelivered.length === 0) {
-            notDeliveredList.innerHTML = '<div class="empty-state">🎉 Todos os membros entregaram ou justificaram!</div>';
-        } else {
-            notDeliveredList.innerHTML = data.notDelivered.map(member => `
-                <div class="weekly-member-card missing">
-                    <div class="member-info">
-                        <span class="member-name">👤 ${member.name}</span>
-                        <span class="member-role">${roleNames[member.role] || member.role}</span>
-                    </div>
-                    <div class="member-status">
-                        <span class="status-badge missing">❌ Não Entregou</span>
-                    </div>
-                    ${weekPassed ? `
-                        <div class="member-actions">
-                            <button class="btn btn-danger btn-small" onclick="applyWeeklyAdv(${member.id}, '${member.name}', '${selectedWeek ? selectedWeek.start : ''}', '${selectedWeek ? selectedWeek.end : ''}')">
-                                ⚠️ Aplicar ADV
-                            </button>
-                        </div>
-                    ` : `
-                        <div class="week-not-ended">
-                            <span class="hint">⏳ Semana ainda não terminou</span>
-                        </div>
-                    `}
-                </div>
-            `).join('');
-        }
-        
-        // Membros justificados - clicável para ver detalhes
-        const justifiedList = document.getElementById('weeklyJustifiedList');
-        if (data.justified.length === 0) {
-            justifiedList.innerHTML = '<div class="empty-state">📝 Nenhuma ausência justificada esta semana</div>';
-        } else {
-            justifiedList.innerHTML = data.justified.map(member => `
-                <div class="weekly-member-card justified clickable" onclick="showJustifiedDetails(${JSON.stringify(member).replace(/"/g, '&quot;')})">
-                    <div class="member-info">
-                        <span class="member-name">👤 ${member.name}</span>
-                        <span class="member-role">${roleNames[member.role] || member.role}</span>
-                    </div>
-                    <div class="member-status">
-                        <span class="status-badge justified-approved">📋 AUSÊNCIA JUSTIFICADA</span>
-                    </div>
-                    <div class="click-hint">🔍 Clique para ver justificativa</div>
-                </div>
-            `).join('');
-        }
+        weeklyStatusData = data;
         
         // Contadores
         document.getElementById('completedCount').textContent = data.completed.length;
@@ -655,9 +541,160 @@ async function loadWeeklyStatus() {
         document.getElementById('notDeliveredCount').textContent = data.notDelivered.length;
         document.getElementById('justifiedCount').textContent = data.justified.length;
         
+        // Renderizar tabela
+        renderWeeklyTable(currentFilter);
+        
     } catch (error) {
         console.error('Erro ao carregar status semanal:', error);
+        const tbody = document.getElementById('weeklyTableBody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="4" class="loading">❌ Erro ao carregar dados</td></tr>';
+        }
     }
+}
+
+// Renderizar tabela com filtro
+function renderWeeklyTable(filter) {
+    const tbody = document.getElementById('weeklyTableBody');
+    if (!tbody || !weeklyStatusData) return;
+    
+    currentFilter = filter;
+    const data = weeklyStatusData;
+    const weekPassed = data.weekPassed;
+    
+    // Combinar todos os membros com seus status
+    let allMembers = [];
+    
+    // Adicionar completos
+    data.completed.forEach(member => {
+        allMembers.push({
+            ...member,
+            status: 'completed',
+            statusLabel: '✅ Completo',
+            statusClass: 'completed'
+        });
+    });
+    
+    // Adicionar em progresso
+    if (data.partial) {
+        data.partial.forEach(member => {
+            allMembers.push({
+                ...member,
+                status: 'partial',
+                statusLabel: '⚡ Em Progresso',
+                statusClass: 'partial'
+            });
+        });
+    }
+    
+    // Adicionar pendentes de aprovação
+    data.pendingApproval.forEach(member => {
+        allMembers.push({
+            ...member,
+            status: 'pending',
+            statusLabel: member.has_justification_pending ? '📝 Justificativa' : '⏳ Aguardando',
+            statusClass: 'pending'
+        });
+    });
+    
+    // Adicionar não entregaram
+    data.notDelivered.forEach(member => {
+        allMembers.push({
+            ...member,
+            status: 'missing',
+            statusLabel: '❌ Não Entregou',
+            statusClass: 'missing'
+        });
+    });
+    
+    // Adicionar justificados
+    data.justified.forEach(member => {
+        allMembers.push({
+            ...member,
+            status: 'justified',
+            statusLabel: '📋 Justificado',
+            statusClass: 'justified'
+        });
+    });
+    
+    // Aplicar filtro
+    if (filter !== 'all') {
+        allMembers = allMembers.filter(m => m.status === filter);
+    }
+    
+    // Ordenar por nome
+    allMembers.sort((a, b) => a.name.localeCompare(b.name));
+    
+    if (allMembers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="loading">😴 Nenhum membro encontrado com este filtro</td></tr>';
+        return;
+    }
+    
+    // Gerar linhas da tabela
+    tbody.innerHTML = allMembers.map(member => {
+        const initial = member.name.charAt(0).toUpperCase();
+        const roleName = roleNames[member.role] || member.role || '-';
+        
+        // Determinar ação
+        let actionHtml = '';
+        switch (member.status) {
+            case 'completed':
+                actionHtml = `<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Extrato</button>`;
+                break;
+            case 'partial':
+                actionHtml = `<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Detalhes</button>`;
+                break;
+            case 'pending':
+                if (member.has_justification_pending) {
+                    actionHtml = `<button class="action-btn approve" onclick='showJustificationModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📝 Avaliar</button>`;
+                } else {
+                    actionHtml = `<button class="action-btn approve" onclick='showApprovalModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>✔️ Aprovar</button>`;
+                }
+                break;
+            case 'missing':
+                if (weekPassed) {
+                    actionHtml = `<button class="action-btn adv" onclick="applyWeeklyAdv(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${selectedWeek ? selectedWeek.start : ''}', '${selectedWeek ? selectedWeek.end : ''}')">⚠️ Aplicar ADV</button>`;
+                } else {
+                    actionHtml = '<span class="no-action">⏳ Semana em andamento</span>';
+                }
+                break;
+            case 'justified':
+                actionHtml = `<button class="action-btn view" onclick='showJustifiedDetails(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📋 Ver Justificativa</button>`;
+                break;
+            default:
+                actionHtml = '<span class="no-action">-</span>';
+        }
+        
+        return `
+            <tr class="status-${member.status}">
+                <td>
+                    <div class="member-cell">
+                        <div class="member-avatar">${initial}</div>
+                        <div>
+                            <div class="member-name">${member.name}</div>
+                            <div class="member-passport">ID: ${member.passport || member.id}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="role-cell">${roleName}</td>
+                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}</span></td>
+                <td>${actionHtml}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Função para filtrar tabela (chamada pelos botões)
+function filterWeeklyTable(filter) {
+    // Atualizar botões ativos
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === filter) {
+            btn.classList.add('active');
+        }
+    });
+    
+    renderWeeklyTable(filter);
 }
 
 // Modal: Mostrar extrato de farm aprovado

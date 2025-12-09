@@ -189,11 +189,12 @@
                     <h2>📅 Status da Semana: <span id="currentWeekLabel">Carregando...</span></h2>
                 </div>
                 
+                <!-- Summary Cards - mantém os contadores -->
                 <div class="weekly-summary-cards">
                     <div class="summary-card completed">
                         <div class="summary-icon">✅</div>
                         <div class="summary-number" id="completedCount">0</div>
-                        <div class="summary-label">Farm Completo</div>
+                        <div class="summary-label">Completo</div>
                     </div>
                     <div class="summary-card partial">
                         <div class="summary-icon">⚡</div>
@@ -208,7 +209,7 @@
                     <div class="summary-card missing">
                         <div class="summary-icon">❌</div>
                         <div class="summary-number" id="notDeliveredCount">0</div>
-                        <div class="summary-label">Não Entregaram</div>
+                        <div class="summary-label">Não Entregou</div>
                     </div>
                     <div class="summary-card justified">
                         <div class="summary-icon">📋</div>
@@ -217,51 +218,34 @@
                     </div>
                 </div>
                 
-                <div class="weekly-columns">
-                    <div class="weekly-column">
-                        <div class="card">
-                            <h3>✅ Farm Completo</h3>
-                            <div id="weeklyCompletedList" class="weekly-members-list">
-                                <p class="loading">Carregando...</p>
-                            </div>
+                <!-- Tabela unificada de membros -->
+                <div class="card">
+                    <div class="weekly-table-header">
+                        <h3>👥 Todos os Membros</h3>
+                        <div class="weekly-table-filters">
+                            <button class="filter-btn active" data-filter="all" onclick="filterWeeklyTable('all')">Todos</button>
+                            <button class="filter-btn" data-filter="completed" onclick="filterWeeklyTable('completed')">✅ Completos</button>
+                            <button class="filter-btn" data-filter="partial" onclick="filterWeeklyTable('partial')">⚡ Em Progresso</button>
+                            <button class="filter-btn" data-filter="pending" onclick="filterWeeklyTable('pending')">⏳ Aguardando</button>
+                            <button class="filter-btn" data-filter="missing" onclick="filterWeeklyTable('missing')">❌ Não Entregou</button>
+                            <button class="filter-btn" data-filter="justified" onclick="filterWeeklyTable('justified')">📋 Justificado</button>
                         </div>
                     </div>
                     
-                    <div class="weekly-column">
-                        <div class="card card-partial">
-                            <h3>⚡ Em Progresso</h3>
-                            <p class="column-hint">Ainda completando 700 de cada</p>
-                            <div id="weeklyPartialList" class="weekly-members-list">
-                                <p class="loading">Carregando...</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="weekly-column">
-                        <div class="card">
-                            <h3>⏳ Aguardando Aprovação</h3>
-                            <div id="weeklyPendingApprovalList" class="weekly-members-list">
-                                <p class="loading">Carregando...</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="weekly-column">
-                        <div class="card">
-                            <h3>❌ Não Entregaram</h3>
-                            <div id="weeklyNotDeliveredList" class="weekly-members-list">
-                                <p class="loading">Carregando...</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="weekly-column">
-                        <div class="card">
-                            <h3>📝 Justificado</h3>
-                            <div id="weeklyJustifiedList" class="weekly-members-list">
-                                <p class="loading">Carregando...</p>
-                            </div>
-                        </div>
+                    <div class="weekly-table-container">
+                        <table class="weekly-table">
+                            <thead>
+                                <tr>
+                                    <th>Membro</th>
+                                    <th>Cargo</th>
+                                    <th>Status</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weeklyTableBody">
+                                <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

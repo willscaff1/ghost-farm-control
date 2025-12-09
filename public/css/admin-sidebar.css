@@ -622,90 +622,258 @@ body.admin-layout {
     font-weight: 600;
 }
 
-/* Weekly Columns */
+/* Weekly Columns - DEPRECATED, usando tabela agora */
 .weekly-columns {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr) !important;
-    gap: 20px !important;
-    align-items: stretch;
+    display: none !important;
 }
 
-@media (max-width: 1600px) {
-    .weekly-columns {
-        grid-template-columns: repeat(3, 1fr) !important;
+/* Weekly Table - Nova estrutura */
+.weekly-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.weekly-table-header h3 {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    font-size: 18px !important;
+    color: #fff;
+}
+
+.weekly-table-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #aaa;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, #6c5ce7, #5541d9);
+    border-color: #6c5ce7;
+    color: #fff;
+}
+
+.weekly-table-container {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.weekly-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.weekly-table thead {
+    background: linear-gradient(145deg, rgba(108, 92, 231, 0.2), rgba(45, 45, 75, 0.5));
+}
+
+.weekly-table th {
+    padding: 16px 20px;
+    text-align: left;
+    font-weight: 600;
+    color: #fff;
+    font-size: 14px;
+    border-bottom: 2px solid rgba(108, 92, 231, 0.3);
+}
+
+.weekly-table tbody tr {
+    background: rgba(30, 30, 50, 0.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+}
+
+.weekly-table tbody tr:hover {
+    background: rgba(108, 92, 231, 0.1);
+}
+
+.weekly-table tbody tr.status-completed {
+    border-left: 4px solid #27ae60;
+}
+
+.weekly-table tbody tr.status-partial {
+    border-left: 4px solid #3498db;
+}
+
+.weekly-table tbody tr.status-pending {
+    border-left: 4px solid #f39c12;
+}
+
+.weekly-table tbody tr.status-missing {
+    border-left: 4px solid #e74c3c;
+}
+
+.weekly-table tbody tr.status-justified {
+    border-left: 4px solid #9b59b6;
+}
+
+.weekly-table td {
+    padding: 14px 20px;
+    color: #ddd;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.weekly-table td.loading {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+}
+
+.weekly-table .member-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.weekly-table .member-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6c5ce7, #5541d9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.weekly-table .member-name {
+    font-weight: 600;
+    color: #fff;
+}
+
+.weekly-table .member-passport {
+    font-size: 12px;
+    color: #888;
+}
+
+.weekly-table .role-cell {
+    color: #aaa;
+    font-size: 13px;
+}
+
+/* Status badges na tabela */
+.weekly-table .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.weekly-table .status-badge.completed {
+    background: rgba(39, 174, 96, 0.15);
+    color: #27ae60;
+    border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.weekly-table .status-badge.partial {
+    background: rgba(52, 152, 219, 0.15);
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.weekly-table .status-badge.pending {
+    background: rgba(243, 156, 18, 0.15);
+    color: #f39c12;
+    border: 1px solid rgba(243, 156, 18, 0.3);
+}
+
+.weekly-table .status-badge.missing {
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.weekly-table .status-badge.justified {
+    background: rgba(155, 89, 182, 0.15);
+    color: #9b59b6;
+    border: 1px solid rgba(155, 89, 182, 0.3);
+}
+
+/* Action buttons na tabela */
+.weekly-table .action-btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.weekly-table .action-btn.view {
+    background: rgba(108, 92, 231, 0.2);
+    color: #a29bfe;
+}
+
+.weekly-table .action-btn.view:hover {
+    background: rgba(108, 92, 231, 0.4);
+}
+
+.weekly-table .action-btn.approve {
+    background: rgba(39, 174, 96, 0.2);
+    color: #27ae60;
+}
+
+.weekly-table .action-btn.approve:hover {
+    background: rgba(39, 174, 96, 0.4);
+}
+
+.weekly-table .action-btn.adv {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+}
+
+.weekly-table .action-btn.adv:hover {
+    background: rgba(231, 76, 60, 0.4);
+}
+
+.weekly-table .no-action {
+    color: #666;
+    font-size: 12px;
+    font-style: italic;
+}
+
+@media (max-width: 768px) {
+    .weekly-table-header {
+        flex-direction: column;
+        align-items: flex-start;
     }
-    .weekly-summary-cards {
-        grid-template-columns: repeat(5, 1fr) !important;
+    
+    .weekly-table-filters {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 10px;
     }
-}
-
-@media (max-width: 1400px) {
-    .weekly-columns {
-        grid-template-columns: repeat(3, 1fr) !important;
+    
+    .weekly-table th,
+    .weekly-table td {
+        padding: 12px 14px;
+        font-size: 13px;
     }
-    .weekly-summary-cards {
-        grid-template-columns: repeat(5, 1fr) !important;
-    }
-}
-
-@media (max-width: 1200px) {
-    .weekly-columns {
-        grid-template-columns: repeat(2, 1fr) !important;
-    }
-    .weekly-summary-cards {
-        grid-template-columns: repeat(3, 1fr) !important;
-    }
-}
-
-@media (max-width: 900px) {
-    .weekly-columns {
-        grid-template-columns: 1fr !important;
-    }
-    .weekly-summary-cards {
-        grid-template-columns: repeat(2, 1fr) !important;
-    }
-}
-
-.weekly-column .card {
-    background: linear-gradient(145deg, rgba(35, 35, 55, 0.7), rgba(25, 25, 40, 0.9)) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 16px !important;
-    padding: 20px !important;
-    height: 100% !important;
-    min-height: 300px !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-.weekly-column .card.card-partial {
-    border-color: rgba(52, 152, 219, 0.3) !important;
-    background: linear-gradient(145deg, rgba(52, 152, 219, 0.08), rgba(25, 25, 40, 0.9)) !important;
-}
-
-.weekly-column .card .column-hint {
-    font-size: 11px !important;
-    color: #3498db !important;
-    margin: -8px 0 15px 0 !important;
-    opacity: 0.9;
-}
-
-.weekly-column .card h3 {
-    color: #fff !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
-    margin: 0 0 15px 0 !important;
-    padding-bottom: 12px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-}
-
-.weekly-members-list {
-    flex: 1 !important;
-    overflow-y: auto !important;
-    padding-right: 5px;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 0 !important;
-    max-height: none !important;
 }
 
 .weekly-members-list::-webkit-scrollbar {
