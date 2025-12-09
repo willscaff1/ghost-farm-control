@@ -363,6 +363,9 @@ async function loadWeekData(offset = 0) {
         // Atualizar barras de progresso
         updateProgressBars(data.progress);
         
+        // Mostrar screenshots existentes
+        updateExistingScreenshots(data.existingScreenshots);
+        
         // Atualizar visibilidade do card de justificativa
         const absenceCard = document.getElementById('absenceCard');
         if (absenceCard) {
@@ -394,6 +397,29 @@ async function loadWeekData(offset = 0) {
     } catch (error) {
         console.error('Erro ao carregar semana:', error);
     }
+}
+
+// Atualizar screenshots existentes
+function updateExistingScreenshots(screenshots) {
+    const section = document.getElementById('existingScreenshotsSection');
+    const container = document.getElementById('existingScreenshots');
+    
+    if (!section || !container) return;
+    
+    if (!screenshots || screenshots.length === 0) {
+        section.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+    
+    // Mostrar seção e preencher com screenshots
+    section.style.display = 'block';
+    container.innerHTML = screenshots.map((s, idx) => `
+        <div class="screenshot-preview existing">
+            <img src="${s.screenshot_url}" alt="Print ${idx + 1}" onclick="openModal('${s.screenshot_url}')">
+            <div class="screenshot-badge">${idx + 1}</div>
+        </div>
+    `).join('');
 }
 
 // Atualizar barras de progresso
@@ -653,8 +679,13 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
         return;
     }
     
-    // VALIDAÇÃO: Precisa ter screenshot OBRIGATORIAMENTE
-    if (!uploadedScreenshots || uploadedScreenshots.length === 0) {
+    // VALIDAÇÃO: Precisa ter screenshot (novo OU já existente de entrega anterior)
+    const hasExistingScreenshots = currentWeekData && 
+        currentWeekData.existingScreenshots && 
+        currentWeekData.existingScreenshots.length > 0;
+    const hasNewScreenshots = uploadedScreenshots && uploadedScreenshots.length > 0;
+    
+    if (!hasExistingScreenshots && !hasNewScreenshots) {
         messageEl.textContent = '❌ Anexe pelo menos 1 print do farm!';
         messageEl.className = 'form-message show error';
         setTimeout(() => { messageEl.className = 'form-message'; }, 5000);

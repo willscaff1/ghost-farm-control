@@ -107,6 +107,14 @@
                         
                         <div class="form-group">
                             <label>📷 Prints do Farm <span class="required">*</span></label>
+                            
+                            <!-- Screenshots já enviados -->
+                            <div id="existingScreenshotsSection" class="existing-screenshots-section" style="display: none;">
+                                <div class="existing-label">📸 Prints já enviados:</div>
+                                <div id="existingScreenshots" class="screenshots-grid"></div>
+                            </div>
+                            
+                            <!-- Novos screenshots -->
                             <div class="screenshots-area">
                                 <div id="screenshotsPreview" class="screenshots-grid"></div>
                                 <button type="button" class="btn-add-screenshot" onclick="addScreenshot()">+ Adicionar Print</button>

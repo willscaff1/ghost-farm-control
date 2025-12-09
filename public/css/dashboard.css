@@ -664,6 +664,21 @@
 }
 
 /* Screenshots */
+.existing-screenshots-section {
+    background: rgba(46, 204, 113, 0.1);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.existing-label {
+    color: #2ecc71;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
 .screenshots-area {
     display: flex;
     gap: 10px;
@@ -686,10 +701,31 @@
     border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
+.screenshot-preview.existing {
+    border-color: rgba(46, 204, 113, 0.5);
+}
+
 .screenshot-preview img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    cursor: pointer;
+}
+
+.screenshot-preview .screenshot-badge {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    width: 18px;
+    height: 18px;
+    background: rgba(46, 204, 113, 0.9);
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .screenshot-preview .remove-btn {

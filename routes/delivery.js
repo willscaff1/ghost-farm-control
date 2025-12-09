@@ -74,8 +74,10 @@ router.get('/current-week', requireAuth, async (req, res) => {
             WHERE user_id = ? AND week_start = ? AND week_end = ?
         `, [userId, week.start, week.end]);
         
-        // Se tem entrega, buscar progresso dos materiais
+        // Se tem entrega, buscar progresso dos materiais E screenshots
         let progress = null;
+        let existingScreenshots = [];
+        
         if (existingDelivery) {
             const allMaterials = await getAll('SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1');
             const deliveryItems = await getAll('SELECT material_id, amount FROM delivery_items WHERE delivery_id = ?', [existingDelivery.id]);
@@ -94,6 +96,18 @@ router.get('/current-week', requireAuth, async (req, res) => {
                     complete: currentAmount >= goal
                 };
             });
+            
+            // Buscar screenshots existentes
+            try {
+                const screenshots = await getAll(
+                    'SELECT id, screenshot_url, created_at FROM delivery_screenshots WHERE delivery_id = ? ORDER BY created_at ASC',
+                    [existingDelivery.id]
+                );
+                existingScreenshots = screenshots || [];
+            } catch (e) {
+                console.log('⚠️ Erro ao buscar screenshots:', e.message);
+                existingScreenshots = [];
+            }
         }
         
         // Determinar status para o frontend
@@ -124,6 +138,7 @@ router.get('/current-week', requireAuth, async (req, res) => {
             deliveryStatus: existingDelivery?.status || null,
             isPartial: existingDelivery?.is_partial || false,
             progress: progress,
+            existingScreenshots: existingScreenshots,
             canDeliver: canDeliver,
             statusMessage: statusMessage,
             hasJustification: !!existingJustification,
@@ -287,9 +302,28 @@ router.post('/', requireAuth, (req, res) => {
                 });
             }
             
-            // Verificar se enviou pelo menos 1 imagem
-            if (!req.files || req.files.length === 0) {
+            // Buscar entrega parcial existente (em progresso)
+            let existingPartialDelivery = await getOne(`
+                SELECT * FROM deliveries 
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND is_partial = 1
+            `, [userId, week.start, week.end]);
+            
+            // Verificar se enviou pelo menos 1 imagem (obrigatório se não tem entrega anterior)
+            const hasNewScreenshots = req.files && req.files.length > 0;
+            
+            if (!existingPartialDelivery && !hasNewScreenshots) {
                 return res.status(400).json({ error: 'Envie pelo menos 1 print do farm' });
+            }
+            
+            // Se tem entrega anterior, verificar se ela já tem screenshots
+            if (existingPartialDelivery && !hasNewScreenshots) {
+                const existingScreenshots = await getAll(
+                    'SELECT id FROM delivery_screenshots WHERE delivery_id = ?',
+                    [existingPartialDelivery.id]
+                );
+                if (!existingScreenshots || existingScreenshots.length === 0) {
+                    return res.status(400).json({ error: 'Envie pelo menos 1 print do farm' });
+                }
             }
             
             // Parse materials JSON
@@ -303,12 +337,6 @@ router.post('/', requireAuth, (req, res) => {
             if (!materialsArray || materialsArray.length === 0) {
                 return res.status(400).json({ error: 'Informe pelo menos um material' });
             }
-            
-            // Buscar entrega parcial existente (em progresso)
-            let existingPartialDelivery = await getOne(`
-                SELECT * FROM deliveries 
-                WHERE user_id = ? AND week_start = ? AND week_end = ? AND is_partial = 1
-            `, [userId, week.start, week.end]);
             
             let deliveryId;
             
@@ -377,22 +405,26 @@ router.post('/', requireAuth, (req, res) => {
                 }
             }
             
-            // Salvar os novos screenshots
-            console.log('📸 Salvando', req.files.length, 'screenshots...');
-            for (const file of req.files) {
-                const base64 = file.buffer.toString('base64');
-                const mimeType = file.mimetype;
-                const dataUrl = `data:${mimeType};base64,${base64}`;
-                
-                try {
-                    await runQuery(
-                        'INSERT INTO delivery_screenshots (delivery_id, screenshot_url) VALUES (?, ?)',
-                        [deliveryId, dataUrl]
-                    );
-                    console.log('📸 Screenshot salvo para delivery', deliveryId);
-                } catch (screenshotError) {
-                    console.error('⚠️ Erro ao salvar screenshot:', screenshotError.message);
+            // Salvar os novos screenshots (se houver)
+            if (hasNewScreenshots) {
+                console.log('📸 Salvando', req.files.length, 'novos screenshots...');
+                for (const file of req.files) {
+                    const base64 = file.buffer.toString('base64');
+                    const mimeType = file.mimetype;
+                    const dataUrl = `data:${mimeType};base64,${base64}`;
+                    
+                    try {
+                        await runQuery(
+                            'INSERT INTO delivery_screenshots (delivery_id, screenshot_url) VALUES (?, ?)',
+                            [deliveryId, dataUrl]
+                        );
+                        console.log('📸 Screenshot salvo para delivery', deliveryId);
+                    } catch (screenshotError) {
+                        console.error('⚠️ Erro ao salvar screenshot:', screenshotError.message);
+                    }
                 }
+            } else {
+                console.log('📸 Nenhum novo screenshot para salvar (usando existentes)');
             }
             
             // Verificar se agora completou 700 de cada material
