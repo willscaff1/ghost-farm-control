@@ -422,14 +422,21 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
         }
     });
     
+    const messageEl = document.getElementById('formMessage');
+    
+    // VALIDAÇÃO: Precisa ter pelo menos um material
     if (materials.length === 0) {
-        alert('Informe a quantidade de pelo menos um material!');
+        messageEl.textContent = '❌ Informe a quantidade de pelo menos um material!';
+        messageEl.className = 'form-message show error';
+        setTimeout(() => { messageEl.className = 'form-message'; }, 5000);
         return;
     }
     
-    // Verificar se tem screenshots
-    if (uploadedScreenshots.length === 0) {
-        alert('Anexe pelo menos 1 print do farm!');
+    // VALIDAÇÃO: Precisa ter screenshot OBRIGATORIAMENTE
+    if (!uploadedScreenshots || uploadedScreenshots.length === 0) {
+        messageEl.textContent = '❌ Anexe pelo menos 1 print do farm!';
+        messageEl.className = 'form-message show error';
+        setTimeout(() => { messageEl.className = 'form-message'; }, 5000);
         return;
     }
     
@@ -442,8 +449,6 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     for (let i = 0; i < uploadedScreenshots.length; i++) {
         formData.append('screenshots', uploadedScreenshots[i].file);
     }
-    
-    const messageEl = document.getElementById('formMessage');
     
     try {
         const response = await fetch('/api/delivery', {
