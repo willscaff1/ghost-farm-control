@@ -46,6 +46,43 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
+// Middleware para verificar se é super admin (6999)
+const requireSuperAdmin = (req, res, next) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Não autenticado' });
+    }
+    if (req.session.user.passport !== '6999') {
+        return res.status(403).json({ error: 'Apenas o super admin pode fazer isso' });
+    }
+    next();
+};
+
+// ENDPOINT TEMPORÁRIO - Limpar todos os dados exceto usuários
+router.post('/reset-all-data', requireSuperAdmin, async (req, res) => {
+    try {
+        console.log('🗑️ Iniciando limpeza de dados...');
+        
+        // Deletar na ordem correta por causa das foreign keys
+        await runQuery('DELETE FROM delivery_screenshots');
+        await runQuery('DELETE FROM delivery_items');
+        await runQuery('DELETE FROM deliveries');
+        await runQuery('DELETE FROM justifications');
+        await runQuery('DELETE FROM warnings');
+        await runQuery('DELETE FROM farm_whitelist');
+        await runQuery('DELETE FROM farm_weeks');
+        
+        console.log('✅ Todos os dados foram limpos (usuários mantidos)');
+        
+        res.json({ 
+            success: true, 
+            message: 'Todos os dados foram limpos. Usuários mantidos.' 
+        });
+    } catch (error) {
+        console.error('❌ Erro ao limpar dados:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Obter semana com offset
 router.get('/week/:offset', requireAdmin, async (req, res) => {
     try {
