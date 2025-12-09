@@ -934,18 +934,17 @@ body.admin-layout {
 
 /* Weekly Member Cards */
 .weekly-member-card {
-    display: flex !important;
+    display: grid !important;
+    grid-template-columns: 1fr auto auto !important;
     align-items: center !important;
-    justify-content: space-between !important;
     background: rgba(255, 255, 255, 0.03) !important;
     border: 1px solid rgba(255, 255, 255, 0.06) !important;
     border-radius: 10px !important;
-    padding: 12px 14px !important;
+    padding: 14px 16px !important;
     margin-bottom: 10px !important;
     transition: all 0.2s ease;
     cursor: pointer;
-    gap: 12px !important;
-    flex-direction: row !important;
+    gap: 15px !important;
 }
 
 .weekly-member-card:hover {
@@ -977,8 +976,7 @@ body.admin-layout {
 .weekly-member-card .member-info {
     display: flex !important;
     flex-direction: column !important;
-    gap: 3px !important;
-    flex: 1;
+    gap: 2px !important;
     min-width: 0;
 }
 
@@ -1001,12 +999,11 @@ body.admin-layout {
     align-items: center !important;
     gap: 6px !important;
     flex-shrink: 0;
-    flex-direction: row !important;
 }
 
 .weekly-member-card .status-badge {
     display: inline-block !important;
-    padding: 5px 10px !important;
+    padding: 6px 12px !important;
     border-radius: 6px !important;
     font-size: 11px !important;
     font-weight: 600 !important;
@@ -1060,24 +1057,28 @@ body.admin-layout {
 
 .weekly-member-card .member-actions {
     flex-shrink: 0;
+    grid-column: 3;
 }
 
 .weekly-member-card .member-actions .btn-small {
-    padding: 6px 12px;
-    font-size: 11px;
+    padding: 6px 10px !important;
+    font-size: 10px !important;
+    white-space: nowrap;
 }
 
 .weekly-member-card .click-hint {
-    display: none;
+    display: none !important;
 }
 
 .weekly-member-card .week-not-ended {
     flex-shrink: 0;
+    grid-column: 3;
 }
 
 .weekly-member-card .week-not-ended .hint {
-    font-size: 11px;
-    color: #666;
+    font-size: 10px !important;
+    color: #666 !important;
+    white-space: nowrap;
 }
 
 /* Empty State */
