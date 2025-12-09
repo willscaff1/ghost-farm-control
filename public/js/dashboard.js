@@ -581,8 +581,8 @@ async function loadMyDeliveries() {
                                 <span class="material-tag ${item.amount < weeklyGoal ? 'below-goal' : ''}">${item.material_icon} ${item.material_name}: ${formatNumber(item.amount)}${item.amount < weeklyGoal ? `<small>/${weeklyGoal}</small>` : ''}</span>
                             `).join('')}
                         </div>
-                        <p>${delivery.description || 'Sem descrição'}</p>
-                        <p>📅 Enviado: ${formatDate(delivery.created_at)}</p>
+                        ${delivery.description ? `<p>📝 ${delivery.description}</p>` : ''}
+                        <p>📅 ${formatDate(delivery.created_at)}</p>
                         <span class="status ${delivery.status}">${getStatusText(delivery.status, delivery.is_partial)}</span>
                         ${delivery.approved_by_name ? `<p style="margin-top: 10px;">Por: <strong>${delivery.approved_by_name}</strong></p>` : ''}
                     </div>

@@ -899,6 +899,16 @@
     color: #fdcb6e;
 }
 
+.delivery-info .status.in_progress {
+    background: rgba(116, 185, 255, 0.2);
+    color: #74b9ff;
+}
+
+.delivery-info .status.rejected {
+    background: rgba(214, 48, 49, 0.2);
+    color: #d63031;
+}
+
 .delivery-actions {
     margin-top: 12px;
 }
