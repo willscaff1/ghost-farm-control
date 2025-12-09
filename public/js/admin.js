@@ -785,28 +785,49 @@ async function loadPendingDeliveries() {
         const pendingList = document.getElementById('pendingList');
         
         if (data.deliveries && data.deliveries.length > 0) {
-            pendingList.innerHTML = data.deliveries.map(delivery => `
-                <div class="delivery-item" id="delivery-${delivery.id}">
-                    <div class="delivery-info">
-                        <h3>📦 Farm de ${delivery.name}</h3>
-                        <p class="week-info">📅 Semana: ${formatWeekDate(delivery.week_start)} - ${formatWeekDate(delivery.week_end)}</p>
-                        <div class="materials-list">
-                            ${delivery.items.map(item => `
-                                <span class="material-tag">${item.material_icon} ${item.material_name}: ${formatNumber(item.amount)}</span>
+            pendingList.innerHTML = data.deliveries.map(delivery => {
+                // Montar galeria de screenshots
+                let screenshotsHtml = '';
+                if (delivery.screenshots && delivery.screenshots.length > 0) {
+                    screenshotsHtml = `
+                        <div class="pending-screenshots-gallery">
+                            ${delivery.screenshots.map((s, idx) => `
+                                <img src="${s.screenshot_url}" class="delivery-screenshot" onclick="openModal('${s.screenshot_url}')" alt="Print ${idx + 1}">
                             `).join('')}
                         </div>
-                        <p>${delivery.description || 'Sem descrição'}</p>
-                        <p>📤 Enviado: ${formatDate(delivery.created_at)}</p>
-                    </div>
-                    <div class="delivery-actions">
-                        ${delivery.screenshot ? `<img src="/uploads/${delivery.screenshot}" class="delivery-screenshot" onclick="openModal('/uploads/${delivery.screenshot}')">` : '<span>Sem print</span>'}
-                        <div class="action-buttons">
-                            <button class="btn btn-success" onclick="approveDelivery(${delivery.id})">✅ Aprovar</button>
-                            <button class="btn btn-danger" onclick="rejectDelivery(${delivery.id})">❌ Rejeitar</button>
+                    `;
+                } else if (delivery.screenshot_url) {
+                    screenshotsHtml = `<img src="${delivery.screenshot_url}" class="delivery-screenshot" onclick="openModal('${delivery.screenshot_url}')">`;
+                } else {
+                    screenshotsHtml = '<span class="no-prints">Sem prints</span>';
+                }
+                
+                return `
+                    <div class="delivery-item" id="delivery-${delivery.id}">
+                        <div class="delivery-info">
+                            <h3>📦 Farm de ${delivery.name}</h3>
+                            <p class="week-info">📅 Semana: ${formatWeekDate(delivery.week_start)} - ${formatWeekDate(delivery.week_end)}</p>
+                            <div class="materials-list">
+                                ${delivery.items.map(item => `
+                                    <span class="material-tag">${item.material_icon} ${item.material_name}: ${formatNumber(item.amount)}</span>
+                                `).join('')}
+                            </div>
+                            <p>${delivery.description || 'Sem descrição'}</p>
+                            <p>📤 Enviado: ${formatDate(delivery.created_at)}</p>
+                        </div>
+                        <div class="delivery-actions">
+                            <div class="delivery-screenshots-container">
+                                <h4>🖼️ Prints (${delivery.screenshots ? delivery.screenshots.length : (delivery.screenshot_url ? 1 : 0)})</h4>
+                                ${screenshotsHtml}
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-success" onclick="approveDelivery(${delivery.id})">✅ Aprovar</button>
+                                <button class="btn btn-danger" onclick="rejectDelivery(${delivery.id})">❌ Rejeitar</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         } else {
             pendingList.innerHTML = `
                 <div class="empty-state">

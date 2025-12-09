@@ -110,6 +110,14 @@ const convertSQL = (sql) => {
     // Converter INSERT OR IGNORE para INSERT ... ON CONFLICT DO NOTHING
     converted = converted.replace(/INSERT OR IGNORE/gi, 'INSERT');
     
+    // Converter is_partial = 1/0 para TRUE/FALSE (PostgreSQL usa BOOLEAN)
+    converted = converted.replace(/is_partial\s*=\s*1/gi, 'is_partial = TRUE');
+    converted = converted.replace(/is_partial\s*=\s*0/gi, 'is_partial = FALSE');
+    
+    // Converter valores booleanos em INSERT para is_partial (ex: , 1, $6) -> , TRUE, $6)
+    converted = converted.replace(/, 1, (\$\d+)\)/gi, ', TRUE, $1)');
+    converted = converted.replace(/is_partial = 0,/gi, 'is_partial = FALSE,');
+    
     return converted;
 };
 
