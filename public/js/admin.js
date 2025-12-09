@@ -2092,6 +2092,10 @@ async function showMemberWarningsModal(memberId, memberName) {
         const modal = document.getElementById('memberWarningsModal');
         const body = document.getElementById('memberWarningsBody');
         
+        // Guardar dados para refresh
+        modal.dataset.memberId = memberId;
+        modal.dataset.memberName = memberName;
+        
         let content = `
             <div class="warnings-member-info">
                 <h3>👤 ${memberName}</h3>
@@ -2112,6 +2116,9 @@ async function showMemberWarningsModal(memberId, memberName) {
                                     <span>📅 ${new Date(warning.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
                             </div>
+                            <button class="btn btn-danger btn-small" onclick="removeWarning(${warning.id}, '${memberName.replace(/'/g, "\\'")}')">
+                                🗑️ Remover
+                            </button>
                         </div>
                     `).join('')}
                 </div>
@@ -2130,6 +2137,50 @@ async function showMemberWarningsModal(memberId, memberName) {
     } catch (error) {
         console.error('Erro ao carregar advertências:', error);
         alert('Erro ao carregar advertências');
+    }
+}
+
+// Remover advertência
+async function removeWarning(warningId, memberName) {
+    const removal_reason = prompt(`Motivo para remover a ADV de ${memberName}:`);
+    
+    if (removal_reason === null) return; // Cancelou
+    
+    if (!removal_reason.trim()) {
+        alert('É obrigatório informar o motivo da remoção!');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/warnings/${warningId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ removal_reason: removal_reason.trim() })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            
+            // Recarregar o modal
+            const modal = document.getElementById('memberWarningsModal');
+            const memberId = modal.dataset.memberId;
+            const name = modal.dataset.memberName;
+            
+            if (memberId && name) {
+                showMemberWarningsModal(memberId, name);
+            }
+            
+            // Recarregar dados das páginas
+            loadWeeklyStatus();
+            loadMembersForAdv();
+        } else {
+            alert(data.error || 'Erro ao remover advertência');
+        }
+    } catch (error) {
+        console.error('Erro ao remover advertência:', error);
+        alert('Erro ao remover advertência');
     }
 }
 

@@ -1048,6 +1048,47 @@ router.post('/members/:id/warnings', requireAdmin, async (req, res) => {
     }
 });
 
+// Remover advertência (qualquer admin)
+router.delete('/warnings/:id', requireAdmin, async (req, res) => {
+    try {
+        const warningId = req.params.id;
+        const { removal_reason } = req.body;
+        const adminId = req.session.user.id;
+        
+        if (!removal_reason || removal_reason.trim() === '') {
+            return res.status(400).json({ error: 'Informe o motivo da remoção' });
+        }
+        
+        // Buscar a ADV
+        const warning = await getOne(`
+            SELECT w.*, u.name as member_name 
+            FROM warnings w 
+            JOIN users u ON w.user_id = u.id 
+            WHERE w.id = ?
+        `, [warningId]);
+        
+        if (!warning) {
+            return res.status(404).json({ error: 'Advertência não encontrada' });
+        }
+        
+        // Deletar a ADV
+        await runQuery('DELETE FROM warnings WHERE id = ?', [warningId]);
+        
+        // Contar ADVs restantes
+        const count = await getOne('SELECT COUNT(*) as total FROM warnings WHERE user_id = ?', [warning.user_id]);
+        
+        console.log(`🗑️ ADV #${warningId} removida de ${warning.member_name} por admin #${adminId}. Motivo: ${removal_reason}`);
+        
+        res.json({ 
+            success: true, 
+            message: `Advertência removida. ${warning.member_name} agora tem ${count.total} ADV(s).`,
+            remainingCount: count.total
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Remover advertência (somente passaporte 6999)
 router.delete('/warnings/:id', requireAdmin, async (req, res) => {
     try {

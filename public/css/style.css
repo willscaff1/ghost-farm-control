@@ -651,6 +651,52 @@ body {
     gap: 10px;
 }
 
+.warning-detail-item {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--danger);
+}
+
+.warning-detail-item .warning-number {
+    background: var(--danger);
+    color: white;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.warning-detail-item .warning-content {
+    flex: 1;
+}
+
+.warning-detail-item .warning-reason-text {
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.warning-detail-item .warning-meta-info {
+    display: flex;
+    gap: 15px;
+    font-size: 0.85rem;
+    color: var(--light);
+    flex-wrap: wrap;
+}
+
+.warning-detail-item .btn-danger {
+    flex-shrink: 0;
+}
+
 .warning-item {
     background: var(--bg);
     border-radius: 10px;
