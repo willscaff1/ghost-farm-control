@@ -53,9 +53,13 @@ async function loadAvailableWeeks() {
                 const option = document.createElement('option');
                 option.value = week.offset;
                 
-                if (week.hasDelivery) {
-                    option.textContent = `${week.label} - ✅ Já entregue`;
+                if (!week.available && week.reason) {
+                    option.textContent = `${week.label} - ${week.reason}`;
                     option.disabled = true;
+                } else if (week.isPartial) {
+                    // Semana em progresso - pode adicionar mais
+                    option.textContent = `${week.label} - ⚡ Em Progresso (adicionar mais)`;
+                    option.disabled = false;
                 } else if (week.hasJustification) {
                     option.textContent = `${week.label} - 📋 Justificativa enviada`;
                     option.disabled = true;
@@ -89,13 +93,40 @@ async function loadCurrentWeek() {
         const weekStatus = document.getElementById('weekStatus');
         
         if (data.hasDelivery) {
-            // Já tem farm registrado na semana atual
-            const statusClass = data.deliveryStatus === 'approved' ? 'approved' : 
-                               data.deliveryStatus === 'rejected' ? 'rejected' : 'pending';
-            const statusText = data.deliveryStatus === 'approved' ? '✅ FARM COMPLETO' : 
-                              data.deliveryStatus === 'rejected' ? '❌ Farm Rejeitado' : '⏳ Farm Aguardando Aprovação';
-            
-            weekStatus.innerHTML = `<span class="week-status-badge ${statusClass}">${statusText}</span>`;
+            if (data.isPartial && data.canDeliver) {
+                // Farm EM PROGRESSO - pode continuar adicionando
+                weekStatus.innerHTML = `
+                    <span class="week-status-badge in-progress">⚡ FARM EM PROGRESSO</span>
+                    <p class="progress-hint">Continue adicionando até completar 700 de cada!</p>
+                `;
+                
+                // Mostrar barras de progresso
+                if (data.progress) {
+                    const progressHtml = data.progress.map(p => `
+                        <div class="material-progress-item">
+                            <div class="material-progress-header">
+                                <span>${p.icon} ${p.name}</span>
+                                <span class="${p.complete ? 'complete' : 'incomplete'}">${p.current}/${p.goal}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${p.complete ? 'complete' : ''}" style="width: ${p.percentage}%"></div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    weekStatus.innerHTML += `<div class="week-progress-container">${progressHtml}</div>`;
+                }
+            } else if (data.deliveryStatus === 'approved' && !data.isPartial) {
+                // Farm COMPLETO aprovado
+                weekStatus.innerHTML = `<span class="week-status-badge approved">✅ FARM COMPLETO</span>`;
+            } else if (data.deliveryStatus === 'pending' && !data.isPartial) {
+                // Farm completo aguardando aprovação
+                weekStatus.innerHTML = `<span class="week-status-badge pending">⏳ Farm Aguardando Aprovação</span>`;
+            } else if (data.deliveryStatus === 'rejected') {
+                weekStatus.innerHTML = `<span class="week-status-badge rejected">❌ Farm Rejeitado</span>`;
+            } else {
+                weekStatus.innerHTML = `<span class="week-status-badge pending">⏳ Processando...</span>`;
+            }
         } else if (data.hasJustification) {
             // Já tem justificativa na semana atual
             const statusClass = data.justificationStatus === 'approved' ? 'justified-approved' : 
@@ -109,12 +140,23 @@ async function loadCurrentWeek() {
             weekStatus.innerHTML = `<span class="week-status-badge missing">⚠️ Farm Pendente</span>`;
         }
         
-        // Formulário de entrega sempre visível (pode pagar semanas futuras)
-        // Formulário de justificativa só aparece se a semana atual não foi paga
+        // Formulário de entrega visível se pode entregar
+        // Formulário de justificativa só aparece se não tem nada ainda
         const deliveryCard = document.getElementById('deliveryCard');
         const absenceCard = document.getElementById('absenceCard');
-        deliveryCard.style.display = 'block';
+        
+        // Pode entregar se: não tem nada, ou tem parcial em progresso
+        const canShowDeliveryForm = data.canDeliver !== false;
+        deliveryCard.style.display = canShowDeliveryForm ? 'block' : 'none';
         absenceCard.style.display = (!data.hasDelivery && !data.hasJustification) ? 'block' : 'none';
+        
+        // Atualizar título do card de entrega se for adicional
+        const deliveryCardTitle = deliveryCard.querySelector('h2');
+        if (data.isPartial && data.canDeliver) {
+            deliveryCardTitle.textContent = '📦 Adicionar Mais ao Farm';
+        } else {
+            deliveryCardTitle.textContent = '📦 Registrar Farm da Semana';
+        }
         
     } catch (error) {
         console.error('Erro ao carregar semana:', error);

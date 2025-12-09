@@ -73,10 +73,58 @@ router.get('/current-week', requireAuth, async (req, res) => {
             WHERE user_id = ? AND week_start = ? AND week_end = ?
         `, [userId, week.start, week.end]);
         
+        // Se tem entrega, buscar progresso dos materiais
+        let progress = null;
+        if (existingDelivery) {
+            const allMaterials = await getAll('SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1');
+            const deliveryItems = await getAll('SELECT material_id, amount FROM delivery_items WHERE delivery_id = ?', [existingDelivery.id]);
+            
+            progress = allMaterials.map(material => {
+                const item = deliveryItems.find(i => i.material_id === material.id);
+                const currentAmount = item ? item.amount : 0;
+                const goal = material.weekly_goal || DEFAULT_WEEKLY_GOAL;
+                return {
+                    material_id: material.id,
+                    name: material.name,
+                    icon: material.icon,
+                    current: currentAmount,
+                    goal: goal,
+                    percentage: Math.min(100, Math.round((currentAmount / goal) * 100)),
+                    complete: currentAmount >= goal
+                };
+            });
+        }
+        
+        // Determinar status para o frontend
+        let canDeliver = true;
+        let statusMessage = null;
+        
+        if (existingDelivery) {
+            if (existingDelivery.status === 'approved' && !existingDelivery.is_partial) {
+                canDeliver = false;
+                statusMessage = 'Farm completo aprovado!';
+            } else if (existingDelivery.status === 'pending' && !existingDelivery.is_partial) {
+                canDeliver = false;
+                statusMessage = 'Farm completo aguardando aprovação';
+            } else if (existingDelivery.is_partial) {
+                canDeliver = true; // Pode continuar adicionando
+                statusMessage = 'Farm em progresso - continue adicionando!';
+            }
+        }
+        
+        if (existingJustification) {
+            canDeliver = false;
+            statusMessage = 'Ausência justificada esta semana';
+        }
+        
         res.json({ 
             week,
             hasDelivery: !!existingDelivery,
             deliveryStatus: existingDelivery?.status || null,
+            isPartial: existingDelivery?.is_partial || false,
+            progress: progress,
+            canDeliver: canDeliver,
+            statusMessage: statusMessage,
             hasJustification: !!existingJustification,
             justificationStatus: existingJustification?.status || null
         });
@@ -143,11 +191,35 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
                 WHERE user_id = ? AND week_start = ? AND week_end = ?
             `, [userId, week.start, week.end]);
             
+            // Determinar se pode fazer entrega
+            let available = true;
+            let reason = null;
+            
+            if (existingDelivery) {
+                if (existingDelivery.status === 'approved' && !existingDelivery.is_partial) {
+                    available = false;
+                    reason = 'Farm completo aprovado';
+                } else if (existingDelivery.status === 'pending' && !existingDelivery.is_partial) {
+                    available = false;
+                    reason = 'Aguardando aprovação';
+                } else if (existingDelivery.is_partial) {
+                    available = true; // Pode continuar adicionando
+                    reason = 'Em progresso';
+                }
+            }
+            
+            if (existingJustification) {
+                available = false;
+                reason = 'Ausência justificada';
+            }
+            
             weeks.push({
                 offset: i,
                 ...week,
-                available: !existingDelivery && !existingJustification,
+                available: available,
+                reason: reason,
                 hasDelivery: !!existingDelivery,
+                isPartial: existingDelivery?.is_partial || false,
                 hasJustification: !!existingJustification
             });
         }
@@ -175,15 +247,27 @@ router.post('/', requireAuth, (req, res) => {
             }
             const week = getWeekWithOffset(offset);
             
-            // Verificar se já tem entrega na semana
-            const existingDelivery = await getOne(`
+            // Verificar se já tem entrega APROVADA na semana (farm completo já aprovado)
+            const approvedDelivery = await getOne(`
                 SELECT * FROM deliveries 
-                WHERE user_id = ? AND week_start = ? AND week_end = ?
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'approved' AND is_partial = 0
             `, [userId, week.start, week.end]);
             
-            if (existingDelivery) {
+            if (approvedDelivery) {
                 return res.status(400).json({ 
-                    error: 'Você já registrou farm para esta semana. Aguarde a próxima semana.' 
+                    error: 'Seu farm desta semana já foi aprovado! Aguarde a próxima semana.' 
+                });
+            }
+            
+            // Verificar se já tem entrega PENDENTE de aprovação (farm completo aguardando)
+            const pendingCompleteDelivery = await getOne(`
+                SELECT * FROM deliveries 
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'pending' AND is_partial = 0
+            `, [userId, week.start, week.end]);
+            
+            if (pendingCompleteDelivery) {
+                return res.status(400).json({ 
+                    error: 'Você já tem um farm completo aguardando aprovação nesta semana.' 
                 });
             }
             
@@ -204,46 +288,80 @@ router.post('/', requireAuth, (req, res) => {
                 return res.status(400).json({ error: 'Informe pelo menos um material' });
             }
             
-            // Buscar metas de cada material e verificar se é entrega parcial
-            let isPartial = false;
-            for (const item of materialsArray) {
-                const amount = parseInt(item.amount) || 0;
-                if (amount > 0) {
-                    // Buscar meta específica do material
-                    const materialData = await getOne('SELECT weekly_goal FROM materials WHERE id = ?', [item.material_id]);
-                    const materialGoal = materialData?.weekly_goal || DEFAULT_WEEKLY_GOAL;
-                    
-                    if (amount < materialGoal) {
-                        isPartial = true;
-                        break;
+            // Buscar entrega parcial existente (em progresso)
+            let existingPartialDelivery = await getOne(`
+                SELECT * FROM deliveries 
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND is_partial = 1
+            `, [userId, week.start, week.end]);
+            
+            let deliveryId;
+            
+            if (existingPartialDelivery) {
+                // ADICIONAR à entrega existente
+                deliveryId = existingPartialDelivery.id;
+                console.log('📦 Adicionando à entrega existente:', deliveryId);
+                
+                // Somar os valores aos itens existentes
+                for (const item of materialsArray) {
+                    const amount = parseInt(item.amount) || 0;
+                    if (amount > 0) {
+                        // Verificar se já existe esse material na entrega
+                        const existingItem = await getOne(`
+                            SELECT * FROM delivery_items 
+                            WHERE delivery_id = ? AND material_id = ?
+                        `, [deliveryId, item.material_id]);
+                        
+                        if (existingItem) {
+                            // Somar ao valor existente
+                            const newAmount = existingItem.amount + amount;
+                            await runQuery(
+                                'UPDATE delivery_items SET amount = ? WHERE id = ?',
+                                [newAmount, existingItem.id]
+                            );
+                            console.log('📦 Atualizado item:', { material_id: item.material_id, oldAmount: existingItem.amount, added: amount, newAmount });
+                        } else {
+                            // Inserir novo item
+                            await runQuery(
+                                'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
+                                [deliveryId, parseInt(item.material_id), amount]
+                            );
+                            console.log('📦 Inserido novo item:', { material_id: item.material_id, amount });
+                        }
+                    }
+                }
+            } else {
+                // CRIAR nova entrega
+                // Converter primeira imagem para screenshot_url (compatibilidade)
+                const firstFile = req.files[0];
+                const firstBase64 = firstFile.buffer.toString('base64');
+                const firstMimeType = firstFile.mimetype;
+                const screenshot_url = `data:${firstMimeType};base64,${firstBase64}`;
+                
+                console.log('📦 Criando nova entrega:', { userId, week, description });
+                
+                // Criar a entrega principal como parcial (será atualizada se completar)
+                const result = await runQuery(
+                    'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial, status) VALUES (?, ?, ?, ?, ?, 1, ?)',
+                    [userId, week.start, week.end, description || '', screenshot_url, 'in_progress']
+                );
+                
+                deliveryId = result.lastID;
+                console.log('📦 Delivery criado:', deliveryId);
+                
+                // Inserir os itens de cada material
+                for (const item of materialsArray) {
+                    const amount = parseInt(item.amount) || 0;
+                    if (amount > 0) {
+                        await runQuery(
+                            'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
+                            [deliveryId, parseInt(item.material_id), amount]
+                        );
+                        console.log('📦 Inserindo item:', { material_id: item.material_id, amount });
                     }
                 }
             }
             
-            // Converter primeira imagem para screenshot_url (compatibilidade)
-            const firstFile = req.files[0];
-            const firstBase64 = firstFile.buffer.toString('base64');
-            const firstMimeType = firstFile.mimetype;
-            const screenshot_url = `data:${firstMimeType};base64,${firstBase64}`;
-            
-            console.log('📦 Criando delivery:', { userId, week, description, isPartial, totalScreenshots: req.files.length });
-            
-            // Criar a entrega principal com a semana
-            const result = await runQuery(
-                'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial) VALUES (?, ?, ?, ?, ?, ?)',
-                [userId, week.start, week.end, description || '', screenshot_url, isPartial ? 1 : 0]
-            );
-            
-            console.log('📦 Delivery criado, result:', result);
-            
-            const deliveryId = result.lastID;
-            
-            if (!deliveryId) {
-                console.error('❌ Erro: deliveryId não retornado');
-                return res.status(500).json({ error: 'Erro ao criar entrega - ID não retornado' });
-            }
-            
-            // Salvar todos os screenshots na tabela delivery_screenshots
+            // Salvar os novos screenshots
             console.log('📸 Salvando', req.files.length, 'screenshots...');
             for (const file of req.files) {
                 const base64 = file.buffer.toString('base64');
@@ -258,32 +376,61 @@ router.post('/', requireAuth, (req, res) => {
                     console.log('📸 Screenshot salvo para delivery', deliveryId);
                 } catch (screenshotError) {
                     console.error('⚠️ Erro ao salvar screenshot:', screenshotError.message);
-                    // Continuar mesmo se falhar (já tem o screenshot principal no delivery)
-                }
-            }
-            console.log('📸 Screenshots processados');
-            
-            // Inserir os itens de cada material
-            for (const item of materialsArray) {
-                if (item.amount > 0) {
-                    console.log('📦 Inserindo item:', { deliveryId, material_id: item.material_id, amount: item.amount });
-                    await runQuery(
-                        'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
-                        [deliveryId, parseInt(item.material_id), parseInt(item.amount)]
-                    );
                 }
             }
             
-            const statusMsg = isPartial ? 
-                `Farm da semana ${week.label} registrado como PARCIALMENTE PAGO! Aguardando aprovação.` :
-                `Farm da semana ${week.label} registrado! Aguardando aprovação.`;
+            // Verificar se agora completou 700 de cada material
+            const allMaterials = await getAll('SELECT id, name, weekly_goal FROM materials WHERE active = 1');
+            const deliveryItems = await getAll('SELECT material_id, amount FROM delivery_items WHERE delivery_id = ?', [deliveryId]);
             
-            res.json({ 
-                success: true, 
-                message: statusMsg,
-                deliveryId: deliveryId,
-                isPartial: isPartial
-            });
+            let isComplete = true;
+            let progressDetails = [];
+            
+            for (const material of allMaterials) {
+                const item = deliveryItems.find(i => i.material_id === material.id);
+                const currentAmount = item ? item.amount : 0;
+                const goal = material.weekly_goal || DEFAULT_WEEKLY_GOAL;
+                const percentage = Math.min(100, Math.round((currentAmount / goal) * 100));
+                
+                progressDetails.push({
+                    name: material.name,
+                    current: currentAmount,
+                    goal: goal,
+                    percentage: percentage,
+                    complete: currentAmount >= goal
+                });
+                
+                if (currentAmount < goal) {
+                    isComplete = false;
+                }
+            }
+            
+            if (isComplete) {
+                // Farm completo! Atualizar status para pending (aguardando aprovação)
+                await runQuery(
+                    'UPDATE deliveries SET is_partial = 0, status = ? WHERE id = ?',
+                    ['pending', deliveryId]
+                );
+                
+                res.json({ 
+                    success: true, 
+                    message: `🎉 Farm COMPLETO! Semana ${week.label} - Enviado para aprovação!`,
+                    deliveryId: deliveryId,
+                    isComplete: true,
+                    progress: progressDetails
+                });
+            } else {
+                // Ainda parcial - manter em progresso
+                const remaining = progressDetails.filter(p => !p.complete).map(p => `${p.name}: ${p.current}/${p.goal}`).join(', ');
+                
+                res.json({ 
+                    success: true, 
+                    message: `📝 Entrega registrada! Falta completar: ${remaining}`,
+                    deliveryId: deliveryId,
+                    isComplete: false,
+                    progress: progressDetails
+                });
+            }
         } catch (error) {
             console.error('❌ Erro em POST /delivery:', error);
             res.status(500).json({ error: error.message });

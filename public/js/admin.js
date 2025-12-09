@@ -271,10 +271,10 @@ async function loadWeeklyStatus() {
             `).join('');
         }
         
-        // Membros com farm parcial (menos de 700 em algum material)
+        // Membros com farm em progresso (ainda não completou 700 de cada)
         const partialList = document.getElementById('weeklyPartialList');
         if (data.partial && data.partial.length === 0) {
-            partialList.innerHTML = '<div class="empty-state">✨ Nenhum farm parcial</div>';
+            partialList.innerHTML = '<div class="empty-state">✨ Nenhum farm em progresso</div>';
         } else if (data.partial) {
             partialList.innerHTML = data.partial.map(member => `
                 <div class="weekly-member-card partial clickable" onclick="showDeliveryExtract(${JSON.stringify(member).replace(/"/g, '&quot;')})">
@@ -283,13 +283,14 @@ async function loadWeeklyStatus() {
                         <span class="member-role">${roleNames[member.role] || member.role}</span>
                     </div>
                     <div class="member-status">
-                        <span class="status-badge partial">⚡ Parcialmente Pago</span>
-                        <span class="delivery-date">Entregue em ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</span>
+                        <span class="status-badge partial">⚡ Em Progresso</span>
+                        <span class="delivery-date">Iniciado em ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</span>
                     </div>
                     <div class="partial-items">
-                        ${member.items ? member.items.map(item => `
-                            <span class="partial-item ${item.amount < 700 ? 'below' : 'ok'}">${item.material_icon} ${item.amount}</span>
-                        `).join('') : ''}
+                        ${member.items ? member.items.map(item => {
+                            const goal = item.weekly_goal || 700;
+                            return `<span class="partial-item ${item.amount >= goal ? 'ok' : 'below'}">${item.material_icon} ${item.amount}/${goal}</span>`;
+                        }).join('') : ''}
                     </div>
                     <div class="click-hint">🔍 Clique para ver detalhes</div>
                 </div>

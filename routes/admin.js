@@ -654,8 +654,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         const membersToCheck = allMembers.filter(m => !whitelistIds.includes(m.id));
         
         const completed = [];      // Farm aprovado COMPLETO (700+ de cada)
-        const partial = [];        // Farm aprovado PARCIAL (menos de 700 em algum)
-        const pendingApproval = []; // Farm enviado, aguardando aprovação
+        const partial = [];        // Farm EM PROGRESSO (ainda não completou 700 de cada)
+        const pendingApproval = []; // Farm COMPLETO enviado, aguardando aprovação
         const notDelivered = [];   // Não enviou nada
         const justified = [];      // Justificativa aprovada
         
@@ -671,7 +671,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             let deliveryItems = [];
             if (delivery) {
                 deliveryItems = await getAll(`
-                    SELECT di.amount, m.name as material_name, m.icon as material_icon
+                    SELECT di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal
                     FROM delivery_items di
                     JOIN materials m ON di.material_id = m.id
                     WHERE di.delivery_id = ?
@@ -684,25 +684,19 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 WHERE user_id = ? AND week_start = ? AND week_end = ?
             `, [member.id, weekStart, weekEnd]);
             
-            if (delivery && delivery.status === 'approved') {
-                // Farm aprovado - verificar se é completo ou parcial
-                const memberData = {
+            if (delivery && delivery.status === 'approved' && !delivery.is_partial) {
+                // Farm COMPLETO aprovado
+                completed.push({
                     ...member,
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
                     screenshot_url: delivery.screenshot_url,
                     description: delivery.description,
                     items: deliveryItems,
-                    is_partial: delivery.is_partial || false
-                };
-                
-                if (delivery.is_partial) {
-                    partial.push(memberData);
-                } else {
-                    completed.push(memberData);
-                }
-            } else if (delivery && delivery.status === 'pending') {
-                // Farm enviado, aguardando aprovação
+                    is_partial: false
+                });
+            } else if (delivery && delivery.status === 'pending' && !delivery.is_partial) {
+                // Farm COMPLETO aguardando aprovação
                 pendingApproval.push({
                     ...member,
                     delivery_id: delivery.id,
@@ -710,6 +704,18 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     screenshot_url: delivery.screenshot_url,
                     description: delivery.description,
                     items: deliveryItems
+                });
+            } else if (delivery && (delivery.is_partial || delivery.status === 'in_progress')) {
+                // Farm EM PROGRESSO (parcial, ainda completando)
+                partial.push({
+                    ...member,
+                    delivery_id: delivery.id,
+                    delivered_at: delivery.delivered_at,
+                    screenshot_url: delivery.screenshot_url,
+                    description: delivery.description,
+                    items: deliveryItems,
+                    is_partial: true,
+                    status: delivery.status
                 });
             } else if (justification && justification.status === 'approved') {
                 // Justificativa aprovada

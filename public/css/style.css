@@ -1833,6 +1833,81 @@ h3 {
     border-radius: 10px;
 }
 
+/* Farm em Progresso */
+.week-status-badge.in-progress {
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.3), rgba(230, 126, 34, 0.3));
+    color: #f39c12;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    border: 1px solid #f39c12;
+    animation: pulse-progress 2s ease-in-out infinite;
+}
+
+@keyframes pulse-progress {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(243, 156, 18, 0); }
+}
+
+.progress-hint {
+    font-size: 0.85rem;
+    color: #f39c12;
+    margin-top: 8px;
+    font-style: italic;
+}
+
+.week-progress-container {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.material-progress-item {
+    margin-bottom: 12px;
+}
+
+.material-progress-item:last-child {
+    margin-bottom: 0;
+}
+
+.material-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.material-progress-header span.complete {
+    color: #2ecc71;
+    font-weight: 600;
+}
+
+.material-progress-header span.incomplete {
+    color: #f39c12;
+    font-weight: 600;
+}
+
+.progress-bar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f39c12, #e67e22);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.progress-fill.complete {
+    background: linear-gradient(90deg, #2ecc71, #27ae60);
+}
+
 .weekly-member-card.justified {
     border-left: 3px solid var(--secondary);
     background: linear-gradient(135deg, rgba(108, 92, 231, 0.05), var(--bg));
