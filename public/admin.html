@@ -89,6 +89,7 @@
                 <button class="sidebar-item" data-tab="ranking">🏆 Ranking</button>
                 <button class="sidebar-item" data-tab="materials-stats">📊 Materiais</button>
                 <button class="sidebar-item" data-tab="all-deliveries">📋 Histórico</button>
+                <button class="sidebar-item" data-tab="weekly-report">📄 Relatório Semanal</button>
             </div>
 
             <div class="sidebar-section">
@@ -368,6 +369,41 @@
                     <h2>📋 Histórico de Entregas</h2>
                     <div id="allDeliveriesList" class="deliveries-list">
                         <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weekly Report Tab -->
+            <div id="weekly-report-tab" class="tab-content">
+                <div class="card">
+                    <h2>📄 Relatório Semanal</h2>
+                    <p class="subtitle">Relatório completo de quem pagou e quem não pagou o farm</p>
+                    
+                    <div class="report-header">
+                        <label for="reportWeekSelect">Semana:</label>
+                        <select id="reportWeekSelect" onchange="changeReportWeek()">
+                            <option value="0">Semana Atual</option>
+                            <option value="-1">Semana Passada</option>
+                            <option value="-2">2 Semanas Atrás</option>
+                            <option value="-3">3 Semanas Atrás</option>
+                            <option value="-4">4 Semanas Atrás</option>
+                        </select>
+                        
+                        <div class="export-buttons">
+                            <button class="btn-export pdf" onclick="generateReportPDF()">
+                                📄 Exportar PDF
+                            </button>
+                            <button class="btn-export excel" onclick="generateReportExcel()">
+                                📊 Exportar Excel
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="reportPreview">
+                        <div class="report-loading">
+                            <div class="spinner"></div>
+                            <p>Selecione uma semana para gerar o relatório</p>
+                        </div>
                     </div>
                 </div>
             </div>

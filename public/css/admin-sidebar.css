@@ -2255,3 +2255,268 @@ body.admin-layout {
     font-size: 16px;
     margin: 0;
 }
+
+/* Weekly Report Tab Styles */
+.report-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.report-header label {
+    color: #fff;
+    font-weight: 500;
+}
+
+.report-header select {
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 200px;
+}
+
+.report-header select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.export-buttons {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.btn-export {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.btn-export.pdf {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+}
+
+.btn-export.pdf:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(231, 76, 60, 0.4);
+}
+
+.btn-export.excel {
+    background: linear-gradient(135deg, #27ae60 0%, #219a52 100%);
+    color: white;
+}
+
+.btn-export.excel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(39, 174, 96, 0.4);
+}
+
+.report-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.report-section {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.report-section-header {
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.report-section-header .icon {
+    font-size: 20px;
+}
+
+.report-section-header .count {
+    margin-left: auto;
+    background: rgba(255,255,255,0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+.report-section.paid .report-section-header {
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.3) 0%, rgba(39, 174, 96, 0.1) 100%);
+    color: #2ecc71;
+}
+
+.report-section.not-paid .report-section-header {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.3) 0%, rgba(231, 76, 60, 0.1) 100%);
+    color: #e74c3c;
+}
+
+.report-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.report-table th,
+.report-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.report-table th {
+    background: rgba(0,0,0,0.2);
+    color: #aaa;
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    position: sticky;
+    top: 0;
+}
+
+.report-table td {
+    color: #fff;
+    font-size: 14px;
+}
+
+.report-table tbody tr:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.report-section.paid .report-table tbody tr:hover {
+    background: rgba(39, 174, 96, 0.1);
+}
+
+.report-section.not-paid .report-table tbody tr:hover {
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.report-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.summary-card.total {
+    border-color: rgba(102, 126, 234, 0.5);
+}
+
+.summary-card.paid {
+    border-color: rgba(39, 174, 96, 0.5);
+}
+
+.summary-card.not-paid {
+    border-color: rgba(231, 76, 60, 0.5);
+}
+
+.summary-card.rate {
+    border-color: rgba(241, 196, 15, 0.5);
+}
+
+.summary-card .value {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.summary-card.total .value {
+    color: #667eea;
+}
+
+.summary-card.paid .value {
+    color: #2ecc71;
+}
+
+.summary-card.not-paid .value {
+    color: #e74c3c;
+}
+
+.summary-card.rate .value {
+    color: #f1c40f;
+}
+
+.summary-card .label {
+    color: #aaa;
+    font-size: 13px;
+}
+
+.report-loading,
+.report-error {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.report-loading .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255,255,255,0.1);
+    border-left-color: #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+.report-loading p {
+    color: #aaa;
+}
+
+.report-error .icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.report-error p {
+    color: #e74c3c;
+}
+
+@media (max-width: 768px) {
+    .report-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .export-buttons {
+        margin-left: 0;
+        justify-content: center;
+    }
+    
+    .report-content {
+        grid-template-columns: 1fr;
+    }
+}

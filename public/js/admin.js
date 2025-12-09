@@ -81,6 +81,7 @@ function showTab(tabId) {
         case 'whitelist': loadWhitelist(); break;
         case 'ranking': loadRanking(); break;
         case 'all-deliveries': loadAllDeliveries(); break;
+        case 'weekly-report': loadWeeklyReport(); break;
     }
 }
 
@@ -194,6 +195,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'all-deliveries':
                 loadAllDeliveries();
+                break;
+            case 'weekly-report':
+                loadWeeklyReport();
                 break;
             case 'whitelist':
                 loadWhitelist();
@@ -2440,6 +2444,336 @@ function formatTimeAgo(dateStr) {
 }
 
 // ==================== FIM SISTEMA DE NOTIFICAÇÕES ADMIN ====================
+
+// ==================== RELATÓRIO SEMANAL ====================
+
+let reportData = null;
+let reportWeekOffset = 0;
+
+// Carregar relatório semanal
+async function loadWeeklyReport() {
+    const container = document.getElementById('reportPreview');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="report-loading">
+            <div class="spinner"></div>
+            <p>Carregando relatório...</p>
+        </div>
+    `;
+    
+    try {
+        // Primeiro, pegar informações da semana
+        const weekResponse = await fetch(`/api/admin/week/${reportWeekOffset}`);
+        const weekData = await weekResponse.json();
+        
+        // Buscar dados dos membros para a semana
+        const params = `?week_start=${weekData.week.start}&week_end=${weekData.week.end}`;
+        const response = await fetch(`/api/admin/members-overview${params}`);
+        const data = await response.json();
+        
+        if (!response.ok) throw new Error(data.error || 'Erro ao carregar relatório');
+        
+        // Separar quem pagou e quem não pagou
+        const paid = [];
+        const notPaid = [];
+        
+        data.members.forEach(member => {
+            const memberData = {
+                id: member.id,
+                name: member.name,
+                passport: member.passport,
+                role: roleNames[member.role] || member.role,
+                total_delivered: member.total_delivered || 0,
+                approved_count: member.approved_count || 0,
+                pending_count: member.pending_count || 0,
+                has_justification: member.has_justification || false
+            };
+            
+            // Considera "pagou" se tem entregas aprovadas ou justificativa aceita
+            if (member.approved_count > 0 || (member.has_justification && member.justification_status === 'approved')) {
+                paid.push(memberData);
+            } else {
+                notPaid.push(memberData);
+            }
+        });
+        
+        // Salvar dados para exportação
+        reportData = {
+            week: weekData.week,
+            paid,
+            notPaid,
+            total: data.members.length,
+            rate: data.members.length > 0 ? Math.round((paid.length / data.members.length) * 100) : 0
+        };
+        
+        // Renderizar tabelas
+        renderReport(reportData);
+        
+    } catch (error) {
+        console.error('Erro ao carregar relatório:', error);
+        container.innerHTML = `
+            <div class="report-error">
+                <div class="icon">❌</div>
+                <p>Erro ao carregar relatório: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Renderizar relatório
+function renderReport(data) {
+    const container = document.getElementById('reportPreview');
+    
+    container.innerHTML = `
+        <div class="report-content">
+            <div class="report-section paid">
+                <div class="report-section-header">
+                    <span class="icon">✅</span>
+                    <span>Pagaram o Farm</span>
+                    <span class="count">${data.paid.length}</span>
+                </div>
+                <div class="report-table-container">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Passaporte</th>
+                                <th>Nome</th>
+                                <th>Cargo</th>
+                                <th>Entregas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.paid.length > 0 ? data.paid.map(m => `
+                                <tr>
+                                    <td>${m.passport}</td>
+                                    <td>${m.name}</td>
+                                    <td>${m.role}</td>
+                                    <td>${m.approved_count}</td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="4" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="report-section not-paid">
+                <div class="report-section-header">
+                    <span class="icon">❌</span>
+                    <span>Não Pagaram</span>
+                    <span class="count">${data.notPaid.length}</span>
+                </div>
+                <div class="report-table-container">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Passaporte</th>
+                                <th>Nome</th>
+                                <th>Cargo</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.notPaid.length > 0 ? data.notPaid.map(m => `
+                                <tr>
+                                    <td>${m.passport}</td>
+                                    <td>${m.name}</td>
+                                    <td>${m.role}</td>
+                                    <td>${m.has_justification ? '⏳ Justificativa Pendente' : '❌ Sem Entrega'}</td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="4" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="report-summary">
+            <div class="summary-card total">
+                <div class="value">${data.total}</div>
+                <div class="label">Total de Membros</div>
+            </div>
+            <div class="summary-card paid">
+                <div class="value">${data.paid.length}</div>
+                <div class="label">Pagaram</div>
+            </div>
+            <div class="summary-card not-paid">
+                <div class="value">${data.notPaid.length}</div>
+                <div class="label">Não Pagaram</div>
+            </div>
+            <div class="summary-card rate">
+                <div class="value">${data.rate}%</div>
+                <div class="label">Taxa de Pagamento</div>
+            </div>
+        </div>
+    `;
+}
+
+// Mudar semana do relatório
+function changeReportWeek() {
+    const select = document.getElementById('reportWeekSelect');
+    reportWeekOffset = parseInt(select.value);
+    loadWeeklyReport();
+}
+
+// Gerar PDF do relatório
+async function generateReportPDF() {
+    if (!reportData) {
+        alert('Carregue o relatório primeiro!');
+        return;
+    }
+    
+    // Criar conteúdo HTML para impressão
+    const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Relatório Semanal - Farm Ghosts</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                h1 { color: #333; text-align: center; }
+                h2 { color: #666; margin-top: 30px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+                .info { text-align: center; color: #888; margin-bottom: 30px; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                th { background: #f5f5f5; }
+                .summary { display: flex; justify-content: space-around; margin: 30px 0; }
+                .summary-item { text-align: center; }
+                .summary-item .value { font-size: 24px; font-weight: bold; }
+                .summary-item .label { color: #888; }
+                .paid { color: #27ae60; }
+                .not-paid { color: #e74c3c; }
+                @media print {
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>📋 Relatório Semanal de Farm</h1>
+            <div class="info">
+                <strong>Semana:</strong> ${reportData.week.label}<br>
+                <strong>Gerado em:</strong> ${new Date().toLocaleString('pt-BR')}
+            </div>
+            
+            <div class="summary">
+                <div class="summary-item">
+                    <div class="value">${reportData.total}</div>
+                    <div class="label">Total</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value paid">${reportData.paid.length}</div>
+                    <div class="label">Pagaram</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value not-paid">${reportData.notPaid.length}</div>
+                    <div class="label">Não Pagaram</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value">${reportData.rate}%</div>
+                    <div class="label">Taxa</div>
+                </div>
+            </div>
+            
+            <h2 class="paid">✅ Pagaram o Farm (${reportData.paid.length})</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Passaporte</th>
+                        <th>Nome</th>
+                        <th>Cargo</th>
+                        <th>Entregas Aprovadas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${reportData.paid.map(m => `
+                        <tr>
+                            <td>${m.passport}</td>
+                            <td>${m.name}</td>
+                            <td>${m.role}</td>
+                            <td>${m.approved_count}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            
+            <h2 class="not-paid">❌ Não Pagaram (${reportData.notPaid.length})</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Passaporte</th>
+                        <th>Nome</th>
+                        <th>Cargo</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${reportData.notPaid.map(m => `
+                        <tr>
+                            <td>${m.passport}</td>
+                            <td>${m.name}</td>
+                            <td>${m.role}</td>
+                            <td>${m.has_justification ? 'Justificativa Pendente' : 'Sem Entrega'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `;
+    
+    // Abrir janela para impressão
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.onload = function() {
+        printWindow.print();
+    };
+}
+
+// Gerar Excel do relatório (CSV)
+function generateReportExcel() {
+    if (!reportData) {
+        alert('Carregue o relatório primeiro!');
+        return;
+    }
+    
+    // Criar conteúdo CSV
+    let csv = 'sep=;\n'; // Para Excel reconhecer separador
+    csv += 'RELATÓRIO SEMANAL DE FARM - GHOSTS\n';
+    csv += `Semana;${reportData.week.label}\n`;
+    csv += `Gerado em;${new Date().toLocaleString('pt-BR')}\n`;
+    csv += '\n';
+    csv += 'RESUMO\n';
+    csv += `Total de Membros;${reportData.total}\n`;
+    csv += `Pagaram;${reportData.paid.length}\n`;
+    csv += `Não Pagaram;${reportData.notPaid.length}\n`;
+    csv += `Taxa de Pagamento;${reportData.rate}%\n`;
+    csv += '\n';
+    csv += 'PAGARAM O FARM\n';
+    csv += 'Passaporte;Nome;Cargo;Entregas Aprovadas\n';
+    reportData.paid.forEach(m => {
+        csv += `${m.passport};${m.name};${m.role};${m.approved_count}\n`;
+    });
+    csv += '\n';
+    csv += 'NÃO PAGARAM\n';
+    csv += 'Passaporte;Nome;Cargo;Status\n';
+    reportData.notPaid.forEach(m => {
+        csv += `${m.passport};${m.name};${m.role};${m.has_justification ? 'Justificativa Pendente' : 'Sem Entrega'}\n`;
+    });
+    
+    // Criar blob e download
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `relatorio_farm_${reportData.week.start}_${reportData.week.end}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// ==================== FIM RELATÓRIO SEMANAL ====================
 
 // Inicializa
 checkAuth();
