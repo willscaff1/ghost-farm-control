@@ -2520,3 +2520,133 @@ body.admin-layout {
         grid-template-columns: 1fr;
     }
 }
+
+/* Member List Styles */
+.member-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.member-item .member-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.member-item .member-passport {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    min-width: 70px;
+    text-align: center;
+}
+
+.member-item .member-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #fff;
+}
+
+.member-item .member-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.member-item.inactive {
+    opacity: 0.5;
+}
+
+.member-item.inactive .member-passport {
+    background: linear-gradient(135deg, #666 0%, #444 100%);
+}
+
+/* Edit Member Modal */
+#editMemberModal .modal-content {
+    max-width: 500px;
+}
+
+#editMemberModal .form-group {
+    margin-bottom: 18px;
+}
+
+#editMemberModal .form-group label {
+    display: block;
+    color: #aaa;
+    font-size: 13px;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+#editMemberModal .form-group label small {
+    color: #666;
+    font-weight: 400;
+}
+
+#editMemberModal .form-group input,
+#editMemberModal .form-group select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+#editMemberModal .form-group input:focus,
+#editMemberModal .form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+#editMemberModal .modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#editMemberModal .btn-cancel {
+    padding: 12px 25px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: transparent;
+    color: #aaa;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#editMemberModal .btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+#editMemberModal .btn-save {
+    padding: 12px 25px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #27ae60 0%, #219a52 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#editMemberModal .btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(39, 174, 96, 0.4);
+}

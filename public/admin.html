@@ -261,6 +261,48 @@
                 </div>
             </div>
             
+            <!-- Modal Editar Membro -->
+            <div id="editMemberModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>✏️ Editar Membro</h2>
+                        <button class="modal-close" onclick="closeEditMemberModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="editMemberName">Nome *</label>
+                            <input type="text" id="editMemberName" placeholder="Nome completo" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editMemberPassport">Passaporte *</label>
+                            <input type="text" id="editMemberPassport" placeholder="Passaporte" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editMemberEmail">Email</label>
+                            <input type="email" id="editMemberEmail" placeholder="Email (opcional)">
+                        </div>
+                        <div class="form-group">
+                            <label for="editMemberRole">Cargo</label>
+                            <select id="editMemberRole">
+                                <option value="member">Membro</option>
+                                <option value="01">01 (Primeiro Líder)</option>
+                                <option value="02">02 (Segundo Líder)</option>
+                                <option value="gerente_farm">Gerente de Farm</option>
+                                <option value="gerente_geral">Gerente Geral</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editMemberPassword">Nova Senha <small>(deixe em branco para manter)</small></label>
+                            <input type="password" id="editMemberPassword" placeholder="Nova senha (opcional)">
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn-cancel" onclick="closeEditMemberModal()">Cancelar</button>
+                            <button class="btn-save" onclick="saveEditMember()">💾 Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Modal ADV -->
             <div id="advMemberModal" class="modal" style="display: none;">
                 <div class="modal-content">

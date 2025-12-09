@@ -253,7 +253,7 @@ router.get('/members', requireAdmin, async (req, res) => {
                    (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'pending') as pending_count,
                    (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as approved_count
             FROM users u
-            ORDER BY total_materials DESC
+            ORDER BY CAST(u.passport AS INTEGER) ASC
         `);
         
         res.json({ members, roleNames });
@@ -324,7 +324,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         }
         
         const memberId = req.params.id;
-        const { name, passport, email } = req.body;
+        const { name, passport, email, role, newPassword } = req.body;
         
         const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
         if (!member) {
@@ -344,10 +344,31 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
             }
         }
         
-        await runQuery(
-            'UPDATE users SET name = ?, passport = ?, email = ? WHERE id = ?',
-            [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, memberId]
-        );
+        // Validar cargo se fornecido
+        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_geral'];
+        if (role && !validRoles.includes(role)) {
+            return res.status(400).json({ error: 'Cargo inválido' });
+        }
+        
+        // Se tem nova senha, fazer hash
+        let hashedPassword = null;
+        if (newPassword && newPassword.length >= 6) {
+            const bcrypt = require('bcrypt');
+            hashedPassword = await bcrypt.hash(newPassword, 10);
+        }
+        
+        // Atualizar membro
+        if (hashedPassword) {
+            await runQuery(
+                'UPDATE users SET name = ?, passport = ?, email = ?, role = ?, password = ? WHERE id = ?',
+                [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, hashedPassword, memberId]
+            );
+        } else {
+            await runQuery(
+                'UPDATE users SET name = ?, passport = ?, email = ?, role = ? WHERE id = ?',
+                [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, memberId]
+            );
+        }
         
         res.json({ success: true, message: 'Membro atualizado com sucesso' });
     } catch (error) {

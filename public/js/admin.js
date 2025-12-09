@@ -1037,7 +1037,8 @@ async function loadMembers() {
             membersList.innerHTML = data.members.map(member => `
                 <div class="member-item ${member.active ? '' : 'inactive'}" id="member-${member.id}">
                     <div class="member-info">
-                        <span><strong>${member.name}</strong> <small>(${member.passport})</small></span>
+                        <span class="member-passport">${member.passport}</span>
+                        <span class="member-name">${member.name}</span>
                         ${isSuperAdmin && member.passport !== '6999' ? `
                             <select class="role-select" onchange="changeRole(${member.id}, this.value)">
                                 <option value="member" ${member.role === 'member' ? 'selected' : ''}>Membro</option>
@@ -1049,15 +1050,14 @@ async function loadMembers() {
                         ` : `
                             <span class="role ${member.role}">${roleNames[member.role] || member.role}${member.passport === '6999' ? ' 👑' : ''}</span>
                         `}
-                        <span>📦 Total: ${formatNumber(member.total_materials)}</span>
                     </div>
                     <div class="member-actions">
                         ${isSuperAdmin && member.passport !== '6999' ? `
-                            <button class="btn btn-small btn-secondary" onclick="editMember(${member.id}, '${member.name}', '${member.passport}', '${member.email || ''}')">✏️ Editar</button>
+                            <button class="btn btn-small btn-secondary" onclick="openEditMemberModal(${member.id}, '${member.name.replace(/'/g, "\\'") }', '${member.passport}', '${member.email || ''}', '${member.role}')">✏️ Editar</button>
                             <button class="btn ${member.active ? 'btn-warning' : 'btn-success'} btn-small" onclick="toggleMember(${member.id})">
                                 ${member.active ? '🚫 Desativar' : '✅ Ativar'}
                             </button>
-                            <button class="btn btn-danger btn-small" onclick="deleteMember(${member.id}, '${member.name}')">🗑️ Deletar</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteMember(${member.id}, '${member.name.replace(/'/g, "\\'")}')">🗑️ Deletar</button>
                         ` : ''}
                     </div>
                 </div>
@@ -1075,32 +1075,57 @@ async function loadMembers() {
     }
 }
 
-// Editar membro
-function editMember(id, name, passport, email) {
-    const newName = prompt('Nome:', name);
-    if (newName === null) return;
+// Abrir modal de edição de membro
+let editingMemberId = null;
+
+function openEditMemberModal(id, name, passport, email, role) {
+    editingMemberId = id;
+    document.getElementById('editMemberName').value = name;
+    document.getElementById('editMemberPassport').value = passport;
+    document.getElementById('editMemberEmail').value = email || '';
+    document.getElementById('editMemberRole').value = role;
+    document.getElementById('editMemberModal').style.display = 'flex';
+}
+
+function closeEditMemberModal() {
+    document.getElementById('editMemberModal').style.display = 'none';
+    editingMemberId = null;
+}
+
+// Salvar edição do membro
+async function saveEditMember() {
+    if (!editingMemberId) return;
     
-    const newPassport = prompt('Passaporte:', passport);
-    if (newPassport === null) return;
+    const name = document.getElementById('editMemberName').value.trim();
+    const passport = document.getElementById('editMemberPassport').value.trim();
+    const email = document.getElementById('editMemberEmail').value.trim();
+    const role = document.getElementById('editMemberRole').value;
+    const newPassword = document.getElementById('editMemberPassword').value;
     
-    const newEmail = prompt('Email:', email);
-    if (newEmail === null) return;
+    if (!name || !passport) {
+        alert('Nome e passaporte são obrigatórios!');
+        return;
+    }
     
-    fetch(`/api/admin/members/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName, passport: newPassport, email: newEmail })
-    })
-    .then(res => res.json())
-    .then(data => {
+    try {
+        const response = await fetch(`/api/admin/members/${editingMemberId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, passport, email, role, newPassword: newPassword || undefined })
+        });
+        
+        const data = await response.json();
+        
         if (data.success) {
             alert(data.message);
+            closeEditMemberModal();
             loadMembers();
         } else {
             alert(data.error || 'Erro ao editar membro');
         }
-    })
-    .catch(() => alert('Erro ao editar membro'));
+    } catch (error) {
+        alert('Erro ao editar membro');
+    }
 }
 
 // Deletar membro
