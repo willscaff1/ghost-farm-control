@@ -641,8 +641,23 @@ function formatDate(dateStr) {
 }
 
 function formatWeek(start, end) {
-    const startDate = new Date(start + 'T00:00:00');
-    const endDate = new Date(end + 'T00:00:00');
+    // PostgreSQL pode retornar datas em diferentes formatos
+    // Extrair apenas a parte da data (YYYY-MM-DD)
+    const parseDate = (dateStr) => {
+        if (!dateStr) return null;
+        // Se for string ISO completa, pegar só a parte da data
+        const datePart = String(dateStr).split('T')[0];
+        const [year, month, day] = datePart.split('-');
+        return new Date(year, month - 1, day);
+    };
+    
+    const startDate = parseDate(start);
+    const endDate = parseDate(end);
+    
+    if (!startDate || !endDate || isNaN(startDate) || isNaN(endDate)) {
+        return 'Data inválida';
+    }
+    
     return `${startDate.toLocaleDateString('pt-BR')} - ${endDate.toLocaleDateString('pt-BR')}`;
 }
 
@@ -651,14 +666,16 @@ function getStatusText(status, isPartial = false) {
         const texts = {
             pending: '⏳ Parcialmente Pago - Aguardando Aprovação',
             approved: '⚠️ Parcialmente Pago - Aprovado',
-            rejected: '❌ Parcialmente Pago - Rejeitado'
+            rejected: '❌ Parcialmente Pago - Rejeitado',
+            in_progress: '⚡ Em Progresso'
         };
         return texts[status] || status;
     }
     const texts = {
         pending: '⏳ Aguardando Aprovação',
         approved: '✅ Farm Completo - Aprovado',
-        rejected: '❌ Rejeitado'
+        rejected: '❌ Rejeitado',
+        in_progress: '⚡ Em Progresso'
     };
     return texts[status] || status;
 }
