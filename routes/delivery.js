@@ -87,15 +87,25 @@ router.get('/current-week', requireAuth, async (req, res) => {
 
 // Obter meta semanal
 router.get('/weekly-goal', requireAuth, (req, res) => {
-    res.json({ weeklyGoal: WEEKLY_GOAL });
+    res.json({ weeklyGoal: DEFAULT_WEEKLY_GOAL });
 });
 
 // Obter lista de materiais
 router.get('/materials', requireAuth, async (req, res) => {
     try {
-        const materials = await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name');
-        res.json({ materials, weeklyGoal: WEEKLY_GOAL });
+        // Tenta buscar com weekly_goal, se falhar busca sem
+        let materials;
+        try {
+            materials = await getAll('SELECT id, name, icon, weekly_goal, active FROM materials WHERE active = 1 ORDER BY name');
+        } catch (e) {
+            // Fallback se weekly_goal não existir
+            materials = await getAll('SELECT id, name, icon, active FROM materials WHERE active = 1 ORDER BY name');
+            // Adicionar weekly_goal padrão
+            materials = materials.map(m => ({ ...m, weekly_goal: 700 }));
+        }
+        res.json({ materials, weeklyGoal: DEFAULT_WEEKLY_GOAL });
     } catch (error) {
+        console.error('Erro ao buscar materiais:', error);
         res.status(500).json({ error: error.message });
     }
 });

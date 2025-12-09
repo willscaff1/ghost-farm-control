@@ -293,12 +293,23 @@ const initializePostgres = async () => {
         // Adicionar weekly_goal em materials
         try {
             await pool.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS weekly_goal INTEGER DEFAULT 700`);
-        } catch (e) { /* coluna já existe */ }
+            console.log('✅ Coluna weekly_goal verificada/adicionada');
+        } catch (e) { 
+            console.log('ℹ️ weekly_goal:', e.message);
+        }
+        
+        // Atualizar materials existentes que não tem weekly_goal
+        try {
+            await pool.query(`UPDATE materials SET weekly_goal = 700 WHERE weekly_goal IS NULL`);
+        } catch (e) { /* ignorar */ }
         
         // Adicionar is_partial em deliveries
         try {
             await pool.query(`ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS is_partial BOOLEAN DEFAULT FALSE`);
-        } catch (e) { /* coluna já existe */ }
+            console.log('✅ Coluna is_partial verificada/adicionada');
+        } catch (e) { 
+            console.log('ℹ️ is_partial:', e.message);
+        }
         
         // Criar tabela delivery_screenshots se não existir
         await pool.query(`
@@ -309,6 +320,7 @@ const initializePostgres = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        console.log('✅ Tabela delivery_screenshots verificada/criada');
         
         console.log('✅ Migrações concluídas');
 
