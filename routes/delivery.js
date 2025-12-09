@@ -55,13 +55,14 @@ const requireAuth = (req, res, next) => {
     next();
 };
 
-// Obter semana atual
+// Obter semana atual ou com offset
 router.get('/current-week', requireAuth, async (req, res) => {
     try {
-        const week = getCurrentWeek();
+        const offset = parseInt(req.query.offset) || 0;
+        const week = getWeekWithOffset(offset);
         const userId = req.session.user.id;
         
-        // Verificar se já tem entrega na semana atual (ignorar rejeitadas - podem refazer)
+        // Verificar se já tem entrega na semana (ignorar rejeitadas - podem refazer)
         const existingDelivery = await getOne(`
             SELECT * FROM deliveries 
             WHERE user_id = ? AND week_start = ? AND week_end = ? AND status != 'rejected'

@@ -1,7 +1,9 @@
 let currentUser = null;
 let currentWeekData = null;
-let weeklyGoal = 700; // fallback
-let materialsGoals = {}; // metas por material
+let currentWeekOffset = 0;
+let weeklyGoal = 700;
+let materialsGoals = {};
+let availableWeeksData = [];
 const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
 
 const roleNames = {
@@ -20,15 +22,14 @@ async function checkAuth() {
         
         if (data.user) {
             currentUser = data.user;
-            document.getElementById('userName').textContent = `👤 ${currentUser.name} (${roleNames[currentUser.role] || currentUser.role})`;
+            document.getElementById('userName').textContent = `${currentUser.name}`;
             
             if (adminRoles.includes(currentUser.role)) {
                 document.getElementById('adminBtn').style.display = 'inline-block';
             }
             
-            loadCurrentWeek();
-            loadMaterials();
             loadAvailableWeeks();
+            loadMaterials();
             loadStats();
             loadMyDeliveries();
         } else {
@@ -39,129 +40,165 @@ async function checkAuth() {
     }
 }
 
-// Carregar semanas disponíveis para entrega
+// Carregar semanas disponíveis
 async function loadAvailableWeeks() {
     try {
         const response = await fetch('/api/delivery/available-weeks');
         const data = await response.json();
+        availableWeeksData = data.weeks || [];
         
-        const weekSelect = document.getElementById('weekSelect');
-        weekSelect.innerHTML = '';
-        
-        if (data.weeks && data.weeks.length > 0) {
-            data.weeks.forEach(week => {
-                const option = document.createElement('option');
-                option.value = week.offset;
-                
-                if (!week.available && week.reason) {
-                    option.textContent = `${week.label} - ${week.reason}`;
-                    option.disabled = true;
-                } else if (week.isPartial) {
-                    // Semana em progresso - pode adicionar mais
-                    option.textContent = `${week.label} - ⚡ Em Progresso (adicionar mais)`;
-                    option.disabled = false;
-                } else if (week.hasJustification) {
-                    option.textContent = `${week.label} - 📋 Justificativa enviada`;
-                    option.disabled = true;
-                } else {
-                    option.textContent = week.offset === 0 ? `${week.label} (Semana Atual)` : week.label;
-                }
-                
-                weekSelect.appendChild(option);
-            });
-            
-            // Selecionar a primeira semana disponível
-            const firstAvailable = data.weeks.find(w => w.available);
-            if (firstAvailable) {
-                weekSelect.value = firstAvailable.offset;
-            }
+        // Carregar dados da semana atual (offset 0)
+        if (availableWeeksData.length > 0) {
+            loadWeekData(0);
         }
+        
+        updateWeekNavButtons();
+        
     } catch (error) {
-        console.error('Erro ao carregar semanas disponíveis:', error);
+        console.error('Erro ao carregar semanas:', error);
     }
 }
 
-// Carregar informações da semana atual
-async function loadCurrentWeek() {
+// Mudar semana (botões de navegação)
+function changeWeek(direction) {
+    const newOffset = currentWeekOffset + direction;
+    
+    // Verificar se existe a semana
+    const weekExists = availableWeeksData.find(w => w.offset === newOffset);
+    if (weekExists) {
+        currentWeekOffset = newOffset;
+        loadWeekData(currentWeekOffset);
+        updateWeekNavButtons();
+    }
+}
+
+// Atualizar botões de navegação
+function updateWeekNavButtons() {
+    const prevBtn = document.getElementById('prevWeekBtn');
+    const nextBtn = document.getElementById('nextWeekBtn');
+    
+    if (!prevBtn || !nextBtn || availableWeeksData.length === 0) return;
+    
+    // Verificar se existem semanas anteriores/próximas
+    const minOffset = Math.min(...availableWeeksData.map(w => w.offset));
+    const maxOffset = Math.max(...availableWeeksData.map(w => w.offset));
+    
+    prevBtn.disabled = currentWeekOffset <= minOffset;
+    nextBtn.disabled = currentWeekOffset >= maxOffset;
+}
+
+// Carregar dados de uma semana específica
+async function loadWeekData(offset = 0) {
     try {
-        const response = await fetch('/api/delivery/current-week');
+        currentWeekOffset = offset;
+        
+        // Atualizar hidden input do form
+        const weekSelect = document.getElementById('weekSelect');
+        if (weekSelect) weekSelect.value = offset;
+        
+        const response = await fetch(`/api/delivery/current-week?offset=${offset}`);
         const data = await response.json();
         currentWeekData = data;
         
-        document.getElementById('weekLabel').textContent = data.week.label;
+        // Atualizar label da semana com indicador
+        const weekLabel = document.getElementById('weekLabel');
+        let labelText = data.week.label;
+        if (offset === 0) {
+            labelText += ' (Atual)';
+        } else if (offset > 0) {
+            labelText += ` (+${offset} sem)`;
+        }
+        weekLabel.textContent = labelText;
         
+        // Atualizar status
         const weekStatus = document.getElementById('weekStatus');
+        let statusHtml = '';
+        let statusClass = '';
         
         if (data.hasDelivery) {
             if (data.isPartial && data.canDeliver) {
-                // Farm EM PROGRESSO - pode continuar adicionando
-                weekStatus.innerHTML = `
-                    <span class="week-status-badge in-progress">⚡ FARM EM PROGRESSO</span>
-                    <p class="progress-hint">Continue adicionando até completar 700 de cada!</p>
-                `;
-                
-                // Mostrar barras de progresso
-                if (data.progress) {
-                    const progressHtml = data.progress.map(p => `
-                        <div class="material-progress-item">
-                            <div class="material-progress-header">
-                                <span>${p.icon} ${p.name}</span>
-                                <span class="${p.complete ? 'complete' : 'incomplete'}">${p.current}/${p.goal}</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill ${p.complete ? 'complete' : ''}" style="width: ${p.percentage}%"></div>
-                            </div>
-                        </div>
-                    `).join('');
-                    
-                    weekStatus.innerHTML += `<div class="week-progress-container">${progressHtml}</div>`;
-                }
-            } else if (data.deliveryStatus === 'approved' && !data.isPartial) {
-                // Farm COMPLETO aprovado
-                weekStatus.innerHTML = `<span class="week-status-badge approved">✅ FARM COMPLETO</span>`;
-            } else if (data.deliveryStatus === 'pending' && !data.isPartial) {
-                // Farm completo aguardando aprovação
-                weekStatus.innerHTML = `<span class="week-status-badge pending">⏳ Farm Aguardando Aprovação</span>`;
-            } else if (data.deliveryStatus === 'rejected') {
-                weekStatus.innerHTML = `<span class="week-status-badge rejected">❌ Farm Rejeitado</span>`;
+                statusClass = 'in-progress';
+                statusHtml = '⚡ Em Progresso';
+            } else if (data.deliveryStatus === 'approved') {
+                statusClass = 'approved';
+                statusHtml = '✅ Aprovado';
+            } else if (data.deliveryStatus === 'pending') {
+                statusClass = 'pending';
+                statusHtml = '⏳ Aguardando';
             } else {
-                weekStatus.innerHTML = `<span class="week-status-badge pending">⏳ Processando...</span>`;
+                statusClass = 'pending';
+                statusHtml = '⏳ Processando';
             }
         } else if (data.hasJustification) {
-            // Já tem justificativa na semana atual
-            const statusClass = data.justificationStatus === 'approved' ? 'justified-approved' : 
-                               data.justificationStatus === 'rejected' ? 'rejected' : 'justification-pending';
-            const statusText = data.justificationStatus === 'approved' ? '📋 AUSÊNCIA JUSTIFICADA' : 
-                              data.justificationStatus === 'rejected' ? '❌ Justificativa Rejeitada - Entregue o Farm!' : '⏳ Justificativa Aguardando Aprovação';
-            
-            weekStatus.innerHTML = `<span class="week-status-badge ${statusClass}">${statusText}</span>`;
+            statusClass = data.justificationStatus === 'approved' ? 'justified' : 'pending';
+            statusHtml = data.justificationStatus === 'approved' ? '📋 Justificado' : '⏳ Aguardando';
         } else {
-            // Pode registrar farm ou justificar
-            weekStatus.innerHTML = `<span class="week-status-badge missing">⚠️ Farm Pendente</span>`;
+            statusClass = 'missing';
+            statusHtml = '⚠️ Pendente';
         }
         
-        // Formulário de entrega SEMPRE visível (pode pagar semanas futuras)
-        // Formulário de justificativa só aparece se não tem nada na semana atual
-        const deliveryCard = document.getElementById('deliveryCard');
+        weekStatus.innerHTML = `<span class="status-pill ${statusClass}">${statusHtml}</span>`;
+        
+        // Atualizar barras de progresso
+        updateProgressBars(data.progress);
+        
+        // Atualizar visibilidade do card de justificativa
         const absenceCard = document.getElementById('absenceCard');
+        if (absenceCard) {
+            absenceCard.style.display = (!data.hasDelivery && !data.hasJustification && data.canDeliver) ? 'block' : 'none';
+        }
         
-        // Formulário de entrega sempre visível
-        deliveryCard.style.display = 'block';
+        // Atualizar título do form
+        const formTitle = document.getElementById('formTitle');
+        if (formTitle) {
+            if (data.isPartial && data.canDeliver) {
+                formTitle.textContent = '📦 Adicionar ao Farm';
+            } else {
+                formTitle.textContent = '📦 Registrar Farm';
+            }
+        }
         
-        // Justificativa só se não tem nada na semana atual
-        absenceCard.style.display = (!data.hasDelivery && !data.hasJustification) ? 'block' : 'none';
-        
-        // Atualizar título do card de entrega se for adicional
-        const deliveryCardTitle = deliveryCard.querySelector('h2');
-        if (data.isPartial && data.canDeliver) {
-            deliveryCardTitle.textContent = '📦 Adicionar Mais ao Farm';
-        } else {
-            deliveryCardTitle.textContent = '📦 Registrar Farm';
+        // Habilitar/desabilitar formulário baseado no status
+        const deliveryPanel = document.getElementById('deliveryPanel');
+        if (deliveryPanel) {
+            if (data.canDeliver) {
+                deliveryPanel.style.opacity = '1';
+                deliveryPanel.style.pointerEvents = 'auto';
+            } else {
+                deliveryPanel.style.opacity = '0.5';
+                deliveryPanel.style.pointerEvents = 'none';
+            }
         }
         
     } catch (error) {
         console.error('Erro ao carregar semana:', error);
     }
+}
+
+// Atualizar barras de progresso
+function updateProgressBars(progress) {
+    const container = document.getElementById('progressBars');
+    
+    if (!progress || progress.length === 0) {
+        container.innerHTML = `
+            <div class="progress-empty">
+                <span>Nenhum progresso ainda</span>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = progress.map(p => `
+        <div class="progress-item">
+            <div class="progress-header">
+                <span class="progress-label">${p.icon} ${p.name}</span>
+                <span class="progress-value ${p.complete ? 'complete' : 'incomplete'}">${p.current}/${p.goal}</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill ${p.complete ? 'complete' : ''}" style="width: ${p.percentage}%"></div>
+            </div>
+        </div>
+    `).join('');
 }
 
 // Logout
@@ -181,13 +218,6 @@ async function loadMaterials() {
             weeklyGoal = data.weeklyGoal;
         }
         
-        // Atualizar texto da meta no título (pegar maior meta ou usar 700)
-        const goalEl = document.getElementById('weeklyGoal');
-        if (goalEl && data.materials && data.materials.length > 0) {
-            const maxGoal = Math.max(...data.materials.map(m => m.weekly_goal || 700));
-            goalEl.textContent = maxGoal;
-        }
-        
         const container = document.getElementById('materialsInputs');
         container.innerHTML = '';
         
@@ -197,19 +227,22 @@ async function loadMaterials() {
                 materialsGoals[mat.id] = matGoal;
                 
                 container.innerHTML += `
-                    <div class="material-input-row">
-                        <span class="material-label">${mat.icon} ${mat.name}</span>
+                    <div class="material-card">
+                        <div class="material-icon">${mat.icon}</div>
+                        <div class="material-info">
+                            <div class="material-name">${mat.name}</div>
+                            <div class="material-goal">Meta: ${matGoal}</div>
+                        </div>
                         <input type="number" 
                                name="material_${mat.id}" 
                                data-material-id="${mat.id}"
                                data-goal="${matGoal}"
-                               class="material-amount-input" 
+                               class="material-input material-amount-input" 
                                min="0" 
                                max="99999"
                                value="0"
                                placeholder="0"
                                oninput="updateSubmitButton()">
-                        <span class="material-goal">/ ${matGoal}</span>
                     </div>
                 `;
             });
@@ -217,7 +250,7 @@ async function loadMaterials() {
             // Atualizar botão após carregar materiais
             setTimeout(updateSubmitButton, 100);
         } else {
-            container.innerHTML = '<p class="info-text">Nenhum material disponível no momento.</p>';
+            container.innerHTML = '<p class="loading-placeholder">Nenhum material disponível no momento.</p>';
         }
     } catch (error) {
         console.error('Erro ao carregar materiais:', error);
@@ -243,12 +276,12 @@ function updateSubmitButton() {
     
     if (allComplete && hasAnyValue) {
         btn.textContent = '📤 Submeter para Aprovação';
-        btn.classList.remove('btn-secondary');
-        btn.classList.add('btn-primary');
+        btn.classList.remove('secondary');
+        btn.classList.add('primary');
     } else {
         btn.textContent = '💾 Salvar Progresso';
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-secondary');
+        btn.classList.remove('primary');
+        btn.classList.add('secondary');
     }
 }
 
@@ -356,19 +389,18 @@ async function loadMyAbsences() {
 document.getElementById('deliveryForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Verificar semana selecionada
-    const weekSelect = document.getElementById('weekSelect');
-    const weekOffset = parseInt(weekSelect.value);
+    // Usar o offset da semana atual
+    const weekOffset = currentWeekOffset;
     
-    if (isNaN(weekOffset) || weekSelect.selectedOptions[0].disabled) {
-        alert('Selecione uma semana válida!');
+    // Verificar se pode entregar
+    if (!currentWeekData || !currentWeekData.canDeliver) {
+        alert('Não é possível entregar farm para esta semana!');
         return;
     }
     
     // Se for semana futura, pedir confirmação
     if (weekOffset > 0) {
-        const selectedWeekText = weekSelect.selectedOptions[0].textContent;
-        const confirmMsg = `⚠️ ATENÇÃO!\n\nVocê está prestes a registrar farm de uma SEMANA FUTURA:\n\n📅 ${selectedWeekText}\n\nTem certeza?`;
+        const confirmMsg = `⚠️ ATENÇÃO!\n\nVocê está prestes a registrar farm de uma SEMANA FUTURA:\n\n📅 ${currentWeekData.week.label}\n\nTem certeza?`;
         
         if (!confirm(confirmMsg)) {
             return;
@@ -423,7 +455,7 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
         
         if (data.success) {
             messageEl.textContent = data.message;
-            messageEl.className = 'message show success' + (data.isPartial ? ' partial' : '');
+            messageEl.className = 'form-message show success';
             
             // Limpa o formulário
             document.getElementById('deliveryForm').reset();
@@ -433,21 +465,21 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
             materialInputs.forEach(input => input.value = '0');
             
             // Recarrega os dados
-            loadCurrentWeek();
+            loadWeekData(currentWeekOffset);
             loadAvailableWeeks();
             loadStats();
             loadMyDeliveries();
         } else {
             messageEl.textContent = data.error || 'Erro ao enviar entrega';
-            messageEl.className = 'message show error';
+            messageEl.className = 'form-message show error';
         }
     } catch (error) {
         messageEl.textContent = 'Erro de conexão';
-        messageEl.className = 'message show error';
+        messageEl.className = 'form-message show error';
     }
     
     setTimeout(() => {
-        messageEl.className = 'message';
+        messageEl.className = 'form-message';
     }, 5000);
 });
 
@@ -462,29 +494,29 @@ document.getElementById('absenceForm').addEventListener('submit', async (e) => {
         const response = await fetch('/api/delivery/absence', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason })
+            body: JSON.stringify({ reason, weekOffset: currentWeekOffset })
         });
         
         const data = await response.json();
         
         if (data.success) {
             messageEl.textContent = data.message;
-            messageEl.className = 'message show success';
+            messageEl.className = 'form-message show success';
             document.getElementById('absenceForm').reset();
             
-            loadCurrentWeek();
+            loadWeekData(currentWeekOffset);
             loadMyAbsences();
         } else {
             messageEl.textContent = data.error || 'Erro ao enviar justificativa';
-            messageEl.className = 'message show error';
+            messageEl.className = 'form-message show error';
         }
     } catch (error) {
         messageEl.textContent = 'Erro de conexão';
-        messageEl.className = 'message show error';
+        messageEl.className = 'form-message show error';
     }
     
     setTimeout(() => {
-        messageEl.className = 'message';
+        messageEl.className = 'form-message';
     }, 5000);
 });
 

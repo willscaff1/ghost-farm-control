@@ -28,7 +28,7 @@ body {
 
 /* Container */
 .container {
-    max-width: 1200px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 20px;
 }
@@ -145,13 +145,14 @@ body {
 
 /* Buttons */
 .btn {
-    padding: 12px 24px;
+    padding: 14px 28px;
     border: none;
-    border-radius: 8px;
-    font-size: 1rem;
+    border-radius: 10px;
+    font-size: 1.05rem;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: all 0.2s ease;
+    width: 100%;
 }
 
 .btn:hover {
@@ -163,34 +164,43 @@ body {
 }
 
 .btn-primary {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary) 0%, #5f50c7 100%);
     color: var(--white);
 }
 
 .btn-primary:hover {
-    background: var(--primary-dark);
-    box-shadow: 0 5px 20px rgba(108, 92, 231, 0.4);
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #4a3fb0 100%);
+    box-shadow: 0 5px 25px rgba(108, 92, 231, 0.5);
 }
 
 .btn-secondary {
-    background: var(--dark);
+    background: linear-gradient(135deg, #3d3d5c 0%, #2d2d44 100%);
     color: var(--white);
     border: 1px solid var(--border);
 }
 
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #4d4d6c 0%, #3d3d54 100%);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
 .btn-success {
-    background: var(--success);
+    background: linear-gradient(135deg, var(--success) 0%, #00a884 100%);
     color: var(--white);
 }
 
 .btn-danger {
-    background: var(--danger);
+    background: linear-gradient(135deg, var(--danger) 0%, #c0392b 100%);
     color: var(--white);
 }
 
 .btn-warning {
-    background: var(--warning);
+    background: linear-gradient(135deg, var(--warning) 0%, #e1b04d 100%);
     color: var(--dark);
+}
+
+.btn-warning:hover {
+    box-shadow: 0 5px 20px rgba(253, 203, 110, 0.4);
 }
 
 .btn-block {
@@ -237,7 +247,7 @@ body {
 
 /* Week Banner - Dashboard */
 .week-banner {
-    background: linear-gradient(135deg, var(--card-bg) 0%, #252538 100%);
+    background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
     border-radius: 16px;
     padding: 25px 30px;
     margin-bottom: 25px;
@@ -250,7 +260,7 @@ body {
 }
 
 .week-banner .week-info h2 {
-    margin: 0 0 5px 0;
+    margin: 0 0 8px 0;
     font-size: 1rem;
     color: var(--light);
     font-weight: 500;
@@ -258,9 +268,9 @@ body {
 
 .week-banner .week-info p {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     color: var(--white);
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .week-banner .week-status {
@@ -269,10 +279,10 @@ body {
 
 .week-status-badge {
     display: inline-block;
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: 10px 20px;
+    border-radius: 25px;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1rem;
 }
 
 .week-status-badge.approved {
@@ -300,8 +310,8 @@ body {
 }
 
 .week-status-badge.in-progress {
-    background: rgba(108, 92, 231, 0.2);
-    color: var(--primary);
+    background: rgba(108, 92, 231, 0.25);
+    color: #a29bfe;
     border: 1px solid var(--primary);
 }
 
@@ -318,36 +328,155 @@ body {
 }
 
 .progress-hint {
-    margin: 8px 0 0 0 !important;
-    font-size: 0.85rem;
+    margin: 10px 0 0 0 !important;
+    font-size: 0.9rem;
     color: var(--light);
+}
+
+/* Week Progress Container */
+.week-progress-container {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+
+.material-progress-item {
+    margin-bottom: 12px;
+}
+
+.material-progress-item:last-child {
+    margin-bottom: 0;
+}
+
+.material-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+}
+
+.material-progress-header .complete {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.material-progress-header .incomplete {
+    color: var(--light);
+}
+
+.progress-bar {
+    height: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #a29bfe);
+    border-radius: 5px;
+    transition: width 0.3s ease;
+}
+
+.progress-fill.complete {
+    background: linear-gradient(90deg, var(--success), #55efc4);
 }
 
 @media (max-width: 600px) {
     .week-banner {
         flex-direction: column;
         text-align: center;
+        padding: 20px;
     }
-    
     .week-banner .week-status {
         text-align: center;
         width: 100%;
     }
 }
 
-/* Stats Grid */
+/* Stats Row */
+.stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.stat-card-small {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border: 1px solid var(--border);
+}
+
+.stat-card-small.approved {
+    border-color: rgba(0, 184, 148, 0.4);
+    background: linear-gradient(135deg, var(--card-bg) 0%, rgba(0, 184, 148, 0.1) 100%);
+}
+
+.stat-card-small.rejected {
+    border-color: rgba(214, 48, 49, 0.4);
+    background: linear-gradient(135deg, var(--card-bg) 0%, rgba(214, 48, 49, 0.1) 100%);
+}
+
+.stat-card-small.clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.stat-card-small.clickable:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.stat-card-small .stat-icon {
+    font-size: 2rem;
+}
+
+.stat-card-small .stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-card-small .stat-number {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--white);
+}
+
+.stat-card-small .stat-label {
+    font-size: 0.9rem;
+    color: var(--light);
+}
+
+/* Materials Section */
+.materials-section {
+    margin-bottom: 20px;
+}
+
+.materials-section > label {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--light);
+    font-weight: 500;
+}
+
+.goal-hint {
+    font-weight: normal;
+    color: #888;
+    font-size: 0.85rem;
+}
+
+/* Stats Grid - Admin */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 20px;
     margin-bottom: 30px;
-}
-
-.stats-grid.stats-simple {
-    grid-template-columns: repeat(2, 1fr);
-    max-width: 500px;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 .stat-card {
@@ -551,61 +680,10 @@ body {
     margin-top: 5px;
 }
 
-/* Dashboard Layout */
-.dashboard-container {
-    max-width: 1100px;
-}
-
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: 1fr 350px;
-    gap: 25px;
-    align-items: start;
-}
-
-.dashboard-main {
-    min-width: 0;
-}
-
-.dashboard-sidebar {
-    position: sticky;
-    top: 20px;
-}
-
-.dashboard-sidebar .card {
-    max-height: calc(100vh - 40px);
-    overflow-y: auto;
-}
-
-.dashboard-sidebar .deliveries-list {
-    max-height: 500px;
-    overflow-y: auto;
-}
-
-@media (max-width: 900px) {
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .dashboard-sidebar {
-        position: static;
-    }
-    
-    .dashboard-sidebar .card {
-        max-height: none;
-    }
-}
-
-/* Button block */
-.btn-block {
-    width: 100%;
-    display: block;
-}
-
 /* Cards */
 .card {
     background: var(--card-bg);
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 25px;
     margin-bottom: 20px;
     border: 1px solid var(--border);
@@ -614,7 +692,15 @@ body {
 .card h2 {
     margin-bottom: 20px;
     color: var(--white);
-    font-size: 1.25rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.card h3 {
+    margin: 20px 0 12px 0;
+    color: var(--light);
+    font-size: 1rem;
+    font-weight: 500;
 }
 
 /* Tabs */
@@ -1475,7 +1561,7 @@ h3 {
 .materials-inputs {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 20px;
 }
 
@@ -1484,40 +1570,43 @@ h3 {
     align-items: center;
     justify-content: space-between;
     background: var(--bg);
-    padding: 12px 15px;
-    border-radius: 8px;
+    padding: 15px 20px;
+    border-radius: 12px;
     border: 1px solid var(--border);
-    gap: 10px;
+    gap: 15px;
 }
 
 .material-label {
     font-weight: 500;
+    font-size: 1rem;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex: 1;
 }
 
 .material-goal {
     color: var(--light);
-    font-size: 0.9rem;
-    min-width: 50px;
+    font-size: 1rem;
+    min-width: 60px;
 }
 
 .material-amount-input {
-    width: 100px;
-    padding: 8px 12px;
+    width: 120px;
+    padding: 12px 15px;
     background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
     color: var(--white);
-    font-size: 1rem;
+    font-size: 1.1rem;
     text-align: center;
+    font-weight: 600;
 }
 
 .material-amount-input:focus {
     border-color: var(--primary);
     outline: none;
+    box-shadow: 0 0 10px rgba(108, 92, 231, 0.3);
 }
 
 /* Materials List / Tags */
