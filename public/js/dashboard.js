@@ -367,9 +367,21 @@ async function loadWeekData(offset = 0) {
         updateExistingScreenshots(data.existingScreenshots);
         
         // Atualizar visibilidade do card de justificativa
+        // Mostrar quando: pode entregar E não justificou ainda E não está aprovado
         const absenceCard = document.getElementById('absenceCard');
         if (absenceCard) {
-            absenceCard.style.display = (!data.hasDelivery && !data.hasJustification && data.canDeliver) ? 'block' : 'none';
+            const showJustify = data.canDeliver && !data.hasJustification && data.deliveryStatus !== 'approved';
+            absenceCard.style.display = showJustify ? 'block' : 'none';
+            
+            // Atualizar texto baseado se já tem farm parcial
+            const absenceTitle = absenceCard.querySelector('h3');
+            if (absenceTitle) {
+                if (data.isPartial) {
+                    absenceTitle.textContent = '📝 Não vai conseguir completar o farm?';
+                } else {
+                    absenceTitle.textContent = '📝 Não vai conseguir fazer o farm?';
+                }
+            }
         }
         
         // Atualizar painel de entrega baseado no status

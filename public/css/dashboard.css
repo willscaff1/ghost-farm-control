@@ -856,6 +856,13 @@
     gap: 12px;
 }
 
+.absence-hint {
+    color: #aaa;
+    font-size: 0.85rem;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+}
+
 .absence-form textarea {
     padding: 12px;
     background: rgba(0, 0, 0, 0.25);
