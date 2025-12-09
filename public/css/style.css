@@ -1245,6 +1245,23 @@ body {
     color: var(--danger);
 }
 
+.material-manage-item .material-goal-display {
+    background: rgba(108, 92, 231, 0.2);
+    color: var(--secondary);
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+}
+
+.material-manage-item .material-goal-display strong {
+    color: var(--warning);
+}
+
+.material-manage-item .material-actions {
+    display: flex;
+    gap: 8px;
+}
+
 .subtitle {
     color: var(--light);
     margin-bottom: 20px;

@@ -1294,9 +1294,13 @@ async function loadMaterials() {
                     <div class="material-info">
                         <span class="material-icon">${mat.icon}</span>
                         <span class="material-name">${mat.name}</span>
+                        <span class="material-goal-display">Meta: <strong>${mat.weekly_goal || 700}</strong></span>
                         <span class="material-status ${mat.active ? 'active' : 'inactive'}">${mat.active ? '✅ Ativo' : '❌ Inativo'}</span>
                     </div>
                     <div class="material-actions">
+                        <button class="btn btn-secondary btn-small" onclick="editMaterial(${mat.id}, '${mat.name}', '${mat.icon}', ${mat.weekly_goal || 700})">
+                            ✏️ Editar
+                        </button>
                         <button class="btn ${mat.active ? 'btn-danger' : 'btn-success'} btn-small" onclick="toggleMaterial(${mat.id})">
                             ${mat.active ? '🚫 Desativar' : '✅ Ativar'}
                         </button>
@@ -1313,6 +1317,47 @@ async function loadMaterials() {
         }
     } catch (error) {
         console.error('Erro ao carregar materiais:', error);
+    }
+}
+
+// Editar material
+async function editMaterial(id, currentName, currentIcon, currentGoal) {
+    const newName = prompt('Nome do material:', currentName);
+    if (newName === null) return;
+    
+    const newIcon = prompt('Ícone do material:', currentIcon);
+    if (newIcon === null) return;
+    
+    const newGoal = prompt('Meta semanal:', currentGoal);
+    if (newGoal === null) return;
+    
+    const goalNum = parseInt(newGoal);
+    if (isNaN(goalNum) || goalNum < 1) {
+        alert('Meta deve ser um número válido maior que 0');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/materials/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                name: newName || currentName, 
+                icon: newIcon || currentIcon, 
+                weekly_goal: goalNum 
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            loadMaterials();
+            loadMaterialsStats();
+        } else {
+            alert(data.error || 'Erro ao atualizar material');
+        }
+    } catch (error) {
+        alert('Erro ao atualizar material');
     }
 }
 
@@ -1338,6 +1383,7 @@ document.getElementById('newMaterialForm').addEventListener('submit', async (e) 
     
     const name = document.getElementById('materialName').value;
     const icon = document.getElementById('materialIcon').value || '📦';
+    const weekly_goal = parseInt(document.getElementById('materialGoal').value) || 700;
     
     const messageEl = document.getElementById('materialMessage');
     
@@ -1345,7 +1391,7 @@ document.getElementById('newMaterialForm').addEventListener('submit', async (e) 
         const response = await fetch('/api/admin/materials', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, icon })
+            body: JSON.stringify({ name, icon, weekly_goal })
         });
         
         const data = await response.json();
@@ -1354,7 +1400,9 @@ document.getElementById('newMaterialForm').addEventListener('submit', async (e) 
             messageEl.textContent = 'Material adicionado com sucesso!';
             messageEl.className = 'message show success';
             document.getElementById('newMaterialForm').reset();
+            document.getElementById('materialGoal').value = '700';
             loadMaterials();
+            loadMaterialsStats();
         } else {
             messageEl.textContent = data.error || 'Erro ao adicionar material';
             messageEl.className = 'message show error';

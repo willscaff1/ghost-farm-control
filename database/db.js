@@ -169,6 +169,7 @@ const initializePostgres = async () => {
                 id SERIAL PRIMARY KEY,
                 name TEXT UNIQUE NOT NULL,
                 icon TEXT DEFAULT '📦',
+                weekly_goal INTEGER DEFAULT 700,
                 active INTEGER DEFAULT 1
             )
         `);
@@ -317,6 +318,7 @@ const initializeSQLite = () => {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT UNIQUE NOT NULL,
                     icon TEXT DEFAULT '📦',
+                    weekly_goal INTEGER DEFAULT 700,
                     active INTEGER DEFAULT 1
                 )
             `);

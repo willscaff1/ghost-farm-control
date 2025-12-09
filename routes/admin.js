@@ -517,18 +517,46 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
 
 router.post('/materials', requireAdmin, async (req, res) => {
     try {
-        const { name, icon } = req.body;
+        const { name, icon, weekly_goal } = req.body;
         
         if (!name) {
             return res.status(400).json({ error: 'Nome do material é obrigatório' });
         }
         
+        const goal = parseInt(weekly_goal) || 700;
+        
         await runQuery(
-            'INSERT INTO materials (name, icon) VALUES (?, ?)',
-            [name, icon || '📦']
+            'INSERT INTO materials (name, icon, weekly_goal) VALUES (?, ?, ?)',
+            [name, icon || '📦', goal]
         );
         
         res.json({ success: true, message: 'Material adicionado' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Atualizar material (nome, ícone, meta)
+router.put('/materials/:id', requireAdmin, async (req, res) => {
+    try {
+        const materialId = req.params.id;
+        const { name, icon, weekly_goal } = req.body;
+        
+        const material = await getOne('SELECT * FROM materials WHERE id = ?', [materialId]);
+        if (!material) {
+            return res.status(404).json({ error: 'Material não encontrado' });
+        }
+        
+        const newName = name || material.name;
+        const newIcon = icon || material.icon;
+        const newGoal = weekly_goal !== undefined ? parseInt(weekly_goal) : material.weekly_goal;
+        
+        await runQuery(
+            'UPDATE materials SET name = ?, icon = ?, weekly_goal = ? WHERE id = ?',
+            [newName, newIcon, newGoal, materialId]
+        );
+        
+        res.json({ success: true, message: 'Material atualizado' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

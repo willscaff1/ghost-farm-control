@@ -6,8 +6,8 @@ const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
 
 const router = express.Router();
 
-// Meta semanal por material
-const WEEKLY_GOAL = 700;
+// Meta semanal padrão (fallback)
+const DEFAULT_WEEKLY_GOAL = 700;
 
 // Helper para calcular semana com offset (semanas futuras)
 const getWeekWithOffset = (offset = 0) => {
@@ -183,13 +183,19 @@ router.post('/', requireAuth, (req, res) => {
                 return res.status(400).json({ error: 'Informe pelo menos um material' });
             }
             
-            // Verificar se é entrega parcial (algum material abaixo de 700)
+            // Buscar metas de cada material e verificar se é entrega parcial
             let isPartial = false;
             for (const item of materialsArray) {
                 const amount = parseInt(item.amount) || 0;
-                if (amount > 0 && amount < WEEKLY_GOAL) {
-                    isPartial = true;
-                    break;
+                if (amount > 0) {
+                    // Buscar meta específica do material
+                    const materialData = await getOne('SELECT weekly_goal FROM materials WHERE id = ?', [item.material_id]);
+                    const materialGoal = materialData?.weekly_goal || DEFAULT_WEEKLY_GOAL;
+                    
+                    if (amount < materialGoal) {
+                        isPartial = true;
+                        break;
+                    }
                 }
             }
             

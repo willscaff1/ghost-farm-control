@@ -1,6 +1,7 @@
 let currentUser = null;
 let currentWeekData = null;
-let weeklyGoal = 700;
+let weeklyGoal = 700; // fallback
+let materialsGoals = {}; // metas por material
 const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
 
 const roleNames = {
@@ -132,11 +133,16 @@ async function loadMaterials() {
         const response = await fetch('/api/delivery/materials');
         const data = await response.json();
         
-        // Atualizar meta semanal
+        // Atualizar meta semanal padrão
         if (data.weeklyGoal) {
             weeklyGoal = data.weeklyGoal;
-            const goalEl = document.getElementById('weeklyGoal');
-            if (goalEl) goalEl.textContent = weeklyGoal;
+        }
+        
+        // Atualizar texto da meta no título (pegar maior meta ou usar 700)
+        const goalEl = document.getElementById('weeklyGoal');
+        if (goalEl && data.materials && data.materials.length > 0) {
+            const maxGoal = Math.max(...data.materials.map(m => m.weekly_goal || 700));
+            goalEl.textContent = maxGoal;
         }
         
         const container = document.getElementById('materialsInputs');
@@ -144,18 +150,22 @@ async function loadMaterials() {
         
         if (data.materials && data.materials.length > 0) {
             data.materials.forEach(mat => {
+                const matGoal = mat.weekly_goal || 700;
+                materialsGoals[mat.id] = matGoal;
+                
                 container.innerHTML += `
                     <div class="material-input-row">
                         <span class="material-label">${mat.icon} ${mat.name}</span>
                         <input type="number" 
                                name="material_${mat.id}" 
                                data-material-id="${mat.id}"
+                               data-goal="${matGoal}"
                                class="material-amount-input" 
                                min="0" 
-                               max="9999"
+                               max="99999"
                                value="0"
                                placeholder="0">
-                        <span class="material-goal">/ ${weeklyGoal}</span>
+                        <span class="material-goal">/ ${matGoal}</span>
                     </div>
                 `;
             });
@@ -294,17 +304,24 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     const materialInputs = document.querySelectorAll('.material-amount-input');
     const materials = [];
     let isPartial = false;
-    
+    let partialDetails = [];
+
     materialInputs.forEach(input => {
         const amount = parseInt(input.value) || 0;
         if (amount > 0) {
+            const matId = input.dataset.materialId;
+            const matGoal = parseInt(input.dataset.goal) || 700;
+            
             materials.push({
-                material_id: input.dataset.materialId,
+                material_id: matId,
                 amount: amount
             });
-            // Verificar se está abaixo da meta
-            if (amount < weeklyGoal) {
+            
+            // Verificar se está abaixo da meta específica deste material
+            if (amount < matGoal) {
                 isPartial = true;
+                const label = input.closest('.material-input-row').querySelector('.material-label').textContent;
+                partialDetails.push(`${label}: ${amount}/${matGoal}`);
             }
         }
     });
@@ -316,7 +333,8 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     
     // Avisar se é entrega parcial
     if (isPartial) {
-        const confirmPartial = confirm(`⚠️ ENTREGA PARCIAL\n\nAlgum material está abaixo da meta de ${weeklyGoal}.\n\nSua entrega será marcada como "Parcialmente Pago".\n\nDeseja continuar?`);
+        const detailsText = partialDetails.length > 0 ? `\n\nMateriais abaixo da meta:\n${partialDetails.join('\n')}` : '';
+        const confirmPartial = confirm(`⚠️ ENTREGA PARCIAL${detailsText}\n\nSua entrega será marcada como "Parcialmente Pago".\n\nDeseja continuar?`);
         if (!confirmPartial) {
             return;
         }
