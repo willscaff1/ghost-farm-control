@@ -28,9 +28,9 @@ body.admin-layout {
 .sidebar {
     width: 280px;
     min-width: 280px;
-    background: linear-gradient(180deg, #12121f 0%, #0d0d18 100%);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 20px 0;
+    background: linear-gradient(180deg, #14141f 0%, #0d0d18 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 25px 0;
     overflow-y: auto;
     position: fixed;
     top: 60px;
@@ -44,11 +44,11 @@ body.admin-layout {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 14px 18px;
-    margin: 0 15px 20px 15px;
-    background: rgba(74, 144, 226, 0.08);
-    border-radius: 12px;
+    gap: 12px;
+    padding: 16px 20px;
+    margin: 0 18px 25px 18px;
+    background: linear-gradient(145deg, #1a1a2e, #12121f);
+    border-radius: 14px;
     border: 1px solid rgba(74, 144, 226, 0.2);
 }
 
@@ -87,16 +87,16 @@ body.admin-layout {
 
 /* Sidebar Sections */
 .sidebar-section {
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
 .sidebar-section-title {
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
-    color: #666;
-    padding: 15px 24px 8px;
+    color: #555;
+    padding: 18px 24px 10px;
     font-weight: 700;
-    letter-spacing: 1px;
+    letter-spacing: 1.2px;
 }
 
 /* Sidebar Items */
@@ -107,22 +107,22 @@ body.admin-layout {
     padding: 14px 24px;
     background: transparent;
     border: none;
-    color: #aaa;
+    color: #888;
     font-size: 14px;
     text-align: left;
     cursor: pointer;
     transition: all 0.2s ease;
-    border-left: 4px solid transparent;
+    border-left: 3px solid transparent;
 }
 
 .sidebar-item:hover {
-    background: rgba(255, 255, 255, 0.04);
-    color: #fff;
+    background: rgba(255, 255, 255, 0.03);
+    color: #ddd;
     padding-left: 28px;
 }
 
 .sidebar-item.active {
-    background: rgba(74, 144, 226, 0.12);
+    background: rgba(74, 144, 226, 0.1);
     color: #5a9aea;
     border-left-color: #4a90e2;
     font-weight: 600;
@@ -132,43 +132,68 @@ body.admin-layout {
 .main-content {
     flex: 1;
     margin-left: 280px;
-    padding: 30px 35px;
-    background: #0a0a14;
+    padding: 30px 50px;
+    background: linear-gradient(180deg, #0d0d18 0%, #0a0a14 100%);
     min-height: calc(100vh - 60px);
+    max-width: 1400px;
+}
+
+/* Centralizar conteúdo quando tela for muito larga */
+@media (min-width: 1800px) {
+    .main-content {
+        margin-left: 280px;
+        margin-right: auto;
+        padding: 30px 80px;
+    }
 }
 
 /* Stats Grid */
 .stats-grid.stats-simple {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-    margin-bottom: 30px;
+    gap: 25px;
+    margin-bottom: 35px;
 }
 
 .stats-grid.stats-simple .stat-card {
-    background: linear-gradient(135deg, rgba(74, 144, 226, 0.12), rgba(74, 144, 226, 0.04));
-    border: 1px solid rgba(74, 144, 226, 0.25);
-    border-radius: 16px;
-    padding: 24px 28px;
+    background: linear-gradient(145deg, #1a1a2e, #12121f);
+    border: 1px solid rgba(74, 144, 226, 0.2);
+    border-radius: 20px;
+    padding: 28px 32px;
     text-align: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.stats-grid.stats-simple .stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
 .stats-grid.stats-simple .stat-card.pending {
-    background: linear-gradient(135deg, rgba(255, 193, 7, 0.12), rgba(255, 193, 7, 0.04));
-    border-color: rgba(255, 193, 7, 0.25);
+    background: linear-gradient(145deg, #1a1a2e, #12121f);
+    border-color: rgba(255, 193, 7, 0.3);
 }
 
 .stats-grid.stats-simple .stat-card.approved {
-    background: linear-gradient(135deg, rgba(40, 167, 69, 0.12), rgba(40, 167, 69, 0.04));
-    border-color: rgba(40, 167, 69, 0.25);
+    background: linear-gradient(145deg, #1a1a2e, #12121f);
+    border-color: rgba(40, 167, 69, 0.3);
 }
 
 .stats-grid.stats-simple .stat-number {
-    font-size: 36px;
+    font-size: 42px;
     font-weight: 700;
     color: #fff;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     line-height: 1;
+}
+
+.stats-grid.stats-simple .stat-card.pending .stat-number {
+    color: #ffc107;
+}
+
+.stats-grid.stats-simple .stat-card.approved .stat-number {
+    color: #28a745;
 }
 
 .stats-grid.stats-simple .stat-label {
@@ -333,31 +358,32 @@ body.admin-layout {
 
 /* Cards */
 .card {
-    background: rgba(255, 255, 255, 0.03);
+    background: linear-gradient(145deg, #1a1a2e, #12121f);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
-    padding: 28px;
+    border-radius: 20px;
+    padding: 30px;
     margin-bottom: 25px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .card h2 {
     color: #fff;
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 600;
-    margin: 0 0 8px 0;
+    margin: 0 0 10px 0;
 }
 
 .card h3 {
     color: #fff;
     font-size: 18px;
     font-weight: 600;
-    margin: 20px 0 15px 0;
+    margin: 25px 0 15px 0;
 }
 
 .card .subtitle {
-    color: #999;
+    color: #888;
     font-size: 14px;
-    margin: 0 0 20px 0;
+    margin: 0 0 25px 0;
 }
 
 /* Ranking Columns */
