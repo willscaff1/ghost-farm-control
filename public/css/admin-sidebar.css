@@ -1,5 +1,16 @@
 /* Admin Sidebar Layout */
 
+/* Image Modal - deve ficar na frente de TUDO */
+#imageModal {
+    z-index: 999999 !important;
+}
+
+#imageModal .modal-content {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+}
+
 body.admin-layout {
     min-height: 100vh;
     display: flex;
