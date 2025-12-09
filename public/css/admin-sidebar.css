@@ -1998,12 +1998,32 @@ body.admin-layout {
 }
 
 /* Status badges para histórico */
+.status {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status.pending {
+    background: rgba(243, 156, 18, 0.2);
+    color: #f39c12;
+}
+
+.status.approved {
+    background: rgba(39, 174, 96, 0.2);
+    color: #27ae60;
+}
+
+.status.rejected {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+}
+
 .status.in_progress {
     background: rgba(52, 152, 219, 0.2);
     color: #3498db;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
 }
 
 .farm-details-status .status-badge {
