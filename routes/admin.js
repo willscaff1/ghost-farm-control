@@ -212,7 +212,7 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
     }
 });
 
-// Rejeitar entrega
+// Rejeitar entrega - DELETA a entrega para permitir o membro refazer
 router.post('/deliveries/:id/reject', requireAdmin, async (req, res) => {
     try {
         const deliveryId = req.params.id;
@@ -224,13 +224,16 @@ router.post('/deliveries/:id/reject', requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Entrega não encontrada ou já processada' });
         }
         
-        // Rejeitar diretamente
-        await runQuery(
-            'UPDATE deliveries SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
-            ['rejected', userId, deliveryId]
-        );
+        // Deletar screenshots da entrega
+        await runQuery('DELETE FROM delivery_screenshots WHERE delivery_id = ?', [deliveryId]);
         
-        res.json({ success: true, message: 'Entrega rejeitada' });
+        // Deletar itens da entrega
+        await runQuery('DELETE FROM delivery_items WHERE delivery_id = ?', [deliveryId]);
+        
+        // Deletar a entrega - permite o membro refazer
+        await runQuery('DELETE FROM deliveries WHERE id = ?', [deliveryId]);
+        
+        res.json({ success: true, message: 'Entrega rejeitada - membro pode refazer o farm' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
