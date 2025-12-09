@@ -68,6 +68,7 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">📊 Dashboard</div>
                 <button class="sidebar-item active" data-tab="weekly-status">📅 Status da Semana</button>
+                <button class="sidebar-item" data-tab="members-panel">👥 Painel de Membros</button>
                 <button class="sidebar-item" data-tab="members-overview">👁️ Visão Geral</button>
             </div>
 
@@ -114,6 +115,60 @@
                 <div class="stat-card approved">
                     <div class="stat-number" id="approvedCount">0</div>
                     <div class="stat-label">Farms Aprovados</div>
+                </div>
+            </div>
+
+            <!-- Members Panel Tab -->
+            <div id="members-panel-tab" class="tab-content">
+                <div class="card">
+                    <h2>👥 Extrato de Membros</h2>
+                    <p class="subtitle">Clique em um membro para ver o histórico completo de farms e advertências</p>
+                    
+                    <div class="members-panel-header">
+                        <div class="members-panel-search">
+                            <input type="text" id="searchMembersPanel" placeholder="🔍 Buscar por nome ou passaporte..." oninput="filterMembersPanel()">
+                        </div>
+                    </div>
+                    
+                    <div class="members-extract-list" id="membersExtractList">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Member Extract Modal -->
+            <div id="memberExtractModal" class="modal" style="display: none;">
+                <div class="modal-content member-extract-modal-content">
+                    <div class="modal-header member-extract-header">
+                        <div class="member-extract-title">
+                            <span class="member-extract-icon">👤</span>
+                            <div class="member-extract-info">
+                                <h2 id="extractMemberName">Nome do Membro</h2>
+                                <span id="extractMemberDetails" class="member-extract-details">Passaporte: 1234 | Cargo: Membro</span>
+                            </div>
+                        </div>
+                        <button class="modal-close" onclick="closeMemberExtractModal()">&times;</button>
+                    </div>
+                    
+                    <div class="member-extract-stats" id="extractStats">
+                        <!-- Stats cards -->
+                    </div>
+                    
+                    <div class="member-extract-body">
+                        <div class="extract-section">
+                            <h3>📋 Histórico de Farms (Últimos 10)</h3>
+                            <div class="extract-farms-list" id="extractFarmsList">
+                                <p class="loading">Carregando...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="extract-section">
+                            <h3>⚠️ Advertências (<span id="extractWarningsCount">0</span>)</h3>
+                            <div class="extract-warnings-list" id="extractWarningsList">
+                                <p class="loading">Carregando...</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

@@ -251,7 +251,8 @@ router.get('/members', requireAdmin, async (req, res) => {
                        WHERE d.user_id = u.id AND d.status = 'approved'
                    ), 0) as total_materials,
                    (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'pending') as pending_count,
-                   (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as approved_count
+                   (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as approved_count,
+                   (SELECT COUNT(*) FROM warnings WHERE user_id = u.id) as warnings_count
             FROM users u
             ORDER BY CAST(u.passport AS INTEGER) ASC
         `);
@@ -924,6 +925,92 @@ router.get('/member-farm-details/:memberId', requireAdmin, async (req, res) => {
             items, 
             justification,
             week: { start: week_start, end: week_end }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Extrato completo de um membro (histórico de farms + ADVs)
+router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
+    try {
+        const { memberId } = req.params;
+        
+        // Buscar dados do membro
+        const member = await getOne('SELECT id, name, passport, role, created_at FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Buscar últimas 10 semanas de farm (deliveries)
+        const deliveries = await getAll(`
+            SELECT d.*, u.name as approved_by_name
+            FROM deliveries d
+            LEFT JOIN users u ON d.approved_by = u.id
+            WHERE d.user_id = ?
+            ORDER BY d.week_start DESC
+            LIMIT 10
+        `, [memberId]);
+        
+        // Para cada delivery, buscar os itens
+        for (let delivery of deliveries) {
+            delivery.items = await getAll(`
+                SELECT di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal
+                FROM delivery_items di
+                JOIN materials m ON di.material_id = m.id
+                WHERE di.delivery_id = ?
+            `, [delivery.id]);
+        }
+        
+        // Buscar justificativas (últimas 10)
+        const justifications = await getAll(`
+            SELECT j.*, u.name as approved_by_name
+            FROM justifications j
+            LEFT JOIN users u ON j.approved_by = u.id
+            WHERE j.user_id = ?
+            ORDER BY j.week_start DESC
+            LIMIT 10
+        `, [memberId]);
+        
+        // Buscar todas as advertências
+        const warnings = await getAll(`
+            SELECT w.*, u.name as given_by_name
+            FROM warnings w
+            JOIN users u ON w.given_by = u.id
+            WHERE w.user_id = ?
+            ORDER BY w.created_at DESC
+        `, [memberId]);
+        
+        // Estatísticas
+        const totalApproved = await getOne(`
+            SELECT COUNT(*) as count FROM deliveries WHERE user_id = ? AND status = 'approved'
+        `, [memberId]);
+        
+        const totalPending = await getOne(`
+            SELECT COUNT(*) as count FROM deliveries WHERE user_id = ? AND status = 'pending'
+        `, [memberId]);
+        
+        const totalRejected = await getOne(`
+            SELECT COUNT(*) as count FROM deliveries WHERE user_id = ? AND status = 'rejected'
+        `, [memberId]);
+        
+        const totalJustified = await getOne(`
+            SELECT COUNT(*) as count FROM justifications WHERE user_id = ? AND status = 'approved'
+        `, [memberId]);
+        
+        res.json({ 
+            success: true,
+            member,
+            deliveries,
+            justifications,
+            warnings,
+            stats: {
+                totalApproved: totalApproved.count,
+                totalPending: totalPending.count,
+                totalRejected: totalRejected.count,
+                totalJustified: totalJustified.count,
+                totalWarnings: warnings.length
+            }
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

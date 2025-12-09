@@ -72,6 +72,7 @@ function showTab(tabId) {
     // Carregar dados da tab
     switch (tabId) {
         case 'weekly-status': loadWeeklyStatus(); break;
+        case 'members-panel': loadMembersPanel(); break;
         case 'members-overview': loadMembersOverview(); break;
         case 'absences': loadJustifications(); break;
         case 'pending': loadPendingDeliveries(); break;
@@ -162,6 +163,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
         switch (tabId) {
             case 'weekly-status':
                 loadWeeklyStatus();
+                break;
+            case 'members-panel':
+                loadMembersPanel();
                 break;
             case 'members-overview':
                 loadMembersOverview();
@@ -295,6 +299,227 @@ async function loadMembersOverview() {
         console.error('Erro ao carregar visão geral:', error);
     }
 }
+
+// ========== PAINEL DE MEMBROS - EXTRATO ==========
+let membersPanelData = [];
+
+// Carregar painel de membros
+async function loadMembersPanel() {
+    try {
+        const response = await fetch('/api/admin/members');
+        const data = await response.json();
+        
+        membersPanelData = data.members || [];
+        
+        // Ordenar por passaporte
+        membersPanelData.sort((a, b) => {
+            const passA = parseInt(a.passport) || 0;
+            const passB = parseInt(b.passport) || 0;
+            return passA - passB;
+        });
+        
+        renderMembersList();
+        
+    } catch (error) {
+        console.error('Erro ao carregar painel de membros:', error);
+        document.getElementById('membersExtractList').innerHTML = 
+            '<p class="loading">Erro ao carregar dados</p>';
+    }
+}
+
+// Renderizar lista de membros
+function renderMembersList() {
+    const searchTerm = document.getElementById('searchMembersPanel')?.value?.toLowerCase() || '';
+    
+    // Filtrar
+    const filtered = membersPanelData.filter(m => {
+        if (!searchTerm) return true;
+        return m.name?.toLowerCase().includes(searchTerm) || 
+               m.passport?.toLowerCase().includes(searchTerm);
+    });
+    
+    const list = document.getElementById('membersExtractList');
+    
+    if (filtered.length === 0) {
+        list.innerHTML = '<p class="extract-empty">Nenhum membro encontrado</p>';
+        return;
+    }
+    
+    list.innerHTML = filtered.map(member => `
+        <div class="member-extract-card" onclick="openMemberExtract(${member.id})">
+            <div class="member-extract-avatar">👤</div>
+            <div class="member-extract-card-info">
+                <div class="member-extract-card-name">${member.name}</div>
+                <div class="member-extract-card-details">
+                    <span class="member-extract-card-passport">#${member.passport}</span>
+                    <span>${roleNames[member.role] || member.role}</span>
+                </div>
+            </div>
+            <div class="member-extract-card-stats">
+                <span class="member-mini-stat advs ${parseInt(member.warnings_count) === 0 ? 'zero' : ''}">
+                    ⚠️ ${parseInt(member.warnings_count) || 0}
+                </span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Filtrar painel de membros
+function filterMembersPanel() {
+    renderMembersList();
+}
+
+// Abrir modal de extrato do membro
+async function openMemberExtract(memberId) {
+    const modal = document.getElementById('memberExtractModal');
+    modal.style.display = 'flex';
+    
+    // Mostrar loading
+    document.getElementById('extractMemberName').textContent = 'Carregando...';
+    document.getElementById('extractMemberDetails').textContent = '';
+    document.getElementById('extractStats').innerHTML = '<p class="loading">Carregando...</p>';
+    document.getElementById('extractFarmsList').innerHTML = '<p class="loading">Carregando...</p>';
+    document.getElementById('extractWarningsList').innerHTML = '<p class="loading">Carregando...</p>';
+    
+    try {
+        const response = await fetch(`/api/admin/member-extract/${memberId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Erro ao carregar extrato');
+        }
+        
+        // Preencher header
+        document.getElementById('extractMemberName').textContent = data.member.name;
+        document.getElementById('extractMemberDetails').textContent = 
+            `Passaporte: ${data.member.passport} | Cargo: ${roleNames[data.member.role] || data.member.role}`;
+        
+        // Preencher estatísticas
+        document.getElementById('extractStats').innerHTML = `
+            <div class="extract-stat-card approved">
+                <span class="extract-stat-number">${data.stats.totalApproved}</span>
+                <span class="extract-stat-label">✅ Aprovados</span>
+            </div>
+            <div class="extract-stat-card pending">
+                <span class="extract-stat-number">${data.stats.totalPending}</span>
+                <span class="extract-stat-label">⏳ Pendentes</span>
+            </div>
+            <div class="extract-stat-card rejected">
+                <span class="extract-stat-number">${data.stats.totalRejected}</span>
+                <span class="extract-stat-label">❌ Rejeitados</span>
+            </div>
+            <div class="extract-stat-card justified">
+                <span class="extract-stat-number">${data.stats.totalJustified}</span>
+                <span class="extract-stat-label">📋 Justificados</span>
+            </div>
+            <div class="extract-stat-card warnings">
+                <span class="extract-stat-number">${data.stats.totalWarnings}</span>
+                <span class="extract-stat-label">⚠️ ADVs</span>
+            </div>
+        `;
+        
+        // Preencher farms
+        const farmsList = document.getElementById('extractFarmsList');
+        if (data.deliveries.length === 0 && data.justifications.length === 0) {
+            farmsList.innerHTML = '<p class="extract-empty">Nenhum farm registrado</p>';
+        } else {
+            // Combinar deliveries e justifications e ordenar por data
+            const allRecords = [
+                ...data.deliveries.map(d => ({ ...d, type: 'delivery' })),
+                ...data.justifications.map(j => ({ ...j, type: 'justification' }))
+            ].sort((a, b) => new Date(b.week_start) - new Date(a.week_start)).slice(0, 10);
+            
+            farmsList.innerHTML = allRecords.map(record => {
+                const weekLabel = formatWeekLabel(record.week_start, record.week_end);
+                
+                if (record.type === 'justification') {
+                    return `
+                        <div class="extract-justified-item">
+                            <div class="extract-farm-week">${weekLabel}</div>
+                            <span class="extract-farm-status">📋 Justificado</span>
+                            <div class="extract-farm-materials">
+                                <span class="extract-farm-material">${record.reason || 'Sem motivo informado'}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                const statusClass = record.status;
+                const statusText = getExtractStatusText(record.status);
+                const materials = record.items?.map(item => 
+                    `<span class="extract-farm-material">${item.material_icon || '📦'} ${item.amount}</span>`
+                ).join('') || '';
+                
+                return `
+                    <div class="extract-farm-item">
+                        <div class="extract-farm-week">${weekLabel}</div>
+                        <span class="extract-farm-status ${statusClass}">${statusText}</span>
+                        <div class="extract-farm-materials">${materials || '<span class="extract-farm-material">-</span>'}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Preencher advertências
+        document.getElementById('extractWarningsCount').textContent = data.warnings.length;
+        const warningsList = document.getElementById('extractWarningsList');
+        if (data.warnings.length === 0) {
+            warningsList.innerHTML = '<p class="extract-empty">🎉 Nenhuma advertência</p>';
+        } else {
+            warningsList.innerHTML = data.warnings.map(warning => `
+                <div class="extract-warning-item">
+                    <span class="extract-warning-icon">⚠️</span>
+                    <div class="extract-warning-info">
+                        <div class="extract-warning-reason">${warning.reason || 'Sem motivo informado'}</div>
+                        <div class="extract-warning-meta">
+                            Por ${warning.given_by_name} em ${new Date(warning.created_at).toLocaleDateString('pt-BR')}
+                            ${warning.week_start ? ` | Semana: ${formatWeekLabel(warning.week_start, warning.week_end)}` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar extrato:', error);
+        document.getElementById('extractFarmsList').innerHTML = 
+            '<p class="extract-empty">Erro ao carregar dados</p>';
+    }
+}
+
+// Fechar modal de extrato
+function closeMemberExtractModal() {
+    document.getElementById('memberExtractModal').style.display = 'none';
+}
+
+// Formatar label da semana
+function formatWeekLabel(start, end) {
+    if (!start || !end) return '-';
+    const startDate = new Date(start + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
+    return `${startDate.toLocaleDateString('pt-BR')} - ${endDate.toLocaleDateString('pt-BR')}`;
+}
+
+// Texto do status no extrato
+function getExtractStatusText(status) {
+    const texts = {
+        'approved': '✅ Aprovado',
+        'pending': '⏳ Pendente',
+        'rejected': '❌ Rejeitado',
+        'in_progress': '⚡ Em Progresso'
+    };
+    return texts[status] || status;
+}
+
+// Fechar modal ao clicar fora
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('memberExtractModal');
+    if (e.target === modal) {
+        closeMemberExtractModal();
+    }
+});
+
+// ========== FIM PAINEL DE MEMBROS ==========
 
 // Carregar status semanal (da semana selecionada)
 async function loadWeeklyStatus() {
