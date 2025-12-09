@@ -1,5 +1,6 @@
 let currentUser = null;
 let currentWeekData = null;
+let weeklyGoal = 700;
 const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
 
 const roleNames = {
@@ -131,6 +132,13 @@ async function loadMaterials() {
         const response = await fetch('/api/delivery/materials');
         const data = await response.json();
         
+        // Atualizar meta semanal
+        if (data.weeklyGoal) {
+            weeklyGoal = data.weeklyGoal;
+            const goalEl = document.getElementById('weeklyGoal');
+            if (goalEl) goalEl.textContent = weeklyGoal;
+        }
+        
         const container = document.getElementById('materialsInputs');
         container.innerHTML = '';
         
@@ -144,8 +152,10 @@ async function loadMaterials() {
                                data-material-id="${mat.id}"
                                class="material-amount-input" 
                                min="0" 
+                               max="9999"
                                value="0"
                                placeholder="0">
+                        <span class="material-goal">/ ${weeklyGoal}</span>
                     </div>
                 `;
             });
@@ -185,25 +195,37 @@ async function loadMyDeliveries() {
         const deliveriesList = document.getElementById('deliveriesList');
         
         if (data.deliveries && data.deliveries.length > 0) {
-            deliveriesList.innerHTML = data.deliveries.map(delivery => `
-                <div class="delivery-item">
+            deliveriesList.innerHTML = data.deliveries.map(delivery => {
+                // Montar galeria de screenshots
+                let screenshotsHtml = '';
+                if (delivery.screenshots && delivery.screenshots.length > 0) {
+                    screenshotsHtml = delivery.screenshots.map((s, idx) => `
+                        <img src="${s.screenshot_url}" class="delivery-screenshot" onclick="openModal('${s.screenshot_url}')" title="Print ${idx + 1}">
+                    `).join('');
+                } else if (delivery.screenshot_url) {
+                    screenshotsHtml = `<img src="${delivery.screenshot_url}" class="delivery-screenshot" onclick="openModal('${delivery.screenshot_url}')">`;
+                }
+                
+                return `
+                <div class="delivery-item ${delivery.is_partial ? 'partial' : ''}">
                     <div class="delivery-info">
                         <h3>📦 Semana ${formatWeek(delivery.week_start, delivery.week_end)}</h3>
+                        ${delivery.is_partial ? '<span class="partial-badge">⚠️ Parcialmente Pago</span>' : ''}
                         <div class="materials-list">
                             ${delivery.items.map(item => `
-                                <span class="material-tag">${item.material_icon} ${item.material_name}: ${formatNumber(item.amount)}</span>
+                                <span class="material-tag ${item.amount < weeklyGoal ? 'below-goal' : ''}">${item.material_icon} ${item.material_name}: ${formatNumber(item.amount)}${item.amount < weeklyGoal ? `<small>/${weeklyGoal}</small>` : ''}</span>
                             `).join('')}
                         </div>
                         <p>${delivery.description || 'Sem descrição'}</p>
                         <p>📅 Enviado: ${formatDate(delivery.created_at)}</p>
-                        <span class="status ${delivery.status}">${getStatusText(delivery.status)}</span>
+                        <span class="status ${delivery.status}">${getStatusText(delivery.status, delivery.is_partial)}</span>
                         ${delivery.approved_by_name ? `<p style="margin-top: 10px;">Por: <strong>${delivery.approved_by_name}</strong></p>` : ''}
                     </div>
-                    <div class="delivery-actions">
-                        ${delivery.screenshot ? `<img src="/uploads/${delivery.screenshot}" class="delivery-screenshot" onclick="openModal('/uploads/${delivery.screenshot}')">` : ''}
+                    <div class="delivery-actions screenshots-grid">
+                        ${screenshotsHtml}
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         } else {
             deliveriesList.innerHTML = `
                 <div class="empty-state">
@@ -271,6 +293,7 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     // Coletar todos os materiais com quantidade > 0
     const materialInputs = document.querySelectorAll('.material-amount-input');
     const materials = [];
+    let isPartial = false;
     
     materialInputs.forEach(input => {
         const amount = parseInt(input.value) || 0;
@@ -279,6 +302,10 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
                 material_id: input.dataset.materialId,
                 amount: amount
             });
+            // Verificar se está abaixo da meta
+            if (amount < weeklyGoal) {
+                isPartial = true;
+            }
         }
     });
     
@@ -287,11 +314,30 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
         return;
     }
     
+    // Avisar se é entrega parcial
+    if (isPartial) {
+        const confirmPartial = confirm(`⚠️ ENTREGA PARCIAL\n\nAlgum material está abaixo da meta de ${weeklyGoal}.\n\nSua entrega será marcada como "Parcialmente Pago".\n\nDeseja continuar?`);
+        if (!confirmPartial) {
+            return;
+        }
+    }
+    
+    // Verificar se tem screenshots
+    const screenshotFiles = document.getElementById('screenshots').files;
+    if (screenshotFiles.length === 0) {
+        alert('Anexe pelo menos 1 print do farm!');
+        return;
+    }
+    
     const formData = new FormData();
     formData.append('materials', JSON.stringify(materials));
     formData.append('description', document.getElementById('description').value);
-    formData.append('screenshot', document.getElementById('screenshot').files[0]);
     formData.append('week_offset', weekOffset);
+    
+    // Adicionar múltiplos screenshots
+    for (let i = 0; i < screenshotFiles.length; i++) {
+        formData.append('screenshots', screenshotFiles[i]);
+    }
     
     const messageEl = document.getElementById('formMessage');
     
@@ -305,7 +351,7 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
         
         if (data.success) {
             messageEl.textContent = data.message;
-            messageEl.className = 'message show success';
+            messageEl.className = 'message show success' + (data.isPartial ? ' partial' : '');
             
             // Limpa o formulário
             document.getElementById('deliveryForm').reset();
@@ -370,19 +416,27 @@ document.getElementById('absenceForm').addEventListener('submit', async (e) => {
     }, 5000);
 });
 
-// Preview da imagem
-document.getElementById('screenshot').addEventListener('change', (e) => {
-    const file = e.target.files[0];
+// Preview da imagem (múltiplas)
+document.getElementById('screenshots').addEventListener('change', (e) => {
+    const files = e.target.files;
     const preview = document.getElementById('imagePreview');
+    preview.innerHTML = '';
     
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-        };
-        reader.readAsDataURL(file);
-    } else {
-        preview.innerHTML = '';
+    if (files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${ev.target.result}" alt="Preview ${i + 1}">
+                    <span class="preview-number">${i + 1}</span>
+                `;
+                preview.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        }
     }
 });
 
@@ -423,10 +477,18 @@ function formatWeek(start, end) {
     return `${startDate.toLocaleDateString('pt-BR')} - ${endDate.toLocaleDateString('pt-BR')}`;
 }
 
-function getStatusText(status) {
+function getStatusText(status, isPartial = false) {
+    if (isPartial) {
+        const texts = {
+            pending: '⏳ Parcialmente Pago - Aguardando Aprovação',
+            approved: '⚠️ Parcialmente Pago - Aprovado',
+            rejected: '❌ Parcialmente Pago - Rejeitado'
+        };
+        return texts[status] || status;
+    }
     const texts = {
         pending: '⏳ Aguardando Aprovação',
-        approved: '✅ Aprovado',
+        approved: '✅ Farm Completo - Aprovado',
         rejected: '❌ Rejeitado'
     };
     return texts[status] || status;

@@ -194,8 +194,19 @@ const initializePostgres = async () => {
                 description TEXT,
                 screenshot_url TEXT,
                 status TEXT DEFAULT 'pending',
+                is_partial BOOLEAN DEFAULT FALSE,
                 approved_by INTEGER REFERENCES users(id),
                 approved_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela de screenshots das entregas
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS delivery_screenshots (
+                id SERIAL PRIMARY KEY,
+                delivery_id INTEGER NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+                screenshot_url TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -331,11 +342,23 @@ const initializeSQLite = () => {
                     description TEXT,
                     screenshot_url TEXT,
                     status TEXT DEFAULT 'pending',
+                    is_partial INTEGER DEFAULT 0,
                     approved_by INTEGER,
                     approved_at DATETIME,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (approved_by) REFERENCES users(id)
+                )
+            `);
+
+            // Tabela de screenshots das entregas
+            pool.run(`
+                CREATE TABLE IF NOT EXISTS delivery_screenshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    delivery_id INTEGER NOT NULL,
+                    screenshot_url TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (delivery_id) REFERENCES deliveries(id)
                 )
             `);
 

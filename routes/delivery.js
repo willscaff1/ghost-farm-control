@@ -6,6 +6,9 @@ const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
 
 const router = express.Router();
 
+// Meta semanal por material
+const WEEKLY_GOAL = 700;
+
 // Helper para calcular semana com offset (semanas futuras)
 const getWeekWithOffset = (offset = 0) => {
     const now = new Date();
@@ -31,7 +34,7 @@ const storage = multer.memoryStorage();
 
 const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB por arquivo
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|gif|webp/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -42,7 +45,7 @@ const upload = multer({
         }
         cb(new Error('Apenas imagens são permitidas'));
     }
-});
+}).array('screenshots', 10); // Até 10 imagens
 
 // Middleware de autenticação
 const requireAuth = (req, res, next) => {
@@ -82,11 +85,16 @@ router.get('/current-week', requireAuth, async (req, res) => {
     }
 });
 
+// Obter meta semanal
+router.get('/weekly-goal', requireAuth, (req, res) => {
+    res.json({ weeklyGoal: WEEKLY_GOAL });
+});
+
 // Obter lista de materiais
 router.get('/materials', requireAuth, async (req, res) => {
     try {
         const materials = await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name');
-        res.json({ materials });
+        res.json({ materials, weeklyGoal: WEEKLY_GOAL });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -129,87 +137,123 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
     }
 });
 
-router.post('/', requireAuth, upload.single('screenshot'), async (req, res) => {
-    try {
-        const { materials, description, week_offset } = req.body;
-        const userId = req.session.user.id;
-        
-        // Usar a semana selecionada ou a atual
-        const offset = parseInt(week_offset) || 0;
-        if (offset < 0 || offset > 3) {
-            return res.status(400).json({ error: 'Semana inválida' });
-        }
-        const week = getWeekWithOffset(offset);
-        
-        // Verificar se já tem entrega na semana
-        const existingDelivery = await getOne(`
-            SELECT * FROM deliveries 
-            WHERE user_id = ? AND week_start = ? AND week_end = ?
-        `, [userId, week.start, week.end]);
-        
-        if (existingDelivery) {
-            return res.status(400).json({ 
-                error: 'Você já registrou farm para esta semana. Aguarde a próxima semana.' 
-            });
+router.post('/', requireAuth, (req, res) => {
+    upload(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ error: err.message });
         }
         
-        // Parse materials JSON
-        let materialsArray;
         try {
-            materialsArray = JSON.parse(materials);
-        } catch (e) {
-            return res.status(400).json({ error: 'Dados de materiais inválidos' });
-        }
-        
-        if (!materialsArray || materialsArray.length === 0) {
-            return res.status(400).json({ error: 'Informe pelo menos um material' });
-        }
-        
-        // Converter imagem para base64 (funciona em produção sem disco)
-        let screenshot_url = null;
-        if (req.file) {
-            const base64 = req.file.buffer.toString('base64');
-            const mimeType = req.file.mimetype;
-            screenshot_url = `data:${mimeType};base64,${base64}`;
-        }
-        
-        console.log('📦 Criando delivery:', { userId, week, description, hasScreenshot: !!screenshot_url });
-        
-        // Criar a entrega principal com a semana
-        const result = await runQuery(
-            'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url) VALUES (?, ?, ?, ?, ?)',
-            [userId, week.start, week.end, description || '', screenshot_url]
-        );
-        
-        console.log('📦 Delivery criado, result:', result);
-        
-        const deliveryId = result.lastID;
-        
-        if (!deliveryId) {
-            console.error('❌ Erro: deliveryId não retornado');
-            return res.status(500).json({ error: 'Erro ao criar entrega - ID não retornado' });
-        }
-        
-        // Inserir os itens de cada material
-        for (const item of materialsArray) {
-            if (item.amount > 0) {
-                console.log('📦 Inserindo item:', { deliveryId, material_id: item.material_id, amount: item.amount });
+            const { materials, description, week_offset } = req.body;
+            const userId = req.session.user.id;
+            
+            // Usar a semana selecionada ou a atual
+            const offset = parseInt(week_offset) || 0;
+            if (offset < 0 || offset > 3) {
+                return res.status(400).json({ error: 'Semana inválida' });
+            }
+            const week = getWeekWithOffset(offset);
+            
+            // Verificar se já tem entrega na semana
+            const existingDelivery = await getOne(`
+                SELECT * FROM deliveries 
+                WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [userId, week.start, week.end]);
+            
+            if (existingDelivery) {
+                return res.status(400).json({ 
+                    error: 'Você já registrou farm para esta semana. Aguarde a próxima semana.' 
+                });
+            }
+            
+            // Verificar se enviou pelo menos 1 imagem
+            if (!req.files || req.files.length === 0) {
+                return res.status(400).json({ error: 'Envie pelo menos 1 print do farm' });
+            }
+            
+            // Parse materials JSON
+            let materialsArray;
+            try {
+                materialsArray = JSON.parse(materials);
+            } catch (e) {
+                return res.status(400).json({ error: 'Dados de materiais inválidos' });
+            }
+            
+            if (!materialsArray || materialsArray.length === 0) {
+                return res.status(400).json({ error: 'Informe pelo menos um material' });
+            }
+            
+            // Verificar se é entrega parcial (algum material abaixo de 700)
+            let isPartial = false;
+            for (const item of materialsArray) {
+                const amount = parseInt(item.amount) || 0;
+                if (amount > 0 && amount < WEEKLY_GOAL) {
+                    isPartial = true;
+                    break;
+                }
+            }
+            
+            // Converter primeira imagem para screenshot_url (compatibilidade)
+            const firstFile = req.files[0];
+            const firstBase64 = firstFile.buffer.toString('base64');
+            const firstMimeType = firstFile.mimetype;
+            const screenshot_url = `data:${firstMimeType};base64,${firstBase64}`;
+            
+            console.log('📦 Criando delivery:', { userId, week, description, isPartial, totalScreenshots: req.files.length });
+            
+            // Criar a entrega principal com a semana
+            const result = await runQuery(
+                'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial) VALUES (?, ?, ?, ?, ?, ?)',
+                [userId, week.start, week.end, description || '', screenshot_url, isPartial ? 1 : 0]
+            );
+            
+            console.log('📦 Delivery criado, result:', result);
+            
+            const deliveryId = result.lastID;
+            
+            if (!deliveryId) {
+                console.error('❌ Erro: deliveryId não retornado');
+                return res.status(500).json({ error: 'Erro ao criar entrega - ID não retornado' });
+            }
+            
+            // Salvar todos os screenshots na tabela delivery_screenshots
+            for (const file of req.files) {
+                const base64 = file.buffer.toString('base64');
+                const mimeType = file.mimetype;
+                const dataUrl = `data:${mimeType};base64,${base64}`;
+                
                 await runQuery(
-                    'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
-                    [deliveryId, parseInt(item.material_id), parseInt(item.amount)]
+                    'INSERT INTO delivery_screenshots (delivery_id, screenshot_url) VALUES (?, ?)',
+                    [deliveryId, dataUrl]
                 );
             }
+            
+            // Inserir os itens de cada material
+            for (const item of materialsArray) {
+                if (item.amount > 0) {
+                    console.log('📦 Inserindo item:', { deliveryId, material_id: item.material_id, amount: item.amount });
+                    await runQuery(
+                        'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
+                        [deliveryId, parseInt(item.material_id), parseInt(item.amount)]
+                    );
+                }
+            }
+            
+            const statusMsg = isPartial ? 
+                `Farm da semana ${week.label} registrado como PARCIALMENTE PAGO! Aguardando aprovação.` :
+                `Farm da semana ${week.label} registrado! Aguardando aprovação.`;
+            
+            res.json({ 
+                success: true, 
+                message: statusMsg,
+                deliveryId: deliveryId,
+                isPartial: isPartial
+            });
+        } catch (error) {
+            console.error('❌ Erro em POST /delivery:', error);
+            res.status(500).json({ error: error.message });
         }
-        
-        res.json({ 
-            success: true, 
-            message: `Farm da semana ${week.label} registrado! Aguardando aprovação.`,
-            deliveryId: deliveryId
-        });
-    } catch (error) {
-        console.error('❌ Erro em POST /delivery:', error);
-        res.status(500).json({ error: error.message });
-    }
+    });
 });
 
 // Submeter justificativa de ausência
@@ -276,13 +320,18 @@ router.get('/my', requireAuth, async (req, res) => {
             ORDER BY d.week_start DESC, d.created_at DESC
         `, [userId]);
         
-        // Para cada entrega, buscar os itens
+        // Para cada entrega, buscar os itens e screenshots
         for (let delivery of deliveries) {
             delivery.items = await getAll(`
                 SELECT di.*, m.name as material_name, m.icon as material_icon
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
                 WHERE di.delivery_id = ?
+            `, [delivery.id]);
+            
+            // Buscar screenshots adicionais
+            delivery.screenshots = await getAll(`
+                SELECT * FROM delivery_screenshots WHERE delivery_id = ?
             `, [delivery.id]);
         }
         

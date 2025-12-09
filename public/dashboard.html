@@ -52,7 +52,7 @@
                     </select>
                 </div>
                 
-                <h3>Materiais do Farm</h3>
+                <h3>Materiais do Farm <span class="goal-hint">(Meta: <span id="weeklyGoal">700</span> de cada)</span></h3>
                 <div id="materialsInputs" class="materials-inputs">
                     <!-- Inputs de materiais serão carregados aqui -->
                 </div>
@@ -63,12 +63,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="screenshot">Print do Farm *</label>
-                    <input type="file" id="screenshot" name="screenshot" accept="image/*" required>
-                    <small>Formatos: JPG, PNG, GIF, WEBP (máx. 5MB)</small>
+                    <label for="screenshots">Prints do Farm * <span class="file-hint">(pode anexar múltiplos)</span></label>
+                    <input type="file" id="screenshots" name="screenshots" accept="image/*" multiple required>
+                    <small>Formatos: JPG, PNG, GIF, WEBP (máx. 5MB cada)</small>
                 </div>
                 
-                <div id="imagePreview" class="image-preview"></div>
+                <div id="imagePreview" class="image-preview-grid"></div>
                 
                 <button type="submit" class="btn btn-primary">📤 Enviar para Aprovação</button>
             </form>
