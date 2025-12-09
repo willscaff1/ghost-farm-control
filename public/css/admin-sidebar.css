@@ -625,83 +625,87 @@ body.admin-layout {
 /* Weekly Columns */
 .weekly-columns {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 20px !important;
     align-items: stretch;
 }
 
 @media (max-width: 1600px) {
     .weekly-columns {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, 1fr) !important;
     }
     .weekly-summary-cards {
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(5, 1fr) !important;
     }
 }
 
 @media (max-width: 1400px) {
     .weekly-columns {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, 1fr) !important;
     }
     .weekly-summary-cards {
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(5, 1fr) !important;
     }
 }
 
 @media (max-width: 1200px) {
     .weekly-columns {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr) !important;
     }
     .weekly-summary-cards {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, 1fr) !important;
     }
 }
 
 @media (max-width: 900px) {
     .weekly-columns {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
     }
     .weekly-summary-cards {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr) !important;
     }
 }
 
 .weekly-column .card {
-    background: linear-gradient(145deg, rgba(35, 35, 55, 0.7), rgba(25, 25, 40, 0.9));
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
-    padding: 20px;
-    height: 100%;
-    min-height: 300px;
-    display: flex;
-    flex-direction: column;
+    background: linear-gradient(145deg, rgba(35, 35, 55, 0.7), rgba(25, 25, 40, 0.9)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 16px !important;
+    padding: 20px !important;
+    height: 100% !important;
+    min-height: 300px !important;
+    display: flex !important;
+    flex-direction: column !important;
 }
 
 .weekly-column .card.card-partial {
-    border-color: rgba(52, 152, 219, 0.3);
-    background: linear-gradient(145deg, rgba(52, 152, 219, 0.08), rgba(25, 25, 40, 0.9));
+    border-color: rgba(52, 152, 219, 0.3) !important;
+    background: linear-gradient(145deg, rgba(52, 152, 219, 0.08), rgba(25, 25, 40, 0.9)) !important;
 }
 
 .weekly-column .card .column-hint {
-    font-size: 11px;
-    color: #3498db;
-    margin: -8px 0 15px 0;
+    font-size: 11px !important;
+    color: #3498db !important;
+    margin: -8px 0 15px 0 !important;
     opacity: 0.9;
 }
 
 .weekly-column .card h3 {
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 15px 0;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    margin: 0 0 15px 0 !important;
+    padding-bottom: 12px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .weekly-members-list {
-    flex: 1;
-    overflow-y: auto;
+    flex: 1 !important;
+    overflow-y: auto !important;
     padding-right: 5px;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    max-height: none !important;
 }
 
 .weekly-members-list::-webkit-scrollbar {
@@ -930,80 +934,82 @@ body.admin-layout {
 
 /* Weekly Member Cards */
 .weekly-member-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 10px !important;
     transition: all 0.2s ease;
     cursor: pointer;
-    gap: 12px;
+    gap: 12px !important;
+    flex-direction: row !important;
 }
 
 .weekly-member-card:hover {
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.07) !important;
     transform: translateX(3px);
 }
 
 .weekly-member-card.completed {
-    border-left: 4px solid #27ae60;
+    border-left: 4px solid #27ae60 !important;
 }
 
 .weekly-member-card.partial {
-    border-left: 4px solid #3498db;
-    background: rgba(52, 152, 219, 0.04);
+    border-left: 4px solid #3498db !important;
+    background: rgba(52, 152, 219, 0.04) !important;
 }
 
 .weekly-member-card.pending {
-    border-left: 4px solid #f39c12;
+    border-left: 4px solid #f39c12 !important;
 }
 
 .weekly-member-card.missing {
-    border-left: 4px solid #e74c3c;
+    border-left: 4px solid #e74c3c !important;
 }
 
 .weekly-member-card.justified {
-    border-left: 4px solid #9b59b6;
+    border-left: 4px solid #9b59b6 !important;
 }
 
 .weekly-member-card .member-info {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
     flex: 1;
     min-width: 0;
 }
 
 .weekly-member-card .member-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: #fff;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #fff !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .weekly-member-card .member-role {
-    font-size: 11px;
-    color: #888;
+    font-size: 11px !important;
+    color: #888 !important;
 }
 
 .weekly-member-card .member-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
     flex-shrink: 0;
+    flex-direction: row !important;
 }
 
 .weekly-member-card .status-badge {
-    display: inline-block;
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 600;
+    display: inline-block !important;
+    padding: 5px 10px !important;
+    border-radius: 6px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
     white-space: nowrap;
 }
 
