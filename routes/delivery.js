@@ -61,10 +61,10 @@ router.get('/current-week', requireAuth, async (req, res) => {
         const week = getCurrentWeek();
         const userId = req.session.user.id;
         
-        // Verificar se já tem entrega na semana atual
+        // Verificar se já tem entrega na semana atual (ignorar rejeitadas - podem refazer)
         const existingDelivery = await getOne(`
             SELECT * FROM deliveries 
-            WHERE user_id = ? AND week_start = ? AND week_end = ?
+            WHERE user_id = ? AND week_start = ? AND week_end = ? AND status != 'rejected'
         `, [userId, week.start, week.end]);
         
         // Verificar se já tem justificativa na semana atual
@@ -179,10 +179,10 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
         for (let i = 0; i <= 3; i++) {
             const week = getWeekWithOffset(i);
             
-            // Verificar se já tem entrega nessa semana
+            // Verificar se já tem entrega nessa semana (ignorar rejeitadas - podem refazer)
             const existingDelivery = await getOne(`
                 SELECT * FROM deliveries 
-                WHERE user_id = ? AND week_start = ? AND week_end = ?
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND status != 'rejected'
             `, [userId, week.start, week.end]);
             
             // Verificar se já tem justificativa nessa semana
@@ -246,6 +246,21 @@ router.post('/', requireAuth, (req, res) => {
                 return res.status(400).json({ error: 'Semana inválida' });
             }
             const week = getWeekWithOffset(offset);
+            
+            // Deletar entrega rejeitada se existir (permite refazer)
+            await runQuery(`
+                DELETE FROM delivery_screenshots WHERE delivery_id IN (
+                    SELECT id FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'rejected'
+                )
+            `, [userId, week.start, week.end]);
+            await runQuery(`
+                DELETE FROM delivery_items WHERE delivery_id IN (
+                    SELECT id FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'rejected'
+                )
+            `, [userId, week.start, week.end]);
+            await runQuery(`
+                DELETE FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'rejected'
+            `, [userId, week.start, week.end]);
             
             // Verificar se já tem entrega APROVADA na semana (farm completo já aprovado)
             const approvedDelivery = await getOne(`
