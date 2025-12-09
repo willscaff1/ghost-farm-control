@@ -93,19 +93,30 @@ router.get('/weekly-goal', requireAuth, (req, res) => {
 // Obter lista de materiais
 router.get('/materials', requireAuth, async (req, res) => {
     try {
+        console.log('📦 Buscando materiais...');
+        
         // Tenta buscar com weekly_goal, se falhar busca sem
         let materials;
         try {
             materials = await getAll('SELECT id, name, icon, weekly_goal, active FROM materials WHERE active = 1 ORDER BY name');
+            console.log('📦 Materiais encontrados (com weekly_goal):', materials?.length);
         } catch (e) {
+            console.log('⚠️ Fallback sem weekly_goal:', e.message);
             // Fallback se weekly_goal não existir
             materials = await getAll('SELECT id, name, icon, active FROM materials WHERE active = 1 ORDER BY name');
             // Adicionar weekly_goal padrão
             materials = materials.map(m => ({ ...m, weekly_goal: 700 }));
+            console.log('📦 Materiais encontrados (fallback):', materials?.length);
         }
+        
+        // Se não houver materiais, retornar lista vazia
+        if (!materials) {
+            materials = [];
+        }
+        
         res.json({ materials, weeklyGoal: DEFAULT_WEEKLY_GOAL });
     } catch (error) {
-        console.error('Erro ao buscar materiais:', error);
+        console.error('❌ Erro ao buscar materiais:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -233,16 +244,24 @@ router.post('/', requireAuth, (req, res) => {
             }
             
             // Salvar todos os screenshots na tabela delivery_screenshots
+            console.log('📸 Salvando', req.files.length, 'screenshots...');
             for (const file of req.files) {
                 const base64 = file.buffer.toString('base64');
                 const mimeType = file.mimetype;
                 const dataUrl = `data:${mimeType};base64,${base64}`;
                 
-                await runQuery(
-                    'INSERT INTO delivery_screenshots (delivery_id, screenshot_url) VALUES (?, ?)',
-                    [deliveryId, dataUrl]
-                );
+                try {
+                    await runQuery(
+                        'INSERT INTO delivery_screenshots (delivery_id, screenshot_url) VALUES (?, ?)',
+                        [deliveryId, dataUrl]
+                    );
+                    console.log('📸 Screenshot salvo para delivery', deliveryId);
+                } catch (screenshotError) {
+                    console.error('⚠️ Erro ao salvar screenshot:', screenshotError.message);
+                    // Continuar mesmo se falhar (já tem o screenshot principal no delivery)
+                }
             }
+            console.log('📸 Screenshots processados');
             
             // Inserir os itens de cada material
             for (const item of materialsArray) {
@@ -345,10 +364,15 @@ router.get('/my', requireAuth, async (req, res) => {
                 WHERE di.delivery_id = ?
             `, [delivery.id]);
             
-            // Buscar screenshots adicionais
-            delivery.screenshots = await getAll(`
-                SELECT * FROM delivery_screenshots WHERE delivery_id = ?
-            `, [delivery.id]);
+            // Buscar screenshots adicionais (com fallback)
+            try {
+                delivery.screenshots = await getAll(`
+                    SELECT * FROM delivery_screenshots WHERE delivery_id = ?
+                `, [delivery.id]);
+            } catch (e) {
+                // Se tabela não existir, usar array vazio
+                delivery.screenshots = [];
+            }
         }
         
         res.json({ deliveries });
