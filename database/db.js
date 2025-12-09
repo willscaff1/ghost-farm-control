@@ -287,6 +287,31 @@ const initializePostgres = async () => {
             console.log('👑 Super Admin criado: Willian Scaff (Passaporte: 6999, Senha: 6999)');
         }
 
+        // ===== MIGRAÇÕES - Adicionar colunas que podem não existir =====
+        console.log('🔄 Executando migrações...');
+        
+        // Adicionar weekly_goal em materials
+        try {
+            await pool.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS weekly_goal INTEGER DEFAULT 700`);
+        } catch (e) { /* coluna já existe */ }
+        
+        // Adicionar is_partial em deliveries
+        try {
+            await pool.query(`ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS is_partial BOOLEAN DEFAULT FALSE`);
+        } catch (e) { /* coluna já existe */ }
+        
+        // Criar tabela delivery_screenshots se não existir
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS delivery_screenshots (
+                id SERIAL PRIMARY KEY,
+                delivery_id INTEGER NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+                screenshot_url TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        console.log('✅ Migrações concluídas');
+
         console.log('✅ Banco de dados PostgreSQL inicializado');
     } catch (error) {
         console.error('Erro ao inicializar PostgreSQL:', error);
