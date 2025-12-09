@@ -393,9 +393,21 @@ function showDeliveryExtract(member) {
         `).join('')
         : '<p class="no-items">Sem itens registrados</p>';
     
-    const screenshotHtml = member.screenshot 
-        ? `<img src="/uploads/${member.screenshot}" class="extract-screenshot" onclick="openModal('/uploads/${member.screenshot}')">`
-        : '<p class="no-screenshot">Sem screenshot</p>';
+    // Montar galeria de screenshots
+    let screenshotsHtml = '';
+    if (member.screenshots && member.screenshots.length > 0) {
+        screenshotsHtml = `
+            <div class="screenshots-gallery">
+                ${member.screenshots.map((s, idx) => `
+                    <img src="${s.screenshot_url}" class="gallery-screenshot" onclick="openModal('${s.screenshot_url}')" alt="Print ${idx + 1}">
+                `).join('')}
+            </div>
+        `;
+    } else if (member.screenshot_url) {
+        screenshotsHtml = `<img src="${member.screenshot_url}" class="extract-screenshot" onclick="openModal('${member.screenshot_url}')">`;
+    } else {
+        screenshotsHtml = '<p class="no-screenshot">Sem prints</p>';
+    }
     
     showActionModal(`
         <div class="extract-modal">
@@ -412,8 +424,8 @@ function showDeliveryExtract(member) {
                 ${itemsHtml}
             </div>
             <div class="extract-screenshot-container">
-                <h3>🖼️ Screenshot</h3>
-                ${screenshotHtml}
+                <h3>🖼️ Prints (${member.screenshots ? member.screenshots.length : (member.screenshot_url ? 1 : 0)})</h3>
+                ${screenshotsHtml}
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeActionModal()">Fechar</button>
@@ -434,9 +446,21 @@ function showApprovalModal(member) {
         `).join('')
         : '<p class="no-items">Sem itens registrados</p>';
     
-    const screenshotHtml = member.screenshot 
-        ? `<img src="/uploads/${member.screenshot}" class="extract-screenshot" onclick="openModal('/uploads/${member.screenshot}')">`
-        : '<p class="no-screenshot">Sem screenshot</p>';
+    // Montar galeria de screenshots
+    let screenshotsHtml = '';
+    if (member.screenshots && member.screenshots.length > 0) {
+        screenshotsHtml = `
+            <div class="screenshots-gallery">
+                ${member.screenshots.map((s, idx) => `
+                    <img src="${s.screenshot_url}" class="gallery-screenshot" onclick="openModal('${s.screenshot_url}')" alt="Print ${idx + 1}">
+                `).join('')}
+            </div>
+        `;
+    } else if (member.screenshot_url) {
+        screenshotsHtml = `<img src="${member.screenshot_url}" class="extract-screenshot" onclick="openModal('${member.screenshot_url}')">`;
+    } else {
+        screenshotsHtml = '<p class="no-screenshot">Sem prints</p>';
+    }
     
     showActionModal(`
         <div class="approval-modal">
@@ -453,8 +477,8 @@ function showApprovalModal(member) {
                 ${itemsHtml}
             </div>
             <div class="extract-screenshot-container">
-                <h3>🖼️ Screenshot</h3>
-                ${screenshotHtml}
+                <h3>🖼️ Prints (${member.screenshots ? member.screenshots.length : (member.screenshot_url ? 1 : 0)})</h3>
+                ${screenshotsHtml}
             </div>
             <div class="modal-actions approval-actions">
                 <button class="btn btn-success btn-large" onclick="approveDeliveryFromModal(${member.delivery_id})">

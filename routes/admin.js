@@ -126,13 +126,18 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
         
         const deliveries = await getAll(query, params);
         
-        // Para cada entrega, buscar os itens
+        // Para cada entrega, buscar os itens e screenshots
         for (let delivery of deliveries) {
             delivery.items = await getAll(`
                 SELECT di.*, m.name as material_name, m.icon as material_icon
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
                 WHERE di.delivery_id = ?
+            `, [delivery.id]);
+            
+            // Buscar screenshots da tabela delivery_screenshots
+            delivery.screenshots = await getAll(`
+                SELECT screenshot_url FROM delivery_screenshots WHERE delivery_id = ?
             `, [delivery.id]);
         }
         
@@ -669,12 +674,18 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             
             // Buscar itens do delivery se existir
             let deliveryItems = [];
+            let deliveryScreenshots = [];
             if (delivery) {
                 deliveryItems = await getAll(`
                     SELECT di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal
                     FROM delivery_items di
                     JOIN materials m ON di.material_id = m.id
                     WHERE di.delivery_id = ?
+                `, [delivery.id]);
+                
+                // Buscar screenshots
+                deliveryScreenshots = await getAll(`
+                    SELECT screenshot_url FROM delivery_screenshots WHERE delivery_id = ?
                 `, [delivery.id]);
             }
             
@@ -691,6 +702,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
                     screenshot_url: delivery.screenshot_url,
+                    screenshots: deliveryScreenshots,
                     description: delivery.description,
                     items: deliveryItems,
                     is_partial: false
@@ -702,6 +714,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
                     screenshot_url: delivery.screenshot_url,
+                    screenshots: deliveryScreenshots,
                     description: delivery.description,
                     items: deliveryItems
                 });
@@ -712,6 +725,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
                     screenshot_url: delivery.screenshot_url,
+                    screenshots: deliveryScreenshots,
                     description: delivery.description,
                     items: deliveryItems,
                     is_partial: true,
