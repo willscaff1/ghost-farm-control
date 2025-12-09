@@ -341,8 +341,7 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     }
     
     // Verificar se tem screenshots
-    const screenshotFiles = document.getElementById('screenshots').files;
-    if (screenshotFiles.length === 0) {
+    if (uploadedScreenshots.length === 0) {
         alert('Anexe pelo menos 1 print do farm!');
         return;
     }
@@ -352,9 +351,9 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     formData.append('description', document.getElementById('description').value);
     formData.append('week_offset', weekOffset);
     
-    // Adicionar múltiplos screenshots
-    for (let i = 0; i < screenshotFiles.length; i++) {
-        formData.append('screenshots', screenshotFiles[i]);
+    // Adicionar screenshots do array
+    for (let i = 0; i < uploadedScreenshots.length; i++) {
+        formData.append('screenshots', uploadedScreenshots[i].file);
     }
     
     const messageEl = document.getElementById('formMessage');
@@ -373,7 +372,7 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
             
             // Limpa o formulário
             document.getElementById('deliveryForm').reset();
-            document.getElementById('imagePreview').innerHTML = '';
+            clearAllScreenshots();
             
             // Reseta os valores dos inputs de materiais
             materialInputs.forEach(input => input.value = '0');
@@ -434,29 +433,94 @@ document.getElementById('absenceForm').addEventListener('submit', async (e) => {
     }, 5000);
 });
 
-// Preview da imagem (múltiplas)
-document.getElementById('screenshots').addEventListener('change', (e) => {
-    const files = e.target.files;
-    const preview = document.getElementById('imagePreview');
-    preview.innerHTML = '';
+// ===== SISTEMA DE SCREENSHOTS =====
+let uploadedScreenshots = []; // Array para armazenar os arquivos
+
+// Abrir seletor de arquivo
+function addScreenshot() {
+    document.getElementById('screenshotInput').click();
+}
+
+// Quando selecionar um arquivo
+function handleScreenshotSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
     
-    if (files.length > 0) {
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const div = document.createElement('div');
-                div.className = 'preview-item';
-                div.innerHTML = `
-                    <img src="${ev.target.result}" alt="Preview ${i + 1}">
-                    <span class="preview-number">${i + 1}</span>
-                `;
-                preview.appendChild(div);
-            };
-            reader.readAsDataURL(file);
-        }
+    // Validar tamanho (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Arquivo muito grande! Máximo 5MB.');
+        return;
     }
-});
+    
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+        alert('Selecione apenas imagens!');
+        return;
+    }
+    
+    // Adicionar ao array
+    const id = Date.now();
+    uploadedScreenshots.push({ id, file });
+    
+    // Mostrar preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        renderScreenshotPreview(id, e.target.result, file.name);
+    };
+    reader.readAsDataURL(file);
+    
+    // Limpar input para permitir selecionar o mesmo arquivo novamente
+    event.target.value = '';
+    
+    updateScreenshotsCount();
+}
+
+// Renderizar preview de um screenshot
+function renderScreenshotPreview(id, dataUrl, fileName) {
+    const container = document.getElementById('screenshotsPreview');
+    
+    const div = document.createElement('div');
+    div.className = 'screenshot-preview-item';
+    div.id = `screenshot-${id}`;
+    div.innerHTML = `
+        <img src="${dataUrl}" alt="${fileName}" onclick="openModal('${dataUrl}')">
+        <div class="screenshot-info">
+            <span class="screenshot-name">${fileName.length > 15 ? fileName.substring(0, 12) + '...' : fileName}</span>
+            <button type="button" class="btn-remove-screenshot" onclick="removeScreenshot(${id})" title="Remover print">
+                ✕
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(div);
+}
+
+// Remover um screenshot
+function removeScreenshot(id) {
+    // Remover do array
+    uploadedScreenshots = uploadedScreenshots.filter(s => s.id !== id);
+    
+    // Remover do DOM
+    const element = document.getElementById(`screenshot-${id}`);
+    if (element) {
+        element.classList.add('removing');
+        setTimeout(() => element.remove(), 200);
+    }
+    
+    updateScreenshotsCount();
+}
+
+// Limpar todos os screenshots
+function clearAllScreenshots() {
+    uploadedScreenshots = [];
+    document.getElementById('screenshotsPreview').innerHTML = '';
+    updateScreenshotsCount();
+}
+
+// Atualizar contador
+function updateScreenshotsCount() {
+    document.getElementById('screenshotsCount').value = uploadedScreenshots.length;
+}
 
 // Modal de imagem
 function openModal(src) {

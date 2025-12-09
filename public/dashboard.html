@@ -63,13 +63,18 @@
                     <input type="text" id="description" name="description" placeholder="Ex: Farm realizado dia X">
                 </div>
                 
-                <div class="form-group">
-                    <label for="screenshots">Prints do Farm * <span class="file-hint">(pode anexar múltiplos)</span></label>
-                    <input type="file" id="screenshots" name="screenshots" accept="image/*" multiple required>
-                    <small>Formatos: JPG, PNG, GIF, WEBP (máx. 5MB cada)</small>
+                <div class="form-group screenshots-section">
+                    <label>Prints do Farm * <span class="file-hint">(anexe um ou mais prints)</span></label>
+                    <div class="screenshots-upload-area">
+                        <button type="button" class="btn-add-screenshot" onclick="addScreenshot()">
+                            📷 Adicionar Print
+                        </button>
+                        <input type="file" id="screenshotInput" accept="image/*" style="display: none;" onchange="handleScreenshotSelect(event)">
+                        <small>Formatos: JPG, PNG, GIF, WEBP (máx. 5MB cada)</small>
+                    </div>
+                    <div id="screenshotsPreview" class="screenshots-preview-grid"></div>
+                    <input type="hidden" id="screenshotsCount" value="0">
                 </div>
-                
-                <div id="imagePreview" class="image-preview-grid"></div>
                 
                 <button type="submit" class="btn btn-primary">📤 Enviar para Aprovação</button>
             </form>

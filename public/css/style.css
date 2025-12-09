@@ -2089,3 +2089,129 @@ h3 {
     border-color: var(--warning);
     color: var(--warning);
 }
+
+/* ===== NOVO SISTEMA DE SCREENSHOTS ===== */
+.screenshots-section {
+    margin-bottom: 20px;
+}
+
+.screenshots-upload-area {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.btn-add-screenshot {
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+    color: white;
+    border: 2px dashed #4a90e2;
+    padding: 20px 30px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-add-screenshot:hover {
+    background: linear-gradient(135deg, #357abd 0%, #2968a8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(74, 144, 226, 0.3);
+}
+
+.screenshots-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+}
+
+.screenshot-preview-item {
+    background: var(--card-bg);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.screenshot-preview-item.removing {
+    animation: slideOut 0.2s ease forwards;
+}
+
+@keyframes slideOut {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+}
+
+.screenshot-preview-item img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.screenshot-preview-item img:hover {
+    transform: scale(1.05);
+}
+
+.screenshot-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.screenshot-name {
+    font-size: 11px;
+    color: #888;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-remove-screenshot {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.btn-remove-screenshot:hover {
+    background: #c0392b;
+    transform: scale(1.1);
+}
+
