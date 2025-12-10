@@ -399,7 +399,9 @@ async function loadWeekData(offset = 0) {
                 // Atualizar título do form
                 const formTitle = document.getElementById('formTitle');
                 if (formTitle) {
-                    if (data.isPartial) {
+                    if (data.deliveryStatus === 'pending' && !data.isPartial) {
+                        formTitle.textContent = '✏️ Editar Farm (Aguardando Aprovação)';
+                    } else if (data.isPartial) {
                         formTitle.textContent = '📦 Adicionar ao Farm';
                     } else {
                         formTitle.textContent = '📦 Registrar Farm';

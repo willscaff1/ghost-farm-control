@@ -119,8 +119,8 @@ router.get('/current-week', requireAuth, async (req, res) => {
                 canDeliver = false;
                 statusMessage = 'Farm completo aprovado!';
             } else if (existingDelivery.status === 'pending' && !existingDelivery.is_partial) {
-                canDeliver = false;
-                statusMessage = 'Farm completo aguardando aprovação';
+                canDeliver = true; // Pode editar mesmo aguardando aprovação
+                statusMessage = 'Farm aguardando aprovação - você ainda pode editar!';
             } else if (existingDelivery.is_partial) {
                 canDeliver = true; // Pode continuar adicionando
                 statusMessage = 'Farm em progresso - continue adicionando!';
