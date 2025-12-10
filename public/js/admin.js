@@ -2780,14 +2780,11 @@ async function loadWeeklyReport() {
                 name: member.name,
                 passport: member.passport,
                 role: roleNames[member.role] || member.role,
-                total_delivered: member.total_delivered || 0,
-                approved_count: member.approved_count || 0,
-                pending_count: member.pending_count || 0,
-                has_justification: member.has_justification || false
+                farmStatus: member.farmStatus
             };
             
-            // Considera "pagou" se tem entregas aprovadas ou justificativa aceita
-            if (member.approved_count > 0 || (member.has_justification && member.justification_status === 'approved')) {
+            // Considera "pagou" se tem farm aprovado ou justificativa aprovada
+            if (member.farmStatus === 'approved' || member.farmStatus === 'justified') {
                 paid.push(memberData);
             } else {
                 notPaid.push(memberData);
@@ -2836,7 +2833,7 @@ function renderReport(data) {
                                 <th>Passaporte</th>
                                 <th>Nome</th>
                                 <th>Cargo</th>
-                                <th>Entregas</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -2845,7 +2842,7 @@ function renderReport(data) {
                                     <td>${m.passport}</td>
                                     <td>${m.name}</td>
                                     <td>${m.role}</td>
-                                    <td>${m.approved_count}</td>
+                                    <td>${m.farmStatus === 'justified' ? '📝 Justificado' : '✅ Aprovado'}</td>
                                 </tr>
                             `).join('') : '<tr><td colspan="4" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
                         </tbody>
@@ -2870,14 +2867,20 @@ function renderReport(data) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${data.notPaid.length > 0 ? data.notPaid.map(m => `
-                                <tr>
-                                    <td>${m.passport}</td>
-                                    <td>${m.name}</td>
-                                    <td>${m.role}</td>
-                                    <td>${m.has_justification ? '⏳ Justificativa Pendente' : '❌ Sem Entrega'}</td>
-                                </tr>
-                            `).join('') : '<tr><td colspan="4" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
+                            ${data.notPaid.length > 0 ? data.notPaid.map(m => {
+                                let statusText = '❌ Sem Entrega';
+                                if (m.farmStatus === 'pending') statusText = '⏳ Aguardando Aprovação';
+                                else if (m.farmStatus === 'rejected') statusText = '🚫 Rejeitado';
+                                else if (m.farmStatus === 'justification_pending') statusText = '📝 Justificativa Pendente';
+                                return `
+                                    <tr>
+                                        <td>${m.passport}</td>
+                                        <td>${m.name}</td>
+                                        <td>${m.role}</td>
+                                        <td>${statusText}</td>
+                                    </tr>
+                                `;
+                            }).join('') : '<tr><td colspan="4" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
                         </tbody>
                     </table>
                 </div>
