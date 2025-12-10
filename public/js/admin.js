@@ -2878,7 +2878,7 @@ async function loadAdminNotifications() {
     
     try {
         // Buscar farms pendentes
-        const pendingRes = await fetch('/api/admin/pending');
+        const pendingRes = await fetch('/api/admin/deliveries/pending');
         if (!pendingRes.ok) throw new Error('Erro ao buscar pendentes');
         const pendingData = await pendingRes.json();
         
