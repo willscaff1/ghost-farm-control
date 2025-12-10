@@ -102,8 +102,22 @@
                         <h2 id="formTitle">📦 Registrar Farm</h2>
                     </div>
                     
+                    <!-- Seletor de Tipo de Pagamento -->
+                    <div class="payment-type-selector">
+                        <button type="button" class="payment-type-btn active" data-type="material" onclick="selectPaymentType('material')">
+                            <span class="payment-icon">📦</span>
+                            <span class="payment-label">Materiais</span>
+                        </button>
+                        <button type="button" class="payment-type-btn" data-type="dirty_money" onclick="selectPaymentType('dirty_money')">
+                            <span class="payment-icon">💰</span>
+                            <span class="payment-label">Dinheiro Sujo</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Form de Materiais -->
                     <form id="deliveryForm" enctype="multipart/form-data">
                         <input type="hidden" id="weekSelect" value="0">
+                        <input type="hidden" id="paymentType" value="material">
                         
                         <div class="materials-grid" id="materialsInputs"></div>
                         
@@ -131,6 +145,58 @@
                         
                         <button type="submit" id="submitDeliveryBtn" class="btn-submit secondary">💾 Salvar Progresso</button>
                     </form>
+                    
+                    <!-- Form de Dinheiro Sujo -->
+                    <form id="dirtyMoneyForm" enctype="multipart/form-data" style="display: none;">
+                        <input type="hidden" id="weekSelectDirty" value="0">
+                        
+                        <div class="dirty-money-section">
+                            <div class="dirty-money-card">
+                                <div class="dirty-money-icon">💰</div>
+                                <div class="dirty-money-info">
+                                    <div class="dirty-money-title">Adicionar Dinheiro Sujo</div>
+                                    <div class="dirty-money-hint">Meta: R$ <span id="dirtyMoneyGoal">50.000</span></div>
+                                </div>
+                                <div class="dirty-money-input-wrapper">
+                                    <span class="currency-prefix">R$</span>
+                                    <input type="number" 
+                                           id="dirtyMoneyAmount" 
+                                           class="dirty-money-input" 
+                                           min="0" 
+                                           max="999999999"
+                                           value="0"
+                                           placeholder="0"
+                                           oninput="updateDirtyMoneyButton()">
+                                </div>
+                            </div>
+                            <p class="dirty-money-add-hint">💡 O valor informado será <strong>somado</strong> ao já entregue</p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Observações <span class="optional">(opcional)</span></label>
+                            <input type="text" id="descriptionDirty" name="description" placeholder="Ex: Farm pago com dinheiro sujo">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>📷 Print do Pagamento <span class="required">*</span></label>
+                            
+                            <!-- Screenshots já enviados -->
+                            <div id="existingScreenshotsSectionDirty" class="existing-screenshots-section" style="display: none;">
+                                <div class="existing-label">📸 Prints já enviados:</div>
+                                <div id="existingScreenshotsDirty" class="screenshots-grid"></div>
+                            </div>
+                            
+                            <!-- Novos screenshots -->
+                            <div class="screenshots-area">
+                                <div id="screenshotsPreviewDirty" class="screenshots-grid"></div>
+                                <button type="button" class="btn-add-screenshot" onclick="addScreenshotDirty()">+ Adicionar Print</button>
+                                <input type="file" id="screenshotInputDirty" accept="image/*" style="display: none;" onchange="handleScreenshotSelectDirty(event)">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" id="submitDirtyMoneyBtn" class="btn-submit secondary">💾 Adicionar</button>
+                    </form>
+                    
                     <div id="formMessage" class="form-message"></div>
                 </div>
 

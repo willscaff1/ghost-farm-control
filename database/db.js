@@ -280,6 +280,27 @@ const initializePostgres = async () => {
             )
         `);
 
+        // Tabela de tipos de pagamento (Dinheiro Sujo, Dinheiro Limpo, etc.)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS payment_types (
+                id SERIAL PRIMARY KEY,
+                name TEXT UNIQUE NOT NULL,
+                icon TEXT DEFAULT '💰',
+                weekly_goal INTEGER DEFAULT 50000,
+                active INTEGER DEFAULT 1
+            )
+        `);
+
+        // Tabela de configurações do farm
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS farm_settings (
+                id SERIAL PRIMARY KEY,
+                setting_key TEXT UNIQUE NOT NULL,
+                setting_value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Inserir materiais padrão
         const defaultMaterials = [
             ['Folha', '🍃'],
@@ -340,6 +361,59 @@ const initializePostgres = async () => {
             )
         `);
         console.log('✅ Tabela delivery_screenshots verificada/criada');
+        
+        // Adicionar payment_type em deliveries (material ou dirty_money)
+        try {
+            await pool.query(`ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'material'`);
+            console.log('✅ Coluna payment_type verificada/adicionada');
+        } catch (e) { 
+            console.log('ℹ️ payment_type:', e.message);
+        }
+        
+        // Adicionar dirty_money_amount em deliveries
+        try {
+            await pool.query(`ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS dirty_money_amount INTEGER DEFAULT 0`);
+            console.log('✅ Coluna dirty_money_amount verificada/adicionada');
+        } catch (e) { 
+            console.log('ℹ️ dirty_money_amount:', e.message);
+        }
+
+        // Adicionar payment_type_id em deliveries (referência ao tipo de pagamento)
+        try {
+            await pool.query(`ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS payment_type_id INTEGER DEFAULT NULL`);
+            console.log('✅ Coluna payment_type_id verificada/adicionada');
+        } catch (e) { 
+            console.log('ℹ️ payment_type_id:', e.message);
+        }
+
+        // Inserir tipos de pagamento padrão
+        const defaultPaymentTypes = [
+            ['Dinheiro Sujo', '💰', 50000],
+            ['Dinheiro Limpo', '💵', 50000]
+        ];
+
+        for (const [name, icon, goal] of defaultPaymentTypes) {
+            await pool.query(
+                `INSERT INTO payment_types (name, icon, weekly_goal) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
+                [name, icon, goal]
+            );
+        }
+        console.log('✅ Tipos de pagamento padrão inseridos');
+
+        // Inserir configurações padrão do farm
+        const defaultSettings = [
+            ['farm_materials_enabled', 'true'],      // Habilitar farm de materiais
+            ['farm_payment_enabled', 'true'],        // Habilitar pagamento com dinheiro
+            ['farm_payment_mode', 'either']          // 'either' = um ou outro, 'both' = ambos obrigatórios
+        ];
+
+        for (const [key, value] of defaultSettings) {
+            await pool.query(
+                `INSERT INTO farm_settings (setting_key, setting_value) VALUES ($1, $2) ON CONFLICT (setting_key) DO NOTHING`,
+                [key, value]
+            );
+        }
+        console.log('✅ Configurações padrão do farm inseridas');
         
         console.log('✅ Migrações concluídas');
 
@@ -490,6 +564,27 @@ const initializeSQLite = () => {
                 )
             `);
 
+            // Tabela de tipos de pagamento (Dinheiro Sujo, Dinheiro Limpo, etc.)
+            pool.run(`
+                CREATE TABLE IF NOT EXISTS payment_types (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    icon TEXT DEFAULT '💰',
+                    weekly_goal INTEGER DEFAULT 50000,
+                    active INTEGER DEFAULT 1
+                )
+            `);
+
+            // Tabela de configurações do farm
+            pool.run(`
+                CREATE TABLE IF NOT EXISTS farm_settings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    setting_key TEXT UNIQUE NOT NULL,
+                    setting_value TEXT NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
             // Inserir materiais padrão
             const defaultMaterials = [
                 ['Folha', '🍃'],
@@ -511,6 +606,36 @@ const initializeSQLite = () => {
                 if (!err && this.changes > 0) {
                     console.log('👑 Super Admin criado: Willian Scaff (Passaporte: 6999, Senha: 6999)');
                 }
+            });
+
+            // Migrações SQLite - adicionar colunas novas
+            pool.run(`ALTER TABLE deliveries ADD COLUMN payment_type TEXT DEFAULT 'material'`, (err) => {
+                if (!err) console.log('✅ Coluna payment_type adicionada (SQLite)');
+            });
+            pool.run(`ALTER TABLE deliveries ADD COLUMN dirty_money_amount INTEGER DEFAULT 0`, (err) => {
+                if (!err) console.log('✅ Coluna dirty_money_amount adicionada (SQLite)');
+            });
+            pool.run(`ALTER TABLE deliveries ADD COLUMN payment_type_id INTEGER DEFAULT NULL`, (err) => {
+                if (!err) console.log('✅ Coluna payment_type_id adicionada (SQLite)');
+            });
+
+            // Inserir tipos de pagamento padrão
+            const defaultPaymentTypes = [
+                ['Dinheiro Sujo', '💰', 50000],
+                ['Dinheiro Limpo', '💵', 50000]
+            ];
+            defaultPaymentTypes.forEach(([name, icon, goal]) => {
+                pool.run(`INSERT OR IGNORE INTO payment_types (name, icon, weekly_goal) VALUES (?, ?, ?)`, [name, icon, goal]);
+            });
+
+            // Inserir configurações padrão do farm
+            const defaultSettings = [
+                ['farm_materials_enabled', 'true'],
+                ['farm_payment_enabled', 'true'],
+                ['farm_payment_mode', 'either']
+            ];
+            defaultSettings.forEach(([key, value]) => {
+                pool.run(`INSERT OR IGNORE INTO farm_settings (setting_key, setting_value) VALUES (?, ?)`, [key, value]);
             });
 
             console.log('✅ Banco de dados SQLite inicializado');

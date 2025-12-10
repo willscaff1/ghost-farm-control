@@ -731,6 +731,14 @@
     background: linear-gradient(90deg, #00b894, #55efc4);
 }
 
+.progress-percentage-text {
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #27ae60;
+    margin-top: 5px;
+}
+
 .progress-empty {
     text-align: center;
     padding: 30px 15px;
@@ -1256,5 +1264,209 @@
     
     .stats-row {
         grid-template-columns: 1fr;
+    }
+}
+
+/* ========== PAYMENT TYPE SELECTOR ========== */
+.payment-type-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 5px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+}
+
+.payment-type-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: transparent;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    color: #888;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.payment-type-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #aaa;
+}
+
+.payment-type-btn.active {
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(74, 144, 226, 0.1));
+    border-color: #4a90e2;
+    color: #4a90e2;
+}
+
+.payment-type-btn .payment-icon {
+    font-size: 18px;
+}
+
+.payment-type-btn .payment-label {
+    font-weight: 600;
+}
+
+/* Payment Type Button Disabled */
+.payment-type-btn.disabled,
+.payment-type-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: rgba(128, 128, 128, 0.1);
+    border-color: transparent !important;
+    color: #666 !important;
+}
+
+.payment-type-btn.disabled:hover,
+.payment-type-btn:disabled:hover {
+    background: rgba(128, 128, 128, 0.1);
+    color: #666;
+}
+
+/* Payment Locked Notice */
+.payment-locked-notice {
+    width: 100%;
+    text-align: center;
+    color: #f39c12;
+    font-size: 0.85rem;
+    margin-top: 10px;
+    padding: 8px;
+    background: rgba(243, 156, 18, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(243, 156, 18, 0.2);
+}
+
+/* ========== DIRTY MONEY FORM ========== */
+.dirty-money-section {
+    margin-bottom: 20px;
+}
+
+.dirty-money-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.1), rgba(39, 174, 96, 0.05));
+    border: 2px solid rgba(39, 174, 96, 0.3);
+    border-radius: 16px;
+}
+
+.dirty-money-icon {
+    font-size: 36px;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(39, 174, 96, 0.15);
+    border-radius: 12px;
+}
+
+.dirty-money-info {
+    flex: 1;
+}
+
+.dirty-money-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.dirty-money-hint {
+    font-size: 13px;
+    color: #27ae60;
+}
+
+.dirty-money-add-hint {
+    font-size: 0.85rem;
+    color: #888;
+    text-align: center;
+    margin-top: 12px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+.dirty-money-add-hint strong {
+    color: #27ae60;
+}
+
+.dirty-money-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 0 15px;
+    transition: border-color 0.2s;
+}
+
+.dirty-money-input-wrapper:focus-within {
+    border-color: #27ae60;
+}
+
+.currency-prefix {
+    font-size: 18px;
+    font-weight: 600;
+    color: #27ae60;
+}
+
+.dirty-money-input {
+    width: 120px;
+    padding: 12px 5px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: right;
+}
+
+.dirty-money-input:focus {
+    outline: none;
+}
+
+.dirty-money-input::placeholder {
+    color: #555;
+}
+
+/* Remove spinner do input number */
+.dirty-money-input::-webkit-outer-spin-button,
+.dirty-money-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.dirty-money-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* Responsive dirty money */
+@media (max-width: 600px) {
+    .payment-type-selector {
+        flex-direction: column;
+    }
+    
+    .dirty-money-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .dirty-money-input-wrapper {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .dirty-money-input {
+        width: 100%;
+        text-align: center;
     }
 }

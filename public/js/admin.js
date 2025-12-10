@@ -78,7 +78,9 @@ function showTab(tabId) {
         case 'pending': loadPendingDeliveries(); break;
         case 'members': loadMembers(); break;
         case 'new-member': break;
+        case 'farm-settings': loadFarmSettings(); break;
         case 'manage-materials': loadMaterials(); break;
+        case 'manage-payment-types': loadPaymentTypes(); break;
         case 'whitelist': loadWhitelist(); break;
         case 'edit-permissions': loadEditPermissions(); break;
         case 'ranking': loadRanking(); break;
@@ -86,7 +88,6 @@ function showTab(tabId) {
         case 'weekly-report': loadWeeklyReport(); break;
     }
 }
-
 // Carregar semana selecionada
 async function loadSelectedWeek() {
     try {
@@ -195,8 +196,14 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
             case 'materials-stats':
                 loadMaterialsStats();
                 break;
+            case 'farm-settings':
+                loadFarmSettings();
+                break;
             case 'manage-materials':
                 loadMaterials();
+                break;
+            case 'manage-payment-types':
+                loadPaymentTypes();
                 break;
             case 'all-deliveries':
                 loadAllDeliveries();
@@ -703,15 +710,46 @@ function filterWeeklyTable(filter) {
 
 // Modal: Mostrar extrato de farm aprovado
 function showDeliveryExtract(member) {
-    const itemsHtml = member.items && member.items.length > 0 
-        ? member.items.map(item => `
-            <div class="extract-item">
-                <span class="item-icon">${item.material_icon || '📦'}</span>
-                <span class="item-name">${item.material_name}</span>
-                <span class="item-amount">${formatNumber(item.amount)}</span>
+    const isDirtyMoney = member.payment_type === 'dirty_money';
+    
+    let contentHtml = '';
+    if (isDirtyMoney) {
+        // Mostrar dinheiro sujo
+        const amount = member.dirty_money_amount || 0;
+        const goal = 50000;
+        const percentage = Math.min(100, Math.round((amount / goal) * 100));
+        contentHtml = `
+            <div class="dirty-money-extract">
+                <div class="dirty-money-info">
+                    <span class="dirty-money-icon">💰</span>
+                    <span class="dirty-money-label">Dinheiro Sujo</span>
+                </div>
+                <div class="dirty-money-value">R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</div>
+                <div class="dirty-money-bar">
+                    <div class="dirty-money-bar-fill" style="width: ${percentage}%"></div>
+                </div>
+                <div class="dirty-money-edit">
+                    <label>Editar valor:</label>
+                    <div class="dirty-money-input-group">
+                        <span class="currency-prefix">R$</span>
+                        <input type="number" id="editDirtyMoneyAmount" value="${amount}" min="0" step="1000">
+                        <button class="btn btn-primary" onclick="saveDirtyMoneyEdit(${member.delivery_id})">💾 Salvar</button>
+                    </div>
+                </div>
             </div>
-        `).join('')
-        : '<p class="no-items">Sem itens registrados</p>';
+        `;
+    } else {
+        // Mostrar materiais
+        contentHtml = member.items && member.items.length > 0 
+            ? member.items.map(item => `
+                <div class="extract-item">
+                    <span class="item-icon">${item.material_icon || '📦'}</span>
+                    <span class="item-name">${item.material_name}</span>
+                    <span class="item-amount">${formatNumber(item.amount)}</span>
+                </div>
+            `).join('')
+            : '<p class="no-items">Sem itens registrados</p>';
+    }
     
     // Montar galeria de screenshots
     let screenshotsHtml = '';
@@ -732,16 +770,17 @@ function showDeliveryExtract(member) {
     showActionModal(`
         <div class="extract-modal">
             <div class="extract-header">
-                <h2>📦 Extrato do Farm</h2>
+                <h2>${isDirtyMoney ? '💰 Extrato Dinheiro Sujo' : '📦 Extrato do Farm'}</h2>
                 <span class="extract-member">👤 ${member.name}</span>
             </div>
             <div class="extract-info">
                 <p>📅 Entregue em: ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</p>
                 ${member.description ? `<p>📝 ${member.description}</p>` : ''}
+                ${isDirtyMoney ? '<span class="payment-type-badge dirty-money">💰 Dinheiro Sujo</span>' : '<span class="payment-type-badge material">📦 Materiais</span>'}
             </div>
             <div class="extract-items">
-                <h3>📋 Materiais Entregues</h3>
-                ${itemsHtml}
+                <h3>${isDirtyMoney ? '💵 Valor Entregue' : '📋 Materiais Entregues'}</h3>
+                ${contentHtml}
             </div>
             <div class="extract-screenshot-container">
                 <h3>🖼️ Prints (${member.screenshots ? member.screenshots.length : (member.screenshot_url ? 1 : 0)})</h3>
@@ -754,17 +793,79 @@ function showDeliveryExtract(member) {
     `);
 }
 
+// Salvar edição de dinheiro sujo
+async function saveDirtyMoneyEdit(deliveryId) {
+    const amount = parseInt(document.getElementById('editDirtyMoneyAmount').value) || 0;
+    
+    if (amount < 0) {
+        alert('O valor não pode ser negativo!');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/deliveries/${deliveryId}/dirty-money`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dirty_money_amount: amount })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            closeActionModal();
+            loadWeeklyStatus();
+        } else {
+            alert('Erro: ' + (data.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        console.error('Erro ao salvar dinheiro sujo:', error);
+        alert('Erro ao salvar. Tente novamente.');
+    }
+}
+
 // Modal: Aprovar/Rejeitar farm pendente
 function showApprovalModal(member) {
-    const itemsHtml = member.items && member.items.length > 0 
-        ? member.items.map(item => `
-            <div class="extract-item">
-                <span class="item-icon">${item.material_icon || '📦'}</span>
-                <span class="item-name">${item.material_name}</span>
-                <span class="item-amount">${formatNumber(item.amount)}</span>
+    const isDirtyMoney = member.payment_type === 'dirty_money';
+    
+    let contentHtml = '';
+    if (isDirtyMoney) {
+        // Mostrar dinheiro sujo
+        const amount = member.dirty_money_amount || 0;
+        const goal = 50000;
+        const percentage = Math.min(100, Math.round((amount / goal) * 100));
+        contentHtml = `
+            <div class="dirty-money-extract">
+                <div class="dirty-money-info">
+                    <span class="dirty-money-icon">💰</span>
+                    <span class="dirty-money-label">Dinheiro Sujo</span>
+                </div>
+                <div class="dirty-money-value">R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</div>
+                <div class="dirty-money-bar">
+                    <div class="dirty-money-bar-fill" style="width: ${percentage}%"></div>
+                </div>
+                <div class="dirty-money-edit">
+                    <label>Editar valor antes de aprovar:</label>
+                    <div class="dirty-money-input-group">
+                        <span class="currency-prefix">R$</span>
+                        <input type="number" id="editDirtyMoneyAmount" value="${amount}" min="0" step="1000">
+                        <button class="btn btn-secondary btn-small" onclick="updateDirtyMoneyPreview()">Atualizar</button>
+                    </div>
+                </div>
             </div>
-        `).join('')
-        : '<p class="no-items">Sem itens registrados</p>';
+        `;
+    } else {
+        // Mostrar materiais
+        contentHtml = member.items && member.items.length > 0 
+            ? member.items.map(item => `
+                <div class="extract-item">
+                    <span class="item-icon">${item.material_icon || '📦'}</span>
+                    <span class="item-name">${item.material_name}</span>
+                    <span class="item-amount">${formatNumber(item.amount)}</span>
+                </div>
+            `).join('')
+            : '<p class="no-items">Sem itens registrados</p>';
+    }
     
     // Montar galeria de screenshots
     let screenshotsHtml = '';
@@ -782,19 +883,24 @@ function showApprovalModal(member) {
         screenshotsHtml = '<p class="no-screenshot">Sem prints</p>';
     }
     
+    // Guardar o delivery_id para uso na aprovação com edição
+    window.currentApprovalDeliveryId = member.delivery_id;
+    window.currentApprovalIsDirtyMoney = isDirtyMoney;
+    
     showActionModal(`
         <div class="approval-modal">
             <div class="extract-header">
-                <h2>⏳ Aprovar Farm</h2>
+                <h2>${isDirtyMoney ? '💰 Aprovar Dinheiro Sujo' : '⏳ Aprovar Farm'}</h2>
                 <span class="extract-member">👤 ${member.name}</span>
             </div>
             <div class="extract-info">
                 <p>📅 Enviado em: ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</p>
                 ${member.description ? `<p>📝 ${member.description}</p>` : ''}
+                ${isDirtyMoney ? '<span class="payment-type-badge dirty-money">💰 Dinheiro Sujo</span>' : '<span class="payment-type-badge material">📦 Materiais</span>'}
             </div>
             <div class="extract-items">
-                <h3>📋 Materiais</h3>
-                ${itemsHtml}
+                <h3>${isDirtyMoney ? '💵 Valor a Aprovar' : '📋 Materiais'}</h3>
+                ${contentHtml}
             </div>
             <div class="extract-screenshot-container">
                 <h3>🖼️ Prints (${member.screenshots ? member.screenshots.length : (member.screenshot_url ? 1 : 0)})</h3>
@@ -811,6 +917,62 @@ function showApprovalModal(member) {
             </div>
         </div>
     `);
+}
+
+// Atualizar preview do dinheiro sujo no modal de aprovação
+function updateDirtyMoneyPreview() {
+    const amount = parseInt(document.getElementById('editDirtyMoneyAmount').value) || 0;
+    const goal = 50000;
+    const percentage = Math.min(100, Math.round((amount / goal) * 100));
+    
+    const valueEl = document.querySelector('.dirty-money-value');
+    const barFillEl = document.querySelector('.dirty-money-bar-fill');
+    
+    if (valueEl) {
+        valueEl.textContent = `R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}`;
+    }
+    if (barFillEl) {
+        barFillEl.style.width = `${percentage}%`;
+    }
+}
+
+// Aprovar entrega com possível edição de dinheiro sujo
+async function approveDeliveryFromModal(deliveryId) {
+    // Se for dinheiro sujo, primeiro salvar o valor editado
+    if (window.currentApprovalIsDirtyMoney && window.currentApprovalDeliveryId === deliveryId) {
+        const amountInput = document.getElementById('editDirtyMoneyAmount');
+        if (amountInput) {
+            const amount = parseInt(amountInput.value) || 0;
+            try {
+                await fetch(`/api/admin/deliveries/${deliveryId}/dirty-money`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dirty_money_amount: amount })
+                });
+            } catch (e) {
+                console.error('Erro ao atualizar dinheiro sujo:', e);
+            }
+        }
+    }
+    
+    // Aprovar a entrega
+    try {
+        const response = await fetch(`/api/admin/deliveries/${deliveryId}/approve`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            closeActionModal();
+            loadWeeklyStatus();
+            loadPendingDeliveries();
+            loadAdminStats();
+        } else {
+            alert('Erro: ' + (data.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        console.error('Erro ao aprovar:', error);
+        alert('Erro ao aprovar. Tente novamente.');
+    }
 }
 
 // Modal: Aprovar/Rejeitar justificativa pendente
@@ -862,25 +1024,7 @@ function showJustifiedDetails(member) {
     `);
 }
 
-// Funções para aprovar/rejeitar do modal
-async function approveDeliveryFromModal(deliveryId) {
-    try {
-        const response = await fetch(`/api/admin/deliveries/${deliveryId}/approve`, { method: 'POST' });
-        const data = await response.json();
-        
-        if (data.success) {
-            closeActionModal();
-            loadWeeklyStatus();
-            loadAdminStats();
-            loadPendingDeliveries();
-        } else {
-            alert(data.error || 'Erro ao aprovar');
-        }
-    } catch (error) {
-        alert('Erro ao aprovar entrega');
-    }
-}
-
+// Função para rejeitar do modal
 async function rejectDeliveryFromModal(deliveryId) {
     if (!confirm('Confirma a rejeição desta entrega?')) return;
     
@@ -1122,15 +1266,37 @@ async function loadPendingDeliveries() {
                     screenshotsHtml = '<span class="no-prints">Sem prints</span>';
                 }
                 
+                // Determinar tipo de pagamento
+                let paymentInfo = '';
+                if (delivery.payment_type === 'dirty_money' || delivery.payment_type?.startsWith('payment_')) {
+                    const paymentName = delivery.payment_type_name || 'Dinheiro Sujo';
+                    const paymentIcon = delivery.payment_type_icon || '💰';
+                    const amount = delivery.dirty_money_amount || 0;
+                    paymentInfo = `
+                        <div class="payment-type-badge dirty-money">
+                            <span class="payment-icon">${paymentIcon}</span>
+                            <span class="payment-label">${paymentName}: R$ ${formatNumber(amount)}</span>
+                        </div>
+                    `;
+                } else {
+                    paymentInfo = `
+                        <div class="payment-type-badge materials">
+                            <span class="payment-icon">📦</span>
+                            <span class="payment-label">Materiais</span>
+                        </div>
+                    `;
+                }
+                
                 return `
                     <div class="delivery-item" id="delivery-${delivery.id}">
                         <div class="delivery-info">
                             <h3>📦 Farm de ${delivery.name}</h3>
+                            ${paymentInfo}
                             <p class="week-info">📅 Semana: ${formatWeekDate(delivery.week_start)} - ${formatWeekDate(delivery.week_end)}</p>
                             <div class="materials-list">
-                                ${delivery.items.map(item => `
+                                ${delivery.items && delivery.items.length > 0 ? delivery.items.map(item => `
                                     <span class="material-tag">${item.material_icon} ${item.material_name}: ${formatNumber(item.amount)}</span>
-                                `).join('')}
+                                `).join('') : '<span class="no-materials">Sem materiais (pagamento em dinheiro)</span>'}
                             </div>
                             <p>${delivery.description || 'Sem descrição'}</p>
                             <p>📤 Enviado: ${formatDate(delivery.created_at)}</p>
@@ -1698,6 +1864,206 @@ document.getElementById('newMaterialForm').addEventListener('submit', async (e) 
         messageEl.className = 'message';
     }, 5000);
 });
+
+// ===== TIPOS DE PAGAMENTO =====
+
+// Carregar tipos de pagamento
+async function loadPaymentTypes() {
+    try {
+        const response = await fetch('/api/admin/payment-types');
+        const data = await response.json();
+        
+        const list = document.getElementById('paymentTypesList');
+        
+        if (data.paymentTypes && data.paymentTypes.length > 0) {
+            list.innerHTML = data.paymentTypes.map(pt => `
+                <div class="material-manage-item ${pt.active ? '' : 'inactive'}">
+                    <div class="material-info">
+                        <span class="material-icon">${pt.icon}</span>
+                        <span class="material-name">${pt.name}</span>
+                        <span class="material-goal-display">Meta: <strong>R$ ${pt.weekly_goal.toLocaleString('pt-BR')}</strong></span>
+                        <span class="material-status ${pt.active ? 'active' : 'inactive'}">${pt.active ? '✅ Ativo' : '❌ Inativo'}</span>
+                    </div>
+                    <div class="material-actions">
+                        <button class="btn btn-secondary btn-small" onclick="editPaymentType(${pt.id}, '${pt.name.replace(/'/g, "\\'")}', '${pt.icon}', ${pt.weekly_goal})">
+                            ✏️ Editar
+                        </button>
+                        <button class="btn ${pt.active ? 'btn-danger' : 'btn-success'} btn-small" onclick="togglePaymentType(${pt.id})">
+                            ${pt.active ? '🚫 Desativar' : '✅ Ativar'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <span>💰</span>
+                    <p>Nenhum tipo de pagamento cadastrado.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar tipos de pagamento:', error);
+    }
+}
+
+// Editar tipo de pagamento
+async function editPaymentType(id, currentName, currentIcon, currentGoal) {
+    const newName = prompt('Nome do tipo de pagamento:', currentName);
+    if (newName === null) return;
+    
+    const newIcon = prompt('Ícone:', currentIcon);
+    if (newIcon === null) return;
+    
+    const newGoal = prompt('Meta semanal (R$):', currentGoal);
+    if (newGoal === null) return;
+    
+    const goalNum = parseInt(newGoal);
+    if (isNaN(goalNum) || goalNum < 1) {
+        alert('Meta deve ser um número válido maior que 0');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/payment-types/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                name: newName || currentName, 
+                icon: newIcon || currentIcon, 
+                weekly_goal: goalNum 
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            loadPaymentTypes();
+        } else {
+            alert(data.error || 'Erro ao atualizar tipo de pagamento');
+        }
+    } catch (error) {
+        alert('Erro ao atualizar tipo de pagamento');
+    }
+}
+
+// Ativar/Desativar tipo de pagamento
+async function togglePaymentType(id) {
+    try {
+        const response = await fetch(`/api/admin/payment-types/${id}/toggle`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            loadPaymentTypes();
+        } else {
+            alert(data.error || 'Erro ao atualizar tipo de pagamento');
+        }
+    } catch (error) {
+        alert('Erro ao atualizar tipo de pagamento');
+    }
+}
+
+// Adicionar novo tipo de pagamento
+document.getElementById('newPaymentTypeForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById('paymentTypeName').value;
+    const icon = document.getElementById('paymentTypeIcon').value || '💰';
+    const weekly_goal = parseInt(document.getElementById('paymentTypeGoal').value) || 50000;
+    
+    const messageEl = document.getElementById('paymentTypeMessage');
+    
+    try {
+        const response = await fetch('/api/admin/payment-types', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon, weekly_goal })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            messageEl.textContent = 'Tipo de pagamento adicionado com sucesso!';
+            messageEl.className = 'message show success';
+            document.getElementById('newPaymentTypeForm').reset();
+            document.getElementById('paymentTypeGoal').value = '50000';
+            loadPaymentTypes();
+        } else {
+            messageEl.textContent = data.error || 'Erro ao adicionar tipo de pagamento';
+            messageEl.className = 'message show error';
+        }
+    } catch (error) {
+        messageEl.textContent = 'Erro de conexão';
+        messageEl.className = 'message show error';
+    }
+    
+    setTimeout(() => {
+        messageEl.className = 'message';
+    }, 5000);
+});
+
+// ===== CONFIGURAÇÕES DO FARM =====
+
+// Carregar configurações do farm
+async function loadFarmSettings() {
+    try {
+        const response = await fetch('/api/admin/farm-settings');
+        const data = await response.json();
+        
+        const settings = data.settings || {};
+        
+        // Atualizar checkboxes
+        const materialsEnabled = document.getElementById('farmMaterialsEnabled');
+        const paymentEnabled = document.getElementById('farmPaymentEnabled');
+        
+        if (materialsEnabled) {
+            materialsEnabled.checked = settings.farm_materials_enabled === 'true';
+        }
+        if (paymentEnabled) {
+            paymentEnabled.checked = settings.farm_payment_enabled === 'true';
+        }
+        
+        // Atualizar radio buttons do modo
+        const mode = settings.farm_payment_mode || 'either';
+        const radioBtn = document.querySelector(`input[name="paymentMode"][value="${mode}"]`);
+        if (radioBtn) {
+            radioBtn.checked = true;
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+    }
+}
+
+// Atualizar configuração do farm
+async function updateFarmSetting(key, value) {
+    const messageEl = document.getElementById('farmSettingsMessage');
+    
+    try {
+        const response = await fetch(`/api/admin/farm-settings/${key}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: String(value) })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            messageEl.textContent = '✅ Configuração atualizada!';
+            messageEl.className = 'message show success';
+        } else {
+            messageEl.textContent = data.error || 'Erro ao atualizar';
+            messageEl.className = 'message show error';
+        }
+    } catch (error) {
+        messageEl.textContent = 'Erro de conexão';
+        messageEl.className = 'message show error';
+    }
+    
+    setTimeout(() => {
+        messageEl.className = 'message';
+    }, 3000);
+}
 
 // Criar novo membro
 document.getElementById('newMemberForm').addEventListener('submit', async (e) => {
@@ -2775,12 +3141,24 @@ async function loadWeeklyReport() {
         const notPaid = [];
         
         data.members.forEach(member => {
+            // Determinar texto do tipo de pagamento
+            let paymentTypeText = '';
+            if (member.paymentType === 'dirty_money' || member.paymentType?.startsWith('payment_')) {
+                const typeName = member.paymentTypeName || 'Dinheiro Sujo';
+                paymentTypeText = `${typeName} (R$ ${formatNumber(member.dirtyMoneyAmount || 0)})`;
+            } else if (member.farmStatus === 'approved') {
+                paymentTypeText = 'Materiais';
+            }
+            
             const memberData = {
                 id: member.id,
                 name: member.name,
                 passport: member.passport,
                 role: roleNames[member.role] || member.role,
-                farmStatus: member.farmStatus
+                farmStatus: member.farmStatus,
+                paymentType: member.paymentType,
+                paymentTypeText: paymentTypeText,
+                dirtyMoneyAmount: member.dirtyMoneyAmount || 0
             };
             
             // Considera "pagou" se tem farm aprovado ou justificativa aprovada
@@ -2833,6 +3211,7 @@ function renderReport(data) {
                                 <th>Passaporte</th>
                                 <th>Nome</th>
                                 <th>Cargo</th>
+                                <th>Tipo Pagamento</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -2842,9 +3221,10 @@ function renderReport(data) {
                                     <td>${m.passport}</td>
                                     <td>${m.name}</td>
                                     <td>${m.role}</td>
+                                    <td>${m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais')}</td>
                                     <td>${m.farmStatus === 'justified' ? 'Justificado' : 'Pago'}</td>
                                 </tr>
-                            `).join('') : '<tr><td colspan="4" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
+                            `).join('') : '<tr><td colspan="5" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -2980,6 +3360,7 @@ async function generateReportPDF() {
                         <th>Passaporte</th>
                         <th>Nome</th>
                         <th>Cargo</th>
+                        <th>Tipo Pagamento</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -2989,6 +3370,7 @@ async function generateReportPDF() {
                             <td>${m.passport}</td>
                             <td>${m.name}</td>
                             <td>${m.role}</td>
+                            <td>${m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais')}</td>
                             <td>${m.farmStatus === 'justified' ? 'Justificado' : 'Pago'}</td>
                         </tr>
                     `).join('')}
@@ -3055,10 +3437,11 @@ function generateReportExcel() {
     csv += `Taxa de Pagamento;${reportData.rate}%\n`;
     csv += '\n';
     csv += 'PAGARAM O FARM\n';
-    csv += 'Passaporte;Nome;Cargo;Status\n';
+    csv += 'Passaporte;Nome;Cargo;Tipo Pagamento;Status\n';
     reportData.paid.forEach(m => {
         const status = m.farmStatus === 'justified' ? 'Justificado' : 'Pago';
-        csv += `${m.passport};${m.name};${m.role};${status}\n`;
+        const tipoPagamento = m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais');
+        csv += `${m.passport};${m.name};${m.role};${tipoPagamento};${status}\n`;
     });
     csv += '\n';
     csv += 'NÃO PAGARAM\n';

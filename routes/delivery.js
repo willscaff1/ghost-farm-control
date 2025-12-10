@@ -113,14 +113,17 @@ router.get('/current-week', requireAuth, async (req, res) => {
         // Determinar status para o frontend
         let canDeliver = true;
         let statusMessage = null;
+        let isLocked = false; // Novo: indica se está travado aguardando aprovação
         
         if (existingDelivery) {
             if (existingDelivery.status === 'approved' && !existingDelivery.is_partial) {
                 canDeliver = false;
                 statusMessage = 'Farm completo aprovado!';
             } else if (existingDelivery.status === 'pending' && !existingDelivery.is_partial) {
-                canDeliver = true; // Pode editar mesmo aguardando aprovação
-                statusMessage = 'Farm aguardando aprovação - você ainda pode editar!';
+                // TRAVADO: aguardando aprovação - não pode editar
+                canDeliver = false;
+                isLocked = true;
+                statusMessage = '⏳ Farm enviado para aprovação - aguarde a análise do admin!';
             } else if (existingDelivery.is_partial) {
                 canDeliver = true; // Pode continuar adicionando
                 statusMessage = 'Farm em progresso - continue adicionando!';
@@ -144,6 +147,20 @@ router.get('/current-week', requireAuth, async (req, res) => {
             canEditValues = false;
         }
         
+        // Pegar informações de tipo de pagamento
+        let paymentType = 'material';
+        let paymentTypeId = null;
+        let dirtyMoneyAmount = 0;
+        try {
+            if (existingDelivery) {
+                paymentType = existingDelivery.payment_type || 'material';
+                paymentTypeId = existingDelivery.payment_type_id || null;
+                dirtyMoneyAmount = existingDelivery.dirty_money_amount || 0;
+            }
+        } catch (e) {
+            // Colunas podem não existir ainda
+        }
+        
         res.json({ 
             week,
             hasDelivery: !!existingDelivery,
@@ -152,10 +169,14 @@ router.get('/current-week', requireAuth, async (req, res) => {
             progress: progress,
             existingScreenshots: existingScreenshots,
             canDeliver: canDeliver,
+            isLocked: isLocked, // Novo campo
             statusMessage: statusMessage,
             hasJustification: !!existingJustification,
             justificationStatus: existingJustification?.status || null,
-            canEditValues: canEditValues
+            canEditValues: canEditValues,
+            paymentType: paymentType,
+            paymentTypeId: paymentTypeId,
+            dirtyMoneyAmount: dirtyMoneyAmount
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -195,6 +216,49 @@ router.get('/materials', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('❌ Erro ao buscar materiais:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Buscar tipos de pagamento ativos
+router.get('/payment-types', requireAuth, async (req, res) => {
+    try {
+        const paymentTypes = await getAll('SELECT id, name, icon, weekly_goal FROM payment_types WHERE active = 1 ORDER BY name');
+        res.json({ paymentTypes: paymentTypes || [] });
+    } catch (error) {
+        console.error('❌ Erro ao buscar tipos de pagamento:', error);
+        // Retornar lista padrão se a tabela não existir
+        res.json({ paymentTypes: [
+            { id: 1, name: 'Dinheiro Sujo', icon: '💰', weekly_goal: 50000 },
+            { id: 2, name: 'Dinheiro Limpo', icon: '💵', weekly_goal: 50000 }
+        ]});
+    }
+});
+
+// Buscar configurações do farm (para membros)
+router.get('/farm-settings', requireAuth, async (req, res) => {
+    try {
+        const settings = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+        const settingsObj = {};
+        settings.forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
+        
+        // Valores padrão caso não existam
+        if (!settingsObj.farm_materials_enabled) settingsObj.farm_materials_enabled = 'true';
+        if (!settingsObj.farm_payment_enabled) settingsObj.farm_payment_enabled = 'true';
+        if (!settingsObj.farm_payment_mode) settingsObj.farm_payment_mode = 'either';
+        
+        res.json({ settings: settingsObj });
+    } catch (error) {
+        console.error('❌ Erro ao buscar configurações:', error);
+        // Retornar configurações padrão
+        res.json({ 
+            settings: {
+                farm_materials_enabled: 'true',
+                farm_payment_enabled: 'true',
+                farm_payment_mode: 'either'
+            }
+        });
     }
 });
 
@@ -266,8 +330,11 @@ router.post('/', requireAuth, (req, res) => {
         }
         
         try {
-            const { materials, description, week_offset } = req.body;
+            const { materials, description, week_offset, payment_type, payment_type_id, dirty_money_amount } = req.body;
             const userId = req.session.user.id;
+            const paymentType = payment_type || 'material';
+            const paymentTypeId = payment_type_id ? parseInt(payment_type_id) : null;
+            const dirtyMoneyAmount = parseInt(dirty_money_amount) || 0;
             
             // Usar a semana selecionada ou a atual
             const offset = parseInt(week_offset) || 0;
@@ -347,8 +414,18 @@ router.post('/', requireAuth, (req, res) => {
                 return res.status(400).json({ error: 'Dados de materiais inválidos' });
             }
             
-            if (!materialsArray || materialsArray.length === 0) {
-                return res.status(400).json({ error: 'Informe pelo menos um material' });
+            // Se for pagamento com dinheiro, não precisa de materiais
+            if (paymentType === 'dirty_money') {
+                if (dirtyMoneyAmount <= 0) {
+                    return res.status(400).json({ error: 'Informe o valor do pagamento' });
+                }
+                // OK - pagamento com dinheiro não precisa de materiais
+                materialsArray = []; // Garantir array vazio
+            } else {
+                // Pagamento com materiais - exigir pelo menos um
+                if (!materialsArray || materialsArray.length === 0) {
+                    return res.status(400).json({ error: 'Informe pelo menos um material' });
+                }
             }
             
             let deliveryId;
@@ -357,6 +434,17 @@ router.post('/', requireAuth, (req, res) => {
                 // ADICIONAR à entrega existente (MODO ADIÇÃO)
                 deliveryId = existingPartialDelivery.id;
                 console.log('📦 Adicionando à entrega existente:', deliveryId);
+                
+                // Se for pagamento em dinheiro, SOMAR ao valor existente
+                if (paymentType === 'dirty_money' && dirtyMoneyAmount > 0) {
+                    const existingDirtyMoney = existingPartialDelivery.dirty_money_amount || 0;
+                    const newDirtyMoneyAmount = existingDirtyMoney + dirtyMoneyAmount;
+                    await runQuery(
+                        'UPDATE deliveries SET dirty_money_amount = ?, payment_type = ?, payment_type_id = ? WHERE id = ?',
+                        [newDirtyMoneyAmount, paymentType, paymentTypeId, deliveryId]
+                    );
+                    console.log('💰 Dinheiro sujo somado:', { existingDirtyMoney, added: dirtyMoneyAmount, newTotal: newDirtyMoneyAmount });
+                }
                 
                 // SOMAR os valores aos itens existentes
                 for (const item of materialsArray) {
@@ -394,26 +482,29 @@ router.post('/', requireAuth, (req, res) => {
                 const firstMimeType = firstFile.mimetype;
                 const screenshot_url = `data:${firstMimeType};base64,${firstBase64}`;
                 
-                console.log('📦 Criando nova entrega:', { userId, week, description });
+                console.log('📦 Criando nova entrega:', { userId, week, description, paymentType, paymentTypeId, dirtyMoneyAmount });
                 
                 // Criar a entrega principal como parcial (será atualizada se completar)
                 const result = await runQuery(
-                    'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial, status) VALUES (?, ?, ?, ?, ?, 1, ?)',
-                    [userId, week.start, week.end, description || '', screenshot_url, 'in_progress']
+                    'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial, status, payment_type, payment_type_id, dirty_money_amount) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)',
+                    [userId, week.start, week.end, description || '', screenshot_url, 'in_progress', paymentType, paymentTypeId, dirtyMoneyAmount]
                 );
                 
                 deliveryId = result.lastID;
                 console.log('📦 Delivery criado:', deliveryId);
                 
-                // Inserir os itens de cada material
-                for (const item of materialsArray) {
-                    const amount = parseInt(item.amount) || 0;
-                    if (amount > 0) {
-                        await runQuery(
-                            'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
-                            [deliveryId, parseInt(item.material_id), amount]
-                        );
-                        console.log('📦 Inserindo item:', { material_id: item.material_id, amount });
+                // Se for pagamento com materiais, inserir os itens
+                if (paymentType === 'material') {
+                    // Inserir os itens de cada material
+                    for (const item of materialsArray) {
+                        const amount = parseInt(item.amount) || 0;
+                        if (amount > 0) {
+                            await runQuery(
+                                'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
+                                [deliveryId, parseInt(item.material_id), amount]
+                            );
+                            console.log('📦 Inserindo item:', { material_id: item.material_id, amount });
+                        }
                     }
                 }
             }
@@ -444,25 +535,54 @@ router.post('/', requireAuth, (req, res) => {
             const allMaterials = await getAll('SELECT id, name, weekly_goal FROM materials WHERE active = 1');
             const deliveryItems = await getAll('SELECT material_id, amount FROM delivery_items WHERE delivery_id = ?', [deliveryId]);
             
-            let isComplete = true;
+            let isComplete = false;
             let progressDetails = [];
             
-            for (const material of allMaterials) {
-                const item = deliveryItems.find(i => i.material_id === material.id);
-                const currentAmount = item ? item.amount : 0;
-                const goal = material.weekly_goal || DEFAULT_WEEKLY_GOAL;
-                const percentage = Math.min(100, Math.round((currentAmount / goal) * 100));
+            // Se for pagamento com dinheiro (sujo, limpo, etc)
+            if (paymentType === 'dirty_money') {
+                // Buscar o valor TOTAL atual do banco (após somar)
+                const currentDelivery = await getOne('SELECT dirty_money_amount FROM deliveries WHERE id = ?', [deliveryId]);
+                const totalDirtyMoney = currentDelivery ? (currentDelivery.dirty_money_amount || 0) : dirtyMoneyAmount;
+                
+                // Buscar a meta do tipo de pagamento do banco
+                let paymentTypeGoal = 50000; // Fallback
+                if (paymentTypeId) {
+                    const paymentTypeData = await getOne('SELECT weekly_goal, name, icon FROM payment_types WHERE id = ?', [paymentTypeId]);
+                    if (paymentTypeData) {
+                        paymentTypeGoal = paymentTypeData.weekly_goal;
+                    }
+                }
+                
+                isComplete = totalDirtyMoney >= paymentTypeGoal;
                 
                 progressDetails.push({
-                    name: material.name,
-                    current: currentAmount,
-                    goal: goal,
-                    percentage: percentage,
-                    complete: currentAmount >= goal
+                    name: 'Pagamento',
+                    current: totalDirtyMoney,
+                    goal: paymentTypeGoal,
+                    percentage: Math.min(100, Math.round((totalDirtyMoney / paymentTypeGoal) * 100)),
+                    complete: isComplete
                 });
+            } else {
+                // Pagamento com materiais
+                isComplete = true;
                 
-                if (currentAmount < goal) {
-                    isComplete = false;
+                for (const material of allMaterials) {
+                    const item = deliveryItems.find(i => i.material_id === material.id);
+                    const currentAmount = item ? item.amount : 0;
+                    const goal = material.weekly_goal || DEFAULT_WEEKLY_GOAL;
+                    const percentage = Math.min(100, Math.round((currentAmount / goal) * 100));
+                    
+                    progressDetails.push({
+                        name: material.name,
+                        current: currentAmount,
+                        goal: goal,
+                        percentage: percentage,
+                        complete: currentAmount >= goal
+                    });
+                    
+                    if (currentAmount < goal) {
+                        isComplete = false;
+                    }
                 }
             }
             

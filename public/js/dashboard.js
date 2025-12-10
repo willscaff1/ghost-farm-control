@@ -5,6 +5,10 @@ let weeklyGoal = 700;
 let materialsGoals = {};
 let availableWeeksData = [];
 let notifications = [];
+let currentPaymentType = 'material'; // 'material' ou tipo de pagamento ID
+let currentPaymentTypeId = null; // ID do tipo de pagamento selecionado
+let paymentTypes = []; // Lista de tipos de pagamento carregados do banco
+let screenshotFilesDirty = []; // Screenshots para pagamento alternativo
 const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
 
 const roleNames = {
@@ -36,6 +40,7 @@ async function checkAuth() {
             
             loadAvailableWeeks();
             loadMaterials();
+            loadFarmSettings(); // Carregar configurações do farm primeiro
             loadStats();
             loadMyDeliveries();
             checkNotifications(); // Verificar notificações
@@ -44,6 +49,126 @@ async function checkAuth() {
         }
     } catch (error) {
         window.location.href = '/';
+    }
+}
+
+// Configurações do farm
+let farmSettings = {
+    farm_materials_enabled: 'true',
+    farm_payment_enabled: 'true',
+    farm_payment_mode: 'either'
+};
+
+// Carregar configurações do farm
+async function loadFarmSettings() {
+    try {
+        const response = await fetch('/api/delivery/farm-settings');
+        const data = await response.json();
+        farmSettings = data.settings || farmSettings;
+        
+        // Agora carregar tipos de pagamento com base nas configurações
+        await loadPaymentTypes();
+    } catch (error) {
+        console.error('Erro ao carregar configurações do farm:', error);
+        await loadPaymentTypes();
+    }
+}
+
+// Carregar tipos de pagamento do banco
+async function loadPaymentTypes() {
+    try {
+        const response = await fetch('/api/delivery/payment-types');
+        const data = await response.json();
+        paymentTypes = data.paymentTypes || [];
+        
+        // Atualizar o seletor de tipos de pagamento
+        updatePaymentTypeSelector();
+    } catch (error) {
+        console.error('Erro ao carregar tipos de pagamento:', error);
+        // Fallback com valores padrão
+        paymentTypes = [
+            { id: 1, name: 'Dinheiro Sujo', icon: '💰', weekly_goal: 50000 }
+        ];
+        updatePaymentTypeSelector();
+    }
+}
+
+// Atualizar o seletor de tipos de pagamento
+function updatePaymentTypeSelector() {
+    const container = document.querySelector('.payment-type-selector');
+    if (!container) return;
+    
+    const materialsEnabled = farmSettings.farm_materials_enabled === 'true';
+    const paymentEnabled = farmSettings.farm_payment_enabled === 'true';
+    const paymentMode = farmSettings.farm_payment_mode || 'either'; // 'either' ou 'both'
+    
+    // Verificar se já tem entrega parcial (bloqueia troca de tipo APENAS se modo = 'either')
+    const hasPartialDelivery = currentWeekData && currentWeekData.hasDelivery && currentWeekData.isPartial;
+    const currentPaymentType = currentWeekData ? currentWeekData.paymentType : null;
+    const isCurrentMaterial = !currentPaymentType || currentPaymentType === 'material';
+    const isCurrentDirtyMoney = currentPaymentType === 'dirty_money';
+    
+    // Só bloqueia troca se o modo for 'either' (um ou outro)
+    // Se for 'both' (ambos obrigatórios), nunca bloqueia
+    const shouldLockSwitch = paymentMode === 'either' && hasPartialDelivery;
+    
+    let html = '';
+    
+    // Botão de materiais (se habilitado)
+    if (materialsEnabled) {
+        // Bloquear se tem entrega parcial de dinheiro sujo E modo = 'either'
+        const isDisabled = shouldLockSwitch && isCurrentDirtyMoney;
+        const disabledClass = isDisabled ? 'disabled' : '';
+        const disabledAttr = isDisabled ? 'disabled' : '';
+        const tooltip = isDisabled ? 'title="Você já iniciou pagamento com dinheiro sujo esta semana"' : '';
+        
+        html += `
+            <button type="button" class="payment-type-btn active ${disabledClass}" data-type="material" 
+                onclick="selectPaymentType('material')" ${disabledAttr} ${tooltip}>
+                📦 Materiais
+            </button>
+        `;
+    }
+    
+    // Botões de tipos de pagamento (se habilitado)
+    if (paymentEnabled && paymentTypes.length > 0) {
+        paymentTypes.forEach(pt => {
+            const isActive = !materialsEnabled && paymentTypes.indexOf(pt) === 0;
+            // Bloquear se tem entrega parcial de materiais E modo = 'either'
+            const isDisabled = shouldLockSwitch && isCurrentMaterial;
+            const disabledClass = isDisabled ? 'disabled' : '';
+            const disabledAttr = isDisabled ? 'disabled' : '';
+            const tooltip = isDisabled ? 'title="Você já iniciou pagamento com materiais esta semana"' : '';
+            
+            html += `
+                <button type="button" class="payment-type-btn ${isActive ? 'active' : ''} ${disabledClass}" 
+                    data-type="payment_${pt.id}" onclick="selectPaymentType('payment_${pt.id}', ${pt.id})" 
+                    ${disabledAttr} ${tooltip}>
+                    ${pt.icon} ${pt.name}
+                </button>
+            `;
+        });
+    }
+    
+    // Se não tem nenhum habilitado, mostrar mensagem
+    if (!html) {
+        html = '<p style="color: #888;">Nenhum tipo de pagamento disponível</p>';
+    }
+    
+    // Adicionar aviso se bloqueado (apenas no modo 'either')
+    if (shouldLockSwitch) {
+        const typeUsed = isCurrentMaterial ? 'materiais' : 'dinheiro sujo';
+        html += `<p class="payment-locked-notice">🔒 Você já iniciou com ${typeUsed} - não pode trocar esta semana</p>`;
+    }
+    
+    container.innerHTML = html;
+    
+    // Se só materiais habilitado, selecionar automaticamente
+    if (materialsEnabled && !paymentEnabled) {
+        selectPaymentType('material');
+    } else if (!materialsEnabled && paymentEnabled && paymentTypes.length > 0) {
+        // Se só pagamento habilitado, selecionar o primeiro tipo
+        selectPaymentType(`payment_${paymentTypes[0].id}`, paymentTypes[0].id);
     }
 }
 
@@ -369,6 +494,32 @@ async function loadWeekData(offset = 0) {
         // Preencher formulário com valores existentes (para edição)
         fillFormWithExistingValues(data.progress);
         
+        // Se já tem entrega, selecionar o tipo de pagamento correto
+        // Primeiro atualizar o seletor com as restrições baseadas no currentWeekData
+        updatePaymentTypeSelector();
+        
+        if (data.hasDelivery && data.paymentType) {
+            if (data.paymentType === 'dirty_money' && data.paymentTypeId) {
+                // Selecionar o tipo de pagamento específico
+                selectPaymentType(`payment_${data.paymentTypeId}`, data.paymentTypeId);
+            } else if (data.paymentType === 'dirty_money') {
+                // Fallback para o primeiro tipo de pagamento
+                if (paymentTypes.length > 0) {
+                    selectPaymentType(`payment_${paymentTypes[0].id}`, paymentTypes[0].id);
+                }
+            } else {
+                selectPaymentType(data.paymentType);
+            }
+            
+            // NÃO preencher o input com valor existente - modo adição sempre começa zerado
+            // O valor já entregue é mostrado na barra de progresso
+            const dirtyMoneyInput = document.getElementById('dirtyMoneyAmount');
+            if (dirtyMoneyInput) {
+                dirtyMoneyInput.value = 0;
+                updateDirtyMoneyButton();
+            }
+        }
+        
         // Atualizar visibilidade do card de justificativa
         // Mostrar quando: pode entregar E não justificou ainda E não está aprovado
         const absenceCard = document.getElementById('absenceCard');
@@ -454,25 +605,45 @@ async function loadWeekData(offset = 0) {
 
 // Atualizar screenshots existentes
 function updateExistingScreenshots(screenshots) {
+    // Atualizar seção de materiais
     const section = document.getElementById('existingScreenshotsSection');
     const container = document.getElementById('existingScreenshots');
     
-    if (!section || !container) return;
-    
-    if (!screenshots || screenshots.length === 0) {
-        section.style.display = 'none';
-        container.innerHTML = '';
-        return;
+    if (section && container) {
+        if (!screenshots || screenshots.length === 0) {
+            section.style.display = 'none';
+            container.innerHTML = '';
+        } else {
+            // Mostrar seção e preencher com screenshots
+            section.style.display = 'block';
+            container.innerHTML = screenshots.map((s, idx) => `
+                <div class="screenshot-preview existing">
+                    <img src="${s.screenshot_url}" alt="Print ${idx + 1}" onclick="openModal('${s.screenshot_url}')">
+                    <div class="screenshot-badge">${idx + 1}</div>
+                </div>
+            `).join('');
+        }
     }
     
-    // Mostrar seção e preencher com screenshots
-    section.style.display = 'block';
-    container.innerHTML = screenshots.map((s, idx) => `
-        <div class="screenshot-preview existing">
-            <img src="${s.screenshot_url}" alt="Print ${idx + 1}" onclick="openModal('${s.screenshot_url}')">
-            <div class="screenshot-badge">${idx + 1}</div>
-        </div>
-    `).join('');
+    // Atualizar seção de dinheiro sujo (mesma lógica)
+    const sectionDirty = document.getElementById('existingScreenshotsSectionDirty');
+    const containerDirty = document.getElementById('existingScreenshotsDirty');
+    
+    if (sectionDirty && containerDirty) {
+        if (!screenshots || screenshots.length === 0) {
+            sectionDirty.style.display = 'none';
+            containerDirty.innerHTML = '';
+        } else {
+            // Mostrar seção e preencher com screenshots
+            sectionDirty.style.display = 'block';
+            containerDirty.innerHTML = screenshots.map((s, idx) => `
+                <div class="screenshot-preview existing">
+                    <img src="${s.screenshot_url}" alt="Print ${idx + 1}" onclick="openModal('${s.screenshot_url}')">
+                    <div class="screenshot-badge">${idx + 1}</div>
+                </div>
+            `).join('');
+        }
+    }
 }
 
 // Resetar inputs do formulário para modo adição
@@ -499,6 +670,44 @@ function updateProgressBars(progress) {
     
     // Verificar se tem permissão para editar valores
     const canEdit = currentWeekData && currentWeekData.canEditValues;
+    
+    // Se for pagamento com dinheiro (sujo, limpo, etc), mostrar barra no mesmo padrão
+    if (currentWeekData && currentWeekData.paymentType === 'dirty_money') {
+        const amount = currentWeekData.dirtyMoneyAmount || 0;
+        
+        // Buscar a meta do tipo de pagamento
+        let goal = 50000; // Fallback
+        let paymentTypeName = 'Dinheiro Sujo';
+        let paymentTypeIcon = '💰';
+        
+        if (currentWeekData.paymentTypeId && paymentTypes.length > 0) {
+            const pt = paymentTypes.find(p => p.id === currentWeekData.paymentTypeId);
+            if (pt) {
+                goal = pt.weekly_goal;
+                paymentTypeName = pt.name;
+                paymentTypeIcon = pt.icon;
+            }
+        }
+        
+        const percentage = Math.min(100, Math.round((amount / goal) * 100));
+        const complete = amount >= goal;
+        
+        container.innerHTML = `
+            <div class="progress-item ${complete ? 'complete' : ''}">
+                <div class="progress-header">
+                    <span class="progress-label">${paymentTypeIcon} ${paymentTypeName}</span>
+                    <span class="progress-value ${complete ? 'complete' : 'incomplete'}">
+                        <span class="value-display">R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</span>
+                    </span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" style="width: ${percentage}%; background: linear-gradient(90deg, #27ae60, #2ecc71);"></div>
+                </div>
+                <div class="progress-percentage-text">${percentage}%</div>
+            </div>
+        `;
+        return;
+    }
     
     container.innerHTML = progress.map(p => `
         <div class="progress-item">
@@ -697,6 +906,181 @@ function updateSubmitButton() {
     }
 }
 
+// ========== SELETOR DE TIPO DE PAGAMENTO ==========
+
+function selectPaymentType(type, paymentTypeId = null) {
+    currentPaymentType = type;
+    currentPaymentTypeId = paymentTypeId;
+    
+    // Atualizar botões
+    document.querySelectorAll('.payment-type-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    
+    // Mostrar/ocultar formulários
+    const materialForm = document.getElementById('deliveryForm');
+    const dirtyMoneyForm = document.getElementById('dirtyMoneyForm');
+    
+    if (type === 'material') {
+        materialForm.style.display = 'block';
+        dirtyMoneyForm.style.display = 'none';
+    } else {
+        materialForm.style.display = 'none';
+        dirtyMoneyForm.style.display = 'block';
+        
+        // Encontrar o tipo de pagamento selecionado
+        const selectedPaymentType = paymentTypes.find(pt => pt.id === paymentTypeId);
+        if (selectedPaymentType) {
+            // Atualizar label e meta
+            const label = document.querySelector('#dirtyMoneyForm .form-label');
+            if (label) label.textContent = `${selectedPaymentType.icon} Valor de ${selectedPaymentType.name} (R$)`;
+            
+            document.getElementById('dirtyMoneyGoal').textContent = selectedPaymentType.weekly_goal.toLocaleString('pt-BR');
+        }
+    }
+    
+    // Atualizar seção de progresso
+    updateProgressDisplay(type, paymentTypeId);
+}
+
+// Atualizar exibição do progresso baseado no tipo de pagamento
+function updateProgressDisplay(type, paymentTypeId = null) {
+    const progressContainer = document.getElementById('progressBars');
+    const panelHeader = document.querySelector('.column-left .panel-header h2');
+    
+    if (type !== 'material') {
+        // Encontrar o tipo de pagamento
+        const selectedPaymentType = paymentTypes.find(pt => pt.id === paymentTypeId) || paymentTypes[0];
+        
+        if (selectedPaymentType) {
+            // Mostrar progresso do tipo de pagamento selecionado
+            if (panelHeader) panelHeader.textContent = `${selectedPaymentType.icon} Meu Progresso`;
+            
+            // Usar o valor já entregue (do backend) se existir
+            const deliveredAmount = (currentWeekData && currentWeekData.paymentType === 'dirty_money') 
+                ? (currentWeekData.dirtyMoneyAmount || 0) 
+                : 0;
+            const goal = selectedPaymentType.weekly_goal;
+            const percentage = Math.min(100, Math.round((deliveredAmount / goal) * 100));
+            const isComplete = deliveredAmount >= goal;
+            
+            progressContainer.innerHTML = `
+                <div class="progress-item ${isComplete ? 'complete' : ''}">
+                    <div class="progress-header">
+                        <span class="progress-label">
+                            ${selectedPaymentType.icon} ${selectedPaymentType.name}
+                        </span>
+                        <span class="progress-value ${isComplete ? 'complete' : 'incomplete'}">
+                            <span class="value-display">R$ ${deliveredAmount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</span>
+                        </span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: ${percentage}%; background: linear-gradient(90deg, #27ae60, #2ecc71);"></div>
+                    </div>
+                    <div class="progress-percentage-text">${percentage}%</div>
+                </div>
+            `;
+        }
+    } else {
+        // Mostrar progresso de materiais (recarregar dados da semana)
+        if (panelHeader) panelHeader.textContent = '📊 Meu Progresso';
+        
+        // Recarregar barras de progresso de materiais
+        if (currentWeekData && currentWeekData.progress) {
+            updateProgressBars(currentWeekData.progress);
+        } else {
+            progressContainer.innerHTML = '<div class="progress-empty">Selecione materiais para ver o progresso</div>';
+        }
+    }
+}
+
+// Atualizar botão de pagamento alternativo
+function updateDirtyMoneyButton() {
+    const btn = document.getElementById('submitDirtyMoneyBtn');
+    if (!btn) return;
+    
+    const amount = parseInt(document.getElementById('dirtyMoneyAmount').value) || 0;
+    
+    // Encontrar a meta do tipo de pagamento atual
+    const selectedPaymentType = paymentTypes.find(pt => pt.id === currentPaymentTypeId) || paymentTypes[0];
+    const goal = selectedPaymentType?.weekly_goal || 50000;
+    
+    if (amount >= goal) {
+        btn.textContent = '📤 Submeter para Aprovação';
+        btn.classList.remove('secondary');
+        btn.classList.add('primary');
+    } else {
+        btn.textContent = '💾 Salvar Progresso';
+        btn.classList.remove('primary');
+        btn.classList.add('secondary');
+    }
+    
+    // Atualizar também a barra de progresso
+    if (currentPaymentType !== 'material') {
+        updateProgressDisplay(currentPaymentType, currentPaymentTypeId);
+    }
+}
+
+// Screenshots para pagamento alternativo
+function addScreenshotDirty() {
+    document.getElementById('screenshotInputDirty').click();
+}
+
+function handleScreenshotSelectDirty(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Verificar tamanho (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Imagem muito grande! Máximo 5MB');
+        return;
+    }
+    
+    screenshotFilesDirty.push(file);
+    
+    // Preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('screenshotsPreviewDirty');
+        const idx = screenshotFilesDirty.length - 1;
+        preview.innerHTML += `
+            <div class="screenshot-preview" data-index="${idx}">
+                <img src="${e.target.result}" alt="Screenshot ${idx + 1}" onclick="openModal('${e.target.result}')">
+                <button type="button" class="screenshot-remove" onclick="removeScreenshotDirty(${idx})">×</button>
+            </div>
+        `;
+    };
+    reader.readAsDataURL(file);
+    
+    // Limpar input
+    event.target.value = '';
+}
+
+function removeScreenshotDirty(index) {
+    screenshotFilesDirty.splice(index, 1);
+    updateScreenshotPreviewDirty();
+}
+
+function updateScreenshotPreviewDirty() {
+    const preview = document.getElementById('screenshotsPreviewDirty');
+    preview.innerHTML = '';
+    
+    screenshotFilesDirty.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            preview.innerHTML += `
+                <div class="screenshot-preview" data-index="${idx}">
+                    <img src="${e.target.result}" alt="Screenshot ${idx + 1}" onclick="openModal('${e.target.result}')">
+                    <button type="button" class="screenshot-remove" onclick="removeScreenshotDirty(${idx})">×</button>
+                </div>
+            `;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// ========== FIM SELETOR DE TIPO DE PAGAMENTO ==========
+
 // Carregar estatísticas simples
 async function loadStats() {
     try {
@@ -885,6 +1269,95 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
             
             // Reseta os valores dos inputs de materiais
             materialInputs.forEach(input => input.value = '0');
+            
+            // Recarrega os dados
+            loadWeekData(currentWeekOffset);
+            loadAvailableWeeks();
+            loadStats();
+            loadMyDeliveries();
+        } else {
+            messageEl.textContent = data.error || 'Erro ao enviar entrega';
+            messageEl.className = 'form-message show error';
+        }
+    } catch (error) {
+        messageEl.textContent = 'Erro de conexão';
+        messageEl.className = 'form-message show error';
+    }
+    
+    setTimeout(() => {
+        messageEl.className = 'form-message';
+    }, 5000);
+});
+
+// Submeter entrega com tipo de pagamento alternativo (dinheiro sujo, limpo, etc)
+document.getElementById('dirtyMoneyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const weekOffset = currentWeekOffset;
+    const messageEl = document.getElementById('formMessage');
+    
+    // Verificar se pode entregar
+    if (!currentWeekData || !currentWeekData.canDeliver) {
+        alert('Não é possível entregar farm para esta semana!');
+        return;
+    }
+    
+    const amount = parseInt(document.getElementById('dirtyMoneyAmount').value) || 0;
+    
+    if (amount <= 0) {
+        alert('Informe o valor!');
+        return;
+    }
+    
+    // Verificar screenshots
+    const hasExistingScreenshots = currentWeekData?.existingScreenshots?.length > 0;
+    if (screenshotFilesDirty.length === 0 && !hasExistingScreenshots) {
+        alert('Envie pelo menos 1 print do pagamento!');
+        return;
+    }
+    
+    // Se for semana futura, pedir confirmação
+    if (weekOffset > 0) {
+        const confirmMsg = `⚠️ ATENÇÃO!\n\nVocê está prestes a registrar farm de uma SEMANA FUTURA:\n\n📅 ${currentWeekData.week.label}\n\nTem certeza?`;
+        
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+    }
+    
+    // Encontrar o tipo de pagamento selecionado
+    const selectedPaymentType = paymentTypes.find(pt => pt.id === currentPaymentTypeId);
+    
+    // Criar FormData
+    const formData = new FormData();
+    formData.append('payment_type', 'dirty_money'); // Tipo genérico para pagamento em dinheiro
+    formData.append('payment_type_id', currentPaymentTypeId || '');
+    formData.append('dirty_money_amount', amount);
+    formData.append('description', document.getElementById('descriptionDirty').value || '');
+    formData.append('week_offset', weekOffset);
+    formData.append('materials', JSON.stringify([])); // Array vazio de materiais
+    
+    // Adicionar screenshots
+    for (let i = 0; i < screenshotFilesDirty.length; i++) {
+        formData.append('screenshots', screenshotFilesDirty[i]);
+    }
+    
+    try {
+        const response = await fetch('/api/delivery', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            messageEl.textContent = data.message;
+            messageEl.className = 'form-message show success';
+            
+            // Limpa o formulário
+            document.getElementById('dirtyMoneyForm').reset();
+            screenshotFilesDirty = [];
+            document.getElementById('screenshotsPreviewDirty').innerHTML = '';
             
             // Recarrega os dados
             loadWeekData(currentWeekOffset);

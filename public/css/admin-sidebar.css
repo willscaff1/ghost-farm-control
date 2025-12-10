@@ -1278,6 +1278,44 @@ body.admin-layout {
     background: rgba(255, 255, 255, 0.05);
 }
 
+/* Payment Type Badge */
+.payment-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.payment-type-badge.materials {
+    background: rgba(46, 204, 113, 0.15);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    color: #2ecc71;
+}
+
+.payment-type-badge.dirty-money {
+    background: rgba(241, 196, 15, 0.15);
+    border: 1px solid rgba(241, 196, 15, 0.3);
+    color: #f1c40f;
+}
+
+.payment-type-badge .payment-icon {
+    font-size: 1rem;
+}
+
+.payment-type-badge .payment-label {
+    letter-spacing: 0.3px;
+}
+
+.no-materials {
+    color: #888;
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
 /* Material Stats */
 .material-stat-item {
     display: flex;
@@ -1516,6 +1554,127 @@ body.admin-layout {
     font-style: italic;
     text-align: center;
     padding: 20px;
+}
+
+/* Dirty Money Extract Styles */
+.dirty-money-extract {
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.1), rgba(39, 174, 96, 0.05));
+    border: 1px solid rgba(39, 174, 96, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 15px;
+}
+
+.dirty-money-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.dirty-money-icon {
+    font-size: 32px;
+}
+
+.dirty-money-label {
+    font-size: 18px;
+    font-weight: 600;
+    color: #27ae60;
+}
+
+.dirty-money-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #27ae60;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.dirty-money-bar {
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.dirty-money-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #27ae60, #2ecc71);
+    border-radius: 6px;
+    transition: width 0.3s ease;
+}
+
+.dirty-money-edit {
+    border-top: 1px solid rgba(39, 174, 96, 0.2);
+    padding-top: 15px;
+}
+
+.dirty-money-edit label {
+    display: block;
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 10px;
+}
+
+.dirty-money-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dirty-money-input-group .currency-prefix {
+    font-size: 16px;
+    font-weight: 600;
+    color: #27ae60;
+    padding: 8px 12px;
+    background: rgba(39, 174, 96, 0.15);
+    border-radius: 8px 0 0 8px;
+    border: 1px solid rgba(39, 174, 96, 0.3);
+    border-right: none;
+}
+
+.dirty-money-input-group input {
+    flex: 1;
+    padding: 10px 15px;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(39, 174, 96, 0.3);
+    border-radius: 0 8px 8px 0;
+    color: #fff;
+    min-width: 120px;
+}
+
+.dirty-money-input-group input:focus {
+    outline: none;
+    border-color: #27ae60;
+    background: rgba(39, 174, 96, 0.1);
+}
+
+.dirty-money-input-group .btn {
+    white-space: nowrap;
+}
+
+/* Payment Type Badge */
+.payment-type-badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+.payment-type-badge.dirty-money {
+    background: rgba(39, 174, 96, 0.2);
+    color: #27ae60;
+    border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.payment-type-badge.material {
+    background: rgba(74, 144, 226, 0.2);
+    color: #4a90e2;
+    border: 1px solid rgba(74, 144, 226, 0.3);
 }
 
 .extract-screenshot-container {
@@ -3576,4 +3735,158 @@ body.admin-layout {
         width: 100%;
         margin-bottom: 5px;
     }
+}
+
+/* ===== FARM SETTINGS ===== */
+
+.settings-section {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.settings-section h3 {
+    margin: 0 0 15px 0;
+    color: #fff;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.setting-item:last-child {
+    margin-bottom: 0;
+}
+
+.setting-info {
+    flex: 1;
+}
+
+.setting-label {
+    display: block;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.setting-description {
+    display: block;
+    font-size: 0.85rem;
+    color: #888;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 56px;
+    height: 30px;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 30px;
+    transition: 0.3s;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 24px;
+    width: 24px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #fff;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(135deg, #00b894, #00cec9);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+/* Mode Options */
+.mode-setting {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.mode-options {
+    width: 100%;
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mode-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mode-option:hover {
+    border-color: rgba(108, 92, 231, 0.3);
+    background: rgba(108, 92, 231, 0.1);
+}
+
+.mode-option input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    accent-color: #6c5ce7;
+}
+
+.mode-option input[type="radio"]:checked ~ .mode-label strong {
+    color: #a29bfe;
+}
+
+.mode-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mode-label strong {
+    color: #fff;
+    font-size: 1rem;
+}
+
+.mode-label small {
+    color: #888;
+    font-size: 0.85rem;
 }

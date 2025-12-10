@@ -110,7 +110,7 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
         const { week_start, week_end } = req.query;
         
         let query = `
-            SELECT d.*, u.name, u.passport
+            SELECT d.*, d.payment_type, d.payment_type_id, d.dirty_money_amount, u.name, u.passport
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
             WHERE d.status = 'pending'
@@ -126,7 +126,7 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
         
         const deliveries = await getAll(query, params);
         
-        // Para cada entrega, buscar os itens e screenshots
+        // Para cada entrega, buscar os itens, screenshots e nome do tipo de pagamento
         for (let delivery of deliveries) {
             delivery.items = await getAll(`
                 SELECT di.*, m.name as material_name, m.icon as material_icon
@@ -139,6 +139,15 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
             delivery.screenshots = await getAll(`
                 SELECT screenshot_url FROM delivery_screenshots WHERE delivery_id = ?
             `, [delivery.id]);
+            
+            // Buscar nome do tipo de pagamento se existir
+            if (delivery.payment_type_id) {
+                const paymentType = await getOne(`SELECT name, icon FROM payment_types WHERE id = ?`, [delivery.payment_type_id]);
+                if (paymentType) {
+                    delivery.payment_type_name = paymentType.name;
+                    delivery.payment_type_icon = paymentType.icon;
+                }
+            }
         }
         
         res.json({ deliveries });
@@ -207,6 +216,38 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
         );
         
         res.json({ success: true, message: 'Entrega aprovada! ✅' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Atualizar dinheiro sujo de uma entrega
+router.put('/deliveries/:id/dirty-money', requireAdmin, async (req, res) => {
+    try {
+        const deliveryId = req.params.id;
+        const { dirty_money_amount } = req.body;
+        
+        // Verificar se a entrega existe
+        const delivery = await getOne('SELECT * FROM deliveries WHERE id = ?', [deliveryId]);
+        if (!delivery) {
+            return res.status(404).json({ error: 'Entrega não encontrada' });
+        }
+        
+        // Verificar se é do tipo dinheiro sujo
+        if (delivery.payment_type !== 'dirty_money') {
+            return res.status(400).json({ error: 'Esta entrega não é do tipo dinheiro sujo' });
+        }
+        
+        const amount = parseInt(dirty_money_amount) || 0;
+        const isComplete = amount >= 50000; // Meta de R$ 50.000
+        
+        // Atualizar valor do dinheiro sujo
+        await runQuery(
+            'UPDATE deliveries SET dirty_money_amount = ?, is_partial = ? WHERE id = ?',
+            [amount, isComplete ? 0 : 1, deliveryId]
+        );
+        
+        res.json({ success: true, message: `Dinheiro sujo atualizado para R$ ${amount.toLocaleString('pt-BR')}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -647,6 +688,126 @@ router.post('/materials/:id/toggle', requireAdmin, async (req, res) => {
     }
 });
 
+// ===== ROTAS DE TIPOS DE PAGAMENTO (Dinheiro Sujo, Dinheiro Limpo, etc.) =====
+
+// Listar todos os tipos de pagamento
+router.get('/payment-types', requireAdmin, async (req, res) => {
+    try {
+        const paymentTypes = await getAll('SELECT * FROM payment_types ORDER BY name');
+        res.json({ paymentTypes });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Adicionar novo tipo de pagamento
+router.post('/payment-types', requireAdmin, async (req, res) => {
+    try {
+        const { name, icon, weekly_goal } = req.body;
+        
+        if (!name) {
+            return res.status(400).json({ error: 'Nome do tipo de pagamento é obrigatório' });
+        }
+        
+        const goal = parseInt(weekly_goal) || 50000;
+        
+        await runQuery(
+            'INSERT INTO payment_types (name, icon, weekly_goal) VALUES (?, ?, ?)',
+            [name, icon || '💰', goal]
+        );
+        
+        res.json({ success: true, message: 'Tipo de pagamento adicionado' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Atualizar tipo de pagamento
+router.put('/payment-types/:id', requireAdmin, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const { name, icon, weekly_goal } = req.body;
+        
+        const paymentType = await getOne('SELECT * FROM payment_types WHERE id = ?', [id]);
+        if (!paymentType) {
+            return res.status(404).json({ error: 'Tipo de pagamento não encontrado' });
+        }
+        
+        const newName = name || paymentType.name;
+        const newIcon = icon || paymentType.icon;
+        const newGoal = weekly_goal !== undefined ? parseInt(weekly_goal) : paymentType.weekly_goal;
+        
+        await runQuery(
+            'UPDATE payment_types SET name = ?, icon = ?, weekly_goal = ? WHERE id = ?',
+            [newName, newIcon, newGoal, id]
+        );
+        
+        res.json({ success: true, message: 'Tipo de pagamento atualizado' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Ativar/Desativar tipo de pagamento
+router.post('/payment-types/:id/toggle', requireAdmin, async (req, res) => {
+    try {
+        const id = req.params.id;
+        
+        const paymentType = await getOne('SELECT * FROM payment_types WHERE id = ?', [id]);
+        if (!paymentType) {
+            return res.status(404).json({ error: 'Tipo de pagamento não encontrado' });
+        }
+        
+        const newStatus = paymentType.active ? 0 : 1;
+        await runQuery('UPDATE payment_types SET active = ? WHERE id = ?', [newStatus, id]);
+        
+        res.json({ success: true, message: newStatus ? 'Tipo de pagamento ativado' : 'Tipo de pagamento desativado' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ===== CONFIGURAÇÕES DO FARM =====
+
+// Buscar configurações do farm
+router.get('/farm-settings', requireAdmin, async (req, res) => {
+    try {
+        const settings = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+        const settingsObj = {};
+        settings.forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
+        res.json({ settings: settingsObj });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Atualizar configuração do farm
+router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
+    try {
+        const { key } = req.params;
+        const { value } = req.body;
+        
+        const validKeys = ['farm_materials_enabled', 'farm_payment_enabled', 'farm_payment_mode'];
+        if (!validKeys.includes(key)) {
+            return res.status(400).json({ error: 'Configuração inválida' });
+        }
+        
+        // Verificar se existe, se não, criar
+        const existing = await getOne('SELECT * FROM farm_settings WHERE setting_key = ?', [key]);
+        if (existing) {
+            await runQuery('UPDATE farm_settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?', [value, key]);
+        } else {
+            await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [key, value]);
+        }
+        
+        res.json({ success: true, message: 'Configuração atualizada' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Status semanal dos membros
 router.get('/weekly-status', requireAdmin, async (req, res) => {
     try {
@@ -692,7 +853,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         for (const member of membersToCheck) {
             // Verificar se tem farm na semana
             const delivery = await getOne(`
-                SELECT d.*, d.created_at as delivered_at, d.is_partial
+                SELECT d.*, d.created_at as delivered_at, d.is_partial, d.payment_type, d.dirty_money_amount
                 FROM deliveries d
                 WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
             `, [member.id, weekStart, weekEnd]);
@@ -730,7 +891,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     screenshots: deliveryScreenshots,
                     description: delivery.description,
                     items: deliveryItems,
-                    is_partial: false
+                    is_partial: false,
+                    payment_type: delivery.payment_type || 'material',
+                    dirty_money_amount: delivery.dirty_money_amount || 0
                 });
             } else if (delivery && delivery.status === 'pending' && !delivery.is_partial) {
                 // Farm COMPLETO aguardando aprovação
@@ -741,7 +904,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     screenshot_url: delivery.screenshot_url,
                     screenshots: deliveryScreenshots,
                     description: delivery.description,
-                    items: deliveryItems
+                    items: deliveryItems,
+                    payment_type: delivery.payment_type || 'material',
+                    dirty_money_amount: delivery.dirty_money_amount || 0
                 });
             } else if (delivery && (delivery.is_partial || delivery.status === 'in_progress')) {
                 // Farm EM PROGRESSO (parcial, ainda completando)
@@ -754,7 +919,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     description: delivery.description,
                     items: deliveryItems,
                     is_partial: true,
-                    status: delivery.status
+                    status: delivery.status,
+                    payment_type: delivery.payment_type || 'material',
+                    dirty_money_amount: delivery.dirty_money_amount || 0
                 });
             } else if (justification && justification.status === 'approved') {
                 // Justificativa aprovada
@@ -831,7 +998,7 @@ router.get('/members-overview', requireAdmin, async (req, res) => {
             
             // Verificar se tem farm na semana
             const delivery = await getOne(`
-                SELECT id, status, created_at FROM deliveries 
+                SELECT id, status, created_at, payment_type, payment_type_id, dirty_money_amount FROM deliveries 
                 WHERE user_id = ? AND week_start = ? AND week_end = ?
             `, [member.id, weekStart, weekEnd]);
             
@@ -864,12 +1031,27 @@ router.get('/members-overview', requireAdmin, async (req, res) => {
                 // Se rejeitada, mantém 'not_delivered'
             }
             
+            // Buscar nome do tipo de pagamento se existir
+            let paymentTypeName = null;
+            let paymentTypeIcon = null;
+            if (delivery && delivery.payment_type_id) {
+                const paymentType = await getOne(`SELECT name, icon FROM payment_types WHERE id = ?`, [delivery.payment_type_id]);
+                if (paymentType) {
+                    paymentTypeName = paymentType.name;
+                    paymentTypeIcon = paymentType.icon;
+                }
+            }
+            
             members.push({
                 ...member,
                 farmStatus,
                 deliveryId,
                 deliveredAt,
-                warningsCount: warningsCount.total
+                warningsCount: warningsCount.total,
+                paymentType: delivery ? (delivery.payment_type || 'material') : null,
+                paymentTypeName,
+                paymentTypeIcon,
+                dirtyMoneyAmount: delivery ? (delivery.dirty_money_amount || 0) : 0
             });
         }
         

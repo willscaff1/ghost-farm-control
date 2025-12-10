@@ -95,8 +95,10 @@
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">⚙️ Configurações</div>
+                <button class="sidebar-item" data-tab="farm-settings">🎛️ Config. do Farm</button>
                 <button class="sidebar-item" data-tab="edit-permissions">✏️ Liberar Edição</button>
                 <button class="sidebar-item" data-tab="manage-materials">📦 Gerenciar Materiais</button>
+                <button class="sidebar-item" data-tab="manage-payment-types">💰 Tipos de Pagamento</button>
                 <button class="sidebar-item" data-tab="whitelist">🛡️ Whitelist (Isentos)</button>
             </div>
         </aside>
@@ -435,6 +437,70 @@
                 </div>
             </div>
 
+            <!-- Farm Settings Tab -->
+            <div id="farm-settings-tab" class="tab-content">
+                <div class="card">
+                    <h2>🎛️ Configurações do Farm</h2>
+                    <p class="subtitle">Configure quais tipos de pagamento estão habilitados e se o membro precisa pagar um ou outro</p>
+                    
+                    <div class="settings-section">
+                        <h3>📦 Farm de Materiais</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Habilitar Farm de Materiais</span>
+                                <span class="setting-description">Permite que membros entreguem materiais (Folha, Ópio, etc.)</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="farmMaterialsEnabled" onchange="updateFarmSetting('farm_materials_enabled', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>💰 Pagamento em Dinheiro</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Habilitar Pagamento em Dinheiro</span>
+                                <span class="setting-description">Permite que membros paguem com Dinheiro Sujo, Limpo, etc.</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="farmPaymentEnabled" onchange="updateFarmSetting('farm_payment_enabled', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>⚖️ Modo de Pagamento</h3>
+                        <div class="setting-item mode-setting">
+                            <div class="setting-info">
+                                <span class="setting-label">Modo de Conclusão do Farm</span>
+                                <span class="setting-description">Define se o membro precisa completar um tipo ou ambos</span>
+                            </div>
+                            <div class="mode-options">
+                                <label class="mode-option">
+                                    <input type="radio" name="paymentMode" value="either" onchange="updateFarmSetting('farm_payment_mode', 'either')">
+                                    <span class="mode-label">
+                                        <strong>Um OU Outro</strong>
+                                        <small>Membro pode escolher pagar com materiais OU dinheiro</small>
+                                    </span>
+                                </label>
+                                <label class="mode-option">
+                                    <input type="radio" name="paymentMode" value="both" onchange="updateFarmSetting('farm_payment_mode', 'both')">
+                                    <span class="mode-label">
+                                        <strong>Ambos Obrigatórios</strong>
+                                        <small>Membro precisa pagar materiais E dinheiro</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="farmSettingsMessage" class="message"></div>
+                </div>
+            </div>
+
             <!-- Manage Materials Tab -->
             <div id="manage-materials-tab" class="tab-content">
                 <div class="card">
@@ -462,6 +528,39 @@
                     
                     <h3>Materiais Cadastrados</h3>
                     <div id="materialsList" class="materials-manage-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manage Payment Types Tab -->
+            <div id="manage-payment-types-tab" class="tab-content">
+                <div class="card">
+                    <h2>💰 Gerenciar Tipos de Pagamento</h2>
+                    <p class="subtitle">Configure os tipos de pagamento alternativos (Dinheiro Sujo, Dinheiro Limpo, etc.)</p>
+                    <form id="newPaymentTypeForm" class="material-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="paymentTypeName">Nome *</label>
+                                <input type="text" id="paymentTypeName" required placeholder="Ex: Dinheiro Sujo">
+                            </div>
+                            <div class="form-group">
+                                <label for="paymentTypeIcon">Ícone</label>
+                                <input type="text" id="paymentTypeIcon" placeholder="💰" maxlength="4">
+                            </div>
+                            <div class="form-group">
+                                <label for="paymentTypeGoal">Meta (R$)</label>
+                                <input type="number" id="paymentTypeGoal" value="50000" min="1" max="9999999">
+                            </div>
+                            <div class="form-group btn-group">
+                                <button type="submit" class="btn btn-primary">Adicionar</button>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="paymentTypeMessage" class="message"></div>
+                    
+                    <h3>Tipos de Pagamento Cadastrados</h3>
+                    <div id="paymentTypesList" class="materials-manage-list">
                         <p class="loading">Carregando...</p>
                     </div>
                 </div>
