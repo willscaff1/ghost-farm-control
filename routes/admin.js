@@ -1371,42 +1371,41 @@ router.get('/members-with-advs', requireAdmin, async (req, res) => {
 
 // ========== PERMISSÕES DE EDIÇÃO ==========
 
-// Listar membros com status de permissão de edição para uma semana
+// Listar membros com status de permissão de edição
 router.get('/edit-permissions', requireAdmin, async (req, res) => {
     try {
-        const { week_start, week_end } = req.query;
-        const week = week_start && week_end 
-            ? { start: week_start, end: week_end }
-            : getWeekWithOffset(0);
+        console.log('🔄 Iniciando busca de permissões de edição...');
         
-        // Buscar todos os membros ativos com status de permissão
+        // Primeiro buscar só os membros (sem JOIN para debug)
         const members = await getAll(`
-            SELECT 
-                u.id,
-                u.name,
-                u.passport,
-                u.role,
-                ep.id as permission_id,
-                ep.reason as permission_reason,
-                ep.created_at as permission_date,
-                gu.name as granted_by_name
-            FROM users u
-            LEFT JOIN edit_permissions ep ON u.id = ep.user_id 
-                AND ep.week_start = ? AND ep.week_end = ?
-            LEFT JOIN users gu ON ep.granted_by = gu.id
-            WHERE u.active = 1 AND u.role NOT IN ('gerente_geral', '01', '02', 'gerente_farm')
-            ORDER BY u.name ASC
-        `, [week.start, week.end]);
+            SELECT id, name, passport, role
+            FROM users
+            WHERE active = 1 AND role != 'gerente_geral'
+            ORDER BY name ASC
+        `);
+        
+        console.log('📋 Membros encontrados:', members.length);
+        
+        // Buscar permissões separadamente
+        let permissions = [];
+        try {
+            permissions = await getAll(`SELECT user_id FROM edit_permissions`);
+            console.log('✏️ Permissões encontradas:', permissions.length);
+        } catch (e) {
+            console.log('⚠️ Tabela edit_permissions pode não existir ainda:', e.message);
+        }
+        
+        const permissionUserIds = new Set(permissions.map(p => p.user_id));
         
         res.json({ 
             success: true, 
-            week,
             members: members.map(m => ({
                 ...m,
-                hasPermission: !!m.permission_id
+                hasPermission: permissionUserIds.has(m.id)
             }))
         });
     } catch (error) {
+        console.error('❌ Erro ao carregar permissões:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1414,23 +1413,22 @@ router.get('/edit-permissions', requireAdmin, async (req, res) => {
 // Conceder permissão de edição
 router.post('/edit-permissions/grant', requireAdmin, async (req, res) => {
     try {
-        const { user_id, week_start, week_end, reason } = req.body;
+        const { user_id, reason } = req.body;
         const grantedBy = req.session.user.id;
         
         // Verificar se já existe
         const existing = await getOne(`
-            SELECT id FROM edit_permissions 
-            WHERE user_id = ? AND week_start = ? AND week_end = ?
-        `, [user_id, week_start, week_end]);
+            SELECT id FROM edit_permissions WHERE user_id = ?
+        `, [user_id]);
         
         if (existing) {
-            return res.status(400).json({ error: 'Permissão já existe para esta semana' });
+            return res.status(400).json({ error: 'Membro já tem permissão de edição' });
         }
         
         await runQuery(`
-            INSERT INTO edit_permissions (user_id, week_start, week_end, reason, granted_by)
-            VALUES (?, ?, ?, ?, ?)
-        `, [user_id, week_start, week_end, reason || 'Correção de valores', grantedBy]);
+            INSERT INTO edit_permissions (user_id, reason, granted_by)
+            VALUES (?, ?, ?)
+        `, [user_id, reason || 'Correção de valores', grantedBy]);
         
         // Buscar nome do membro para log
         const member = await getOne('SELECT name FROM users WHERE id = ?', [user_id]);
@@ -1445,12 +1443,9 @@ router.post('/edit-permissions/grant', requireAdmin, async (req, res) => {
 // Revogar permissão de edição
 router.post('/edit-permissions/revoke', requireAdmin, async (req, res) => {
     try {
-        const { user_id, week_start, week_end } = req.body;
+        const { user_id } = req.body;
         
-        await runQuery(`
-            DELETE FROM edit_permissions 
-            WHERE user_id = ? AND week_start = ? AND week_end = ?
-        `, [user_id, week_start, week_end]);
+        await runQuery(`DELETE FROM edit_permissions WHERE user_id = ?`, [user_id]);
         
         // Buscar nome do membro para log
         const member = await getOne('SELECT name FROM users WHERE id = ?', [user_id]);

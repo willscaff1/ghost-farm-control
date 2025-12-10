@@ -208,6 +208,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 loadWhitelist();
                 loadMembersForWhitelist();
                 break;
+            case 'edit-permissions':
+                loadEditPermissions();
+                break;
         }
     });
 });
@@ -2510,15 +2513,13 @@ async function loadAdminNotifications() {
     try {
         // Buscar farms pendentes
         const pendingRes = await fetch('/api/admin/pending');
+        if (!pendingRes.ok) throw new Error('Erro ao buscar pendentes');
         const pendingData = await pendingRes.json();
         
         // Buscar justificativas pendentes
         const justRes = await fetch('/api/admin/justifications/pending');
+        if (!justRes.ok) throw new Error('Erro ao buscar justificativas');
         const justData = await justRes.json();
-        
-        // Buscar membros sem farm na semana atual
-        const statusRes = await fetch('/api/admin/week-status');
-        const statusData = await statusRes.json();
         
         const today = new Date();
         const dayOfWeek = today.getDay();
@@ -2556,37 +2557,42 @@ async function loadAdminNotifications() {
         }
         
         // Notificações de membros sem farm (nos últimos 2 dias da semana)
-        if ((dayOfWeek === 6 || dayOfWeek === 0) && statusData.members) {
-            const missingFarm = statusData.members.filter(m => 
-                m.status === 'missing' && !m.is_exempt
-            );
-            
-            if (missingFarm.length > 0) {
-                // Agrupar em uma notificação
-                adminNotifications.push({
-                    id: 'missing_farms',
-                    type: 'warning',
-                    icon: '⚠️',
-                    title: 'Membros sem Farm!',
-                    message: `${missingFarm.length} membro(s) ainda não pagaram o farm esta semana`,
-                    time: dayOfWeek === 0 ? 'ÚLTIMO DIA!' : 'Faltam 2 dias',
-                    action: 'weekly-status'
-                });
-                
-                // Notificação individual para os primeiros 5
-                missingFarm.slice(0, 5).forEach(m => {
-                    adminNotifications.push({
-                        id: `missing_${m.id}`,
-                        type: 'warning',
-                        icon: '❌',
-                        title: 'Farm Pendente',
-                        message: `${m.name} (${m.passport}) não entregou farm`,
-                        time: 'Esta semana',
-                        action: 'adv',
-                        userId: m.id,
-                        userName: m.name
-                    });
-                });
+        // Usar weekly-status ao invés de week-status
+        if (dayOfWeek === 6 || dayOfWeek === 0) {
+            try {
+                const statusRes = await fetch('/api/admin/weekly-status');
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json();
+                    if (statusData.notDelivered && statusData.notDelivered.length > 0) {
+                        // Agrupar em uma notificação
+                        adminNotifications.push({
+                            id: 'missing_farms',
+                            type: 'warning',
+                            icon: '⚠️',
+                            title: 'Membros sem Farm!',
+                            message: `${statusData.notDelivered.length} membro(s) ainda não pagaram o farm esta semana`,
+                            time: dayOfWeek === 0 ? 'ÚLTIMO DIA!' : 'Faltam 2 dias',
+                            action: 'weekly-status'
+                        });
+                        
+                        // Notificação individual para os primeiros 5
+                        statusData.notDelivered.slice(0, 5).forEach(m => {
+                            adminNotifications.push({
+                                id: `missing_${m.id}`,
+                                type: 'warning',
+                                icon: '❌',
+                                title: 'Farm Pendente',
+                                message: `${m.name} (${m.passport}) não entregou farm`,
+                                time: 'Esta semana',
+                                action: 'adv',
+                                userId: m.id,
+                                userName: m.name
+                            });
+                        });
+                    }
+                }
+            } catch (e) {
+                console.log('Aviso: Não foi possível carregar status semanal para notificações');
             }
         }
         
@@ -3069,21 +3075,31 @@ function generateReportExcel() {
 
 async function loadEditPermissions() {
     const container = document.getElementById('editPermissionsList');
-    if (!container) return;
+    if (!container) {
+        console.error('Container editPermissionsList não encontrado!');
+        return;
+    }
     
     container.innerHTML = '<p class="loading">Carregando...</p>';
     
     try {
-        const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
-        const response = await fetch(`/api/admin/edit-permissions${params}`);
+        console.log('Buscando permissões de edição...');
+        const response = await fetch('/api/admin/edit-permissions');
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('Data recebida:', data);
         
         if (!data.success) {
             container.innerHTML = '<p class="error">Erro ao carregar permissões</p>';
             return;
         }
         
-        if (data.members.length === 0) {
+        if (!data.members || data.members.length === 0) {
             container.innerHTML = '<div class="empty-state">😴 Nenhum membro encontrado</div>';
             return;
         }
@@ -3111,8 +3127,7 @@ async function loadEditPermissions() {
                             <td>
                                 ${member.hasPermission ? `
                                     <span class="permission-badge granted">
-                                        ✏️ Edição Liberada
-                                        <small>por ${member.granted_by_name}</small>
+                                        ✏️ Liberado
                                     </span>
                                 ` : `
                                     <span class="permission-badge locked">🔒 Bloqueado</span>
@@ -3120,11 +3135,11 @@ async function loadEditPermissions() {
                             </td>
                             <td>
                                 ${member.hasPermission ? `
-                                    <button class="btn btn-small btn-danger" onclick="revokeEditPermission(${member.id}, '${member.name}')">
-                                        🚫 Revogar
+                                    <button class="btn btn-small btn-danger" onclick="revokeEditPermission(${member.id}, '${member.name.replace(/'/g, "\\'")}')">
+                                        🔒 Bloquear
                                     </button>
                                 ` : `
-                                    <button class="btn btn-small btn-success" onclick="grantEditPermission(${member.id}, '${member.name}')">
+                                    <button class="btn btn-small btn-success" onclick="grantEditPermission(${member.id}, '${member.name.replace(/'/g, "\\'")}')">
                                         ✏️ Liberar
                                     </button>
                                 `}
@@ -3135,15 +3150,13 @@ async function loadEditPermissions() {
             </table>
         `;
     } catch (error) {
-        console.error('Erro:', error);
-        container.innerHTML = '<p class="error">Erro ao carregar permissões</p>';
+        console.error('Erro ao carregar permissões:', error);
+        container.innerHTML = `<p class="error">Erro ao carregar: ${error.message}</p>`;
     }
 }
 
 async function grantEditPermission(userId, userName) {
-    const reason = prompt(`Liberar edição para ${userName}?\n\nMotivo (opcional):`, 'Correção de valores');
-    
-    if (reason === null) return; // Cancelou
+    if (!confirm(`Liberar edição de valores para ${userName}?\n\nO membro poderá editar os totais em qualquer semana.`)) return;
     
     try {
         const response = await fetch('/api/admin/edit-permissions/grant', {
@@ -3151,9 +3164,7 @@ async function grantEditPermission(userId, userName) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: userId,
-                week_start: selectedWeek.start,
-                week_end: selectedWeek.end,
-                reason: reason || 'Correção de valores'
+                reason: 'Correção de valores'
             })
         });
         
@@ -3177,11 +3188,7 @@ async function revokeEditPermission(userId, userName) {
         const response = await fetch('/api/admin/edit-permissions/revoke', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: userId,
-                week_start: selectedWeek.start,
-                week_end: selectedWeek.end
-            })
+            body: JSON.stringify({ user_id: userId })
         });
         
         const result = await response.json();

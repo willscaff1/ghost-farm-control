@@ -590,7 +590,7 @@ async function saveEditedValue(materialId) {
             body: JSON.stringify({
                 material_id: materialId,
                 new_value: newValue,
-                week_offset: weekOffset
+                week_offset: currentWeekOffset
             })
         });
         
@@ -599,7 +599,7 @@ async function saveEditedValue(materialId) {
         if (response.ok) {
             closeEditValueModal();
             // Recarregar dados da semana
-            loadWeekData(weekOffset);
+            loadWeekData(currentWeekOffset);
         } else {
             alert(result.error || 'Erro ao salvar');
         }

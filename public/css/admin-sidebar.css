@@ -1688,33 +1688,72 @@ body.admin-layout {
     font-size: 18px;
 }
 
+.edit-permissions-list {
+    margin-top: 10px;
+}
+
+.edit-permissions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.edit-permissions-table th {
+    text-align: left;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #888;
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.edit-permissions-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: middle;
+}
+
+.edit-permissions-table tbody tr {
+    transition: background 0.2s;
+}
+
+.edit-permissions-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
 .edit-permissions-table tr.has-permission {
-    background: rgba(39, 174, 96, 0.05);
+    background: rgba(39, 174, 96, 0.08);
+}
+
+.edit-permissions-table tr.has-permission:hover {
+    background: rgba(39, 174, 96, 0.12);
 }
 
 .edit-permissions-table .member-info-cell {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
 }
 
 .edit-permissions-table .member-info-cell strong {
     color: #fff;
+    font-size: 14px;
 }
 
 .edit-permissions-table .member-passport {
-    font-size: 12px;
+    font-size: 11px;
     color: #666;
 }
 
 .permission-badge {
     display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
+    align-items: center;
+    gap: 6px;
     padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 13px;
+    border-radius: 20px;
+    font-size: 12px;
     font-weight: 500;
 }
 
@@ -1724,16 +1763,43 @@ body.admin-layout {
     border: 1px solid rgba(39, 174, 96, 0.3);
 }
 
-.permission-badge.granted small {
-    font-size: 10px;
-    color: #888;
-    font-weight: 400;
-}
-
 .permission-badge.locked {
     background: rgba(255, 255, 255, 0.05);
-    color: #888;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #666;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Botões da tabela de permissões */
+.edit-permissions-table .btn-small {
+    padding: 8px 16px;
+    font-size: 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.edit-permissions-table .btn-success {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: #fff;
+}
+
+.edit-permissions-table .btn-success:hover {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+.edit-permissions-table .btn-danger {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+}
+
+.edit-permissions-table .btn-danger:hover {
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
 
 /* Whitelist Styles */

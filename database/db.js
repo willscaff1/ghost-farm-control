@@ -269,17 +269,14 @@ const initializePostgres = async () => {
             )
         `);
 
-        // Tabela de liberação de edição
+        // Tabela de liberação de edição (por membro, válido para qualquer semana)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS edit_permissions (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                week_start DATE NOT NULL,
-                week_end DATE NOT NULL,
+                user_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
                 reason TEXT,
                 granted_by INTEGER NOT NULL REFERENCES users(id),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, week_start, week_end)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
 
@@ -480,19 +477,16 @@ const initializeSQLite = () => {
                 )
             `);
 
-            // Tabela de liberação de edição
+            // Tabela de liberação de edição (por membro, válido para qualquer semana)
             pool.run(`
                 CREATE TABLE IF NOT EXISTS edit_permissions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    week_start TEXT NOT NULL,
-                    week_end TEXT NOT NULL,
+                    user_id INTEGER NOT NULL UNIQUE,
                     reason TEXT,
                     granted_by INTEGER NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id),
-                    FOREIGN KEY (granted_by) REFERENCES users(id),
-                    UNIQUE(user_id, week_start, week_end)
+                    FOREIGN KEY (granted_by) REFERENCES users(id)
                 )
             `);
 

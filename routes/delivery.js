@@ -132,13 +132,12 @@ router.get('/current-week', requireAuth, async (req, res) => {
             statusMessage = 'Ausência justificada esta semana';
         }
         
-        // Verificar se tem permissão de edição liberada por um admin
+        // Verificar se tem permissão de edição liberada por um admin (válido para qualquer semana)
         let canEditValues = false;
         try {
             const editPermission = await getOne(`
-                SELECT id FROM edit_permissions 
-                WHERE user_id = ? AND week_start = ? AND week_end = ?
-            `, [userId, week.start, week.end]);
+                SELECT id FROM edit_permissions WHERE user_id = ?
+            `, [userId]);
             canEditValues = !!editPermission;
         } catch (e) {
             // Tabela pode não existir ainda
@@ -680,13 +679,12 @@ router.post('/edit-value', requireAuth, async (req, res) => {
         const offset = parseInt(week_offset) || 0;
         const week = getWeekWithOffset(offset);
         
-        // Verificar se tem permissão de edição
+        // Verificar se tem permissão de edição (válido para qualquer semana)
         let hasPermission = false;
         try {
             const permission = await getOne(`
-                SELECT id FROM edit_permissions 
-                WHERE user_id = ? AND week_start = ? AND week_end = ?
-            `, [userId, week.start, week.end]);
+                SELECT id FROM edit_permissions WHERE user_id = ?
+            `, [userId]);
             hasPermission = !!permission;
         } catch (e) {
             hasPermission = false;
