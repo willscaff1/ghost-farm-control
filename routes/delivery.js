@@ -888,4 +888,92 @@ router.post('/edit-value', requireAuth, async (req, res) => {
     }
 });
 
+// Editar valor de dinheiro sujo (para correção de erro de digitação)
+router.post('/edit-dirty-money', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { new_value, week_offset } = req.body;
+        
+        if (new_value === undefined) {
+            return res.status(400).json({ error: 'new_value é obrigatório' });
+        }
+        
+        const offset = parseInt(week_offset) || 0;
+        const week = getWeekWithOffset(offset);
+        
+        // Verificar se tem permissão de edição
+        let hasPermission = false;
+        try {
+            const permission = await getOne(`
+                SELECT id FROM edit_permissions WHERE user_id = ?
+            `, [userId]);
+            hasPermission = !!permission;
+        } catch (e) {
+            hasPermission = false;
+        }
+        
+        if (!hasPermission) {
+            return res.status(403).json({ error: 'Você não tem permissão para editar valores. Solicite a um gerente.' });
+        }
+        
+        // Buscar entrega existente
+        const existingDelivery = await getOne(`
+            SELECT * FROM deliveries 
+            WHERE user_id = ? AND week_start = ? AND week_end = ? AND status != 'rejected'
+        `, [userId, week.start, week.end]);
+        
+        if (!existingDelivery) {
+            return res.status(400).json({ error: 'Nenhuma entrega encontrada para editar' });
+        }
+        
+        if (existingDelivery.payment_type !== 'dirty_money') {
+            return res.status(400).json({ error: 'Esta entrega não é de dinheiro sujo' });
+        }
+        
+        const newAmount = parseInt(new_value) || 0;
+        const oldAmount = existingDelivery.dirty_money_amount || 0;
+        
+        // Atualizar valor
+        await runQuery(
+            'UPDATE deliveries SET dirty_money_amount = ? WHERE id = ?',
+            [newAmount, existingDelivery.id]
+        );
+        
+        console.log('✏️ Dinheiro sujo editado:', { oldValue: oldAmount, newValue: newAmount, deliveryId: existingDelivery.id });
+        
+        // Verificar se completou (buscar meta do tipo de pagamento)
+        let paymentTypeGoal = 50000;
+        if (existingDelivery.payment_type_id) {
+            const paymentType = await getOne('SELECT weekly_goal FROM payment_types WHERE id = ?', [existingDelivery.payment_type_id]);
+            if (paymentType) {
+                paymentTypeGoal = paymentType.weekly_goal;
+            }
+        }
+        
+        const isComplete = newAmount >= paymentTypeGoal;
+        
+        if (isComplete && existingDelivery.is_partial) {
+            // Completou - mudar para pending
+            await runQuery(
+                'UPDATE deliveries SET is_partial = 0, status = ? WHERE id = ?',
+                ['pending', existingDelivery.id]
+            );
+            console.log('✅ Farm de dinheiro sujo completado via edição!');
+        } else if (!isComplete && !existingDelivery.is_partial) {
+            // Não está mais completo - voltar para parcial
+            await runQuery(
+                'UPDATE deliveries SET is_partial = 1, status = ? WHERE id = ?',
+                ['in_progress', existingDelivery.id]
+            );
+            console.log('⚠️ Farm de dinheiro sujo voltou a parcial via edição');
+        }
+        
+        res.json({ success: true, message: 'Valor atualizado com sucesso!' });
+        
+    } catch (error) {
+        console.error('Erro ao editar dinheiro sujo:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

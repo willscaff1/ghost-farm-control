@@ -697,7 +697,14 @@ function updateProgressBars(progress) {
                 <div class="progress-header">
                     <span class="progress-label">${paymentTypeIcon} ${paymentTypeName}</span>
                     <span class="progress-value ${complete ? 'complete' : 'incomplete'}">
-                        <span class="value-display">R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</span>
+                        ${canEdit ? `
+                            <span class="value-display editable" onclick="openEditDirtyMoneyModal(${amount}, ${goal}, '${paymentTypeName}', '${paymentTypeIcon}')">
+                                R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}
+                                <span class="edit-hint">✏️</span>
+                            </span>
+                        ` : `
+                            <span class="value-display">R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</span>
+                        `}
                     </span>
                 </div>
                 <div class="progress-bar-bg">
@@ -774,6 +781,77 @@ function openEditValueModal(materialId, name, icon, currentValue, goal) {
     modal.style.display = 'flex';
     document.getElementById('editValueInput').focus();
     document.getElementById('editValueInput').select();
+}
+
+// Modal para editar dinheiro sujo
+function openEditDirtyMoneyModal(currentValue, goal, name, icon) {
+    let modal = document.getElementById('editValueModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'editValueModal';
+        modal.className = 'edit-value-modal';
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `
+        <div class="edit-value-content">
+            <div class="edit-value-header">
+                <span>${icon} Editar ${name}</span>
+                <button class="edit-value-close" onclick="closeEditValueModal()">&times;</button>
+            </div>
+            <div class="edit-value-body">
+                <div class="edit-value-current">
+                    Valor atual: <strong>R$ ${currentValue.toLocaleString('pt-BR')}</strong> / R$ ${goal.toLocaleString('pt-BR')}
+                </div>
+                <div class="edit-value-input-group">
+                    <label>Novo valor total (R$):</label>
+                    <input type="number" id="editValueInput" value="${currentValue}" min="0" max="999999999" autofocus>
+                </div>
+                <p class="edit-value-hint">⚠️ Use apenas para corrigir erros de digitação</p>
+            </div>
+            <div class="edit-value-footer">
+                <button class="btn-cancel" onclick="closeEditValueModal()">Cancelar</button>
+                <button class="btn-save" onclick="saveEditedDirtyMoney()">💾 Salvar</button>
+            </div>
+        </div>
+    `;
+    
+    modal.style.display = 'flex';
+    document.getElementById('editValueInput').focus();
+    document.getElementById('editValueInput').select();
+}
+
+async function saveEditedDirtyMoney() {
+    const input = document.getElementById('editValueInput');
+    const newValue = parseInt(input.value) || 0;
+    
+    if (!currentWeekData || !currentWeekData.hasDelivery) {
+        alert('Nenhuma entrega para editar!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/delivery/edit-dirty-money', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                new_value: newValue,
+                week_offset: currentWeekOffset
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            closeEditValueModal();
+            loadWeekData(currentWeekOffset);
+        } else {
+            alert(result.error || 'Erro ao salvar');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao salvar valor');
+    }
 }
 
 function closeEditValueModal() {
@@ -964,6 +1042,19 @@ function updateProgressDisplay(type, paymentTypeId = null) {
             const percentage = Math.min(100, Math.round((deliveredAmount / goal) * 100));
             const isComplete = deliveredAmount >= goal;
             
+            // Verificar se pode editar
+            const canEdit = currentWeekData && currentWeekData.canEditValues;
+            
+            // Criar HTML do valor - editável ou não
+            let valueHtml;
+            if (canEdit && deliveredAmount > 0) {
+                valueHtml = `<span class="value-display editable" onclick="openEditDirtyMoneyModal(${deliveredAmount}, ${goal})" title="Clique para editar">
+                    R$ ${deliveredAmount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')} ✏️
+                </span>`;
+            } else {
+                valueHtml = `<span class="value-display">R$ ${deliveredAmount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</span>`;
+            }
+            
             progressContainer.innerHTML = `
                 <div class="progress-item ${isComplete ? 'complete' : ''}">
                     <div class="progress-header">
@@ -971,7 +1062,7 @@ function updateProgressDisplay(type, paymentTypeId = null) {
                             ${selectedPaymentType.icon} ${selectedPaymentType.name}
                         </span>
                         <span class="progress-value ${isComplete ? 'complete' : 'incomplete'}">
-                            <span class="value-display">R$ ${deliveredAmount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</span>
+                            ${valueHtml}
                         </span>
                     </div>
                     <div class="progress-bar-bg">
