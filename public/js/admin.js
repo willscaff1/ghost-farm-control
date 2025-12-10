@@ -2842,7 +2842,7 @@ function renderReport(data) {
                                     <td>${m.passport}</td>
                                     <td>${m.name}</td>
                                     <td>${m.role}</td>
-                                    <td>${m.farmStatus === 'justified' ? '📝 Justificado' : '✅ Aprovado'}</td>
+                                    <td>${m.farmStatus === 'justified' ? 'Justificado' : 'Pago'}</td>
                                 </tr>
                             `).join('') : '<tr><td colspan="4" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
                         </tbody>
@@ -2868,10 +2868,10 @@ function renderReport(data) {
                         </thead>
                         <tbody>
                             ${data.notPaid.length > 0 ? data.notPaid.map(m => {
-                                let statusText = '❌ Sem Entrega';
-                                if (m.farmStatus === 'pending') statusText = '⏳ Aguardando Aprovação';
-                                else if (m.farmStatus === 'rejected') statusText = '🚫 Rejeitado';
-                                else if (m.farmStatus === 'justification_pending') statusText = '📝 Justificativa Pendente';
+                                let statusText = 'Sem Entrega';
+                                if (m.farmStatus === 'pending') statusText = 'Aguardando Aprovação';
+                                else if (m.farmStatus === 'rejected') statusText = 'Rejeitado';
+                                else if (m.farmStatus === 'justification_pending') statusText = 'Justificativa Pendente';
                                 return `
                                     <tr>
                                         <td>${m.passport}</td>
