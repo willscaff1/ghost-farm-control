@@ -2980,7 +2980,7 @@ async function generateReportPDF() {
                         <th>Passaporte</th>
                         <th>Nome</th>
                         <th>Cargo</th>
-                        <th>Entregas Aprovadas</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2989,7 +2989,7 @@ async function generateReportPDF() {
                             <td>${m.passport}</td>
                             <td>${m.name}</td>
                             <td>${m.role}</td>
-                            <td>${m.approved_count}</td>
+                            <td>${m.farmStatus === 'justified' ? 'Justificado' : 'Pago'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -3006,14 +3006,20 @@ async function generateReportPDF() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${reportData.notPaid.map(m => `
-                        <tr>
-                            <td>${m.passport}</td>
-                            <td>${m.name}</td>
-                            <td>${m.role}</td>
-                            <td>${m.has_justification ? 'Justificativa Pendente' : 'Sem Entrega'}</td>
-                        </tr>
-                    `).join('')}
+                    ${reportData.notPaid.map(m => {
+                        let statusText = 'Sem Entrega';
+                        if (m.farmStatus === 'pending') statusText = 'Aguardando Aprovação';
+                        else if (m.farmStatus === 'rejected') statusText = 'Rejeitado';
+                        else if (m.farmStatus === 'justification_pending') statusText = 'Justificativa Pendente';
+                        return `
+                            <tr>
+                                <td>${m.passport}</td>
+                                <td>${m.name}</td>
+                                <td>${m.role}</td>
+                                <td>${statusText}</td>
+                            </tr>
+                        `;
+                    }).join('')}
                 </tbody>
             </table>
         </body>
@@ -3049,15 +3055,20 @@ function generateReportExcel() {
     csv += `Taxa de Pagamento;${reportData.rate}%\n`;
     csv += '\n';
     csv += 'PAGARAM O FARM\n';
-    csv += 'Passaporte;Nome;Cargo;Entregas Aprovadas\n';
+    csv += 'Passaporte;Nome;Cargo;Status\n';
     reportData.paid.forEach(m => {
-        csv += `${m.passport};${m.name};${m.role};${m.approved_count}\n`;
+        const status = m.farmStatus === 'justified' ? 'Justificado' : 'Pago';
+        csv += `${m.passport};${m.name};${m.role};${status}\n`;
     });
     csv += '\n';
     csv += 'NÃO PAGARAM\n';
     csv += 'Passaporte;Nome;Cargo;Status\n';
     reportData.notPaid.forEach(m => {
-        csv += `${m.passport};${m.name};${m.role};${m.has_justification ? 'Justificativa Pendente' : 'Sem Entrega'}\n`;
+        let statusText = 'Sem Entrega';
+        if (m.farmStatus === 'pending') statusText = 'Aguardando Aprovação';
+        else if (m.farmStatus === 'rejected') statusText = 'Rejeitado';
+        else if (m.farmStatus === 'justification_pending') statusText = 'Justificativa Pendente';
+        csv += `${m.passport};${m.name};${m.role};${statusText}\n`;
     });
     
     // Criar blob e download
