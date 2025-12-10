@@ -66,6 +66,33 @@ app.get('/register', (req, res) => {
 db.initialize().then(() => {
     app.listen(PORT, () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
+        
+        // Executar limpeza de imagens antigas uma vez ao iniciar
+        db.cleanupOldImages();
+        
+        // Agendar limpeza diária às 3h da manhã
+        const scheduleCleanup = () => {
+            const now = new Date();
+            const nextRun = new Date();
+            nextRun.setHours(3, 0, 0, 0);
+            
+            // Se já passou das 3h hoje, agendar para amanhã
+            if (now > nextRun) {
+                nextRun.setDate(nextRun.getDate() + 1);
+            }
+            
+            const msUntilNextRun = nextRun.getTime() - now.getTime();
+            
+            setTimeout(() => {
+                db.cleanupOldImages();
+                // Reagendar para o próximo dia
+                setInterval(() => db.cleanupOldImages(), 24 * 60 * 60 * 1000);
+            }, msUntilNextRun);
+            
+            console.log(`🕐 Limpeza de imagens agendada para ${nextRun.toLocaleString('pt-BR')}`);
+        };
+        
+        scheduleCleanup();
     });
 }).catch(err => {
     console.error('Erro ao inicializar banco de dados:', err);

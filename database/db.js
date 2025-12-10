@@ -651,6 +651,38 @@ const initializeSQLite = () => {
     });
 };
 
+// Função para limpar imagens antigas (mais de 30 dias)
+const cleanupOldImages = async () => {
+    try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
+        
+        console.log(`🧹 Iniciando limpeza de imagens anteriores a ${cutoffDate}...`);
+        
+        // Limpar screenshot_url das entregas antigas (liberar espaço)
+        const updateResult = await runQuery(`
+            UPDATE deliveries 
+            SET screenshot_url = NULL 
+            WHERE week_end < ? AND screenshot_url IS NOT NULL
+        `, [cutoffDate]);
+        
+        // Limpar tabela delivery_screenshots das entregas antigas
+        const deleteResult = await runQuery(`
+            DELETE FROM delivery_screenshots 
+            WHERE delivery_id IN (
+                SELECT id FROM deliveries WHERE week_end < ?
+            )
+        `, [cutoffDate]);
+        
+        console.log(`🧹 Limpeza concluída! Imagens de farms anteriores a ${cutoffDate} removidas.`);
+        return { success: true, cutoffDate };
+    } catch (error) {
+        console.error('❌ Erro na limpeza de imagens:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 module.exports = {
     db: pool,
     pool,
@@ -659,5 +691,6 @@ module.exports = {
     getOne,
     getAll,
     getCurrentWeek,
-    dbType
+    dbType,
+    cleanupOldImages
 };
