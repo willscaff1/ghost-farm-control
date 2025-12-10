@@ -475,25 +475,12 @@ function updateExistingScreenshots(screenshots) {
     `).join('');
 }
 
-// Preencher inputs do formulário com valores existentes
+// Resetar inputs do formulário para modo adição
 function fillFormWithExistingValues(progress) {
-    if (!progress || progress.length === 0) {
-        // Se não tem progresso, zerar todos os inputs
-        document.querySelectorAll('.material-amount-input').forEach(input => {
-            input.value = 0;
-        });
-        updateSubmitButton();
-        return;
-    }
-    
-    // Preencher cada input com o valor atual do progresso
-    progress.forEach(p => {
-        const input = document.querySelector(`input[data-material-id="${p.material_id}"]`);
-        if (input) {
-            input.value = p.current || 0;
-        }
+    // Sempre zerar inputs - formulário é para ADICIONAR valores
+    document.querySelectorAll('.material-amount-input').forEach(input => {
+        input.value = 0;
     });
-    
     updateSubmitButton();
 }
 
@@ -514,7 +501,12 @@ function updateProgressBars(progress) {
         <div class="progress-item">
             <div class="progress-header">
                 <span class="progress-label">${p.icon} ${p.name}</span>
-                <span class="progress-value ${p.complete ? 'complete' : 'incomplete'}">${p.current}/${p.goal}</span>
+                <span class="progress-value ${p.complete ? 'complete' : 'incomplete'}">
+                    <span class="value-display" onclick="openEditValueModal(${p.material_id}, '${p.name}', '${p.icon}', ${p.current}, ${p.goal})">
+                        ${p.current}/${p.goal}
+                        <span class="edit-hint">✏️</span>
+                    </span>
+                </span>
             </div>
             <div class="progress-bar-bg">
                 <div class="progress-bar-fill ${p.complete ? 'complete' : ''}" style="width: ${p.percentage}%"></div>
@@ -528,6 +520,97 @@ async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/';
 }
+
+// ========== MODAL DE EDIÇÃO DE VALOR ==========
+function openEditValueModal(materialId, name, icon, currentValue, goal) {
+    // Criar modal se não existir
+    let modal = document.getElementById('editValueModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'editValueModal';
+        modal.className = 'edit-value-modal';
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `
+        <div class="edit-value-content">
+            <div class="edit-value-header">
+                <span>${icon} Editar ${name}</span>
+                <button class="edit-value-close" onclick="closeEditValueModal()">&times;</button>
+            </div>
+            <div class="edit-value-body">
+                <div class="edit-value-current">
+                    Valor atual: <strong>${currentValue}</strong> / ${goal}
+                </div>
+                <div class="edit-value-input-group">
+                    <label>Novo valor total:</label>
+                    <input type="number" id="editValueInput" value="${currentValue}" min="0" max="99999" autofocus>
+                </div>
+                <p class="edit-value-hint">⚠️ Use apenas para corrigir erros de digitação</p>
+            </div>
+            <div class="edit-value-footer">
+                <button class="btn-cancel" onclick="closeEditValueModal()">Cancelar</button>
+                <button class="btn-save" onclick="saveEditedValue(${materialId})">💾 Salvar</button>
+            </div>
+        </div>
+    `;
+    
+    modal.style.display = 'flex';
+    document.getElementById('editValueInput').focus();
+    document.getElementById('editValueInput').select();
+}
+
+function closeEditValueModal() {
+    const modal = document.getElementById('editValueModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+async function saveEditedValue(materialId) {
+    const input = document.getElementById('editValueInput');
+    const newValue = parseInt(input.value) || 0;
+    
+    if (!currentWeekData || !currentWeekData.hasDelivery) {
+        alert('Nenhuma entrega para editar!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/delivery/edit-value', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                material_id: materialId,
+                new_value: newValue,
+                week_offset: weekOffset
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            closeEditValueModal();
+            // Recarregar dados da semana
+            loadWeekData(weekOffset);
+        } else {
+            alert(result.error || 'Erro ao salvar');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao salvar valor');
+    }
+}
+
+// Fechar modal ao clicar fora
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('editValueModal');
+    if (modal && e.target === modal) {
+        closeEditValueModal();
+    }
+});
+
+// ========== FIM MODAL DE EDIÇÃO ==========
 
 // Carregar materiais disponíveis
 async function loadMaterials() {

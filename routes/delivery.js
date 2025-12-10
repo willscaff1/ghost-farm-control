@@ -341,34 +341,36 @@ router.post('/', requireAuth, (req, res) => {
             let deliveryId;
             
             if (existingPartialDelivery) {
-                // EDITAR entrega existente (substituir valores, não somar)
+                // ADICIONAR à entrega existente (MODO ADIÇÃO)
                 deliveryId = existingPartialDelivery.id;
-                console.log('📦 Editando entrega existente:', deliveryId);
+                console.log('📦 Adicionando à entrega existente:', deliveryId);
                 
-                // Substituir os valores dos itens (edição/correção)
+                // SOMAR os valores aos itens existentes
                 for (const item of materialsArray) {
                     const amount = parseInt(item.amount) || 0;
-                    
-                    // Verificar se já existe esse material na entrega
-                    const existingItem = await getOne(`
-                        SELECT * FROM delivery_items 
-                        WHERE delivery_id = ? AND material_id = ?
-                    `, [deliveryId, item.material_id]);
-                    
-                    if (existingItem) {
-                        // SUBSTITUIR o valor existente (não somar)
-                        await runQuery(
-                            'UPDATE delivery_items SET amount = ? WHERE id = ?',
-                            [amount, existingItem.id]
-                        );
-                        console.log('📦 Atualizado item:', { material_id: item.material_id, oldAmount: existingItem.amount, newAmount: amount });
-                    } else if (amount > 0) {
-                        // Inserir novo item apenas se amount > 0
-                        await runQuery(
-                            'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
-                            [deliveryId, parseInt(item.material_id), amount]
-                        );
-                        console.log('📦 Inserido novo item:', { material_id: item.material_id, amount });
+                    if (amount > 0) {
+                        // Verificar se já existe esse material na entrega
+                        const existingItem = await getOne(`
+                            SELECT * FROM delivery_items 
+                            WHERE delivery_id = ? AND material_id = ?
+                        `, [deliveryId, item.material_id]);
+                        
+                        if (existingItem) {
+                            // SOMAR ao valor existente
+                            const newAmount = existingItem.amount + amount;
+                            await runQuery(
+                                'UPDATE delivery_items SET amount = ? WHERE id = ?',
+                                [newAmount, existingItem.id]
+                            );
+                            console.log('📦 Somado ao item:', { material_id: item.material_id, oldAmount: existingItem.amount, added: amount, newAmount });
+                        } else {
+                            // Inserir novo item
+                            await runQuery(
+                                'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
+                                [deliveryId, parseInt(item.material_id), amount]
+                            );
+                            console.log('📦 Inserido novo item:', { material_id: item.material_id, amount });
+                        }
                     }
                 }
             } else {
@@ -646,6 +648,94 @@ router.get('/my-warnings', requireAuth, async (req, res) => {
         
         res.json({ warnings, count: warnings.length });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== EDIÇÃO DE VALOR INDIVIDUAL ==========
+// Rota para editar valor de um material específico (correção de erros)
+router.post('/edit-value', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { material_id, new_value, week_offset } = req.body;
+        
+        if (material_id === undefined || new_value === undefined) {
+            return res.status(400).json({ error: 'material_id e new_value são obrigatórios' });
+        }
+        
+        const offset = parseInt(week_offset) || 0;
+        const week = getWeekWithOffset(offset);
+        
+        // Buscar entrega existente (qualquer status exceto rejected)
+        const existingDelivery = await getOne(`
+            SELECT * FROM deliveries 
+            WHERE user_id = ? AND week_start = ? AND week_end = ? AND status != 'rejected'
+        `, [userId, week.start, week.end]);
+        
+        if (!existingDelivery) {
+            return res.status(400).json({ error: 'Nenhuma entrega encontrada para editar' });
+        }
+        
+        const newAmount = parseInt(new_value) || 0;
+        
+        // Verificar se já existe esse material na entrega
+        const existingItem = await getOne(`
+            SELECT * FROM delivery_items 
+            WHERE delivery_id = ? AND material_id = ?
+        `, [existingDelivery.id, material_id]);
+        
+        if (existingItem) {
+            // Atualizar valor existente
+            await runQuery(
+                'UPDATE delivery_items SET amount = ? WHERE id = ?',
+                [newAmount, existingItem.id]
+            );
+            console.log('✏️ Valor editado:', { material_id, oldValue: existingItem.amount, newValue: newAmount });
+        } else if (newAmount > 0) {
+            // Inserir novo item
+            await runQuery(
+                'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
+                [existingDelivery.id, parseInt(material_id), newAmount]
+            );
+            console.log('✏️ Valor criado:', { material_id, value: newAmount });
+        }
+        
+        // Verificar se completou o farm (recalcular is_partial e status)
+        const allMaterials = await getAll('SELECT id, weekly_goal FROM materials WHERE active = 1');
+        const deliveryItems = await getAll('SELECT material_id, amount FROM delivery_items WHERE delivery_id = ?', [existingDelivery.id]);
+        
+        let allComplete = true;
+        for (const mat of allMaterials) {
+            const item = deliveryItems.find(i => i.material_id === mat.id);
+            const currentAmount = item ? item.amount : 0;
+            const goal = mat.weekly_goal || 700;
+            if (currentAmount < goal) {
+                allComplete = false;
+                break;
+            }
+        }
+        
+        // Atualizar status da entrega
+        if (allComplete && existingDelivery.is_partial) {
+            // Completou o farm - mudar para pending
+            await runQuery(
+                'UPDATE deliveries SET is_partial = 0, status = ? WHERE id = ?',
+                ['pending', existingDelivery.id]
+            );
+            console.log('✅ Farm completado via edição!');
+        } else if (!allComplete && !existingDelivery.is_partial) {
+            // Não está mais completo - voltar para parcial
+            await runQuery(
+                'UPDATE deliveries SET is_partial = 1, status = ? WHERE id = ?',
+                ['in_progress', existingDelivery.id]
+            );
+            console.log('⚠️ Farm voltou a parcial via edição');
+        }
+        
+        res.json({ success: true, message: 'Valor atualizado com sucesso!' });
+        
+    } catch (error) {
+        console.error('Erro ao editar valor:', error);
         res.status(500).json({ error: error.message });
     }
 });

@@ -534,12 +534,180 @@
     font-weight: 600;
 }
 
+.progress-value .value-display {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.progress-value .value-display:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.progress-value .edit-hint {
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.progress-value .value-display:hover .edit-hint {
+    opacity: 0.7;
+}
+
 .progress-value.complete {
     color: #00b894;
 }
 
 .progress-value.incomplete {
     color: #a29bfe;
+}
+
+/* Modal de Edição de Valor */
+.edit-value-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.edit-value-content {
+    background: linear-gradient(145deg, #2d2d4a, #1e1e32);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 320px;
+    overflow: hidden;
+    animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.edit-value-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 18px;
+    background: rgba(108, 92, 231, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-weight: 600;
+    color: #fff;
+}
+
+.edit-value-close {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.edit-value-close:hover {
+    color: #fff;
+}
+
+.edit-value-body {
+    padding: 20px 18px;
+}
+
+.edit-value-current {
+    text-align: center;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    margin-bottom: 15px;
+    color: #aaa;
+    font-size: 14px;
+}
+
+.edit-value-current strong {
+    color: #fff;
+    font-size: 18px;
+}
+
+.edit-value-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.edit-value-input-group label {
+    color: #aaa;
+    font-size: 13px;
+}
+
+.edit-value-input-group input {
+    padding: 12px 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.edit-value-input-group input:focus {
+    outline: none;
+    border-color: #6c5ce7;
+}
+
+.edit-value-hint {
+    margin: 12px 0 0 0;
+    font-size: 11px;
+    color: #f39c12;
+    text-align: center;
+}
+
+.edit-value-footer {
+    display: flex;
+    gap: 10px;
+    padding: 15px 18px;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.edit-value-footer button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.edit-value-footer .btn-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    color: #aaa;
+}
+
+.edit-value-footer .btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.edit-value-footer .btn-save {
+    background: linear-gradient(135deg, #6c5ce7, #5541d9);
+    color: #fff;
+}
+
+.edit-value-footer .btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3);
 }
 
 .progress-bar-bg {
