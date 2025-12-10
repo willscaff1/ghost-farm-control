@@ -514,8 +514,8 @@ router.post('/', requireAuth, (req, res) => {
                 
                 // Criar a entrega principal como parcial (será atualizada se completar)
                 const result = await runQuery(
-                    'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial, status, payment_type, payment_type_id, dirty_money_amount) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)',
-                    [userId, week.start, week.end, description || '', screenshot_url, 'in_progress', paymentType, paymentTypeId, dirtyMoneyAmount]
+                    'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial, status, payment_type, payment_type_id, dirty_money_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [userId, week.start, week.end, description || '', screenshot_url, true, 'in_progress', paymentType, paymentTypeId, dirtyMoneyAmount]
                 );
                 
                 deliveryId = result.lastID;
