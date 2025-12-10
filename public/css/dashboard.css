@@ -535,16 +535,19 @@
 }
 
 .progress-value .value-display {
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 6px;
-    transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
     gap: 4px;
 }
 
-.progress-value .value-display:hover {
+.progress-value .value-display.editable {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.progress-value .value-display.editable:hover {
     background: rgba(255, 255, 255, 0.1);
 }
 
@@ -554,7 +557,7 @@
     transition: opacity 0.2s ease;
 }
 
-.progress-value .value-display:hover .edit-hint {
+.progress-value .value-display.editable:hover .edit-hint {
     opacity: 0.7;
 }
 

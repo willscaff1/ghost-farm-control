@@ -95,6 +95,7 @@
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">⚙️ Configurações</div>
+                <button class="sidebar-item" data-tab="edit-permissions">✏️ Liberar Edição</button>
                 <button class="sidebar-item" data-tab="manage-materials">📦 Gerenciar Materiais</button>
                 <button class="sidebar-item" data-tab="whitelist">🛡️ Whitelist (Isentos)</button>
             </div>
@@ -549,6 +550,28 @@
                         <button type="submit" class="btn btn-primary">Criar Membro</button>
                     </form>
                     <div id="memberMessage" class="message"></div>
+                </div>
+            </div>
+
+            <!-- Edit Permissions Tab -->
+            <div id="edit-permissions-tab" class="tab-content">
+                <div class="card">
+                    <h2>✏️ Liberar Edição de Farm</h2>
+                    <p class="subtitle">Permite que membros editem os valores do farm (para corrigir erros de digitação)</p>
+                    
+                    <div class="edit-permissions-info">
+                        <div class="info-box">
+                            <span class="info-icon">ℹ️</span>
+                            <span>A liberação é válida apenas para a semana selecionada. Após editar, o membro pode pedir para revogar.</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>👥 Membros</h2>
+                    <div id="editPermissionsList" class="edit-permissions-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
                 </div>
             </div>
 

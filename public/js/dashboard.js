@@ -497,15 +497,22 @@ function updateProgressBars(progress) {
         return;
     }
     
+    // Verificar se tem permissão para editar valores
+    const canEdit = currentWeekData && currentWeekData.canEditValues;
+    
     container.innerHTML = progress.map(p => `
         <div class="progress-item">
             <div class="progress-header">
                 <span class="progress-label">${p.icon} ${p.name}</span>
                 <span class="progress-value ${p.complete ? 'complete' : 'incomplete'}">
-                    <span class="value-display" onclick="openEditValueModal(${p.material_id}, '${p.name}', '${p.icon}', ${p.current}, ${p.goal})">
-                        ${p.current}/${p.goal}
-                        <span class="edit-hint">✏️</span>
-                    </span>
+                    ${canEdit ? `
+                        <span class="value-display editable" onclick="openEditValueModal(${p.material_id}, '${p.name}', '${p.icon}', ${p.current}, ${p.goal})">
+                            ${p.current}/${p.goal}
+                            <span class="edit-hint">✏️</span>
+                        </span>
+                    ` : `
+                        <span class="value-display">${p.current}/${p.goal}</span>
+                    `}
                 </span>
             </div>
             <div class="progress-bar-bg">

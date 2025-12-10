@@ -269,6 +269,20 @@ const initializePostgres = async () => {
             )
         `);
 
+        // Tabela de liberação de edição
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS edit_permissions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                week_start DATE NOT NULL,
+                week_end DATE NOT NULL,
+                reason TEXT,
+                granted_by INTEGER NOT NULL REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, week_start, week_end)
+            )
+        `);
+
         // Inserir materiais padrão
         const defaultMaterials = [
             ['Folha', '🍃'],
@@ -463,6 +477,22 @@ const initializeSQLite = () => {
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id),
                     FOREIGN KEY (added_by) REFERENCES users(id)
+                )
+            `);
+
+            // Tabela de liberação de edição
+            pool.run(`
+                CREATE TABLE IF NOT EXISTS edit_permissions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    week_start TEXT NOT NULL,
+                    week_end TEXT NOT NULL,
+                    reason TEXT,
+                    granted_by INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (granted_by) REFERENCES users(id),
+                    UNIQUE(user_id, week_start, week_end)
                 )
             `);
 

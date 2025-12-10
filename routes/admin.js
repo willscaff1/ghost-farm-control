@@ -1369,4 +1369,97 @@ router.get('/members-with-advs', requireAdmin, async (req, res) => {
     }
 });
 
+// ========== PERMISSÕES DE EDIÇÃO ==========
+
+// Listar membros com status de permissão de edição para uma semana
+router.get('/edit-permissions', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, week_end } = req.query;
+        const week = week_start && week_end 
+            ? { start: week_start, end: week_end }
+            : getWeekWithOffset(0);
+        
+        // Buscar todos os membros ativos com status de permissão
+        const members = await getAll(`
+            SELECT 
+                u.id,
+                u.name,
+                u.passport,
+                u.role,
+                ep.id as permission_id,
+                ep.reason as permission_reason,
+                ep.created_at as permission_date,
+                gu.name as granted_by_name
+            FROM users u
+            LEFT JOIN edit_permissions ep ON u.id = ep.user_id 
+                AND ep.week_start = ? AND ep.week_end = ?
+            LEFT JOIN users gu ON ep.granted_by = gu.id
+            WHERE u.active = 1 AND u.role NOT IN ('gerente_geral', '01', '02', 'gerente_farm')
+            ORDER BY u.name ASC
+        `, [week.start, week.end]);
+        
+        res.json({ 
+            success: true, 
+            week,
+            members: members.map(m => ({
+                ...m,
+                hasPermission: !!m.permission_id
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Conceder permissão de edição
+router.post('/edit-permissions/grant', requireAdmin, async (req, res) => {
+    try {
+        const { user_id, week_start, week_end, reason } = req.body;
+        const grantedBy = req.session.user.id;
+        
+        // Verificar se já existe
+        const existing = await getOne(`
+            SELECT id FROM edit_permissions 
+            WHERE user_id = ? AND week_start = ? AND week_end = ?
+        `, [user_id, week_start, week_end]);
+        
+        if (existing) {
+            return res.status(400).json({ error: 'Permissão já existe para esta semana' });
+        }
+        
+        await runQuery(`
+            INSERT INTO edit_permissions (user_id, week_start, week_end, reason, granted_by)
+            VALUES (?, ?, ?, ?, ?)
+        `, [user_id, week_start, week_end, reason || 'Correção de valores', grantedBy]);
+        
+        // Buscar nome do membro para log
+        const member = await getOne('SELECT name FROM users WHERE id = ?', [user_id]);
+        console.log(`✏️ Permissão de edição concedida para ${member?.name} por ${req.session.user.name}`);
+        
+        res.json({ success: true, message: 'Permissão concedida!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Revogar permissão de edição
+router.post('/edit-permissions/revoke', requireAdmin, async (req, res) => {
+    try {
+        const { user_id, week_start, week_end } = req.body;
+        
+        await runQuery(`
+            DELETE FROM edit_permissions 
+            WHERE user_id = ? AND week_start = ? AND week_end = ?
+        `, [user_id, week_start, week_end]);
+        
+        // Buscar nome do membro para log
+        const member = await getOne('SELECT name FROM users WHERE id = ?', [user_id]);
+        console.log(`🚫 Permissão de edição revogada de ${member?.name} por ${req.session.user.name}`);
+        
+        res.json({ success: true, message: 'Permissão revogada!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

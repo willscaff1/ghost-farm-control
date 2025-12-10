@@ -80,6 +80,7 @@ function showTab(tabId) {
         case 'new-member': break;
         case 'manage-materials': loadMaterials(); break;
         case 'whitelist': loadWhitelist(); break;
+        case 'edit-permissions': loadEditPermissions(); break;
         case 'ranking': loadRanking(); break;
         case 'all-deliveries': loadAllDeliveries(); break;
         case 'weekly-report': loadWeeklyReport(); break;
@@ -3063,6 +3064,140 @@ function generateReportExcel() {
 }
 
 // ==================== FIM RELATÓRIO SEMANAL ====================
+
+// ==================== PERMISSÕES DE EDIÇÃO ====================
+
+async function loadEditPermissions() {
+    const container = document.getElementById('editPermissionsList');
+    if (!container) return;
+    
+    container.innerHTML = '<p class="loading">Carregando...</p>';
+    
+    try {
+        const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
+        const response = await fetch(`/api/admin/edit-permissions${params}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            container.innerHTML = '<p class="error">Erro ao carregar permissões</p>';
+            return;
+        }
+        
+        if (data.members.length === 0) {
+            container.innerHTML = '<div class="empty-state">😴 Nenhum membro encontrado</div>';
+            return;
+        }
+        
+        container.innerHTML = `
+            <table class="members-table edit-permissions-table">
+                <thead>
+                    <tr>
+                        <th>Membro</th>
+                        <th>Cargo</th>
+                        <th>Status</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.members.map(member => `
+                        <tr class="${member.hasPermission ? 'has-permission' : ''}">
+                            <td>
+                                <div class="member-info-cell">
+                                    <strong>${member.name}</strong>
+                                    <span class="member-passport">ID: ${member.passport}</span>
+                                </div>
+                            </td>
+                            <td>${roleNames[member.role] || member.role}</td>
+                            <td>
+                                ${member.hasPermission ? `
+                                    <span class="permission-badge granted">
+                                        ✏️ Edição Liberada
+                                        <small>por ${member.granted_by_name}</small>
+                                    </span>
+                                ` : `
+                                    <span class="permission-badge locked">🔒 Bloqueado</span>
+                                `}
+                            </td>
+                            <td>
+                                ${member.hasPermission ? `
+                                    <button class="btn btn-small btn-danger" onclick="revokeEditPermission(${member.id}, '${member.name}')">
+                                        🚫 Revogar
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-small btn-success" onclick="grantEditPermission(${member.id}, '${member.name}')">
+                                        ✏️ Liberar
+                                    </button>
+                                `}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (error) {
+        console.error('Erro:', error);
+        container.innerHTML = '<p class="error">Erro ao carregar permissões</p>';
+    }
+}
+
+async function grantEditPermission(userId, userName) {
+    const reason = prompt(`Liberar edição para ${userName}?\n\nMotivo (opcional):`, 'Correção de valores');
+    
+    if (reason === null) return; // Cancelou
+    
+    try {
+        const response = await fetch('/api/admin/edit-permissions/grant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: userId,
+                week_start: selectedWeek.start,
+                week_end: selectedWeek.end,
+                reason: reason || 'Correção de valores'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(`✅ Edição liberada para ${userName}!`);
+            loadEditPermissions();
+        } else {
+            alert(result.error || 'Erro ao liberar');
+        }
+    } catch (error) {
+        alert('Erro ao liberar permissão');
+    }
+}
+
+async function revokeEditPermission(userId, userName) {
+    if (!confirm(`Revogar permissão de edição de ${userName}?`)) return;
+    
+    try {
+        const response = await fetch('/api/admin/edit-permissions/revoke', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: userId,
+                week_start: selectedWeek.start,
+                week_end: selectedWeek.end
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(`🚫 Permissão revogada de ${userName}`);
+            loadEditPermissions();
+        } else {
+            alert(result.error || 'Erro ao revogar');
+        }
+    } catch (error) {
+        alert('Erro ao revogar permissão');
+    }
+}
+
+// ==================== FIM PERMISSÕES DE EDIÇÃO ====================
 
 // Inicializa
 checkAuth();

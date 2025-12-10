@@ -132,6 +132,19 @@ router.get('/current-week', requireAuth, async (req, res) => {
             statusMessage = 'Ausência justificada esta semana';
         }
         
+        // Verificar se tem permissão de edição liberada por um admin
+        let canEditValues = false;
+        try {
+            const editPermission = await getOne(`
+                SELECT id FROM edit_permissions 
+                WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [userId, week.start, week.end]);
+            canEditValues = !!editPermission;
+        } catch (e) {
+            // Tabela pode não existir ainda
+            canEditValues = false;
+        }
+        
         res.json({ 
             week,
             hasDelivery: !!existingDelivery,
@@ -142,7 +155,8 @@ router.get('/current-week', requireAuth, async (req, res) => {
             canDeliver: canDeliver,
             statusMessage: statusMessage,
             hasJustification: !!existingJustification,
-            justificationStatus: existingJustification?.status || null
+            justificationStatus: existingJustification?.status || null,
+            canEditValues: canEditValues
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -665,6 +679,22 @@ router.post('/edit-value', requireAuth, async (req, res) => {
         
         const offset = parseInt(week_offset) || 0;
         const week = getWeekWithOffset(offset);
+        
+        // Verificar se tem permissão de edição
+        let hasPermission = false;
+        try {
+            const permission = await getOne(`
+                SELECT id FROM edit_permissions 
+                WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [userId, week.start, week.end]);
+            hasPermission = !!permission;
+        } catch (e) {
+            hasPermission = false;
+        }
+        
+        if (!hasPermission) {
+            return res.status(403).json({ error: 'Você não tem permissão para editar valores. Solicite a um gerente.' });
+        }
         
         // Buscar entrega existente (qualquer status exceto rejected)
         const existingDelivery = await getOne(`
