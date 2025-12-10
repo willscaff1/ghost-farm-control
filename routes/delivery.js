@@ -341,36 +341,34 @@ router.post('/', requireAuth, (req, res) => {
             let deliveryId;
             
             if (existingPartialDelivery) {
-                // ADICIONAR à entrega existente
+                // EDITAR entrega existente (substituir valores, não somar)
                 deliveryId = existingPartialDelivery.id;
-                console.log('📦 Adicionando à entrega existente:', deliveryId);
+                console.log('📦 Editando entrega existente:', deliveryId);
                 
-                // Somar os valores aos itens existentes
+                // Substituir os valores dos itens (edição/correção)
                 for (const item of materialsArray) {
                     const amount = parseInt(item.amount) || 0;
-                    if (amount > 0) {
-                        // Verificar se já existe esse material na entrega
-                        const existingItem = await getOne(`
-                            SELECT * FROM delivery_items 
-                            WHERE delivery_id = ? AND material_id = ?
-                        `, [deliveryId, item.material_id]);
-                        
-                        if (existingItem) {
-                            // Somar ao valor existente
-                            const newAmount = existingItem.amount + amount;
-                            await runQuery(
-                                'UPDATE delivery_items SET amount = ? WHERE id = ?',
-                                [newAmount, existingItem.id]
-                            );
-                            console.log('📦 Atualizado item:', { material_id: item.material_id, oldAmount: existingItem.amount, added: amount, newAmount });
-                        } else {
-                            // Inserir novo item
-                            await runQuery(
-                                'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
-                                [deliveryId, parseInt(item.material_id), amount]
-                            );
-                            console.log('📦 Inserido novo item:', { material_id: item.material_id, amount });
-                        }
+                    
+                    // Verificar se já existe esse material na entrega
+                    const existingItem = await getOne(`
+                        SELECT * FROM delivery_items 
+                        WHERE delivery_id = ? AND material_id = ?
+                    `, [deliveryId, item.material_id]);
+                    
+                    if (existingItem) {
+                        // SUBSTITUIR o valor existente (não somar)
+                        await runQuery(
+                            'UPDATE delivery_items SET amount = ? WHERE id = ?',
+                            [amount, existingItem.id]
+                        );
+                        console.log('📦 Atualizado item:', { material_id: item.material_id, oldAmount: existingItem.amount, newAmount: amount });
+                    } else if (amount > 0) {
+                        // Inserir novo item apenas se amount > 0
+                        await runQuery(
+                            'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
+                            [deliveryId, parseInt(item.material_id), amount]
+                        );
+                        console.log('📦 Inserido novo item:', { material_id: item.material_id, amount });
                     }
                 }
             } else {

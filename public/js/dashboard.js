@@ -366,6 +366,9 @@ async function loadWeekData(offset = 0) {
         // Mostrar screenshots existentes
         updateExistingScreenshots(data.existingScreenshots);
         
+        // Preencher formulário com valores existentes (para edição)
+        fillFormWithExistingValues(data.progress);
+        
         // Atualizar visibilidade do card de justificativa
         // Mostrar quando: pode entregar E não justificou ainda E não está aprovado
         const absenceCard = document.getElementById('absenceCard');
@@ -470,6 +473,28 @@ function updateExistingScreenshots(screenshots) {
             <div class="screenshot-badge">${idx + 1}</div>
         </div>
     `).join('');
+}
+
+// Preencher inputs do formulário com valores existentes
+function fillFormWithExistingValues(progress) {
+    if (!progress || progress.length === 0) {
+        // Se não tem progresso, zerar todos os inputs
+        document.querySelectorAll('.material-amount-input').forEach(input => {
+            input.value = 0;
+        });
+        updateSubmitButton();
+        return;
+    }
+    
+    // Preencher cada input com o valor atual do progresso
+    progress.forEach(p => {
+        const input = document.querySelector(`input[data-material-id="${p.material_id}"]`);
+        if (input) {
+            input.value = p.current || 0;
+        }
+    });
+    
+    updateSubmitButton();
 }
 
 // Atualizar barras de progresso
