@@ -508,7 +508,7 @@ async function loadWeekData(offset = 0) {
                     selectPaymentType(`payment_${paymentTypes[0].id}`, paymentTypes[0].id);
                 }
             } else {
-                selectPaymentType(data.paymentType);
+                selectPaymentType('material');
             }
             
             // NÃO preencher o input com valor existente - modo adição sempre começa zerado
@@ -518,6 +518,9 @@ async function loadWeekData(offset = 0) {
                 dirtyMoneyInput.value = 0;
                 updateDirtyMoneyButton();
             }
+        } else {
+            // Sem entrega - selecionar materiais por padrão
+            selectPaymentType('material');
         }
         
         // Atualizar visibilidade do card de justificativa
@@ -767,13 +770,14 @@ function openEditValueModal(materialId, name, icon, currentValue, goal) {
                 </div>
                 <div class="edit-value-input-group">
                     <label>Novo valor total:</label>
-                    <input type="number" id="editValueInput" value="${currentValue}" min="0" max="99999" autofocus>
+                    <input type="number" id="editValueInput" value="${currentValue}" min="0" max="${goal}" autofocus>
+                    <small style="color: var(--text-secondary)">Máximo: ${goal}</small>
                 </div>
                 <p class="edit-value-hint">⚠️ Use apenas para corrigir erros de digitação</p>
             </div>
             <div class="edit-value-footer">
                 <button class="btn-cancel" onclick="closeEditValueModal()">Cancelar</button>
-                <button class="btn-save" onclick="saveEditedValue(${materialId})">💾 Salvar</button>
+                <button class="btn-save" onclick="saveEditedValue(${materialId}, ${goal})">💾 Salvar</button>
             </div>
         </div>
     `;
@@ -805,13 +809,14 @@ function openEditDirtyMoneyModal(currentValue, goal, name, icon) {
                 </div>
                 <div class="edit-value-input-group">
                     <label>Novo valor total (R$):</label>
-                    <input type="number" id="editValueInput" value="${currentValue}" min="0" max="999999999" autofocus>
+                    <input type="number" id="editValueInput" value="${currentValue}" min="0" max="${goal}" autofocus>
+                    <small style="color: var(--text-secondary)">Máximo: R$ ${goal.toLocaleString('pt-BR')}</small>
                 </div>
                 <p class="edit-value-hint">⚠️ Use apenas para corrigir erros de digitação</p>
             </div>
             <div class="edit-value-footer">
                 <button class="btn-cancel" onclick="closeEditValueModal()">Cancelar</button>
-                <button class="btn-save" onclick="saveEditedDirtyMoney()">💾 Salvar</button>
+                <button class="btn-save" onclick="saveEditedDirtyMoney(${goal})">💾 Salvar</button>
             </div>
         </div>
     `;
@@ -821,9 +826,15 @@ function openEditDirtyMoneyModal(currentValue, goal, name, icon) {
     document.getElementById('editValueInput').select();
 }
 
-async function saveEditedDirtyMoney() {
+async function saveEditedDirtyMoney(goal) {
     const input = document.getElementById('editValueInput');
     const newValue = parseInt(input.value) || 0;
+    
+    // Validar que não ultrapasse a meta
+    if (goal && newValue > goal) {
+        alert(`⚠️ Valor excede a meta!\\n\\nMáximo permitido: R$ ${goal.toLocaleString('pt-BR')}\\nVocê informou: R$ ${newValue.toLocaleString('pt-BR')}`);
+        return;
+    }
     
     if (!currentWeekData || !currentWeekData.hasDelivery) {
         alert('Nenhuma entrega para editar!');
@@ -861,9 +872,15 @@ function closeEditValueModal() {
     }
 }
 
-async function saveEditedValue(materialId) {
+async function saveEditedValue(materialId, goal) {
     const input = document.getElementById('editValueInput');
     const newValue = parseInt(input.value) || 0;
+    
+    // Validar que não ultrapasse a meta
+    if (goal && newValue > goal) {
+        alert(`⚠️ Valor excede a meta!\\n\\nMáximo permitido: ${goal}\\nVocê informou: ${newValue}`);
+        return;
+    }
     
     if (!currentWeekData || !currentWeekData.hasDelivery) {
         alert('Nenhuma entrega para editar!');
@@ -938,10 +955,11 @@ async function loadMaterials() {
                                data-goal="${matGoal}"
                                class="material-input material-amount-input" 
                                min="0" 
-                               max="99999"
+                               max="${matGoal}"
                                value="0"
                                placeholder="0"
-                               oninput="updateSubmitButton()">
+                               onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                               oninput="validateMaterialInput(this, ${matGoal}); updateSubmitButton()">
                     </div>
                 `;
             });
@@ -953,6 +971,63 @@ async function loadMaterials() {
         }
     } catch (error) {
         console.error('Erro ao carregar materiais:', error);
+    }
+}
+
+// Função para validar input de material (não pode passar da meta)
+function validateMaterialInput(input, maxGoal) {
+    // Remover caracteres não numéricos
+    input.value = input.value.replace(/[^0-9]/g, '');
+    
+    let value = parseInt(input.value) || 0;
+    
+    // Buscar progresso atual do material
+    const materialId = input.dataset.materialId;
+    let alreadyDelivered = 0;
+    if (currentWeekData && currentWeekData.progress) {
+        const progressItem = currentWeekData.progress.find(p => String(p.materialId) === String(materialId));
+        if (progressItem) {
+            alreadyDelivered = progressItem.current || 0;
+        }
+    }
+    
+    // Calcular máximo permitido (meta - já entregue)
+    const remaining = maxGoal - alreadyDelivered;
+    
+    if (value > remaining) {
+        input.value = remaining;
+    }
+    
+    if (value < 0) {
+        input.value = 0;
+    }
+}
+
+// Função para validar input de dinheiro sujo
+function validateDirtyMoneyInput(input) {
+    // Remover caracteres não numéricos
+    input.value = input.value.replace(/[^0-9]/g, '');
+    
+    let value = parseInt(input.value) || 0;
+    
+    // Buscar meta e valor já entregue
+    const selectedPaymentType = paymentTypes.find(pt => pt.id === currentPaymentTypeId);
+    const goal = selectedPaymentType?.weekly_goal || 50000;
+    
+    let alreadyDelivered = 0;
+    if (currentWeekData && currentWeekData.paymentType === 'dirty_money') {
+        alreadyDelivered = currentWeekData.dirtyMoneyAmount || 0;
+    }
+    
+    // Calcular máximo permitido
+    const remaining = goal - alreadyDelivered;
+    
+    if (value > remaining) {
+        input.value = remaining;
+    }
+    
+    if (value < 0) {
+        input.value = 0;
     }
 }
 
@@ -1319,6 +1394,26 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
         return;
     }
     
+    // VALIDAÇÃO: Verificar se materiais não ultrapassam a meta
+    if (currentWeekData && currentWeekData.progress) {
+        for (const mat of materials) {
+            const progressItem = currentWeekData.progress.find(p => String(p.materialId) === String(mat.material_id));
+            if (progressItem) {
+                const alreadyDelivered = progressItem.current || 0;
+                const goal = progressItem.goal || 700;
+                const remaining = goal - alreadyDelivered;
+                
+                if (mat.amount > remaining) {
+                    const excess = mat.amount - remaining;
+                    messageEl.textContent = `❌ ${progressItem.name}: Excede a meta em ${excess}! (Falta apenas ${remaining})`;
+                    messageEl.className = 'form-message show error';
+                    setTimeout(() => { messageEl.className = 'form-message'; }, 5000);
+                    return;
+                }
+            }
+        }
+    }
+    
     // VALIDAÇÃO: Precisa ter screenshot (novo OU já existente de entrega anterior)
     const hasExistingScreenshots = currentWeekData && 
         currentWeekData.existingScreenshots && 
@@ -1400,6 +1495,20 @@ document.getElementById('dirtyMoneyForm').addEventListener('submit', async (e) =
         return;
     }
     
+    // Validar que não ultrapasse a meta
+    const selectedPaymentType = paymentTypes.find(pt => pt.id === currentPaymentTypeId);
+    const goal = selectedPaymentType?.weekly_goal || 50000;
+    const alreadyDelivered = (currentWeekData && currentWeekData.paymentType === 'dirty_money') 
+        ? (currentWeekData.dirtyMoneyAmount || 0) 
+        : 0;
+    const remaining = goal - alreadyDelivered;
+    
+    if (amount > remaining) {
+        const excess = amount - remaining;
+        alert(`⚠️ Valor excede a meta!\n\nMeta: R$ ${goal.toLocaleString('pt-BR')}\nJá entregue: R$ ${alreadyDelivered.toLocaleString('pt-BR')}\nFalta: R$ ${remaining.toLocaleString('pt-BR')}\nVocê informou: R$ ${amount.toLocaleString('pt-BR')}\n\nExcesso de R$ ${excess.toLocaleString('pt-BR')}!`);
+        return;
+    }
+    
     // Verificar screenshots
     const hasExistingScreenshots = currentWeekData?.existingScreenshots?.length > 0;
     if (screenshotFilesDirty.length === 0 && !hasExistingScreenshots) {
@@ -1415,9 +1524,6 @@ document.getElementById('dirtyMoneyForm').addEventListener('submit', async (e) =
             return;
         }
     }
-    
-    // Encontrar o tipo de pagamento selecionado
-    const selectedPaymentType = paymentTypes.find(pt => pt.id === currentPaymentTypeId);
     
     // Criar FormData
     const formData = new FormData();

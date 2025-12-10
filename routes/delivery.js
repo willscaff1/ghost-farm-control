@@ -438,6 +438,22 @@ router.post('/', requireAuth, (req, res) => {
                 // Se for pagamento em dinheiro, SOMAR ao valor existente
                 if (paymentType === 'dirty_money' && dirtyMoneyAmount > 0) {
                     const existingDirtyMoney = existingPartialDelivery.dirty_money_amount || 0;
+                    
+                    // Buscar a meta do tipo de pagamento
+                    let paymentTypeGoal = 50000;
+                    if (paymentTypeId) {
+                        const ptData = await getOne('SELECT weekly_goal FROM payment_types WHERE id = ?', [paymentTypeId]);
+                        if (ptData) paymentTypeGoal = ptData.weekly_goal;
+                    }
+                    
+                    // Validar que não ultrapasse a meta
+                    const remaining = paymentTypeGoal - existingDirtyMoney;
+                    if (dirtyMoneyAmount > remaining) {
+                        return res.status(400).json({ 
+                            error: `Valor excede a meta! Falta R$ ${remaining.toLocaleString('pt-BR')}, você informou R$ ${dirtyMoneyAmount.toLocaleString('pt-BR')}`
+                        });
+                    }
+                    
                     const newDirtyMoneyAmount = existingDirtyMoney + dirtyMoneyAmount;
                     await runQuery(
                         'UPDATE deliveries SET dirty_money_amount = ?, payment_type = ?, payment_type_id = ? WHERE id = ?',
@@ -457,6 +473,18 @@ router.post('/', requireAuth, (req, res) => {
                         `, [deliveryId, item.material_id]);
                         
                         if (existingItem) {
+                            // Buscar a meta do material
+                            const materialData = await getOne('SELECT name, weekly_goal FROM materials WHERE id = ?', [item.material_id]);
+                            const materialGoal = materialData?.weekly_goal || DEFAULT_WEEKLY_GOAL;
+                            
+                            // Validar que não ultrapasse a meta
+                            const remaining = materialGoal - existingItem.amount;
+                            if (amount > remaining) {
+                                return res.status(400).json({ 
+                                    error: `${materialData?.name || 'Material'}: Excede a meta! Falta ${remaining}, você informou ${amount}`
+                                });
+                            }
+                            
                             // SOMAR ao valor existente
                             const newAmount = existingItem.amount + amount;
                             await runQuery(
@@ -826,6 +854,17 @@ router.post('/edit-value', requireAuth, async (req, res) => {
         
         const newAmount = parseInt(new_value) || 0;
         
+        // Buscar meta do material
+        const materialData = await getOne('SELECT name, weekly_goal FROM materials WHERE id = ?', [material_id]);
+        const materialGoal = materialData?.weekly_goal || 700;
+        
+        // Validar que não ultrapasse a meta
+        if (newAmount > materialGoal) {
+            return res.status(400).json({ 
+                error: `${materialData?.name || 'Material'}: Valor excede a meta! Máximo: ${materialGoal}, você informou: ${newAmount}`
+            });
+        }
+        
         // Verificar se já existe esse material na entrega
         const existingItem = await getOne(`
             SELECT * FROM delivery_items 
@@ -933,15 +972,7 @@ router.post('/edit-dirty-money', requireAuth, async (req, res) => {
         const newAmount = parseInt(new_value) || 0;
         const oldAmount = existingDelivery.dirty_money_amount || 0;
         
-        // Atualizar valor
-        await runQuery(
-            'UPDATE deliveries SET dirty_money_amount = ? WHERE id = ?',
-            [newAmount, existingDelivery.id]
-        );
-        
-        console.log('✏️ Dinheiro sujo editado:', { oldValue: oldAmount, newValue: newAmount, deliveryId: existingDelivery.id });
-        
-        // Verificar se completou (buscar meta do tipo de pagamento)
+        // Buscar meta do tipo de pagamento
         let paymentTypeGoal = 50000;
         if (existingDelivery.payment_type_id) {
             const paymentType = await getOne('SELECT weekly_goal FROM payment_types WHERE id = ?', [existingDelivery.payment_type_id]);
@@ -949,6 +980,21 @@ router.post('/edit-dirty-money', requireAuth, async (req, res) => {
                 paymentTypeGoal = paymentType.weekly_goal;
             }
         }
+        
+        // Validar que não ultrapasse a meta
+        if (newAmount > paymentTypeGoal) {
+            return res.status(400).json({ 
+                error: `Valor excede a meta! Máximo: R$ ${paymentTypeGoal.toLocaleString('pt-BR')}, você informou R$ ${newAmount.toLocaleString('pt-BR')}`
+            });
+        }
+        
+        // Atualizar valor
+        await runQuery(
+            'UPDATE deliveries SET dirty_money_amount = ? WHERE id = ?',
+            [newAmount, existingDelivery.id]
+        );
+        
+        console.log('✏️ Dinheiro sujo editado:', { oldValue: oldAmount, newValue: newAmount, deliveryId: existingDelivery.id });
         
         const isComplete = newAmount >= paymentTypeGoal;
         

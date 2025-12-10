@@ -163,10 +163,10 @@
                                            id="dirtyMoneyAmount" 
                                            class="dirty-money-input" 
                                            min="0" 
-                                           max="999999999"
                                            value="0"
                                            placeholder="0"
-                                           oninput="updateDirtyMoneyButton()">
+                                           onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                                           oninput="validateDirtyMoneyInput(this); updateDirtyMoneyButton()">
                                 </div>
                             </div>
                             <p class="dirty-money-add-hint">💡 O valor informado será <strong>somado</strong> ao já entregue</p>
