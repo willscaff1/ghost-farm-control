@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Permissões</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #1a1a2e; color: white; }
+        .card { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 8px; cursor: pointer; }
+        .card:hover { background: #1a1a3e; }
+        .perms { display: none; padding: 10px; margin-top: 10px; background: #0f0f23; border-radius: 5px; }
+        .perms.open { display: block; }
+        label { display: inline-block; margin: 5px; padding: 5px 10px; background: #1a1a2e; border-radius: 4px; }
+        button { background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Teste de Permissões</h1>
+    <div id="container">Carregando...</div>
+
+    <script>
+        let roles = [];
+        let tabs = [];
+
+        async function load() {
+            try {
+                const res = await fetch('/api/admin/role-permissions');
+                const data = await res.json();
+                console.log('Dados:', data);
+                
+                if (data.error) {
+                    document.getElementById('container').innerHTML = '<p style="color:red;">Erro: ' + data.error + '</p>';
+                    return;
+                }
+                
+                roles = data.roles || [];
+                tabs = data.availableTabs || [];
+                
+                render();
+            } catch (e) {
+                document.getElementById('container').innerHTML = '<p style="color:red;">Erro: ' + e.message + '</p>';
+            }
+        }
+
+        function render() {
+            let html = '';
+            
+            for (const role of roles) {
+                const perms = role.permissions || [];
+                const hasAll = perms.includes('all');
+                
+                html += `<div class="card" onclick="toggle('${role.role_name}')">
+                    <strong>${role.display_name}</strong> (${role.role_name})
+                    <span style="float:right">▼</span>
+                </div>
+                <div class="perms" id="perms-${role.role_name}">
+                    <p><label><input type="checkbox" ${hasAll ? 'checked' : ''} onchange="setAll('${role.role_name}', this.checked)"> Acesso Total</label></p>
+                    <p><label><input type="checkbox" ${role.can_config ? 'checked' : ''} onchange="setConfig('${role.role_name}', this.checked)"> Pode Configurar</label></p>
+                    <p><strong>Tabs:</strong></p>
+                    <div id="tabs-${role.role_name}" style="${hasAll ? 'opacity:0.5' : ''}">`;
+                
+                for (const tab of tabs) {
+                    const checked = hasAll || perms.includes(tab.id);
+                    html += `<label><input type="checkbox" data-role="${role.role_name}" data-tab="${tab.id}" ${checked ? 'checked' : ''} ${hasAll ? 'disabled' : ''}> ${tab.icon} ${tab.name}</label>`;
+                }
+                
+                html += `</div>
+                    <button onclick="save('${role.role_name}')">💾 Salvar</button>
+                </div>`;
+            }
+            
+            document.getElementById('container').innerHTML = html;
+        }
+
+        function toggle(name) {
+            document.getElementById('perms-' + name).classList.toggle('open');
+        }
+
+        function setAll(name, checked) {
+            const role = roles.find(r => r.role_name === name);
+            if (role) {
+                role.permissions = checked ? ['all'] : [];
+                render();
+                // Reabrir
+                document.getElementById('perms-' + name).classList.add('open');
+            }
+        }
+
+        function setConfig(name, checked) {
+            const role = roles.find(r => r.role_name === name);
+            if (role) role.can_config = checked ? 1 : 0;
+        }
+
+        async function save(name) {
+            const role = roles.find(r => r.role_name === name);
+            if (!role) return;
+            
+            // Coletar tabs marcadas
+            if (!role.permissions.includes('all')) {
+                role.permissions = [];
+                document.querySelectorAll(`input[data-role="${name}"][data-tab]:checked`).forEach(cb => {
+                    role.permissions.push(cb.dataset.tab);
+                });
+            }
+            
+            try {
+                const res = await fetch('/api/admin/role-permissions/' + name, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        display_name: role.display_name,
+                        permissions: role.permissions,
+                        can_config: role.can_config
+                    })
+                });
+                const data = await res.json();
+                alert(data.success ? '✅ Salvo!' : '❌ ' + (data.error || 'Erro'));
+            } catch (e) {
+                alert('Erro: ' + e.message);
+            }
+        }
+
+        load();
+    </script>
+</body>
+</html>

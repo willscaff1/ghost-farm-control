@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permissões de Grupos</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #12121f; color: #fff; padding: 20px; }
+        h2 { margin-bottom: 5px; }
+        .subtitle { color: #888; margin-bottom: 25px; font-size: 14px; }
+        .card { background: #1a1a2e; border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
+        .card-header { padding: 15px 20px; background: #16213e; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .card-header:hover { background: #1a2744; }
+        .card-header b { font-size: 16px; }
+        .card-body { display: none; padding: 20px; border-top: 1px solid #2a2a4a; }
+        .option { margin: 15px 0; }
+        .option label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; }
+        .option input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        .tabs-section { margin: 20px 0; }
+        .tabs-section p { color: #888; margin-bottom: 10px; font-size: 14px; }
+        .tabs-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tab-label { display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: #0f0f1a; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .tab-label:hover { background: #1f1f3a; }
+        .tab-label input { cursor: pointer; }
+        .btn-save { background: #4CAF50; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 15px; }
+        .btn-save:hover { background: #45a049; }
+        .disabled { opacity: 0.5; pointer-events: none; }
+        .loading { text-align: center; padding: 50px; color: #888; }
+        .error { color: #ff6b6b; padding: 20px; text-align: center; }
+        .badge { background: #4CAF50; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <h2>🔐 Permissões de Grupos</h2>
+    <p class="subtitle">Configure quais funcionalidades cada grupo/cargo pode acessar</p>
+    
+    <div id="container">
+        <div class="loading">Carregando grupos...</div>
+    </div>
+
+    <script>
+        var roles = [];
+        var tabs = [];
+        var icons = {
+            'gerente_geral': '👑',
+            '01': '🥇',
+            '02': '🥈',
+            'gerente_farm': '🌾',
+            'gerente_acao': '⚡',
+            'gerente_recrutamento': '📋',
+            'gerente_encomendas': '📦'
+        };
+
+        fetch('/api/admin/role-permissions')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    document.getElementById('container').innerHTML = '<div class="error">Erro: ' + data.error + '</div>';
+                    return;
+                }
+                
+                roles = data.roles || [];
+                tabs = data.availableTabs || [];
+                
+                if (roles.length === 0) {
+                    document.getElementById('container').innerHTML = '<div class="error">Nenhum grupo encontrado</div>';
+                    return;
+                }
+                
+                renderCards();
+            })
+            .catch(function(err) {
+                document.getElementById('container').innerHTML = '<div class="error">Erro: ' + err.message + '</div>';
+            });
+
+        function renderCards() {
+            var html = '';
+            
+            for (var i = 0; i < roles.length; i++) {
+                var role = roles[i];
+                var perms = role.permissions || [];
+                var hasAll = perms.indexOf('all') >= 0;
+                var icon = icons[role.role_name] || '👤';
+                var isProtected = role.role_name === 'gerente_geral';
+                
+                html += '<div class="card">';
+                html += '<div class="card-header" onclick="toggleCard(' + i + ')">';
+                html += '<b>' + icon + ' ' + role.display_name + '</b>';
+                html += '<span id="arrow' + i + '">▼</span>';
+                html += '</div>';
+                html += '<div class="card-body" id="body' + i + '">';
+                
+                html += '<div class="option">';
+                html += '<label>';
+                html += '<input type="checkbox" id="all' + i + '" ' + (hasAll ? 'checked' : '') + ' ' + (isProtected ? 'disabled' : '') + ' onchange="onAllChange(' + i + ')">';
+                html += '<span>✅ <b>Acesso Total</b></span>';
+                if (isProtected) html += '<span class="badge">Protegido</span>';
+                html += '</label>';
+                html += '</div>';
+                
+                html += '<div class="option">';
+                html += '<label>';
+                html += '<input type="checkbox" id="cfg' + i + '" ' + (role.can_config ? 'checked' : '') + ' ' + (isProtected ? 'disabled' : '') + '>';
+                html += '<span>⚙️ <b>Pode acessar Configurações</b></span>';
+                html += '</label>';
+                html += '</div>';
+                
+                html += '<div class="tabs-section ' + (hasAll ? 'disabled' : '') + '" id="tabsSection' + i + '">';
+                html += '<p>Tabs permitidas:</p>';
+                html += '<div class="tabs-grid">';
+                
+                for (var j = 0; j < tabs.length; j++) {
+                    var tab = tabs[j];
+                    var isChecked = hasAll || perms.indexOf(tab.id) >= 0;
+                    html += '<label class="tab-label">';
+                    html += '<input type="checkbox" class="tabcb' + i + '" data-tab="' + tab.id + '" ' + (isChecked ? 'checked' : '') + ' ' + (isProtected ? 'disabled' : '') + '>';
+                    html += tab.icon + ' ' + tab.name;
+                    html += '</label>';
+                }
+                
+                html += '</div></div>';
+                
+                if (!isProtected) {
+                    html += '<button class="btn-save" onclick="saveRole(' + i + ')">💾 Salvar Alterações</button>';
+                }
+                
+                html += '</div></div>';
+            }
+            
+            document.getElementById('container').innerHTML = html;
+        }
+
+        function toggleCard(index) {
+            var body = document.getElementById('body' + index);
+            var arrow = document.getElementById('arrow' + index);
+            if (body.style.display === 'block') {
+                body.style.display = 'none';
+                arrow.textContent = '▼';
+            } else {
+                body.style.display = 'block';
+                arrow.textContent = '▲';
+            }
+        }
+
+        function onAllChange(index) {
+            var checked = document.getElementById('all' + index).checked;
+            var section = document.getElementById('tabsSection' + index);
+            var checkboxes = document.querySelectorAll('.tabcb' + index);
+            
+            if (checked) {
+                section.classList.add('disabled');
+            } else {
+                section.classList.remove('disabled');
+            }
+            
+            for (var i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].checked = checked;
+            }
+        }
+
+        function saveRole(index) {
+            var role = roles[index];
+            var hasAll = document.getElementById('all' + index).checked;
+            var canConfig = document.getElementById('cfg' + index).checked ? 1 : 0;
+            var permissions = [];
+            
+            if (hasAll) {
+                permissions = ['all'];
+            } else {
+                var checkboxes = document.querySelectorAll('.tabcb' + index + ':checked');
+                for (var i = 0; i < checkboxes.length; i++) {
+                    permissions.push(checkboxes[i].getAttribute('data-tab'));
+                }
+            }
+            
+            fetch('/api/admin/role-permissions/' + role.role_name, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    display_name: role.display_name,
+                    permissions: permissions,
+                    can_config: canConfig
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('✅ Permissões do grupo "' + role.display_name + '" salvas com sucesso!');
+                    role.permissions = permissions;
+                    role.can_config = canConfig;
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Falha ao salvar'));
+                }
+            })
+            .catch(function(err) {
+                alert('❌ Erro: ' + err.message);
+            });
+        }
+    </script>
+</body>
+</html>

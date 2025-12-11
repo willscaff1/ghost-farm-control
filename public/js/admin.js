@@ -174,7 +174,7 @@ function showTab(tabId) {
         case 'ranking': loadRanking(); break;
         case 'all-deliveries': loadAllDeliveries(); break;
         case 'weekly-report': loadWeeklyReport(); break;
-        case 'role-permissions': loadRolePermissions(); break;
+        case 'role-permissions': break; // Carrega via iframe
     }
 }
 // Carregar semana selecionada
@@ -2518,331 +2518,93 @@ async function removeFromWhitelist(userId, memberName) {
 
 // ===== PERMISSÕES DE GRUPOS =====
 
-let rolePermissionsData = [];
-let availableTabsData = [];
-
-// Carregar permissões de grupos
 async function loadRolePermissions() {
-    const container = document.getElementById('rolePermissionsContainer');
-    container.innerHTML = '<p class="loading">Carregando grupos...</p>';
+    var container = document.getElementById('permissoesContainer');
+    if (!container) return;
     
-    try {
-        const response = await fetch('/api/admin/role-permissions');
-        const data = await response.json();
-        
-        if (data.roles) {
-            rolePermissionsData = data.roles;
-            availableTabsData = data.availableTabs;
-            renderRolePermissions();
-        }
-    } catch (error) {
-        console.error('Erro ao carregar permissões:', error);
-        container.innerHTML = '<div class="empty-state">❌ Erro ao carregar permissões</div>';
+    container.innerHTML = '<p>Carregando...</p>';
+    
+    var res = await fetch('/api/admin/role-permissions');
+    var data = await res.json();
+    
+    if (data.error) {
+        container.innerHTML = '<p style="color:red;">' + data.error + '</p>';
+        return;
     }
+    
+    if (!data.roles || !data.roles.length) {
+        container.innerHTML = '<p>Nenhum grupo</p>';
+        return;
+    }
+    
+    window.permRoles = data.roles;
+    window.permTabs = data.availableTabs || [];
+    
+    var icons = {'gerente_geral':'👑','01':'🥇','02':'🥈','gerente_farm':'🌾','gerente_acao':'⚡','gerente_recrutamento':'📋','gerente_encomendas':'📦'};
+    var h = '';
+    
+    for (var i = 0; i < data.roles.length; i++) {
+        var r = data.roles[i];
+        var p = r.permissions || [];
+        var all = p.indexOf('all') >= 0;
+        var ic = icons[r.role_name] || '👤';
+        var gg = r.role_name === 'gerente_geral';
+        
+        h += '<div style="background:#1e1e3f;border-radius:8px;margin:10px 0;padding:15px;">';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="document.getElementById(\'body_'+r.role_name+'\').style.display=document.getElementById(\'body_'+r.role_name+'\').style.display===\'none\'?\'block\':\'none\'">';
+        h += '<b>' + ic + ' ' + r.display_name + '</b><span>▼</span></div>';
+        h += '<div id="body_'+r.role_name+'" style="display:none;margin-top:15px;">';
+        
+        h += '<label style="display:block;margin:10px 0;cursor:pointer;"><input type="checkbox" id="all_'+r.role_name+'" '+(all?'checked':'')+' '+(gg?'disabled':'')+' onchange="window.toggleAllPerm(\''+r.role_name+'\',this.checked)"> ✅ Acesso Total</label>';
+        h += '<label style="display:block;margin:10px 0;cursor:pointer;"><input type="checkbox" id="cfg_'+r.role_name+'" '+(r.can_config?'checked':'')+' '+(gg?'disabled':'')+'> ⚙️ Pode Configurar</label>';
+        
+        h += '<div id="tabs_'+r.role_name+'" style="margin:15px 0;'+(all?'opacity:0.5;pointer-events:none;':'')+'"><b>Tabs:</b><br>';
+        for (var j = 0; j < window.permTabs.length; j++) {
+            var t = window.permTabs[j];
+            var chk = all || p.indexOf(t.id) >= 0;
+            h += '<label style="display:inline-block;margin:5px;padding:5px 10px;background:#2a2a4a;border-radius:4px;cursor:pointer;"><input type="checkbox" class="tcb_'+r.role_name+'" data-tab="'+t.id+'" '+(chk?'checked':'')+' '+(gg?'disabled':'')+'> '+t.icon+' '+t.name+'</label>';
+        }
+        h += '</div>';
+        
+        if (!gg) h += '<button onclick="window.salvarPerm(\''+r.role_name+'\')" style="background:#4CAF50;color:white;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;">💾 Salvar</button>';
+        h += '</div></div>';
+    }
+    
+    container.innerHTML = h;
 }
 
-// Renderizar interface de permissões
-function renderRolePermissions() {
-    const container = document.getElementById('rolePermissionsContainer');
+window.toggleAllPerm = function(name, checked) {
+    var r = window.permRoles.find(function(x){return x.role_name===name;});
+    if (r) r.permissions = checked ? ['all'] : [];
+    var d = document.getElementById('tabs_'+name);
+    d.style.opacity = checked ? '0.5' : '1';
+    d.style.pointerEvents = checked ? 'none' : 'auto';
+    var cbs = document.querySelectorAll('.tcb_'+name);
+    for (var i=0;i<cbs.length;i++) cbs[i].checked = checked;
+};
+
+window.salvarPerm = async function(name) {
+    var r = window.permRoles.find(function(x){return x.role_name===name;});
+    if (!r) return;
     
-    // Agrupar tabs por seção
-    const sections = {};
-    availableTabsData.forEach(tab => {
-        if (!sections[tab.section]) sections[tab.section] = [];
-        sections[tab.section].push(tab);
+    var perms = [];
+    if (document.getElementById('all_'+name).checked) {
+        perms = ['all'];
+    } else {
+        var cbs = document.querySelectorAll('.tcb_'+name+':checked');
+        for (var i=0;i<cbs.length;i++) perms.push(cbs[i].dataset.tab);
+    }
+    
+    var cfg = document.getElementById('cfg_'+name).checked ? 1 : 0;
+    
+    var res = await fetch('/api/admin/role-permissions/'+name, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({display_name:r.display_name, permissions:perms, can_config:cfg})
     });
-    
-    let html = '<div class="role-permissions-grid">';
-    
-    rolePermissionsData.forEach(role => {
-        const isGerenteGeral = role.role_name === 'gerente_geral';
-        const hasAllPermissions = role.permissions.includes('all');
-        
-        html += `
-            <div class="role-permission-card ${isGerenteGeral ? 'locked' : ''}" data-role="${role.role_name}">
-                <div class="role-permission-header">
-                    <h3>
-                        <span class="role-icon">${getRoleIcon(role.role_name)}</span>
-                        ${role.display_name}
-                    </h3>
-                    ${isGerenteGeral ? '<span class="locked-badge">🔒 Protegido</span>' : ''}
-                </div>
-                
-                <div class="role-permission-body">
-                    <div class="permission-option full-access">
-                        <label>
-                            <input type="checkbox" 
-                                   class="full-access-checkbox" 
-                                   data-role="${role.role_name}"
-                                   ${hasAllPermissions ? 'checked' : ''}
-                                   ${isGerenteGeral ? 'disabled' : ''}
-                                   onchange="toggleFullAccess('${role.role_name}', this.checked)">
-                            <strong>✅ Acesso Total</strong>
-                        </label>
-                    </div>
-                    
-                    <div class="permission-option config-access">
-                        <label>
-                            <input type="checkbox" 
-                                   class="config-checkbox" 
-                                   data-role="${role.role_name}"
-                                   ${role.can_config ? 'checked' : ''}
-                                   ${isGerenteGeral ? 'disabled' : ''}
-                                   onchange="toggleConfigAccess('${role.role_name}', this.checked)">
-                            <strong>⚙️ Acesso a Configurações</strong>
-                        </label>
-                    </div>
-                    
-                    <div class="permission-sections ${hasAllPermissions ? 'disabled' : ''}">
-        `;
-        
-        Object.entries(sections).forEach(([sectionName, tabs]) => {
-            html += `
-                <div class="permission-section">
-                    <div class="permission-section-title">${sectionName}</div>
-                    <div class="permission-checkboxes">
-            `;
-            
-            tabs.forEach(tab => {
-                const isChecked = hasAllPermissions || role.permissions.includes(tab.id);
-                html += `
-                    <label class="permission-checkbox-label">
-                        <input type="checkbox" 
-                               class="tab-permission-checkbox"
-                               data-role="${role.role_name}"
-                               data-tab="${tab.id}"
-                               ${isChecked ? 'checked' : ''}
-                               ${isGerenteGeral || hasAllPermissions ? 'disabled' : ''}
-                               onchange="toggleTabPermission('${role.role_name}', '${tab.id}', this.checked)">
-                        ${tab.icon} ${tab.name}
-                    </label>
-                `;
-            });
-            
-            html += '</div></div>';
-        });
-        
-        html += `
-                    </div>
-                </div>
-                
-                ${!isGerenteGeral ? `
-                <div class="role-permission-footer">
-                    <button class="btn btn-primary btn-sm" onclick="saveRolePermissions('${role.role_name}')">
-                        💾 Salvar Alterações
-                    </button>
-                </div>
-                ` : ''}
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    
-    // Adicionar estilos
-    html += `
-        <style>
-            .role-permissions-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-                gap: 1.5rem;
-            }
-            .role-permission-card {
-                background: var(--bg-tertiary);
-                border-radius: 12px;
-                overflow: hidden;
-                border: 1px solid var(--border-color);
-            }
-            .role-permission-card.locked {
-                border-color: var(--accent-color);
-                opacity: 0.8;
-            }
-            .role-permission-header {
-                padding: 1rem;
-                background: var(--bg-secondary);
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            .role-permission-header h3 {
-                margin: 0;
-                font-size: 1rem;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-            }
-            .role-icon {
-                font-size: 1.2rem;
-            }
-            .locked-badge {
-                font-size: 0.75rem;
-                background: var(--accent-color);
-                padding: 0.25rem 0.5rem;
-                border-radius: 4px;
-            }
-            .role-permission-body {
-                padding: 1rem;
-            }
-            .permission-option {
-                padding: 0.75rem;
-                margin-bottom: 0.5rem;
-                background: var(--bg-secondary);
-                border-radius: 8px;
-            }
-            .permission-option label {
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-                cursor: pointer;
-            }
-            .permission-sections {
-                margin-top: 1rem;
-                max-height: 300px;
-                overflow-y: auto;
-            }
-            .permission-sections.disabled {
-                opacity: 0.5;
-                pointer-events: none;
-            }
-            .permission-section {
-                margin-bottom: 1rem;
-            }
-            .permission-section-title {
-                font-weight: bold;
-                font-size: 0.85rem;
-                margin-bottom: 0.5rem;
-                color: var(--text-secondary);
-            }
-            .permission-checkboxes {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-            }
-            .permission-checkbox-label {
-                display: flex;
-                align-items: center;
-                gap: 0.25rem;
-                font-size: 0.8rem;
-                padding: 0.25rem 0.5rem;
-                background: var(--bg-primary);
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            .permission-checkbox-label:hover {
-                background: var(--bg-secondary);
-            }
-            .role-permission-footer {
-                padding: 1rem;
-                border-top: 1px solid var(--border-color);
-                text-align: right;
-            }
-            .btn-sm {
-                padding: 0.5rem 1rem;
-                font-size: 0.85rem;
-            }
-        </style>
-    `;
-    
-    container.innerHTML = html;
-}
-
-// Obter ícone do cargo
-function getRoleIcon(roleName) {
-    const icons = {
-        'gerente_geral': '👑',
-        '01': '🥇',
-        '02': '🥈',
-        'gerente_farm': '🌾',
-        'gerente_acao': '⚡',
-        'gerente_recrutamento': '📋',
-        'gerente_encomendas': '📦'
-    };
-    return icons[roleName] || '👤';
-}
-
-// Toggle acesso total
-function toggleFullAccess(roleName, checked) {
-    const role = rolePermissionsData.find(r => r.role_name === roleName);
-    if (!role) return;
-    
-    if (checked) {
-        role.permissions = ['all'];
-    } else {
-        role.permissions = [];
-    }
-    
-    // Atualizar visual
-    const card = document.querySelector(`.role-permission-card[data-role="${roleName}"]`);
-    const sections = card.querySelector('.permission-sections');
-    const checkboxes = card.querySelectorAll('.tab-permission-checkbox');
-    
-    if (checked) {
-        sections.classList.add('disabled');
-        checkboxes.forEach(cb => {
-            cb.checked = true;
-            cb.disabled = true;
-        });
-    } else {
-        sections.classList.remove('disabled');
-        checkboxes.forEach(cb => {
-            cb.checked = false;
-            cb.disabled = false;
-        });
-    }
-}
-
-// Toggle acesso a configurações
-function toggleConfigAccess(roleName, checked) {
-    const role = rolePermissionsData.find(r => r.role_name === roleName);
-    if (role) {
-        role.can_config = checked;
-    }
-}
-
-// Toggle permissão de tab individual
-function toggleTabPermission(roleName, tabId, checked) {
-    const role = rolePermissionsData.find(r => r.role_name === roleName);
-    if (!role) return;
-    
-    if (role.permissions.includes('all')) return;
-    
-    if (checked) {
-        if (!role.permissions.includes(tabId)) {
-            role.permissions.push(tabId);
-        }
-    } else {
-        role.permissions = role.permissions.filter(p => p !== tabId);
-    }
-}
-
-// Salvar permissões do grupo
-async function saveRolePermissions(roleName) {
-    const role = rolePermissionsData.find(r => r.role_name === roleName);
-    if (!role) return;
-    
-    try {
-        const response = await fetch(`/api/admin/role-permissions/${roleName}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                display_name: role.display_name,
-                permissions: role.permissions,
-                can_config: role.can_config
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('✅ Permissões salvas com sucesso!');
-        } else {
-            alert(data.error || 'Erro ao salvar permissões');
-        }
-    } catch (error) {
-        alert('Erro ao salvar permissões');
-        console.error(error);
-    }
-}
+    var data = await res.json();
+    alert(data.success ? '✅ Salvo!' : '❌ '+(data.error||'Erro'));
+};
 
 // ===== MEMBERS + ADV =====
 

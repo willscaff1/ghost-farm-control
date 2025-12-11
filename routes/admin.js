@@ -1725,20 +1725,30 @@ router.get('/role-permissions/tabs', requireAdmin, async (req, res) => {
 
 // Buscar todas as permissões de grupos
 router.get('/role-permissions', requireAdmin, async (req, res) => {
+    console.log('🔐 Rota /role-permissions acessada');
     try {
+        console.log('🔐 Buscando permissões no banco...');
         let roles = await getAll('SELECT * FROM role_permissions ORDER BY id');
+        console.log('🔐 Roles encontrados:', roles ? roles.length : 0);
         
-        // Se não existir nenhum grupo, criar os padrões
-        if (!roles || roles.length === 0) {
-            console.log('🔐 Criando permissões de grupos padrão...');
-            for (const role of defaultRolePermissions) {
-                await runQuery(`
-                    INSERT INTO role_permissions (role_name, display_name, permissions, can_config) 
-                    VALUES (?, ?, ?, ?)
-                `, [role.role_name, role.display_name, role.permissions, role.can_config]);
+        // Verificar se todos os grupos padrão existem e criar os que faltam
+        const existingRoleNames = (roles || []).map(r => r.role_name);
+        const missingRoles = defaultRolePermissions.filter(r => !existingRoleNames.includes(r.role_name));
+        
+        if (missingRoles.length > 0) {
+            console.log('🔐 Criando grupos faltantes:', missingRoles.map(r => r.role_name).join(', '));
+            for (const role of missingRoles) {
+                try {
+                    await runQuery(`
+                        INSERT INTO role_permissions (role_name, display_name, permissions, can_config) 
+                        VALUES (?, ?, ?, ?)
+                    `, [role.role_name, role.display_name, role.permissions, role.can_config]);
+                } catch (insertErr) {
+                    console.log('⚠️ Grupo já existe ou erro ao criar:', role.role_name, insertErr.message);
+                }
             }
             roles = await getAll('SELECT * FROM role_permissions ORDER BY id');
-            console.log('✅ Permissões de grupos criadas');
+            console.log('✅ Total de grupos agora:', roles.length);
         }
         
         // Converter permissions de JSON string para array
@@ -1747,6 +1757,7 @@ router.get('/role-permissions', requireAdmin, async (req, res) => {
             permissions: JSON.parse(r.permissions || '[]')
         }));
         
+        console.log('🔐 Enviando resposta com', formattedRoles.length, 'roles e', availableTabs.length, 'tabs');
         res.json({ roles: formattedRoles, availableTabs });
     } catch (error) {
         console.error('Erro ao buscar permissões:', error);
