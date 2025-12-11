@@ -19,7 +19,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             messageEl.className = 'message show success';
             
             // Redireciona baseado no tipo de usuário
-            const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
+            const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
             setTimeout(() => {
                 if (adminRoles.includes(data.user.role)) {
                     window.location.href = '/admin';
@@ -38,7 +38,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 });
 
 // Verifica se já está logado
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
+const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 fetch('/api/auth/me')
     .then(res => res.json())
     .then(data => {

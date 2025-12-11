@@ -54,7 +54,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
 });
 
 // Verifica se já está logado
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
+const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 fetch('/api/auth/me')
     .then(res => res.json())
     .then(data => {
