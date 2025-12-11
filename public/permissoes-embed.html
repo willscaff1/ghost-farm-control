@@ -8,6 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #12121f; color: #fff; padding: 20px; }
         h2 { margin-bottom: 5px; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .subtitle { color: #888; margin-bottom: 25px; font-size: 14px; }
         .card { background: #1a1a2e; border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
         .card-header { padding: 15px 20px; background: #16213e; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
@@ -25,6 +26,8 @@
         .tab-label input { cursor: pointer; }
         .btn-save { background: #4CAF50; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 15px; }
         .btn-save:hover { background: #45a049; }
+        .btn-reset { background: #ff9800; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        .btn-reset:hover { background: #f57c00; }
         .disabled { opacity: 0.5; pointer-events: none; }
         .loading { text-align: center; padding: 50px; color: #888; }
         .error { color: #ff6b6b; padding: 20px; text-align: center; }
@@ -32,7 +35,10 @@
     </style>
 </head>
 <body>
-    <h2>🔐 Permissões de Grupos</h2>
+    <div class="header-row">
+        <h2>🔐 Permissões de Grupos</h2>
+        <button class="btn-reset" onclick="resetPermissions()">🔄 Resetar para Padrão</button>
+    </div>
     <p class="subtitle">Configure quais funcionalidades cada grupo/cargo pode acessar</p>
     
     <div id="container">
@@ -191,6 +197,29 @@
                     role.can_config = canConfig;
                 } else {
                     alert('❌ Erro: ' + (data.error || 'Falha ao salvar'));
+                }
+            })
+            .catch(function(err) {
+                alert('❌ Erro: ' + err.message);
+            });
+        }
+
+        function resetPermissions() {
+            if (!confirm('⚠️ Tem certeza que deseja resetar todas as permissões para os valores padrão?\n\nIsso irá substituir as permissões de TODOS os grupos!')) {
+                return;
+            }
+            
+            fetch('/api/admin/role-permissions/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('✅ Permissões resetadas para os valores padrão!');
+                    window.location.reload();
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Falha ao resetar'));
                 }
             })
             .catch(function(err) {

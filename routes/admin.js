@@ -113,7 +113,8 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
         const { week_start, week_end } = req.query;
         
         let query = `
-            SELECT d.*, d.payment_type, d.payment_type_id, d.dirty_money_amount, u.name, u.passport
+            SELECT d.*, d.payment_type, d.payment_type_id, d.dirty_money_amount, 
+                   u.name as user_name, u.passport as user_passport
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
             WHERE d.status = 'pending'
@@ -1239,7 +1240,7 @@ router.get('/justifications/pending', requireAdmin, async (req, res) => {
         const { week_start, week_end } = req.query;
         
         let query = `
-            SELECT j.*, u.name, u.passport, u.role
+            SELECT j.*, u.name as user_name, u.passport as user_passport, u.role as user_role
             FROM justifications j
             JOIN users u ON j.user_id = u.id
             WHERE j.status = 'pending'
@@ -1255,7 +1256,7 @@ router.get('/justifications/pending', requireAdmin, async (req, res) => {
         
         const justifications = await getAll(query, params);
         
-        res.json(justifications);
+        res.json({ justifications });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -1667,6 +1668,26 @@ const availableTabs = [
 ];
 
 // Grupos padrão (serão criados se não existirem)
+// Tabs disponíveis:
+// - weekly-status: Status da Semana
+// - members-panel: Painel de Membros
+// - members-overview: Visão Geral
+// - pending: Farms Pendentes
+// - absences: Justificativas
+// - members: Lista de Membros
+// - members-adv: Gerenciar ADVs
+// - new-member: Novo Membro
+// - ranking: Ranking
+// - materials-stats: Materiais (estatísticas)
+// - all-deliveries: Histórico
+// - weekly-report: Relatório Semanal
+// - farm-settings: Config. do Farm (requer can_config)
+// - edit-permissions: Liberar Edição (requer can_config)
+// - manage-materials: Gerenciar Materiais (requer can_config)
+// - manage-payment-types: Tipos de Pagamento (requer can_config)
+// - whitelist: Whitelist (requer can_config)
+// - role-permissions: Permissões de Grupos (requer can_config)
+
 const defaultRolePermissions = [
     {
         role_name: 'gerente_geral',
@@ -1677,43 +1698,66 @@ const defaultRolePermissions = [
     {
         role_name: '01',
         display_name: '01 (Primeiro Líder)',
-        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
-            'members', 'members-adv', 'new-member', 'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
-        can_config: 0
+        permissions: JSON.stringify([
+            'weekly-status', 'members-panel', 'members-overview', 
+            'pending', 'absences', 
+            'members', 'members-adv', 'new-member', 
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report',
+            'farm-settings', 'edit-permissions', 'manage-materials', 'manage-payment-types', 'whitelist'
+        ]),
+        can_config: 1
     },
     {
         role_name: '02',
         display_name: '02 (Segundo Líder)',
-        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
-            'members', 'members-adv', 'new-member', 'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
-        can_config: 0
+        permissions: JSON.stringify([
+            'weekly-status', 'members-panel', 'members-overview', 
+            'pending', 'absences', 
+            'members', 'members-adv', 'new-member', 
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report',
+            'edit-permissions'
+        ]),
+        can_config: 1
     },
     {
         role_name: 'gerente_farm',
         display_name: 'Gerente de Farm',
-        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
-            'members', 'members-adv', 'ranking', 'materials-stats', 'all-deliveries']),
+        permissions: JSON.stringify([
+            'weekly-status', 'members-panel', 'members-overview', 
+            'pending', 'absences', 
+            'members', 'members-adv', 
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report'
+        ]),
         can_config: 0
     },
     {
         role_name: 'gerente_acao',
         display_name: 'Gerente de Ação',
-        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
+        permissions: JSON.stringify([
+            'weekly-status', 'members-panel', 'members-overview', 
+            'members', 'members-adv', 
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report'
+        ]),
         can_config: 0
     },
     {
         role_name: 'gerente_recrutamento',
         display_name: 'Gerente de Recrutamento',
-        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
+        permissions: JSON.stringify([
+            'weekly-status', 'members-panel', 'members-overview', 
+            'members', 'members-adv', 'new-member',
+            'ranking', 'all-deliveries'
+        ]),
         can_config: 0
     },
     {
         role_name: 'gerente_encomendas',
         display_name: 'Gerente de Encomendas',
-        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
+        permissions: JSON.stringify([
+            'weekly-status', 'members-panel', 'members-overview', 
+            'members', 'members-adv', 
+            'ranking', 'materials-stats', 'all-deliveries'
+        ]),
         can_config: 0
     }
 ];
@@ -1867,6 +1911,31 @@ router.post('/role-permissions', requireAdmin, async (req, res) => {
         } else {
             res.status(500).json({ error: error.message });
         }
+    }
+});
+
+// Resetar permissões para os valores padrão
+router.post('/role-permissions/reset', requireAdmin, async (req, res) => {
+    try {
+        // Verificar se o usuário atual tem permissão de config
+        if (req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
+            return res.status(403).json({ error: 'Apenas Gerente Geral e 01 podem resetar permissões' });
+        }
+        
+        // Atualizar cada grupo padrão
+        for (const role of defaultRolePermissions) {
+            await runQuery(`
+                UPDATE role_permissions 
+                SET display_name = ?, permissions = ?, can_config = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE role_name = ?
+            `, [role.display_name, role.permissions, role.can_config, role.role_name]);
+        }
+        
+        console.log(`🔐 Permissões resetadas para padrão por ${req.session.user.name}`);
+        
+        res.json({ success: true, message: 'Permissões resetadas para os valores padrão!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
