@@ -16,6 +16,110 @@ const roleNames = {
     'gerente_geral': 'Gerente Geral'
 };
 
+// Permissões por cargo - quais tabs cada cargo pode acessar
+const rolePermissions = {
+    // 01 e 02 - Acesso total EXCETO configurações
+    '01': {
+        tabs: ['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
+               'members', 'members-adv', 'new-member', 'ranking', 'materials-stats', 
+               'all-deliveries', 'weekly-report'],
+        canConfig: false
+    },
+    '02': {
+        tabs: ['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
+               'members', 'members-adv', 'new-member', 'ranking', 'materials-stats', 
+               'all-deliveries', 'weekly-report'],
+        canConfig: false
+    },
+    // Gerente Geral - Acesso total
+    'gerente_geral': {
+        tabs: 'all',
+        canConfig: true
+    },
+    // Gerente de Farm - Acesso específico para farm
+    'gerente_farm': {
+        tabs: ['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
+               'members', 'members-adv', 'ranking', 'materials-stats', 'all-deliveries'],
+        canConfig: false
+    },
+    // Demais gerentes - Acesso básico
+    'gerente_acao': {
+        tabs: ['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
+               'ranking', 'materials-stats', 'all-deliveries', 'weekly-report'],
+        canConfig: false
+    },
+    'gerente_recrutamento': {
+        tabs: ['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
+               'ranking', 'materials-stats', 'all-deliveries', 'weekly-report'],
+        canConfig: false
+    },
+    'gerente_encomendas': {
+        tabs: ['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
+               'ranking', 'materials-stats', 'all-deliveries', 'weekly-report'],
+        canConfig: false
+    }
+};
+
+// Verificar se o usuário tem acesso a uma tab
+function hasAccessToTab(tabId) {
+    if (!currentUser) return false;
+    const perms = rolePermissions[currentUser.role];
+    if (!perms) return true; // Role não definido = acesso total (admin antigo)
+    if (perms.tabs === 'all') return true;
+    return perms.tabs.includes(tabId);
+}
+
+// Aplicar permissões na sidebar - ocultar tabs não permitidas
+function applyRolePermissions() {
+    if (!currentUser) return;
+    
+    const perms = rolePermissions[currentUser.role];
+    if (!perms) return; // Role não definido = admin antigo, não esconder nada
+    
+    // Ocultar/mostrar tabs baseado nas permissões
+    document.querySelectorAll('.sidebar-item[data-tab]').forEach(item => {
+        const tabId = item.dataset.tab;
+        if (perms.tabs === 'all' || perms.tabs.includes(tabId)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    // Ocultar seções da sidebar que estão completamente vazias
+    document.querySelectorAll('.sidebar-section').forEach(section => {
+        const title = section.querySelector('.sidebar-section-title');
+        if (!title) return;
+        
+        // Verificar se é seção de configurações
+        if (title.textContent.includes('Configurações') && !perms.canConfig) {
+            section.style.display = 'none';
+            return;
+        }
+        
+        // Verificar se todos os itens da seção estão ocultos
+        const items = section.querySelectorAll('.sidebar-item[data-tab]');
+        const visibleItems = Array.from(items).filter(item => item.style.display !== 'none');
+        
+        if (visibleItems.length === 0) {
+            section.style.display = 'none';
+        } else {
+            section.style.display = '';
+        }
+    });
+    
+    // Ocultar itens do dropdown do usuário se não tiver permissão
+    const dropdownItems = document.querySelectorAll('.user-dropdown .dropdown-item');
+    dropdownItems.forEach(item => {
+        if (item.textContent.includes('Gerenciar Materiais') && !perms.canConfig) {
+            item.style.display = 'none';
+        }
+        if (item.textContent.includes('Cadastrar Membro') && !perms.tabs.includes('new-member') && perms.tabs !== 'all') {
+            item.style.display = 'none';
+        }
+    });
+}
+
 // Verifica autenticação e permissão de admin
 async function checkAuth() {
     try {
@@ -31,6 +135,9 @@ async function checkAuth() {
             // Dropdown info
             document.getElementById('dropdownUserName').textContent = currentUser.name;
             document.getElementById('dropdownUserRole').textContent = roleNames[currentUser.role] || currentUser.role;
+            
+            // Aplicar permissões baseadas no cargo
+            applyRolePermissions();
             
             await loadSelectedWeek();
             loadAll();
@@ -61,6 +168,12 @@ function closeUserDropdown() {
 
 // Mostrar Tab específica (para uso no dropdown)
 function showTab(tabId) {
+    // Verificar permissão de acesso
+    if (!hasAccessToTab(tabId)) {
+        alert('Você não tem permissão para acessar esta área.');
+        return;
+    }
+    
     document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
