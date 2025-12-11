@@ -3,13 +3,16 @@ let currentWeek = null;
 let selectedWeekOffset = 0; // 0 = semana atual, +1 = próxima, +2 = próxima+1, etc
 let selectedWeek = null;
 let adminNotifications = [];
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
+const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
 const roleNames = {
     'member': 'Membro',
     '01': '01 (Primeiro Líder)',
     '02': '02 (Segundo Líder)',
     'gerente_farm': 'Gerente de Farm',
+    'gerente_acao': 'Gerente de Ação',
+    'gerente_recrutamento': 'Gerente de Recrutamento',
+    'gerente_encomendas': 'Gerente de Encomendas',
     'gerente_geral': 'Gerente Geral'
 };
 
@@ -1477,6 +1480,9 @@ async function loadMembers() {
                                 <option value="01" ${member.role === '01' ? 'selected' : ''}>01</option>
                                 <option value="02" ${member.role === '02' ? 'selected' : ''}>02</option>
                                 <option value="gerente_farm" ${member.role === 'gerente_farm' ? 'selected' : ''}>Gerente de Farm</option>
+                                <option value="gerente_acao" ${member.role === 'gerente_acao' ? 'selected' : ''}>Gerente de Ação</option>
+                                <option value="gerente_recrutamento" ${member.role === 'gerente_recrutamento' ? 'selected' : ''}>Gerente de Recrutamento</option>
+                                <option value="gerente_encomendas" ${member.role === 'gerente_encomendas' ? 'selected' : ''}>Gerente de Encomendas</option>
                                 <option value="gerente_geral" ${member.role === 'gerente_geral' ? 'selected' : ''}>Gerente Geral</option>
                             </select>
                         ` : `
@@ -2590,6 +2596,9 @@ function formatRole(role) {
         '01': 'Oficial 01',
         '02': 'Oficial 02',
         'gerente_farm': 'Gerente de Farm',
+        'gerente_acao': 'Gerente de Ação',
+        'gerente_recrutamento': 'Gerente de Recrutamento',
+        'gerente_encomendas': 'Gerente de Encomendas',
         'gerente_geral': 'Gerente Geral'
     };
     return roles[role] || role;

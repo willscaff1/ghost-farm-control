@@ -4,7 +4,7 @@ const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
 const router = express.Router();
 
 // Cargos administrativos (qualquer um pode aprovar)
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
+const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
 // Nomes amigáveis dos cargos
 const roleNames = {
@@ -12,6 +12,9 @@ const roleNames = {
     '01': '01',
     '02': '02',
     'gerente_farm': 'Gerente de Farm',
+    'gerente_acao': 'Gerente de Ação',
+    'gerente_recrutamento': 'Gerente de Recrutamento',
+    'gerente_encomendas': 'Gerente de Encomendas',
     'gerente_geral': 'Gerente Geral'
 };
 
@@ -335,7 +338,7 @@ router.post('/members/:id/role', requireAdmin, async (req, res) => {
         const { role } = req.body;
         
         // Validar cargo
-        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_geral'];
+        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
         if (!validRoles.includes(role)) {
             return res.status(400).json({ error: 'Cargo inválido' });
         }
@@ -387,7 +390,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         }
         
         // Validar cargo se fornecido
-        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_geral'];
+        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
         if (role && !validRoles.includes(role)) {
             return res.status(400).json({ error: 'Cargo inválido' });
         }

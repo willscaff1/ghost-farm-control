@@ -53,7 +53,7 @@ router.get('/me', (req, res) => {
 });
 
 // Cargos que podem gerenciar membros
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_geral'];
+const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
 // Cadastro público (membros se cadastram)
 router.post('/register-public', async (req, res) => {
@@ -108,7 +108,7 @@ router.post('/register', async (req, res) => {
         }
         
         const hashedPassword = bcrypt.hashSync(password, 10);
-        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_geral'];
+        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
         const userRole = validRoles.includes(role) ? role : 'member';
         
         const result = await runQuery(
