@@ -1642,4 +1642,221 @@ router.post('/edit-permissions/revoke', requireAdmin, async (req, res) => {
     }
 });
 
+// ==================== PERMISSÕES POR GRUPO ====================
+
+// Lista de todas as tabs disponíveis
+const availableTabs = [
+    { id: 'weekly-status', name: 'Status da Semana', section: 'Dashboard', icon: '📅' },
+    { id: 'members-panel', name: 'Painel de Membros', section: 'Dashboard', icon: '👥' },
+    { id: 'members-overview', name: 'Visão Geral', section: 'Dashboard', icon: '👁️' },
+    { id: 'pending', name: 'Farms Pendentes', section: 'Aprovações', icon: '🕐' },
+    { id: 'absences', name: 'Justificativas', section: 'Aprovações', icon: '📝' },
+    { id: 'members', name: 'Lista de Membros', section: 'Membros', icon: '📋' },
+    { id: 'members-adv', name: 'Gerenciar ADVs', section: 'Membros', icon: '⚠️' },
+    { id: 'new-member', name: 'Novo Membro', section: 'Membros', icon: '➕' },
+    { id: 'ranking', name: 'Ranking', section: 'Estatísticas', icon: '🏆' },
+    { id: 'materials-stats', name: 'Materiais', section: 'Estatísticas', icon: '📊' },
+    { id: 'all-deliveries', name: 'Histórico', section: 'Estatísticas', icon: '📋' },
+    { id: 'weekly-report', name: 'Relatório Semanal', section: 'Estatísticas', icon: '📄' },
+    { id: 'farm-settings', name: 'Config. do Farm', section: 'Configurações', icon: '🎛️' },
+    { id: 'edit-permissions', name: 'Liberar Edição', section: 'Configurações', icon: '✏️' },
+    { id: 'manage-materials', name: 'Gerenciar Materiais', section: 'Configurações', icon: '📦' },
+    { id: 'manage-payment-types', name: 'Tipos de Pagamento', section: 'Configurações', icon: '💰' },
+    { id: 'whitelist', name: 'Whitelist (Isentos)', section: 'Configurações', icon: '🛡️' },
+    { id: 'role-permissions', name: 'Permissões de Grupos', section: 'Configurações', icon: '🔐' }
+];
+
+// Grupos padrão (serão criados se não existirem)
+const defaultRolePermissions = [
+    {
+        role_name: 'gerente_geral',
+        display_name: 'Gerente Geral',
+        permissions: JSON.stringify(['all']),
+        can_config: 1
+    },
+    {
+        role_name: '01',
+        display_name: '01 (Primeiro Líder)',
+        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
+            'members', 'members-adv', 'new-member', 'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
+        can_config: 0
+    },
+    {
+        role_name: '02',
+        display_name: '02 (Segundo Líder)',
+        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
+            'members', 'members-adv', 'new-member', 'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
+        can_config: 0
+    },
+    {
+        role_name: 'gerente_farm',
+        display_name: 'Gerente de Farm',
+        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'pending', 'absences', 
+            'members', 'members-adv', 'ranking', 'materials-stats', 'all-deliveries']),
+        can_config: 0
+    },
+    {
+        role_name: 'gerente_acao',
+        display_name: 'Gerente de Ação',
+        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
+        can_config: 0
+    },
+    {
+        role_name: 'gerente_recrutamento',
+        display_name: 'Gerente de Recrutamento',
+        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
+        can_config: 0
+    },
+    {
+        role_name: 'gerente_encomendas',
+        display_name: 'Gerente de Encomendas',
+        permissions: JSON.stringify(['weekly-status', 'members-panel', 'members-overview', 'members', 'members-adv',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report']),
+        can_config: 0
+    }
+];
+
+// Buscar lista de tabs disponíveis
+router.get('/role-permissions/tabs', requireAdmin, async (req, res) => {
+    res.json({ tabs: availableTabs });
+});
+
+// Buscar todas as permissões de grupos
+router.get('/role-permissions', requireAdmin, async (req, res) => {
+    try {
+        let roles = await getAll('SELECT * FROM role_permissions ORDER BY id');
+        
+        // Se não existir nenhum grupo, criar os padrões
+        if (!roles || roles.length === 0) {
+            console.log('🔐 Criando permissões de grupos padrão...');
+            for (const role of defaultRolePermissions) {
+                await runQuery(`
+                    INSERT INTO role_permissions (role_name, display_name, permissions, can_config) 
+                    VALUES (?, ?, ?, ?)
+                `, [role.role_name, role.display_name, role.permissions, role.can_config]);
+            }
+            roles = await getAll('SELECT * FROM role_permissions ORDER BY id');
+            console.log('✅ Permissões de grupos criadas');
+        }
+        
+        // Converter permissions de JSON string para array
+        const formattedRoles = roles.map(r => ({
+            ...r,
+            permissions: JSON.parse(r.permissions || '[]')
+        }));
+        
+        res.json({ roles: formattedRoles, availableTabs });
+    } catch (error) {
+        console.error('Erro ao buscar permissões:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Buscar permissões de um grupo específico (para o frontend usar no login)
+router.get('/role-permissions/:roleName', async (req, res) => {
+    try {
+        const { roleName } = req.params;
+        
+        let role = await getOne('SELECT * FROM role_permissions WHERE role_name = ?', [roleName]);
+        
+        // Se não encontrar, criar padrão
+        if (!role) {
+            const defaultRole = defaultRolePermissions.find(r => r.role_name === roleName);
+            if (defaultRole) {
+                await runQuery(`
+                    INSERT INTO role_permissions (role_name, display_name, permissions, can_config) 
+                    VALUES (?, ?, ?, ?)
+                `, [defaultRole.role_name, defaultRole.display_name, defaultRole.permissions, defaultRole.can_config]);
+                role = await getOne('SELECT * FROM role_permissions WHERE role_name = ?', [roleName]);
+            }
+        }
+        
+        if (role) {
+            res.json({
+                role_name: role.role_name,
+                display_name: role.display_name,
+                permissions: JSON.parse(role.permissions || '[]'),
+                can_config: role.can_config === 1
+            });
+        } else {
+            // Retornar permissão padrão (acesso total) se não encontrar
+            res.json({
+                role_name: roleName,
+                display_name: roleName,
+                permissions: ['all'],
+                can_config: true
+            });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Atualizar permissões de um grupo
+router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
+    try {
+        // Verificar se o usuário atual tem permissão de config
+        if (req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
+            return res.status(403).json({ error: 'Apenas Gerente Geral e 01 podem alterar permissões' });
+        }
+        
+        const { roleName } = req.params;
+        const { display_name, permissions, can_config } = req.body;
+        
+        // Não permitir editar permissões do gerente_geral
+        if (roleName === 'gerente_geral') {
+            return res.status(403).json({ error: 'Não é possível alterar permissões do Gerente Geral' });
+        }
+        
+        const permissionsJson = JSON.stringify(permissions || []);
+        
+        await runQuery(`
+            UPDATE role_permissions 
+            SET display_name = ?, permissions = ?, can_config = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE role_name = ?
+        `, [display_name, permissionsJson, can_config ? 1 : 0, roleName]);
+        
+        console.log(`🔐 Permissões do grupo ${roleName} atualizadas por ${req.session.user.name}`);
+        
+        res.json({ success: true, message: 'Permissões atualizadas!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Criar novo grupo
+router.post('/role-permissions', requireAdmin, async (req, res) => {
+    try {
+        // Verificar se o usuário atual tem permissão de config
+        if (req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
+            return res.status(403).json({ error: 'Apenas Gerente Geral e 01 podem criar grupos' });
+        }
+        
+        const { role_name, display_name, permissions, can_config } = req.body;
+        
+        if (!role_name || !display_name) {
+            return res.status(400).json({ error: 'Nome do grupo e nome de exibição são obrigatórios' });
+        }
+        
+        const permissionsJson = JSON.stringify(permissions || []);
+        
+        await runQuery(`
+            INSERT INTO role_permissions (role_name, display_name, permissions, can_config)
+            VALUES (?, ?, ?, ?)
+        `, [role_name, display_name, permissionsJson, can_config ? 1 : 0]);
+        
+        console.log(`🔐 Novo grupo ${role_name} criado por ${req.session.user.name}`);
+        
+        res.json({ success: true, message: 'Grupo criado!' });
+    } catch (error) {
+        if (error.message.includes('UNIQUE')) {
+            res.status(400).json({ error: 'Já existe um grupo com esse nome' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
 module.exports = router;

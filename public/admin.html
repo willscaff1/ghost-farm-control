@@ -100,6 +100,7 @@
                 <button class="sidebar-item" data-tab="manage-materials">📦 Gerenciar Materiais</button>
                 <button class="sidebar-item" data-tab="manage-payment-types">💰 Tipos de Pagamento</button>
                 <button class="sidebar-item" data-tab="whitelist">🛡️ Whitelist (Isentos)</button>
+                <button class="sidebar-item" data-tab="role-permissions">🔐 Permissões de Grupos</button>
             </div>
         </aside>
 
@@ -709,6 +710,18 @@
                     <h2>📋 Membros na Whitelist</h2>
                     <div id="whitelistList" class="whitelist-list">
                         <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Permissões de Grupos -->
+            <div id="role-permissions-tab" class="tab-content">
+                <div class="card">
+                    <h2>🔐 Máquina de Permissões</h2>
+                    <p class="subtitle">Configure quais funcionalidades cada grupo/cargo pode acessar</p>
+                    
+                    <div id="rolePermissionsContainer">
+                        <p class="loading">Carregando grupos...</p>
                     </div>
                 </div>
             </div>

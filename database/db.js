@@ -308,6 +308,20 @@ const initializePostgres = async () => {
             )
         `);
 
+        // Tabela de permissões por grupo (role)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS role_permissions (
+                id SERIAL PRIMARY KEY,
+                role_name TEXT UNIQUE NOT NULL,
+                display_name TEXT NOT NULL,
+                permissions TEXT NOT NULL,
+                can_config INTEGER DEFAULT 0,
+                active INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Inserir materiais padrão
         const defaultMaterials = [
             ['Folha', '🍃'],
@@ -588,6 +602,20 @@ const initializeSQLite = () => {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     setting_key TEXT UNIQUE NOT NULL,
                     setting_value TEXT NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // Tabela de permissões por grupo (role)
+            pool.run(`
+                CREATE TABLE IF NOT EXISTS role_permissions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role_name TEXT UNIQUE NOT NULL,
+                    display_name TEXT NOT NULL,
+                    permissions TEXT NOT NULL,
+                    can_config INTEGER DEFAULT 0,
+                    active INTEGER DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
