@@ -164,6 +164,7 @@ function showTab(tabId) {
         case 'members-overview': loadMembersOverview(); break;
         case 'absences': loadJustifications(); break;
         case 'pending': loadPendingDeliveries(); break;
+        case 'password-resets': loadPasswordResets(); break;
         case 'members': loadMembers(); break;
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
@@ -175,6 +176,7 @@ function showTab(tabId) {
         case 'all-deliveries': loadAllDeliveries(); break;
         case 'weekly-report': loadWeeklyReport(); break;
         case 'role-permissions': break; // Carrega via iframe
+        case 'members-adv': loadMembersAdv(); break;
     }
 }
 // Carregar semana selecionada
@@ -1309,6 +1311,115 @@ async function rejectJustification(id) {
     } catch (error) {
         alert('Erro ao rejeitar justificativa');
     }
+}
+
+// ==================== RECUPERAÇÃO DE SENHA ====================
+
+// Carregar solicitações de recuperação de senha
+async function loadPasswordResets() {
+    try {
+        const response = await fetch('/api/admin/password-resets/pending');
+        const data = await response.json();
+        
+        const container = document.getElementById('passwordResetsList');
+        
+        if (!data.requests || data.requests.length === 0) {
+            container.innerHTML = '<div class="empty-state">✅ Nenhuma solicitação de recuperação pendente</div>';
+            return;
+        }
+        
+        container.innerHTML = data.requests.map(r => `
+            <div class="password-reset-card" id="reset-card-${r.id}">
+                <div class="password-reset-header">
+                    <div class="password-reset-user">
+                        <span class="user-name">👤 ${r.user_name}</span>
+                        <span class="user-passport">🎫 Passaporte: ${r.user_passport}</span>
+                    </div>
+                    <div class="password-reset-date">
+                        📅 Solicitado em ${new Date(r.requested_at).toLocaleDateString('pt-BR')} às ${new Date(r.requested_at).toLocaleTimeString('pt-BR')}
+                    </div>
+                </div>
+                <div class="password-reset-actions">
+                    <button class="btn btn-approve" onclick="approvePasswordReset(${r.id})">
+                        ✅ Gerar Nova Senha
+                    </button>
+                    <button class="btn btn-reject" onclick="rejectPasswordReset(${r.id})">
+                        ❌ Rejeitar
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Erro ao carregar solicitações de recuperação:', error);
+    }
+}
+
+// Aprovar recuperação de senha
+async function approvePasswordReset(id) {
+    if (!confirm('Gerar uma nova senha para este usuário?')) return;
+    
+    try {
+        const response = await fetch(`/api/admin/password-resets/${id}/approve`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            // Mostrar a nova senha na interface
+            const card = document.getElementById(`reset-card-${id}`);
+            if (card) {
+                card.innerHTML = `
+                    <div class="new-password-display">
+                        <h3>✅ Senha Resetada com Sucesso!</h3>
+                        <p><strong>👤 Usuário:</strong> ${data.user_name}</p>
+                        <p><strong>🎫 Passaporte:</strong> ${data.user_passport}</p>
+                        <div class="password-value">${data.new_password}</div>
+                        <p class="password-info">⚠️ Anote ou envie essa senha para o membro. Ela não será exibida novamente!</p>
+                        <button class="btn btn-primary" onclick="copyPassword('${data.new_password}')" style="margin-top: 15px;">
+                            📋 Copiar Senha
+                        </button>
+                    </div>
+                `;
+            }
+        } else {
+            alert(data.error || 'Erro ao resetar senha');
+        }
+    } catch (error) {
+        alert('Erro ao resetar senha');
+    }
+}
+
+// Rejeitar solicitação de recuperação
+async function rejectPasswordReset(id) {
+    if (!confirm('Rejeitar esta solicitação de recuperação?')) return;
+    
+    try {
+        const response = await fetch(`/api/admin/password-resets/${id}/reject`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('❌ Solicitação rejeitada');
+            loadPasswordResets();
+        } else {
+            alert(data.error || 'Erro ao rejeitar solicitação');
+        }
+    } catch (error) {
+        alert('Erro ao rejeitar solicitação');
+    }
+}
+
+// Copiar senha para clipboard
+function copyPassword(password) {
+    navigator.clipboard.writeText(password).then(() => {
+        alert('✅ Senha copiada para a área de transferência!');
+    }).catch(() => {
+        prompt('Copie a senha manualmente:', password);
+    });
 }
 
 // Carregar estatísticas admin (da semana selecionada)
@@ -3072,6 +3183,10 @@ async function loadAdminNotifications() {
         if (!justRes.ok) throw new Error('Erro ao buscar justificativas');
         const justData = await justRes.json();
         
+        // Buscar solicitações de recuperação de senha pendentes
+        const passwordRes = await fetch('/api/admin/password-resets/pending');
+        const passwordData = passwordRes.ok ? await passwordRes.json() : { requests: [] };
+        
         const today = new Date();
         const dayOfWeek = today.getDay();
         
@@ -3103,6 +3218,22 @@ async function loadAdminNotifications() {
                     time: formatTimeAgo(j.created_at),
                     action: 'absences',
                     userId: j.user_id
+                });
+            });
+        }
+        
+        // Notificações de recuperação de senha pendentes
+        if (passwordData.requests && passwordData.requests.length > 0) {
+            passwordData.requests.forEach(r => {
+                adminNotifications.push({
+                    id: `password_${r.id}`,
+                    type: 'warning',
+                    icon: '🔑',
+                    title: 'Recuperação de Senha',
+                    message: `${r.user_name} (${r.user_passport}) solicitou nova senha`,
+                    time: formatTimeAgo(r.requested_at),
+                    action: 'password-resets',
+                    userId: r.user_id
                 });
             });
         }

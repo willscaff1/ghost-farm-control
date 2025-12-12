@@ -76,6 +76,7 @@
                 <div class="sidebar-section-title">✅ Aprovações</div>
                 <button class="sidebar-item" data-tab="pending">🕐 Farms Pendentes</button>
                 <button class="sidebar-item" data-tab="absences">📝 Justificativas</button>
+                <button class="sidebar-item" data-tab="password-resets">🔑 Recuperar Senhas</button>
             </div>
 
             <div class="sidebar-section">
@@ -270,6 +271,17 @@
                     <h2>📝 Justificativas Pendentes</h2>
                     <p class="subtitle">Membros que justificaram a não entrega do farm</p>
                     <div id="justificationsList" class="justifications-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Password Resets Tab -->
+            <div id="password-resets-tab" class="tab-content">
+                <div class="card">
+                    <h2>🔑 Solicitações de Recuperação de Senha</h2>
+                    <p class="subtitle">Membros que solicitaram uma nova senha</p>
+                    <div id="passwordResetsList" class="password-resets-list">
                         <p class="loading">Carregando...</p>
                     </div>
                 </div>

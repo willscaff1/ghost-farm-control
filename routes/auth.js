@@ -125,4 +125,49 @@ router.post('/register', async (req, res) => {
     }
 });
 
+// Solicitar recuperação de senha (qualquer pessoa pode solicitar)
+router.post('/request-password-reset', async (req, res) => {
+    try {
+        const { passport } = req.body;
+        
+        if (!passport) {
+            return res.status(400).json({ error: 'Passaporte é obrigatório' });
+        }
+        
+        const passportUpper = passport.toUpperCase().trim();
+        
+        // Verificar se o usuário existe
+        const user = await getOne('SELECT id, name FROM users WHERE passport = ? AND active = 1', [passportUpper]);
+        if (!user) {
+            return res.status(404).json({ error: 'Passaporte não encontrado' });
+        }
+        
+        // Verificar se já tem uma solicitação pendente
+        const existingRequest = await getOne(
+            'SELECT id FROM password_resets WHERE user_id = ? AND status = ?',
+            [user.id, 'pending']
+        );
+        
+        if (existingRequest) {
+            return res.status(400).json({ error: 'Você já tem uma solicitação de recuperação pendente. Aguarde a aprovação de um administrador.' });
+        }
+        
+        // Criar solicitação
+        await runQuery(
+            'INSERT INTO password_resets (user_id, status) VALUES (?, ?)',
+            [user.id, 'pending']
+        );
+        
+        console.log(`🔐 Solicitação de recuperação de senha: ${user.name} (${passportUpper})`);
+        
+        res.json({ 
+            success: true, 
+            message: 'Solicitação enviada! Um administrador irá processar sua solicitação em breve.' 
+        });
+    } catch (error) {
+        console.error('Erro ao solicitar recuperação:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

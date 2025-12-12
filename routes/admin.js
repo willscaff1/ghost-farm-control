@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
 
 const router = express.Router();
@@ -1652,6 +1653,7 @@ const availableTabs = [
     { id: 'members-overview', name: 'Visão Geral', section: 'Dashboard', icon: '👁️' },
     { id: 'pending', name: 'Farms Pendentes', section: 'Aprovações', icon: '🕐' },
     { id: 'absences', name: 'Justificativas', section: 'Aprovações', icon: '📝' },
+    { id: 'password-resets', name: 'Recuperar Senhas', section: 'Aprovações', icon: '🔑' },
     { id: 'members', name: 'Lista de Membros', section: 'Membros', icon: '📋' },
     { id: 'members-adv', name: 'Gerenciar ADVs', section: 'Membros', icon: '⚠️' },
     { id: 'new-member', name: 'Novo Membro', section: 'Membros', icon: '➕' },
@@ -1674,6 +1676,7 @@ const availableTabs = [
 // - members-overview: Visão Geral
 // - pending: Farms Pendentes
 // - absences: Justificativas
+// - password-resets: Recuperar Senhas
 // - members: Lista de Membros
 // - members-adv: Gerenciar ADVs
 // - new-member: Novo Membro
@@ -1934,6 +1937,155 @@ router.post('/role-permissions/reset', requireAdmin, async (req, res) => {
         console.log(`🔐 Permissões resetadas para padrão por ${req.session.user.name}`);
         
         res.json({ success: true, message: 'Permissões resetadas para os valores padrão!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== RECUPERAÇÃO DE SENHA ====================
+
+// Listar solicitações de recuperação de senha pendentes
+router.get('/password-resets/pending', requireAdmin, async (req, res) => {
+    try {
+        const requests = await getAll(`
+            SELECT pr.*, u.name as user_name, u.passport as user_passport
+            FROM password_resets pr
+            JOIN users u ON pr.user_id = u.id
+            WHERE pr.status = 'pending'
+            ORDER BY pr.requested_at ASC
+        `);
+        
+        res.json({ requests });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Listar todas as solicitações de recuperação (histórico)
+router.get('/password-resets/all', requireAdmin, async (req, res) => {
+    try {
+        const requests = await getAll(`
+            SELECT pr.*, u.name as user_name, u.passport as user_passport, 
+                   a.name as processed_by_name
+            FROM password_resets pr
+            JOIN users u ON pr.user_id = u.id
+            LEFT JOIN users a ON pr.processed_by = a.id
+            ORDER BY pr.requested_at DESC
+            LIMIT 50
+        `);
+        
+        res.json({ requests });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Aprovar recuperação - gera nova senha
+router.post('/password-resets/:id/approve', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const adminId = req.session.user.id;
+        
+        // Buscar solicitação
+        const request = await getOne(`
+            SELECT pr.*, u.name as user_name, u.passport as user_passport
+            FROM password_resets pr
+            JOIN users u ON pr.user_id = u.id
+            WHERE pr.id = ? AND pr.status = 'pending'
+        `, [id]);
+        
+        if (!request) {
+            return res.status(404).json({ error: 'Solicitação não encontrada ou já processada' });
+        }
+        
+        // Gerar nova senha aleatória (6 caracteres)
+        const newPassword = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const hashedPassword = bcrypt.hashSync(newPassword, 10);
+        
+        // Atualizar senha do usuário
+        await runQuery('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, request.user_id]);
+        
+        // Marcar solicitação como aprovada
+        await runQuery(`
+            UPDATE password_resets 
+            SET status = 'approved', new_password = ?, processed_by = ?, processed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [newPassword, adminId, id]);
+        
+        console.log(`🔐 Senha resetada para ${request.user_name} por ${req.session.user.name}`);
+        
+        res.json({ 
+            success: true, 
+            message: `Senha resetada com sucesso!`,
+            user_name: request.user_name,
+            user_passport: request.user_passport,
+            new_password: newPassword
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Rejeitar solicitação de recuperação
+router.post('/password-resets/:id/reject', requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const adminId = req.session.user.id;
+        
+        // Verificar se existe
+        const request = await getOne('SELECT * FROM password_resets WHERE id = ? AND status = ?', [id, 'pending']);
+        if (!request) {
+            return res.status(404).json({ error: 'Solicitação não encontrada ou já processada' });
+        }
+        
+        // Marcar como rejeitada
+        await runQuery(`
+            UPDATE password_resets 
+            SET status = 'rejected', processed_by = ?, processed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [adminId, id]);
+        
+        console.log(`🔐 Solicitação de recuperação rejeitada por ${req.session.user.name}`);
+        
+        res.json({ success: true, message: 'Solicitação rejeitada' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Alterar senha de um usuário diretamente (só gerente_geral e 01)
+router.post('/users/:id/reset-password', requireAdmin, async (req, res) => {
+    try {
+        // Verificar permissão
+        if (req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
+            return res.status(403).json({ error: 'Apenas Gerente Geral e 01 podem resetar senhas diretamente' });
+        }
+        
+        const { id } = req.params;
+        const { new_password } = req.body;
+        
+        // Verificar se o usuário existe
+        const user = await getOne('SELECT id, name, passport FROM users WHERE id = ?', [id]);
+        if (!user) {
+            return res.status(404).json({ error: 'Usuário não encontrado' });
+        }
+        
+        // Se não forneceu senha, gera uma aleatória
+        const password = new_password || Math.random().toString(36).substring(2, 8).toUpperCase();
+        const hashedPassword = bcrypt.hashSync(password, 10);
+        
+        // Atualizar senha
+        await runQuery('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, id]);
+        
+        console.log(`🔐 Senha de ${user.name} alterada por ${req.session.user.name}`);
+        
+        res.json({ 
+            success: true, 
+            message: 'Senha alterada com sucesso!',
+            user_name: user.name,
+            user_passport: user.passport,
+            new_password: password
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

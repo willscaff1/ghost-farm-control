@@ -322,6 +322,19 @@ const initializePostgres = async () => {
             )
         `);
 
+        // Tabela de solicitações de recuperação de senha
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS password_resets (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                status TEXT DEFAULT 'pending',
+                new_password TEXT,
+                requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_by INTEGER REFERENCES users(id),
+                processed_at TIMESTAMP
+            )
+        `);
+
         // Inserir materiais padrão
         const defaultMaterials = [
             ['Folha', '🍃'],
@@ -617,6 +630,21 @@ const initializeSQLite = () => {
                     active INTEGER DEFAULT 1,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // Tabela de solicitações de recuperação de senha
+            pool.run(`
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    status TEXT DEFAULT 'pending',
+                    new_password TEXT,
+                    requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    processed_by INTEGER,
+                    processed_at DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (processed_by) REFERENCES users(id)
                 )
             `);
 

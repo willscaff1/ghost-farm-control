@@ -2012,6 +2012,89 @@ h3 {
     gap: 10px;
 }
 
+/* Password Resets Styles */
+.password-resets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.password-reset-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    border-left: 4px solid var(--primary);
+}
+
+.password-reset-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.password-reset-user {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.password-reset-user .user-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--white);
+}
+
+.password-reset-user .user-passport {
+    font-size: 0.85rem;
+    color: var(--secondary);
+}
+
+.password-reset-date {
+    color: var(--light);
+    font-size: 0.85rem;
+}
+
+.password-reset-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.new-password-display {
+    background: var(--bg);
+    border: 2px solid var(--success);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 15px;
+    text-align: center;
+}
+
+.new-password-display h3 {
+    color: var(--success);
+    margin-bottom: 15px;
+}
+
+.new-password-display .password-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--white);
+    background: var(--card-bg);
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-family: monospace;
+    letter-spacing: 3px;
+    display: inline-block;
+}
+
+.new-password-display .password-info {
+    margin-top: 15px;
+    color: var(--light);
+    font-size: 0.9rem;
+}
+
 .btn-approve {
     background: var(--success);
     color: var(--white);
