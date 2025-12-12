@@ -1323,9 +1323,20 @@ async function rejectJustification(id) {
 async function loadPasswordResets() {
     const container = document.getElementById('passwordResetsList');
     
+    if (!container) {
+        console.error('Container passwordResetsList não encontrado');
+        return;
+    }
+    
+    container.innerHTML = '<p class="loading">Carregando solicitações...</p>';
+    
     try {
+        console.log('Buscando solicitações de reset de senha...');
         const response = await fetch('/api/admin/password-resets/pending');
+        console.log('Response status:', response.status);
+        
         const data = await response.json();
+        console.log('Dados recebidos:', data);
         
         if (!response.ok) {
             container.innerHTML = `<div class="empty-state">❌ Erro: ${data.error || 'Falha ao carregar'}</div>`;
@@ -1336,6 +1347,8 @@ async function loadPasswordResets() {
             container.innerHTML = '<div class="empty-state">✅ Nenhuma solicitação de recuperação pendente</div>';
             return;
         }
+        
+        console.log('Renderizando', data.requests.length, 'solicitações');
         
         container.innerHTML = data.requests.map(r => `
             <div class="password-reset-card" id="reset-card-${r.id}">
@@ -1361,7 +1374,7 @@ async function loadPasswordResets() {
         
     } catch (error) {
         console.error('Erro ao carregar solicitações de recuperação:', error);
-        container.innerHTML = '<div class="empty-state">❌ Erro ao carregar solicitações</div>';
+        container.innerHTML = `<div class="empty-state">❌ Erro: ${error.message}</div>`;
     }
 }
 

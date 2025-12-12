@@ -1944,9 +1944,54 @@ router.post('/role-permissions/reset', requireAdmin, async (req, res) => {
 
 // ==================== RECUPERAÇÃO DE SENHA ====================
 
+// Função para garantir que a tabela password_resets existe (PostgreSQL e SQLite)
+async function ensurePasswordResetsTable() {
+    try {
+        // Tenta criar a tabela se não existir
+        // O SQL funciona tanto em PostgreSQL quanto SQLite
+        const isPostgres = process.env.DATABASE_URL ? true : false;
+        
+        if (isPostgres) {
+            await runQuery(`
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    status TEXT DEFAULT 'pending',
+                    new_password TEXT,
+                    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    processed_by INTEGER REFERENCES users(id),
+                    processed_at TIMESTAMP
+                )
+            `);
+        } else {
+            await runQuery(`
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    status TEXT DEFAULT 'pending',
+                    new_password TEXT,
+                    requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    processed_by INTEGER,
+                    processed_at DATETIME,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (processed_by) REFERENCES users(id)
+                )
+            `);
+        }
+        console.log('✅ Tabela password_resets verificada/criada');
+        return true;
+    } catch (error) {
+        console.error('Erro ao criar tabela password_resets:', error.message);
+        return false;
+    }
+}
+
 // Listar solicitações de recuperação de senha pendentes
 router.get('/password-resets/pending', requireAdmin, async (req, res) => {
     try {
+        // Garantir que a tabela existe
+        await ensurePasswordResetsTable();
+        
         const requests = await getAll(`
             SELECT pr.*, u.name as user_name, u.passport as user_passport
             FROM password_resets pr
@@ -1958,12 +2003,7 @@ router.get('/password-resets/pending', requireAdmin, async (req, res) => {
         res.json({ requests: requests || [] });
     } catch (error) {
         console.error('Erro ao buscar password_resets:', error.message);
-        // Se a tabela não existe, retornar array vazio
-        if (error.message.includes('no such table') || error.message.includes('does not exist')) {
-            res.json({ requests: [] });
-        } else {
-            res.status(500).json({ error: error.message });
-        }
+        res.json({ requests: [] });
     }
 });
 

@@ -142,6 +142,40 @@ router.post('/request-password-reset', async (req, res) => {
             return res.status(404).json({ error: 'Passaporte não encontrado' });
         }
         
+        // Garantir que a tabela existe (PostgreSQL em produção pode não ter ainda)
+        const isPostgres = process.env.DATABASE_URL ? true : false;
+        try {
+            if (isPostgres) {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS password_resets (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id),
+                        status TEXT DEFAULT 'pending',
+                        new_password TEXT,
+                        requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        processed_by INTEGER REFERENCES users(id),
+                        processed_at TIMESTAMP
+                    )
+                `);
+            } else {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS password_resets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        status TEXT DEFAULT 'pending',
+                        new_password TEXT,
+                        requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        processed_by INTEGER,
+                        processed_at DATETIME,
+                        FOREIGN KEY (user_id) REFERENCES users(id),
+                        FOREIGN KEY (processed_by) REFERENCES users(id)
+                    )
+                `);
+            }
+        } catch (tableError) {
+            console.log('Tabela password_resets já existe ou erro:', tableError.message);
+        }
+        
         // Verificar se já tem uma solicitação pendente
         const existingRequest = await getOne(
             'SELECT id FROM password_resets WHERE user_id = ? AND status = ?',
