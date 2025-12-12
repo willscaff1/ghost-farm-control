@@ -168,7 +168,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
         
         if (week_start && week_end) {
             deliveries = await getAll(`
-                SELECT d.*, u.name, u.passport, a.name as approved_by_name
+                SELECT d.*, u.name as user_name, u.passport as user_passport, a.name as approved_by_name
                 FROM deliveries d
                 JOIN users u ON d.user_id = u.id
                 LEFT JOIN users a ON d.approved_by = a.id
@@ -177,7 +177,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
             `, [week_start, week_end]);
         } else {
             deliveries = await getAll(`
-                SELECT d.*, u.name, u.passport, a.name as approved_by_name
+                SELECT d.*, u.name as user_name, u.passport as user_passport, a.name as approved_by_name
                 FROM deliveries d
                 JOIN users u ON d.user_id = u.id
                 LEFT JOIN users a ON d.approved_by = a.id

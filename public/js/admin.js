@@ -1379,7 +1379,7 @@ async function loadPendingDeliveries() {
                 return `
                     <div class="delivery-item" id="delivery-${delivery.id}">
                         <div class="delivery-info">
-                            <h3>📦 Farm de ${delivery.name}</h3>
+                            <h3>📦 Farm de ${delivery.user_name}</h3>
                             ${paymentInfo}
                             <p class="week-info">📅 Semana: ${formatWeekDate(delivery.week_start)} - ${formatWeekDate(delivery.week_end)}</p>
                             <div class="materials-list">
@@ -1791,7 +1791,7 @@ async function loadAllDeliveries() {
             allDeliveriesList.innerHTML = data.deliveries.map(delivery => `
                 <div class="delivery-item">
                     <div class="delivery-info">
-                        <h3>📦 Farm de ${delivery.name}</h3>
+                        <h3>📦 Farm de ${delivery.user_name}</h3>
                         <div class="materials-list">
                             ${delivery.items.map(item => `
                                 <span class="material-tag">${item.material_icon} ${item.material_name}: ${formatNumber(item.amount)}</span>
