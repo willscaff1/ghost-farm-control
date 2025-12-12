@@ -1211,14 +1211,17 @@ function closeActionModal() {
 
 // Carregar justificativas pendentes (da semana selecionada)
 async function loadJustifications() {
+    const container = document.getElementById('justificationsList');
+    
     try {
         const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
         const response = await fetch(`/api/admin/justifications/pending${params}`);
-        const justifications = await response.json();
+        const data = await response.json();
         
-        const container = document.getElementById('justificationsList');
+        // Suporta tanto { justifications: [...] } quanto array direto
+        const justifications = data.justifications || data || [];
         
-        if (justifications.length === 0) {
+        if (!justifications || justifications.length === 0) {
             container.innerHTML = '<div class="empty-state">✅ Nenhuma justificativa pendente nesta semana</div>';
             return;
         }
@@ -1227,8 +1230,8 @@ async function loadJustifications() {
             <div class="justification-card">
                 <div class="justification-header">
                     <div class="justification-user">
-                        <span class="user-name">👤 ${j.name}</span>
-                        <span class="user-role">${roleNames[j.role] || j.role}</span>
+                        <span class="user-name">👤 ${j.user_name || j.name}</span>
+                        <span class="user-role">${roleNames[j.user_role || j.role] || j.user_role || j.role}</span>
                     </div>
                     <div class="justification-date">
                         📅 Semana: ${formatWeekDate(j.week_start)} - ${formatWeekDate(j.week_end)}
@@ -1256,6 +1259,7 @@ async function loadJustifications() {
         
     } catch (error) {
         console.error('Erro ao carregar justificativas:', error);
+        container.innerHTML = '<div class="empty-state">❌ Erro ao carregar justificativas</div>';
     }
 }
 
