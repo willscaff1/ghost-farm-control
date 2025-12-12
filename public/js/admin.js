@@ -1317,11 +1317,16 @@ async function rejectJustification(id) {
 
 // Carregar solicitações de recuperação de senha
 async function loadPasswordResets() {
+    const container = document.getElementById('passwordResetsList');
+    
     try {
         const response = await fetch('/api/admin/password-resets/pending');
         const data = await response.json();
         
-        const container = document.getElementById('passwordResetsList');
+        if (!response.ok) {
+            container.innerHTML = `<div class="empty-state">❌ Erro: ${data.error || 'Falha ao carregar'}</div>`;
+            return;
+        }
         
         if (!data.requests || data.requests.length === 0) {
             container.innerHTML = '<div class="empty-state">✅ Nenhuma solicitação de recuperação pendente</div>';
@@ -1352,6 +1357,7 @@ async function loadPasswordResets() {
         
     } catch (error) {
         console.error('Erro ao carregar solicitações de recuperação:', error);
+        container.innerHTML = '<div class="empty-state">❌ Erro ao carregar solicitações</div>';
     }
 }
 

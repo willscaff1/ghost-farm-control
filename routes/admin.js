@@ -1955,9 +1955,15 @@ router.get('/password-resets/pending', requireAdmin, async (req, res) => {
             ORDER BY pr.requested_at ASC
         `);
         
-        res.json({ requests });
+        res.json({ requests: requests || [] });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Erro ao buscar password_resets:', error.message);
+        // Se a tabela não existe, retornar array vazio
+        if (error.message.includes('no such table') || error.message.includes('does not exist')) {
+            res.json({ requests: [] });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
 
