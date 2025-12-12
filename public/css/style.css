@@ -57,13 +57,9 @@ body {
 
 .register-link {
     text-align: center;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
-}
-
-.register-link p {
+    margin-top: 15px;
     color: var(--light);
+    font-size: 0.9rem;
 }
 
 .register-link a {
@@ -74,6 +70,98 @@ body {
 
 .register-link a:hover {
     text-decoration: underline;
+}
+
+/* Login Links Section */
+.login-links {
+    text-align: center;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.forgot-password-link {
+    display: inline-block;
+    color: var(--light);
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+}
+
+.forgot-password-link:hover {
+    color: var(--primary);
+    background: rgba(108, 92, 231, 0.1);
+}
+
+/* Recovery Modal Styles */
+.recovery-modal {
+    max-width: 420px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: var(--light);
+    font-size: 1.5rem;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.modal-close-btn:hover {
+    background: rgba(231, 76, 60, 0.3);
+    color: var(--danger);
+}
+
+.recovery-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #5a4fcf 100%);
+    padding: 30px;
+    text-align: center;
+}
+
+.recovery-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.recovery-header h2 {
+    color: var(--white);
+    margin: 0 0 10px 0;
+    font-size: 1.5rem;
+}
+
+.recovery-header p {
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.recovery-modal form {
+    padding: 25px;
+}
+
+.recovery-modal .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 1rem;
+    padding: 14px;
 }
 
 .logo {

@@ -31,25 +31,34 @@
             
             <div id="message" class="message"></div>
             
-            <div class="links-section">
-                <p><a href="#" onclick="showRecoveryModal(); return false;">🔑 Esqueci minha senha</a></p>
-                <p>Ainda não é membro? <a href="/register">Cadastre-se</a></p>
+            <div class="login-links">
+                <a href="#" class="forgot-password-link" onclick="showRecoveryModal(); return false;">
+                    🔑 Esqueci minha senha
+                </a>
+                <div class="register-link">
+                    Ainda não é membro? <a href="/register">Cadastre-se</a>
+                </div>
             </div>
         </div>
     </div>
     
     <!-- Modal de Recuperação de Senha -->
     <div id="recoveryModal" class="modal" style="display:none;">
-        <div class="modal-content" style="max-width: 400px;">
-            <span class="close-btn" onclick="closeRecoveryModal()">&times;</span>
-            <h2>🔑 Recuperar Senha</h2>
-            <p style="color: #888; margin-bottom: 20px;">Digite seu passaporte para solicitar uma nova senha.</p>
+        <div class="modal-content recovery-modal">
+            <button class="modal-close-btn" onclick="closeRecoveryModal()">&times;</button>
+            <div class="recovery-header">
+                <div class="recovery-icon">🔑</div>
+                <h2>Recuperar Senha</h2>
+                <p>Digite seu passaporte para solicitar uma nova senha. Um administrador irá aprovar sua solicitação.</p>
+            </div>
             <form id="recoveryForm">
                 <div class="form-group">
                     <label for="recoveryPassport">Passaporte</label>
-                    <input type="text" id="recoveryPassport" required placeholder="Digite seu passaporte">
+                    <input type="text" id="recoveryPassport" required placeholder="Ex: 1234">
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">Solicitar Recuperação</button>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <span>📤</span> Enviar Solicitação
+                </button>
             </form>
             <div id="recoveryMessage" class="message" style="margin-top: 15px;"></div>
         </div>
