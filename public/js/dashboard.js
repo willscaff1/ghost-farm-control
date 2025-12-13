@@ -1815,11 +1815,75 @@ function closeWarningsModal() {
     document.getElementById('warningsModal').classList.remove('show');
 }
 
+// ===== MODAL DE TROCA DE SENHA =====
+
+// Mostrar modal de troca de senha
+function showChangePassword() {
+    document.getElementById('changePasswordForm').reset();
+    document.getElementById('changePasswordMessage').innerHTML = '';
+    document.getElementById('changePasswordModal').classList.add('show');
+}
+
+// Fechar modal de troca de senha
+function closeChangePasswordModal() {
+    document.getElementById('changePasswordModal').classList.remove('show');
+}
+
+// Processar formulário de troca de senha
+document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+    const messageEl = document.getElementById('changePasswordMessage');
+    
+    // Validações
+    if (newPassword.length < 6) {
+        messageEl.innerHTML = '<span class="error">A nova senha deve ter pelo menos 6 caracteres</span>';
+        return;
+    }
+    
+    if (newPassword !== confirmNewPassword) {
+        messageEl.innerHTML = '<span class="error">As senhas não coincidem</span>';
+        return;
+    }
+    
+    try {
+        messageEl.innerHTML = '<span class="loading">Alterando senha...</span>';
+        
+        const response = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            messageEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+            document.getElementById('changePasswordForm').reset();
+            setTimeout(() => {
+                closeChangePasswordModal();
+            }, 2000);
+        } else {
+            messageEl.innerHTML = '<span class="error">❌ ' + data.error + '</span>';
+        }
+    } catch (error) {
+        messageEl.innerHTML = '<span class="error">❌ Erro ao trocar senha</span>';
+    }
+});
+
 // Fechar modal ao clicar fora
 document.addEventListener('click', function(e) {
     const modal = document.getElementById('warningsModal');
     if (e.target === modal) {
         closeWarningsModal();
+    }
+    
+    const changePasswordModal = document.getElementById('changePasswordModal');
+    if (e.target === changePasswordModal) {
+        closeChangePasswordModal();
     }
 });
 

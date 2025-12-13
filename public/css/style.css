@@ -763,6 +763,66 @@ body {
     margin: 0;
 }
 
+/* Change Password Form */
+.change-password-form {
+    padding: 10px 0;
+}
+
+.change-password-form .form-group {
+    margin-bottom: 18px;
+}
+
+.change-password-form label {
+    display: block;
+    color: #fff;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.change-password-form input {
+    width: 100%;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.change-password-form input:focus {
+    outline: none;
+    border-color: #3498db;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.change-password-form input::placeholder {
+    color: #666;
+}
+
+.change-password-form .form-message {
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    min-height: 20px;
+}
+
+.change-password-form .form-message .success {
+    color: #27ae60;
+}
+
+.change-password-form .form-message .error {
+    color: #e74c3c;
+}
+
+.change-password-form .form-message .loading {
+    color: #3498db;
+}
+
 .stat-label {
     color: var(--light);
     margin-top: 5px;

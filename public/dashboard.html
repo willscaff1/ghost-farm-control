@@ -32,6 +32,7 @@
                     <div class="dropdown-divider"></div>
                     <a href="/admin" class="dropdown-item" id="dropdownAdminBtn" style="display: none;">⚙️ Painel Admin</a>
                     <a href="#" class="dropdown-item" onclick="showMyWarnings(); closeUserDropdown();">⚠️ Minhas Advertências</a>
+                    <a href="#" class="dropdown-item" onclick="showChangePassword(); closeUserDropdown();">🔑 Trocar Senha</a>
                     <div class="dropdown-divider"></div>
                     <a href="#" class="dropdown-item dropdown-item-danger" onclick="logout()">🚪 Sair</a>
                 </div>
@@ -237,6 +238,34 @@
                 <button class="modal-close-btn" onclick="closeWarningsModal()">&times;</button>
             </div>
             <div class="warnings-modal-body" id="warningsModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Modal Trocar Senha -->
+    <div id="changePasswordModal" class="modal warnings-modal">
+        <div class="warnings-modal-content" style="max-width: 400px;">
+            <div class="warnings-modal-header">
+                <h2>🔑 Trocar Senha</h2>
+                <button class="modal-close-btn" onclick="closeChangePasswordModal()">&times;</button>
+            </div>
+            <div class="warnings-modal-body">
+                <form id="changePasswordForm" class="change-password-form">
+                    <div class="form-group">
+                        <label for="currentPassword">Senha Atual</label>
+                        <input type="password" id="currentPassword" placeholder="Digite sua senha atual" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Nova Senha</label>
+                        <input type="password" id="newPassword" placeholder="Digite a nova senha (mín. 6 caracteres)" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmNewPassword">Confirmar Nova Senha</label>
+                        <input type="password" id="confirmNewPassword" placeholder="Confirme a nova senha" required minlength="6">
+                    </div>
+                    <div id="changePasswordMessage" class="form-message"></div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 15px;">Alterar Senha</button>
+                </form>
+            </div>
         </div>
     </div>
 

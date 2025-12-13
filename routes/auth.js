@@ -125,6 +125,50 @@ router.post('/register', async (req, res) => {
     }
 });
 
+// Trocar a própria senha (usuário logado)
+router.post('/change-password', async (req, res) => {
+    try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Não autenticado' });
+        }
+        
+        const { currentPassword, newPassword } = req.body;
+        
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias' });
+        }
+        
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres' });
+        }
+        
+        // Buscar usuário atual com a senha
+        const user = await getOne('SELECT * FROM users WHERE id = ?', [req.session.user.id]);
+        if (!user) {
+            return res.status(404).json({ error: 'Usuário não encontrado' });
+        }
+        
+        // Verificar senha atual
+        const validPassword = bcrypt.compareSync(currentPassword, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Senha atual incorreta' });
+        }
+        
+        // Hash da nova senha
+        const hashedPassword = bcrypt.hashSync(newPassword, 10);
+        
+        // Atualizar senha
+        await runQuery('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
+        
+        console.log(`🔐 Senha alterada: ${user.name} (${user.passport})`);
+        
+        res.json({ success: true, message: 'Senha alterada com sucesso!' });
+    } catch (error) {
+        console.error('Erro ao trocar senha:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Solicitar recuperação de senha (qualquer pessoa pode solicitar)
 router.post('/request-password-reset', async (req, res) => {
     try {
