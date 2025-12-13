@@ -1318,25 +1318,27 @@ async function rejectJustification(id) {
 }
 
 // ==================== RECUPERAÇÃO DE SENHA ====================
+// Versão atualizada: v2
 
 // Carregar solicitações de recuperação de senha
 async function loadPasswordResets() {
+    console.log('🔑 loadPasswordResets() chamada');
     const container = document.getElementById('passwordResetsList');
     
     if (!container) {
-        console.error('Container passwordResetsList não encontrado');
+        console.error('❌ Container passwordResetsList não encontrado');
         return;
     }
     
-    container.innerHTML = '<p class="loading">Carregando solicitações...</p>';
+    console.log('🔑 Container encontrado, buscando dados...');
+    container.innerHTML = '<p class="loading">Buscando solicitações...</p>';
     
     try {
-        console.log('Buscando solicitações de reset de senha...');
         const response = await fetch('/api/admin/password-resets/pending');
-        console.log('Response status:', response.status);
+        console.log('🔑 Response status:', response.status);
         
         const data = await response.json();
-        console.log('Dados recebidos:', data);
+        console.log('🔑 Dados recebidos:', JSON.stringify(data));
         
         if (!response.ok) {
             container.innerHTML = `<div class="empty-state">❌ Erro: ${data.error || 'Falha ao carregar'}</div>`;
@@ -1344,11 +1346,12 @@ async function loadPasswordResets() {
         }
         
         if (!data.requests || data.requests.length === 0) {
+            console.log('🔑 Nenhuma solicitação encontrada');
             container.innerHTML = '<div class="empty-state">✅ Nenhuma solicitação de recuperação pendente</div>';
             return;
         }
         
-        console.log('Renderizando', data.requests.length, 'solicitações');
+        console.log('🔑 Renderizando', data.requests.length, 'solicitações');
         
         container.innerHTML = data.requests.map(r => `
             <div class="password-reset-card" id="reset-card-${r.id}">
@@ -1372,8 +1375,10 @@ async function loadPasswordResets() {
             </div>
         `).join('');
         
+        console.log('🔑 Renderização concluída!');
+        
     } catch (error) {
-        console.error('Erro ao carregar solicitações de recuperação:', error);
+        console.error('❌ Erro ao carregar solicitações:', error);
         container.innerHTML = `<div class="empty-state">❌ Erro: ${error.message}</div>`;
     }
 }

@@ -1988,10 +1988,12 @@ async function ensurePasswordResetsTable() {
 
 // Listar solicitações de recuperação de senha pendentes
 router.get('/password-resets/pending', requireAdmin, async (req, res) => {
+    console.log('📥 Rota /password-resets/pending acessada');
     try {
         // Garantir que a tabela existe
         await ensurePasswordResetsTable();
         
+        console.log('📥 Buscando solicitações pendentes...');
         const requests = await getAll(`
             SELECT pr.*, u.name as user_name, u.passport as user_passport
             FROM password_resets pr
@@ -2000,9 +2002,10 @@ router.get('/password-resets/pending', requireAdmin, async (req, res) => {
             ORDER BY pr.requested_at ASC
         `);
         
+        console.log('📥 Encontradas', (requests || []).length, 'solicitações');
         res.json({ requests: requests || [] });
     } catch (error) {
-        console.error('Erro ao buscar password_resets:', error.message);
+        console.error('❌ Erro ao buscar password_resets:', error.message);
         res.json({ requests: [] });
     }
 });
