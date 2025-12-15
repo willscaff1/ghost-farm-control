@@ -269,8 +269,9 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
         const userId = req.session.user.id;
         const weeks = [];
         
-        // Primeiro, adicionar semanas PASSADAS (até 8 semanas atrás) - TODAS aparecem para navegação
-        for (let i = 8; i >= 1; i--) {
+        // Adicionar apenas 1 semana passada (a anterior) para membros poderem pagar atrasado
+        // i = 1 significa a semana anterior (08/12-14/12 se hoje é 15/12)
+        for (let i = 1; i >= 1; i--) {
             const week = getWeekWithOffset(-i);
             
             // Verificar se tem entrega
