@@ -263,13 +263,13 @@ router.get('/farm-settings', requireAuth, async (req, res) => {
 });
 
 // Criar nova entrega de farm (múltiplos materiais) para a semana atual
-// Obter semanas disponíveis para entrega (atuais, futuras E passadas não pagas)
+// Obter semanas disponíveis para entrega (atuais, futuras E passadas)
 router.get('/available-weeks', requireAuth, async (req, res) => {
     try {
         const userId = req.session.user.id;
         const weeks = [];
         
-        // Primeiro, adicionar semanas PASSADAS não pagas (até 8 semanas atrás)
+        // Primeiro, adicionar semanas PASSADAS (até 8 semanas atrás) - TODAS aparecem para navegação
         for (let i = 8; i >= 1; i--) {
             const week = getWeekWithOffset(-i);
             
@@ -290,17 +290,22 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
                 SELECT * FROM farm_whitelist WHERE user_id = ?
             `, [userId]);
             
-            // Pular se já pagou completamente, tem justificativa ou está na whitelist
-            if ((existingDelivery && existingDelivery.status === 'approved' && !existingDelivery.is_partial) || existingJustification || inWhitelist) {
-                continue;
-            }
-            
             // Determinar status
             let available = true;
             let reason = 'Meta atrasada - não paga';
             let isPastWeek = true;
             
-            if (existingDelivery) {
+            // Se já pagou completamente, tem justificativa ou está na whitelist
+            if ((existingDelivery && existingDelivery.status === 'approved' && !existingDelivery.is_partial) || existingJustification || inWhitelist) {
+                available = false;
+                if (existingDelivery && existingDelivery.status === 'approved') {
+                    reason = 'Já pago ✓';
+                } else if (existingJustification) {
+                    reason = 'Ausência justificada';
+                } else if (inWhitelist) {
+                    reason = 'Isento (whitelist)';
+                }
+            } else if (existingDelivery) {
                 if (existingDelivery.status === 'pending' && !existingDelivery.is_partial) {
                     available = false;
                     reason = 'Aguardando aprovação';
@@ -320,7 +325,7 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
                 reason: reason,
                 hasDelivery: !!existingDelivery,
                 isPartial: existingDelivery?.is_partial || false,
-                hasJustification: false,
+                hasJustification: !!existingJustification,
                 isPastWeek: isPastWeek
             });
         }
