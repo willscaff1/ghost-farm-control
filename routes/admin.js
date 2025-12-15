@@ -920,6 +920,12 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 });
             } else if (delivery && (delivery.is_partial || delivery.status === 'in_progress')) {
                 // Farm EM PROGRESSO (parcial, ainda completando)
+                // Verificar se já tem ADV aplicada nessa semana
+                const hasAdvThisWeek = await getOne(`
+                    SELECT id FROM warnings 
+                    WHERE user_id = ? AND week_start = ? AND week_end = ?
+                `, [member.id, weekStart, weekEnd]);
+                
                 partial.push({
                     ...member,
                     delivery_id: delivery.id,
@@ -931,7 +937,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     is_partial: true,
                     status: delivery.status,
                     payment_type: delivery.payment_type || 'material',
-                    dirty_money_amount: delivery.dirty_money_amount || 0
+                    dirty_money_amount: delivery.dirty_money_amount || 0,
+                    has_adv_applied: !!hasAdvThisWeek
                 });
             } else if (justification && justification.status === 'approved') {
                 // Justificativa aprovada
@@ -954,9 +961,15 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 // Está na whitelist e não entregou - não conta como "não entregou"
                 // Simplesmente não adiciona em nenhuma lista (isento)
             } else {
-                // Não enviou nada
+                // Não enviou nada - verificar se já tem ADV aplicada nessa semana
+                const hasAdvThisWeek = await getOne(`
+                    SELECT id FROM warnings 
+                    WHERE user_id = ? AND week_start = ? AND week_end = ?
+                `, [member.id, weekStart, weekEnd]);
+                
                 notDelivered.push({
-                    ...member
+                    ...member,
+                    has_adv_applied: !!hasAdvThisWeek
                 });
             }
         }
