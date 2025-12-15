@@ -744,7 +744,11 @@ function renderWeeklyTable(filter) {
                 actionHtml = `<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Extrato</button>`;
                 break;
             case 'partial':
+                // Em progresso: Ver Detalhes + ADV se semana passou (não completou a meta)
                 actionHtml = `<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Detalhes</button>`;
+                if (weekPassed) {
+                    actionHtml += ` <button class="action-btn adv" onclick="applyWeeklyAdv(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${selectedWeek ? selectedWeek.start : ''}', '${selectedWeek ? selectedWeek.end : ''}')">⚠️ Aplicar ADV</button>`;
+                }
                 break;
             case 'pending':
                 if (member.has_justification_pending) {
