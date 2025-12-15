@@ -438,9 +438,9 @@ function updateWeekNavButtons() {
     prevBtn.disabled = currentWeekOffset <= minOffset;
     nextBtn.disabled = currentWeekOffset >= maxOffset;
     
-    // Mudar estilo do botão anterior se tiver semanas atrasadas
-    const hasPastWeeks = availableWeeksData.some(w => w.offset < 0);
-    if (hasPastWeeks && currentWeekOffset > minOffset) {
+    // Mudar estilo do botão anterior APENAS se tiver semanas atrasadas NÃO PAGAS
+    const hasUnpaidPastWeeks = availableWeeksData.some(w => w.offset < 0 && w.available === true);
+    if (hasUnpaidPastWeeks && currentWeekOffset > minOffset) {
         prevBtn.classList.add('has-past-weeks');
     } else {
         prevBtn.classList.remove('has-past-weeks');
@@ -1841,12 +1841,15 @@ function closeWarningsModal() {
 
 // ===== SEMANAS NÃO PAGAS =====
 
-// Carregar semanas não pagas (agora apenas conta para mostrar alerta)
+// Carregar semanas não pagas (apenas semanas PASSADAS que NÃO foram pagas)
 async function loadUnpaidWeeks() {
     try {
         // Usar os dados de availableWeeksData que já foram carregados
-        // Contar semanas passadas não pagas
-        const unpaidPastWeeks = availableWeeksData.filter(w => w.offset < 0);
+        // Contar semanas passadas que NÃO foram pagas (available = true significa que ainda pode pagar)
+        // Ou seja, semanas com offset < 0 E available = true são semanas atrasadas não pagas
+        const unpaidPastWeeks = availableWeeksData.filter(w => 
+            w.offset < 0 && w.available === true
+        );
         
         const panel = document.getElementById('unpaidWeeksPanel');
         const countEl = document.getElementById('unpaidWeeksCount');
