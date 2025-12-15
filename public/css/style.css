@@ -2761,3 +2761,27 @@ h3 {
     transform: scale(1.1);
 }
 
+/* Late Payment Tags */
+.late-tag, .late-payment-tag {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-left: 8px;
+    animation: pulse-late 2s infinite;
+}
+
+@keyframes pulse-late {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.late-payment-row {
+    background: rgba(243, 156, 18, 0.1) !important;
+}
+
+.late-payment-row td {
+    border-left: 3px solid #f39c12;
+}

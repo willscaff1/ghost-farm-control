@@ -888,6 +888,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             
             if (delivery && delivery.status === 'approved' && !delivery.is_partial) {
                 // Farm COMPLETO aprovado
+                const isLatePayment = delivery.description && delivery.description.includes('[META ATRASADA]');
                 completed.push({
                     ...member,
                     delivery_id: delivery.id,
@@ -898,10 +899,12 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     items: deliveryItems,
                     is_partial: false,
                     payment_type: delivery.payment_type || 'material',
-                    dirty_money_amount: delivery.dirty_money_amount || 0
+                    dirty_money_amount: delivery.dirty_money_amount || 0,
+                    is_late_payment: isLatePayment
                 });
             } else if (delivery && delivery.status === 'pending' && !delivery.is_partial) {
                 // Farm COMPLETO aguardando aprovação
+                const isLatePayment = delivery.description && delivery.description.includes('[META ATRASADA]');
                 pendingApproval.push({
                     ...member,
                     delivery_id: delivery.id,
@@ -911,7 +914,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     description: delivery.description,
                     items: deliveryItems,
                     payment_type: delivery.payment_type || 'material',
-                    dirty_money_amount: delivery.dirty_money_amount || 0
+                    dirty_money_amount: delivery.dirty_money_amount || 0,
+                    is_late_payment: isLatePayment
                 });
             } else if (delivery && (delivery.is_partial || delivery.status === 'in_progress')) {
                 // Farm EM PROGRESSO (parcial, ainda completando)
@@ -1003,7 +1007,7 @@ router.get('/members-overview', requireAdmin, async (req, res) => {
             
             // Verificar se tem farm na semana
             const delivery = await getOne(`
-                SELECT id, status, created_at, payment_type, payment_type_id, dirty_money_amount FROM deliveries 
+                SELECT id, status, created_at, payment_type, payment_type_id, dirty_money_amount, description FROM deliveries 
                 WHERE user_id = ? AND week_start = ? AND week_end = ?
             `, [member.id, weekStart, weekEnd]);
             
@@ -1022,10 +1026,12 @@ router.get('/members-overview', requireAdmin, async (req, res) => {
             let farmStatus = 'not_delivered';
             let deliveryId = null;
             let deliveredAt = null;
+            let isLatePayment = false;
             if (delivery) {
                 farmStatus = delivery.status; // 'approved', 'pending', 'rejected'
                 deliveryId = delivery.id;
                 deliveredAt = delivery.created_at;
+                isLatePayment = delivery.description && delivery.description.includes('[META ATRASADA]');
             } else if (justification) {
                 // Se aprovada = justificada, se pendente = aguardando, se rejeitada = não entregue
                 if (justification.status === 'approved') {
@@ -1056,7 +1062,8 @@ router.get('/members-overview', requireAdmin, async (req, res) => {
                 paymentType: delivery ? (delivery.payment_type || 'material') : null,
                 paymentTypeName,
                 paymentTypeIcon,
-                dirtyMoneyAmount: delivery ? (delivery.dirty_money_amount || 0) : 0
+                dirtyMoneyAmount: delivery ? (delivery.dirty_money_amount || 0) : 0,
+                isLatePayment: isLatePayment
             });
         }
         

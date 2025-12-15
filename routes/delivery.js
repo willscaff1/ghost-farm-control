@@ -769,10 +769,10 @@ router.post('/pay-past-week', requireAuth, (req, res) => {
                 await runQuery('DELETE FROM deliveries WHERE id = ?', [existingDelivery.id]);
             }
             
-            // Criar nova entrega para semana passada
+            // Criar nova entrega para semana passada (marcada como pagamento retroativo)
             const result = await runQuery(`
-                INSERT INTO deliveries (user_id, week_start, week_end, status, is_partial, payment_type, payment_type_id, dirty_money_amount)
-                VALUES (?, ?, ?, 'pending', 0, ?, ?, ?)
+                INSERT INTO deliveries (user_id, week_start, week_end, status, is_partial, payment_type, payment_type_id, dirty_money_amount, description)
+                VALUES (?, ?, ?, 'pending', 0, ?, ?, ?, '[META ATRASADA]')
             `, [userId, week_start, week_end, paymentType, paymentTypeId, dirtyMoneyAmount]);
             
             const deliveryId = result.lastID;

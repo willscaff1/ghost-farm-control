@@ -202,10 +202,10 @@ async function loadSelectedWeek() {
             currentWeekLabel.textContent = data.week.label;
         }
         
-        // Controlar visibilidade do botão anterior (não pode voltar antes da semana atual)
+        // Controlar visibilidade do botão anterior (permitir voltar até 8 semanas atrás)
         const btnPrev = document.getElementById('btnPrevWeek');
         if (btnPrev) {
-            btnPrev.style.visibility = selectedWeekOffset > 0 ? 'visible' : 'hidden';
+            btnPrev.style.visibility = selectedWeekOffset > -8 ? 'visible' : 'hidden';
         }
     } catch (error) {
         console.error('Erro ao carregar semana:', error);
@@ -214,7 +214,7 @@ async function loadSelectedWeek() {
 
 // Navegar entre semanas
 function previousWeek() {
-    if (selectedWeekOffset > 0) {
+    if (selectedWeekOffset > -8) {
         selectedWeekOffset--;
         loadSelectedWeek().then(() => loadAll());
     }
@@ -773,13 +773,13 @@ function renderWeeklyTable(filter) {
                     <div class="member-cell">
                         <div class="member-avatar">${initial}</div>
                         <div>
-                            <div class="member-name">${member.name}</div>
+                            <div class="member-name">${member.name}${member.is_late_payment ? ' <span class="late-tag">⏰ ATRASADO</span>' : ''}</div>
                             <div class="member-passport">ID: ${member.passport || member.id}</div>
                         </div>
                     </div>
                 </td>
                 <td class="role-cell">${roleName}</td>
-                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}</span></td>
+                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
                 <td>${actionHtml}</td>
             </tr>
         `;
@@ -3502,7 +3502,8 @@ async function loadWeeklyReport() {
                 farmStatus: member.farmStatus,
                 paymentType: member.paymentType,
                 paymentTypeText: paymentTypeText,
-                dirtyMoneyAmount: member.dirtyMoneyAmount || 0
+                dirtyMoneyAmount: member.dirtyMoneyAmount || 0,
+                isLatePayment: member.isLatePayment || false
             };
             
             // Considera "pagou" se tem farm aprovado ou justificativa aprovada
@@ -3560,15 +3561,19 @@ function renderReport(data) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${data.paid.length > 0 ? data.paid.map(m => `
-                                <tr>
-                                    <td>${m.passport}</td>
-                                    <td>${m.name}</td>
-                                    <td>${m.role}</td>
-                                    <td>${m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais')}</td>
-                                    <td>${m.farmStatus === 'justified' ? 'Justificado' : 'Pago'}</td>
-                                </tr>
-                            `).join('') : '<tr><td colspan="5" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
+                            ${data.paid.length > 0 ? data.paid.map(m => {
+                                const lateTag = m.isLatePayment ? '<span class="late-payment-tag">⏰ ATRASADO</span>' : '';
+                                const statusText = m.farmStatus === 'justified' ? 'Justificado' : (m.isLatePayment ? 'Pago (Atrasado)' : 'Pago');
+                                return `
+                                    <tr class="${m.isLatePayment ? 'late-payment-row' : ''}">
+                                        <td>${m.passport}</td>
+                                        <td>${m.name} ${lateTag}</td>
+                                        <td>${m.role}</td>
+                                        <td>${m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais')}</td>
+                                        <td>${statusText}</td>
+                                    </tr>
+                                `;
+                            }).join('') : '<tr><td colspan="5" style="text-align:center;color:#888;">Nenhum membro</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -3712,10 +3717,10 @@ async function generateReportPDF() {
                     ${reportData.paid.map(m => `
                         <tr>
                             <td>${m.passport}</td>
-                            <td>${m.name}</td>
+                            <td>${m.name}${m.isLatePayment ? ' ⏰' : ''}</td>
                             <td>${m.role}</td>
                             <td>${m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais')}</td>
-                            <td>${m.farmStatus === 'justified' ? 'Justificado' : 'Pago'}</td>
+                            <td>${m.farmStatus === 'justified' ? 'Justificado' : (m.isLatePayment ? 'Pago (Atrasado)' : 'Pago')}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -3783,7 +3788,7 @@ function generateReportExcel() {
     csv += 'PAGARAM O FARM\n';
     csv += 'Passaporte;Nome;Cargo;Tipo Pagamento;Status\n';
     reportData.paid.forEach(m => {
-        const status = m.farmStatus === 'justified' ? 'Justificado' : 'Pago';
+        const status = m.farmStatus === 'justified' ? 'Justificado' : (m.isLatePayment ? 'Pago (Atrasado)' : 'Pago');
         const tipoPagamento = m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais');
         csv += `${m.passport};${m.name};${m.role};${tipoPagamento};${status}\n`;
     });
