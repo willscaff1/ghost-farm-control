@@ -46,7 +46,6 @@ async function checkAuth() {
             loadStats();
             loadMyDeliveries();
             checkNotifications(); // Verificar notificações
-            loadUnpaidWeeks(); // Carregar semanas não pagas
         } else {
             window.location.href = '/';
         }
@@ -403,6 +402,9 @@ async function loadAvailableWeeks() {
         
         updateWeekNavButtons();
         
+        // Atualizar alerta de semanas atrasadas
+        loadUnpaidWeeks();
+        
     } catch (error) {
         console.error('Erro ao carregar semanas:', error);
     }
@@ -412,7 +414,7 @@ async function loadAvailableWeeks() {
 function changeWeek(direction) {
     const newOffset = currentWeekOffset + direction;
     
-    // Verificar se existe a semana
+    // Verificar se existe a semana (incluindo semanas passadas não pagas)
     const weekExists = availableWeeksData.find(w => w.offset === newOffset);
     if (weekExists) {
         currentWeekOffset = newOffset;
@@ -428,12 +430,21 @@ function updateWeekNavButtons() {
     
     if (!prevBtn || !nextBtn || availableWeeksData.length === 0) return;
     
-    // Verificar se existem semanas anteriores/próximas
+    // Verificar se existem semanas anteriores/próximas na lista
     const minOffset = Math.min(...availableWeeksData.map(w => w.offset));
     const maxOffset = Math.max(...availableWeeksData.map(w => w.offset));
     
+    // Permitir navegar para qualquer semana disponível (incluindo passadas não pagas)
     prevBtn.disabled = currentWeekOffset <= minOffset;
     nextBtn.disabled = currentWeekOffset >= maxOffset;
+    
+    // Mudar estilo do botão anterior se tiver semanas atrasadas
+    const hasPastWeeks = availableWeeksData.some(w => w.offset < 0);
+    if (hasPastWeeks && currentWeekOffset > minOffset) {
+        prevBtn.classList.add('has-past-weeks');
+    } else {
+        prevBtn.classList.remove('has-past-weeks');
+    }
 }
 
 // Carregar dados de uma semana específica
@@ -456,6 +467,8 @@ async function loadWeekData(offset = 0) {
             labelText += ' (Atual)';
         } else if (offset > 0) {
             labelText += ` (+${offset} sem)`;
+        } else if (offset < 0) {
+            labelText += ' ⏰ (Atrasada)';
         }
         weekLabel.textContent = labelText;
         
@@ -463,6 +476,9 @@ async function loadWeekData(offset = 0) {
         const weekStatus = document.getElementById('weekStatus');
         let statusHtml = '';
         let statusClass = '';
+        
+        // Verificar se é semana passada
+        const isPastWeek = offset < 0;
         
         if (data.hasDelivery) {
             if (data.isPartial && data.canDeliver) {
@@ -482,8 +498,13 @@ async function loadWeekData(offset = 0) {
             statusClass = data.justificationStatus === 'approved' ? 'justified' : 'pending';
             statusHtml = data.justificationStatus === 'approved' ? '📋 Justificado' : '⏳ Aguardando';
         } else {
-            statusClass = 'missing';
-            statusHtml = '⚠️ Pendente';
+            if (isPastWeek) {
+                statusClass = 'late';
+                statusHtml = '⏰ Meta Atrasada';
+            } else {
+                statusClass = 'missing';
+                statusHtml = '⚠️ Pendente';
+            }
         }
         
         weekStatus.innerHTML = `<span class="status-pill ${statusClass}">${statusHtml}</span>`;
@@ -1820,35 +1841,19 @@ function closeWarningsModal() {
 
 // ===== SEMANAS NÃO PAGAS =====
 
-// Carregar semanas não pagas
+// Carregar semanas não pagas (agora apenas conta para mostrar alerta)
 async function loadUnpaidWeeks() {
     try {
-        const response = await fetch('/api/delivery/unpaid-weeks');
-        const data = await response.json();
+        // Usar os dados de availableWeeksData que já foram carregados
+        // Contar semanas passadas não pagas
+        const unpaidPastWeeks = availableWeeksData.filter(w => w.offset < 0);
         
         const panel = document.getElementById('unpaidWeeksPanel');
-        const list = document.getElementById('unpaidWeeksList');
+        const countEl = document.getElementById('unpaidWeeksCount');
         
-        if (data.unpaidWeeks && data.unpaidWeeks.length > 0) {
-            // Filtrar apenas as não pagas (excluir aguardando aprovação)
-            const unpaid = data.unpaidWeeks.filter(w => w.status === 'not_paid' || w.status === 'rejected' || w.status === 'partial');
-            
-            if (unpaid.length > 0) {
-                panel.style.display = 'block';
-                list.innerHTML = unpaid.map(week => `
-                    <div class="unpaid-week-item">
-                        <div class="unpaid-week-info">
-                            <span class="unpaid-week-date">📅 ${week.label}</span>
-                            <span class="unpaid-week-status ${week.status}">${week.statusText}</span>
-                        </div>
-                        <button class="btn-pay-past" onclick="openPayPastWeekModal('${week.start}', '${week.end}', '${week.label}')">
-                            💰 Pagar
-                        </button>
-                    </div>
-                `).join('');
-            } else {
-                panel.style.display = 'none';
-            }
+        if (unpaidPastWeeks.length > 0) {
+            panel.style.display = 'block';
+            countEl.textContent = unpaidPastWeeks.length;
         } else {
             panel.style.display = 'none';
         }

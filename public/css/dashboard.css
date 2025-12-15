@@ -334,6 +334,18 @@
     cursor: not-allowed;
 }
 
+.week-nav-btn.has-past-weeks {
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.3), rgba(230, 126, 34, 0.3));
+    border-color: rgba(243, 156, 18, 0.6);
+    color: #f39c12;
+    animation: glow-orange 2s infinite;
+}
+
+@keyframes glow-orange {
+    0%, 100% { box-shadow: 0 0 5px rgba(243, 156, 18, 0.3); }
+    50% { box-shadow: 0 0 15px rgba(243, 156, 18, 0.6); }
+}
+
 .week-center {
     display: flex;
     flex-direction: column;
@@ -395,6 +407,18 @@
     background: rgba(214, 48, 49, 0.15);
     color: #ff7675;
     border: 1px solid rgba(214, 48, 49, 0.3);
+}
+
+.status-pill.late {
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.2), rgba(230, 126, 34, 0.2));
+    color: #f39c12;
+    border: 1px solid rgba(243, 156, 18, 0.5);
+    animation: pulse-late 2s infinite;
+}
+
+@keyframes pulse-late {
+    0%, 100% { opacity: 1; box-shadow: 0 0 5px rgba(243, 156, 18, 0.3); }
+    50% { opacity: 0.8; box-shadow: 0 0 15px rgba(243, 156, 18, 0.5); }
 }
 
 .status-pill.justified {

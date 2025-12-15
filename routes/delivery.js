@@ -263,12 +263,69 @@ router.get('/farm-settings', requireAuth, async (req, res) => {
 });
 
 // Criar nova entrega de farm (múltiplos materiais) para a semana atual
-// Obter semanas disponíveis para entrega (atual + 3 próximas)
+// Obter semanas disponíveis para entrega (atuais, futuras E passadas não pagas)
 router.get('/available-weeks', requireAuth, async (req, res) => {
     try {
         const userId = req.session.user.id;
         const weeks = [];
         
+        // Primeiro, adicionar semanas PASSADAS não pagas (até 8 semanas atrás)
+        for (let i = 8; i >= 1; i--) {
+            const week = getWeekWithOffset(-i);
+            
+            // Verificar se tem entrega
+            const existingDelivery = await getOne(`
+                SELECT * FROM deliveries 
+                WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [userId, week.start, week.end]);
+            
+            // Verificar se tem justificativa aprovada
+            const existingJustification = await getOne(`
+                SELECT * FROM justifications 
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'approved'
+            `, [userId, week.start, week.end]);
+            
+            // Verificar whitelist (whitelist é por usuário, não por semana)
+            const inWhitelist = await getOne(`
+                SELECT * FROM farm_whitelist WHERE user_id = ?
+            `, [userId]);
+            
+            // Pular se já pagou completamente, tem justificativa ou está na whitelist
+            if ((existingDelivery && existingDelivery.status === 'approved' && !existingDelivery.is_partial) || existingJustification || inWhitelist) {
+                continue;
+            }
+            
+            // Determinar status
+            let available = true;
+            let reason = 'Meta atrasada - não paga';
+            let isPastWeek = true;
+            
+            if (existingDelivery) {
+                if (existingDelivery.status === 'pending' && !existingDelivery.is_partial) {
+                    available = false;
+                    reason = 'Aguardando aprovação';
+                } else if (existingDelivery.is_partial) {
+                    available = true;
+                    reason = 'Pagamento parcial';
+                } else if (existingDelivery.status === 'rejected') {
+                    available = true;
+                    reason = 'Rejeitado - refaça';
+                }
+            }
+            
+            weeks.push({
+                offset: -i,
+                ...week,
+                available: available,
+                reason: reason,
+                hasDelivery: !!existingDelivery,
+                isPartial: existingDelivery?.is_partial || false,
+                hasJustification: false,
+                isPastWeek: isPastWeek
+            });
+        }
+        
+        // Depois, adicionar semana atual e futuras (0 a 3)
         for (let i = 0; i <= 3; i++) {
             const week = getWeekWithOffset(i);
             
@@ -313,7 +370,8 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
                 reason: reason,
                 hasDelivery: !!existingDelivery,
                 isPartial: existingDelivery?.is_partial || false,
-                hasJustification: !!existingJustification
+                hasJustification: !!existingJustification,
+                isPastWeek: false
             });
         }
         
@@ -345,10 +403,10 @@ router.get('/unpaid-weeks', requireAuth, async (req, res) => {
                 WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'approved'
             `, [userId, week.start, week.end]);
             
-            // Verificar se está na whitelist dessa semana
+            // Verificar se está na whitelist (whitelist é por usuário, não por semana)
             const inWhitelist = await getOne(`
-                SELECT * FROM farm_whitelist WHERE user_id = ? AND week_start = ? AND week_end = ?
-            `, [userId, week.start, week.end]);
+                SELECT * FROM farm_whitelist WHERE user_id = ?
+            `, [userId]);
             
             // Se já pagou (aprovado e completo) ou tem justificativa aprovada ou está na whitelist, pula
             if ((delivery && delivery.status === 'approved' && !delivery.is_partial) || justification || inWhitelist) {
@@ -403,11 +461,15 @@ router.post('/', requireAuth, (req, res) => {
             const dirtyMoneyAmount = parseInt(dirty_money_amount) || 0;
             
             // Usar a semana selecionada ou a atual
+            // Agora aceita offsets negativos (semanas passadas) até -8
             const offset = parseInt(week_offset) || 0;
-            if (offset < 0 || offset > 3) {
+            if (offset < -8 || offset > 3) {
                 return res.status(400).json({ error: 'Semana inválida' });
             }
             const week = getWeekWithOffset(offset);
+            
+            // Verificar se é semana passada para marcar como meta atrasada
+            const isPastWeek = offset < 0;
             
             // Deletar entrega rejeitada se existir (permite refazer)
             await runQuery(`
@@ -576,12 +638,15 @@ router.post('/', requireAuth, (req, res) => {
                 const firstMimeType = firstFile.mimetype;
                 const screenshot_url = `data:${firstMimeType};base64,${firstBase64}`;
                 
-                console.log('📦 Criando nova entrega:', { userId, week, description, paymentType, paymentTypeId, dirtyMoneyAmount });
+                // Se for semana passada, marcar como meta atrasada
+                const finalDescription = isPastWeek ? '[META ATRASADA] ' + (description || '') : (description || '');
+                
+                console.log('📦 Criando nova entrega:', { userId, week, description: finalDescription, paymentType, paymentTypeId, dirtyMoneyAmount, isPastWeek });
                 
                 // Criar a entrega principal como parcial (será atualizada se completar)
                 const result = await runQuery(
                     'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial, status, payment_type, payment_type_id, dirty_money_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [userId, week.start, week.end, description || '', screenshot_url, true, 'in_progress', paymentType, paymentTypeId, dirtyMoneyAmount]
+                    [userId, week.start, week.end, finalDescription, screenshot_url, true, 'in_progress', paymentType, paymentTypeId, dirtyMoneyAmount]
                 );
                 
                 deliveryId = result.lastID;
