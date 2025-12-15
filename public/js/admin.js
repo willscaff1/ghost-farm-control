@@ -1855,8 +1855,8 @@ async function toggleMember(id) {
 // Carregar ranking (da semana selecionada)
 async function loadRanking() {
     try {
-        const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
-        const response = await fetch(`/api/admin/ranking${params}`);
+        // Ranking sempre mostra o total de TODAS as semanas (não filtra por semana)
+        const response = await fetch(`/api/admin/ranking`);
         const data = await response.json();
         
         // Ranking de Farms
