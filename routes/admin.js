@@ -839,15 +839,16 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         const whitelist = await getAll(`SELECT user_id FROM farm_whitelist`);
         const whitelistIds = whitelist.map(w => w.user_id);
         
-        // Todos os membros ativos (exceto os da whitelist)
+        // Todos os membros ativos (NÃO filtramos whitelist aqui - será tratado individualmente)
         const allMembers = await getAll(`
             SELECT id, name, passport, role FROM users 
             WHERE active = 1
             ORDER BY name
         `);
         
-        // Filtrar membros da whitelist
-        const membersToCheck = allMembers.filter(m => !whitelistIds.includes(m.id));
+        // Não filtramos mais membros da whitelist aqui
+        // Se estão na whitelist MAS entregaram, devem aparecer no relatório
+        const membersToCheck = allMembers;
         
         const completed = [];      // Farm aprovado COMPLETO (700+ de cada)
         const partial = [];        // Farm EM PROGRESSO (ainda não completou 700 de cada)
@@ -949,6 +950,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     justification_reason: justification.reason,
                     justification_created_at: justification.created_at
                 });
+            } else if (whitelistIds.includes(member.id)) {
+                // Está na whitelist e não entregou - não conta como "não entregou"
+                // Simplesmente não adiciona em nenhuma lista (isento)
             } else {
                 // Não enviou nada
                 notDelivered.push({
@@ -1002,14 +1006,15 @@ router.get('/members-overview', requireAdmin, async (req, res) => {
         const members = [];
         
         for (const member of allMembers) {
-            // Se está na whitelist, pula
-            if (whitelistIds.includes(member.id)) continue;
-            
-            // Verificar se tem farm na semana
+            // Verificar se tem farm na semana (ANTES de verificar whitelist)
             const delivery = await getOne(`
                 SELECT id, status, created_at, payment_type, payment_type_id, dirty_money_amount, description FROM deliveries 
                 WHERE user_id = ? AND week_start = ? AND week_end = ?
             `, [member.id, weekStart, weekEnd]);
+            
+            // Se está na whitelist E não tem entrega, pula
+            // Se está na whitelist MAS tem entrega, deve aparecer no relatório
+            if (whitelistIds.includes(member.id) && !delivery) continue;
             
             // Verificar se tem justificativa na semana
             const justification = await getOne(`
