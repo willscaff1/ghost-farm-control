@@ -87,6 +87,15 @@
                         <span class="stat-text">Advertências</span>
                     </div>
                 </div>
+
+                <!-- Semanas Não Pagas -->
+                <div class="panel unpaid-weeks-panel" id="unpaidWeeksPanel" style="display: none;">
+                    <div class="panel-header">
+                        <h2>⚠️ Semanas Pendentes</h2>
+                    </div>
+                    <p class="unpaid-hint">Você tem semanas anteriores sem pagamento. Regularize para evitar advertências!</p>
+                    <div id="unpaidWeeksList" class="unpaid-weeks-list"></div>
+                </div>
             </div>
 
             <!-- Coluna Direita - Formulário -->
@@ -264,6 +273,63 @@
                     </div>
                     <div id="changePasswordMessage" class="form-message"></div>
                     <button type="submit" class="btn-primary" style="width: 100%; margin-top: 15px;">Alterar Senha</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pagar Semana Anterior -->
+    <div id="payPastWeekModal" class="modal warnings-modal">
+        <div class="warnings-modal-content" style="max-width: 500px;">
+            <div class="warnings-modal-header">
+                <h2>💰 Pagar Semana Anterior</h2>
+                <button class="modal-close-btn" onclick="closePayPastWeekModal()">&times;</button>
+            </div>
+            <div class="warnings-modal-body">
+                <div class="past-week-info">
+                    <span class="past-week-label" id="pastWeekLabel">Semana: --</span>
+                </div>
+                
+                <form id="payPastWeekForm" enctype="multipart/form-data">
+                    <input type="hidden" id="pastWeekStart" name="week_start">
+                    <input type="hidden" id="pastWeekEnd" name="week_end">
+                    
+                    <!-- Seletor de tipo de pagamento -->
+                    <div class="form-group">
+                        <label>Tipo de Pagamento</label>
+                        <select id="pastPaymentType" onchange="togglePastPaymentType()">
+                            <option value="material">📦 Materiais</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Pagamento com Materiais -->
+                    <div id="pastMaterialsSection">
+                        <div class="form-group">
+                            <label>Materiais Entregues</label>
+                            <div id="pastMaterialsList" class="materials-input-list"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pagamento com Dinheiro -->
+                    <div id="pastMoneySection" style="display: none;">
+                        <div class="form-group">
+                            <label>Valor</label>
+                            <input type="number" id="pastMoneyAmount" min="0" placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <!-- Screenshots -->
+                    <div class="form-group">
+                        <label>📷 Prints de Comprovação <span class="required">*</span></label>
+                        <div class="screenshots-area">
+                            <div id="pastScreenshotsPreview" class="screenshots-grid"></div>
+                            <button type="button" class="btn-add-screenshot" onclick="addPastScreenshot()">+ Adicionar Print</button>
+                            <input type="file" id="pastScreenshotInput" accept="image/*" style="display: none;" onchange="handlePastScreenshot(event)">
+                        </div>
+                    </div>
+                    
+                    <div id="pastWeekMessage" class="form-message"></div>
+                    <button type="submit" class="btn-submit" style="width: 100%;">💾 Enviar Pagamento</button>
                 </form>
             </div>
         </div>

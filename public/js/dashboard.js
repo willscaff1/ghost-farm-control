@@ -9,6 +9,8 @@ let currentPaymentType = 'material'; // 'material' ou tipo de pagamento ID
 let currentPaymentTypeId = null; // ID do tipo de pagamento selecionado
 let paymentTypes = []; // Lista de tipos de pagamento carregados do banco
 let screenshotFilesDirty = []; // Screenshots para pagamento alternativo
+let pastScreenshotFiles = []; // Screenshots para pagamento de semana passada
+let selectedPastWeek = null; // Semana passada selecionada para pagar
 const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
 const roleNames = {
@@ -44,6 +46,7 @@ async function checkAuth() {
             loadStats();
             loadMyDeliveries();
             checkNotifications(); // Verificar notificações
+            loadUnpaidWeeks(); // Carregar semanas não pagas
         } else {
             window.location.href = '/';
         }
@@ -1815,6 +1818,260 @@ function closeWarningsModal() {
     document.getElementById('warningsModal').classList.remove('show');
 }
 
+// ===== SEMANAS NÃO PAGAS =====
+
+// Carregar semanas não pagas
+async function loadUnpaidWeeks() {
+    try {
+        const response = await fetch('/api/delivery/unpaid-weeks');
+        const data = await response.json();
+        
+        const panel = document.getElementById('unpaidWeeksPanel');
+        const list = document.getElementById('unpaidWeeksList');
+        
+        if (data.unpaidWeeks && data.unpaidWeeks.length > 0) {
+            // Filtrar apenas as não pagas (excluir aguardando aprovação)
+            const unpaid = data.unpaidWeeks.filter(w => w.status === 'not_paid' || w.status === 'rejected' || w.status === 'partial');
+            
+            if (unpaid.length > 0) {
+                panel.style.display = 'block';
+                list.innerHTML = unpaid.map(week => `
+                    <div class="unpaid-week-item">
+                        <div class="unpaid-week-info">
+                            <span class="unpaid-week-date">📅 ${week.label}</span>
+                            <span class="unpaid-week-status ${week.status}">${week.statusText}</span>
+                        </div>
+                        <button class="btn-pay-past" onclick="openPayPastWeekModal('${week.start}', '${week.end}', '${week.label}')">
+                            💰 Pagar
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                panel.style.display = 'none';
+            }
+        } else {
+            panel.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar semanas não pagas:', error);
+    }
+}
+
+// Abrir modal para pagar semana passada
+async function openPayPastWeekModal(weekStart, weekEnd, weekLabel) {
+    selectedPastWeek = { start: weekStart, end: weekEnd, label: weekLabel };
+    pastScreenshotFiles = [];
+    
+    document.getElementById('pastWeekLabel').textContent = `Semana: ${weekLabel}`;
+    document.getElementById('pastWeekStart').value = weekStart;
+    document.getElementById('pastWeekEnd').value = weekEnd;
+    document.getElementById('pastWeekMessage').innerHTML = '';
+    document.getElementById('pastScreenshotsPreview').innerHTML = '';
+    
+    // Carregar opções de pagamento
+    const paymentSelect = document.getElementById('pastPaymentType');
+    paymentSelect.innerHTML = '<option value="material">📦 Materiais</option>';
+    
+    // Adicionar tipos de pagamento alternativos
+    if (paymentTypes && paymentTypes.length > 0) {
+        paymentTypes.forEach(pt => {
+            paymentSelect.innerHTML += `<option value="payment_${pt.id}">${pt.icon} ${pt.name}</option>`;
+        });
+    }
+    
+    // Carregar materiais
+    const materialsList = document.getElementById('pastMaterialsList');
+    try {
+        const response = await fetch('/api/delivery/materials');
+        const data = await response.json();
+        
+        if (data.materials && data.materials.length > 0) {
+            materialsList.innerHTML = data.materials.map(mat => `
+                <div class="material-input-row">
+                    <span class="material-icon">${mat.icon}</span>
+                    <span class="material-name">${mat.name}</span>
+                    <input type="number" 
+                           class="past-material-input" 
+                           data-material-id="${mat.id}"
+                           data-goal="${mat.weekly_goal || 700}"
+                           min="0" 
+                           max="${mat.weekly_goal || 700}"
+                           value="${mat.weekly_goal || 700}"
+                           placeholder="0">
+                    <span class="material-goal">/ ${mat.weekly_goal || 700}</span>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar materiais:', error);
+    }
+    
+    togglePastPaymentType();
+    document.getElementById('payPastWeekModal').classList.add('show');
+}
+
+// Fechar modal
+function closePayPastWeekModal() {
+    document.getElementById('payPastWeekModal').classList.remove('show');
+    selectedPastWeek = null;
+    pastScreenshotFiles = [];
+}
+
+// Alternar tipo de pagamento
+function togglePastPaymentType() {
+    const type = document.getElementById('pastPaymentType').value;
+    const materialsSection = document.getElementById('pastMaterialsSection');
+    const moneySection = document.getElementById('pastMoneySection');
+    
+    if (type === 'material') {
+        materialsSection.style.display = 'block';
+        moneySection.style.display = 'none';
+    } else {
+        materialsSection.style.display = 'none';
+        moneySection.style.display = 'block';
+        
+        // Atualizar meta do tipo de pagamento
+        const typeId = parseInt(type.replace('payment_', ''));
+        const paymentType = paymentTypes.find(pt => pt.id === typeId);
+        if (paymentType) {
+            document.getElementById('pastMoneyAmount').max = paymentType.weekly_goal;
+            document.getElementById('pastMoneyAmount').placeholder = `Máx: ${paymentType.weekly_goal.toLocaleString('pt-BR')}`;
+        }
+    }
+}
+
+// Adicionar screenshot
+function addPastScreenshot() {
+    document.getElementById('pastScreenshotInput').click();
+}
+
+// Processar screenshot selecionado
+function handlePastScreenshot(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    pastScreenshotFiles.push(file);
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const preview = document.getElementById('pastScreenshotsPreview');
+        const index = pastScreenshotFiles.length - 1;
+        preview.innerHTML += `
+            <div class="screenshot-preview" data-index="${index}">
+                <img src="${e.target.result}" onclick="openModal('${e.target.result}')">
+                <button type="button" class="btn-remove-screenshot" onclick="removePastScreenshot(${index})">×</button>
+            </div>
+        `;
+    };
+    reader.readAsDataURL(file);
+    
+    event.target.value = '';
+}
+
+// Remover screenshot
+function removePastScreenshot(index) {
+    pastScreenshotFiles.splice(index, 1);
+    
+    // Recriar preview
+    const preview = document.getElementById('pastScreenshotsPreview');
+    preview.innerHTML = '';
+    pastScreenshotFiles.forEach((file, i) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML += `
+                <div class="screenshot-preview" data-index="${i}">
+                    <img src="${e.target.result}" onclick="openModal('${e.target.result}')">
+                    <button type="button" class="btn-remove-screenshot" onclick="removePastScreenshot(${i})">×</button>
+                </div>
+            `;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Submeter pagamento de semana passada
+document.getElementById('payPastWeekForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const messageEl = document.getElementById('pastWeekMessage');
+    const paymentType = document.getElementById('pastPaymentType').value;
+    
+    // Validar screenshots
+    if (pastScreenshotFiles.length === 0) {
+        messageEl.innerHTML = '<span class="error">❌ Adicione pelo menos um print de comprovação!</span>';
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('week_start', selectedPastWeek.start);
+    formData.append('week_end', selectedPastWeek.end);
+    
+    if (paymentType === 'material') {
+        // Coletar materiais
+        const materials = [];
+        document.querySelectorAll('.past-material-input').forEach(input => {
+            const amount = parseInt(input.value) || 0;
+            if (amount > 0) {
+                materials.push({
+                    material_id: input.dataset.materialId,
+                    amount: amount
+                });
+            }
+        });
+        
+        if (materials.length === 0) {
+            messageEl.innerHTML = '<span class="error">❌ Informe pelo menos um material!</span>';
+            return;
+        }
+        
+        formData.append('payment_type', 'material');
+        formData.append('materials', JSON.stringify(materials));
+    } else {
+        // Pagamento com dinheiro
+        const typeId = parseInt(paymentType.replace('payment_', ''));
+        const amount = parseInt(document.getElementById('pastMoneyAmount').value) || 0;
+        
+        if (amount <= 0) {
+            messageEl.innerHTML = '<span class="error">❌ Informe o valor!</span>';
+            return;
+        }
+        
+        formData.append('payment_type', 'dirty_money');
+        formData.append('payment_type_id', typeId);
+        formData.append('dirty_money_amount', amount);
+    }
+    
+    // Adicionar screenshots
+    pastScreenshotFiles.forEach(file => {
+        formData.append('screenshots', file);
+    });
+    
+    try {
+        messageEl.innerHTML = '<span class="loading">Enviando...</span>';
+        
+        const response = await fetch('/api/delivery/pay-past-week', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            messageEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+            setTimeout(() => {
+                closePayPastWeekModal();
+                loadUnpaidWeeks();
+                loadStats();
+                loadMyDeliveries();
+            }, 2000);
+        } else {
+            messageEl.innerHTML = '<span class="error">❌ ' + data.error + '</span>';
+        }
+    } catch (error) {
+        messageEl.innerHTML = '<span class="error">❌ Erro ao enviar pagamento</span>';
+    }
+});
+
 // ===== MODAL DE TROCA DE SENHA =====
 
 // Mostrar modal de troca de senha
@@ -1884,6 +2141,11 @@ document.addEventListener('click', function(e) {
     const changePasswordModal = document.getElementById('changePasswordModal');
     if (e.target === changePasswordModal) {
         closeChangePasswordModal();
+    }
+    
+    const payPastWeekModal = document.getElementById('payPastWeekModal');
+    if (e.target === payPastWeekModal) {
+        closePayPastWeekModal();
     }
 });
 

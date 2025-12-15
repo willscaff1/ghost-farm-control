@@ -323,6 +323,72 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
     }
 });
 
+// Obter semanas passadas não pagas (para o membro pagar posteriormente)
+router.get('/unpaid-weeks', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const unpaidWeeks = [];
+        
+        // Buscar as últimas 8 semanas (exceto a atual)
+        for (let i = 1; i <= 8; i++) {
+            const week = getWeekWithOffset(-i);
+            
+            // Verificar se tem entrega aprovada ou justificativa aprovada
+            const delivery = await getOne(`
+                SELECT d.*, d.is_partial 
+                FROM deliveries d
+                WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
+            `, [userId, week.start, week.end]);
+            
+            const justification = await getOne(`
+                SELECT * FROM justifications 
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'approved'
+            `, [userId, week.start, week.end]);
+            
+            // Verificar se está na whitelist dessa semana
+            const inWhitelist = await getOne(`
+                SELECT * FROM farm_whitelist WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [userId, week.start, week.end]);
+            
+            // Se já pagou (aprovado e completo) ou tem justificativa aprovada ou está na whitelist, pula
+            if ((delivery && delivery.status === 'approved' && !delivery.is_partial) || justification || inWhitelist) {
+                continue;
+            }
+            
+            // Semana não paga - adicionar à lista
+            let status = 'not_paid';
+            let statusText = 'Não pago';
+            
+            if (delivery) {
+                if (delivery.status === 'pending') {
+                    status = 'pending_approval';
+                    statusText = 'Aguardando aprovação';
+                } else if (delivery.is_partial) {
+                    status = 'partial';
+                    statusText = 'Pagamento parcial';
+                } else if (delivery.status === 'rejected') {
+                    status = 'rejected';
+                    statusText = 'Rejeitado';
+                }
+            }
+            
+            unpaidWeeks.push({
+                ...week,
+                offset: -i,
+                status: status,
+                statusText: statusText,
+                hasDelivery: !!delivery,
+                deliveryId: delivery?.id || null
+            });
+        }
+        
+        res.json({ unpaidWeeks });
+    } catch (error) {
+        console.error('Erro ao buscar semanas não pagas:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.post('/', requireAuth, (req, res) => {
     upload(req, res, async (err) => {
         if (err) {
@@ -642,6 +708,113 @@ router.post('/', requireAuth, (req, res) => {
             }
         } catch (error) {
             console.error('❌ Erro em POST /delivery:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+});
+
+// Pagar farm de semana passada (retroativo)
+router.post('/pay-past-week', requireAuth, (req, res) => {
+    upload(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+        
+        try {
+            const { materials, week_start, week_end, payment_type, payment_type_id, dirty_money_amount } = req.body;
+            const userId = req.session.user.id;
+            const paymentType = payment_type || 'material';
+            const paymentTypeId = payment_type_id ? parseInt(payment_type_id) : null;
+            const dirtyMoneyAmount = parseInt(dirty_money_amount) || 0;
+            
+            if (!week_start || !week_end) {
+                return res.status(400).json({ error: 'Semana não informada' });
+            }
+            
+            // Verificar se a semana é realmente passada
+            const currentWeek = getCurrentWeek();
+            if (week_start >= currentWeek.start) {
+                return res.status(400).json({ error: 'Use a entrega normal para a semana atual ou futuras' });
+            }
+            
+            // Verificar se já tem entrega APROVADA e COMPLETA nessa semana
+            const approvedDelivery = await getOne(`
+                SELECT * FROM deliveries 
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'approved' AND is_partial = 0
+            `, [userId, week_start, week_end]);
+            
+            if (approvedDelivery) {
+                return res.status(400).json({ error: 'Esta semana já foi paga!' });
+            }
+            
+            // Verificar se tem justificativa aprovada
+            const justification = await getOne(`
+                SELECT * FROM justifications 
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'approved'
+            `, [userId, week_start, week_end]);
+            
+            if (justification) {
+                return res.status(400).json({ error: 'Esta semana já tem justificativa aprovada' });
+            }
+            
+            // Deletar entregas rejeitadas ou parciais antigas para substituir
+            const existingDelivery = await getOne(`
+                SELECT id FROM deliveries 
+                WHERE user_id = ? AND week_start = ? AND week_end = ?
+            `, [userId, week_start, week_end]);
+            
+            if (existingDelivery) {
+                await runQuery('DELETE FROM delivery_screenshots WHERE delivery_id = ?', [existingDelivery.id]);
+                await runQuery('DELETE FROM delivery_items WHERE delivery_id = ?', [existingDelivery.id]);
+                await runQuery('DELETE FROM deliveries WHERE id = ?', [existingDelivery.id]);
+            }
+            
+            // Criar nova entrega para semana passada
+            const result = await runQuery(`
+                INSERT INTO deliveries (user_id, week_start, week_end, status, is_partial, payment_type, payment_type_id, dirty_money_amount)
+                VALUES (?, ?, ?, 'pending', 0, ?, ?, ?)
+            `, [userId, week_start, week_end, paymentType, paymentTypeId, dirtyMoneyAmount]);
+            
+            const deliveryId = result.lastID;
+            
+            // Salvar materiais se for pagamento com materiais
+            if (paymentType === 'material' && materials) {
+                const materialsArray = typeof materials === 'string' ? JSON.parse(materials) : materials;
+                
+                for (const mat of materialsArray) {
+                    if (mat.amount > 0) {
+                        await runQuery(
+                            'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
+                            [deliveryId, mat.material_id, mat.amount]
+                        );
+                    }
+                }
+            }
+            
+            // Salvar screenshots
+            if (req.files && req.files.length > 0) {
+                for (const file of req.files) {
+                    const screenshotUrl = '/uploads/' + file.filename;
+                    await runQuery(
+                        'INSERT INTO delivery_screenshots (delivery_id, screenshot_url) VALUES (?, ?)',
+                        [deliveryId, screenshotUrl]
+                    );
+                }
+            }
+            
+            // Formatar label da semana
+            const weekLabel = `${new Date(week_start).toLocaleDateString('pt-BR')} - ${new Date(week_end).toLocaleDateString('pt-BR')}`;
+            
+            console.log(`💰 Pagamento retroativo: Usuário ${userId} pagou semana ${weekLabel}`);
+            
+            res.json({ 
+                success: true, 
+                message: `✅ Pagamento da semana ${weekLabel} enviado para aprovação!`,
+                deliveryId: deliveryId
+            });
+            
+        } catch (error) {
+            console.error('❌ Erro em POST /pay-past-week:', error);
             res.status(500).json({ error: error.message });
         }
     });
