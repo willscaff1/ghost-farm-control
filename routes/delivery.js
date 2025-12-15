@@ -296,15 +296,17 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
             let reason = 'Meta atrasada - não paga';
             let isPastWeek = true;
             
-            // Se já pagou completamente, tem justificativa ou está na whitelist
-            if ((existingDelivery && existingDelivery.status === 'approved' && !existingDelivery.is_partial) || existingJustification || inWhitelist) {
+            // Verificar whitelist - apenas para info, NÃO bloqueia entrega
+            // Quem está na whitelist pode pagar se quiser
+            const isWhitelisted = !!inWhitelist;
+            
+            // Se já pagou completamente ou tem justificativa
+            if ((existingDelivery && existingDelivery.status === 'approved' && !existingDelivery.is_partial) || existingJustification) {
                 available = false;
                 if (existingDelivery && existingDelivery.status === 'approved') {
                     reason = 'Já pago ✓';
                 } else if (existingJustification) {
                     reason = 'Ausência justificada';
-                } else if (inWhitelist) {
-                    reason = 'Isento (whitelist)';
                 }
             } else if (existingDelivery) {
                 if (existingDelivery.status === 'pending' && !existingDelivery.is_partial) {
@@ -317,6 +319,10 @@ router.get('/available-weeks', requireAuth, async (req, res) => {
                     available = true;
                     reason = 'Rejeitado - refaça';
                 }
+            } else if (isWhitelisted) {
+                // Whitelist: permite pagar, mas informa que está isento
+                available = true;
+                reason = 'Isento (whitelist) - pode pagar se quiser';
             }
             
             weeks.push({
