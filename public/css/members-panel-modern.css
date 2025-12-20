@@ -167,31 +167,12 @@
     transform: translateY(0);
 }
 
-/* Container da Tabela */
+/* Container da Tabela - SEM SCROLL PRÓPRIO */
 .table-container {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 12px;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    max-height: calc(100vh - 300px);
-    overflow-y: auto;
-}
-
-.table-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-.table-container::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-}
-
-.table-container::-webkit-scrollbar-thumb {
-    background: rgba(108, 92, 231, 0.5);
-    border-radius: 10px;
-}
-
-.table-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(108, 92, 231, 0.7);
 }
 
 /* Loading e Empty States */
