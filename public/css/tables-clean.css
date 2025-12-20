@@ -41,50 +41,45 @@
 
 /* Transição removida - causava tela apagada */
 
-/* Botões de navegação de semanas */
+/* Botões de navegação de semanas - MODERNO */
 .week-selector-inline {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 16px 28px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
 }
 
 .week-selector-inline .week-nav-btn {
-    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
-    border: 2px solid rgba(74, 144, 226, 0.3);
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 10px;
+    background: rgba(108, 92, 231, 0.15);
+    border: 1px solid rgba(108, 92, 231, 0.3);
+    color: #a5b4fc;
+    padding: 10px 18px;
+    border-radius: 12px;
     cursor: pointer;
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 20px;
     transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
 }
 
 .week-selector-inline .week-nav-btn:hover {
-    background: linear-gradient(135deg, #5ba0f5 0%, #4a90e2 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(74, 144, 226, 0.4);
-}
-
-.week-selector-inline .week-nav-btn:active {
-    transform: translateY(0);
+    background: rgba(108, 92, 231, 0.3);
+    border-color: rgba(108, 92, 231, 0.5);
+    transform: scale(1.1);
 }
 
 .week-selector-inline .week-display {
-    min-width: 300px;
+    min-width: 280px;
     text-align: center;
-    background: rgba(74, 144, 226, 0.1);
-    padding: 12px 24px;
-    border-radius: 10px;
-    border: 2px solid rgba(74, 144, 226, 0.2);
 }
 
 .week-selector-inline .week-display span {
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
-    color: #5ba0f5;
+    color: #e0e7ff;
+    letter-spacing: 0.5px;
 }
 
 
@@ -138,13 +133,24 @@
     text-align: center;
 }
 
-/* Coluna 5: Ação extra (Status da Semana) - CENTRALIZADO */
+/* Coluna 5: Editar - CENTRALIZADO */
 .weekly-table th:nth-child(5) {
-    width: 200px;
+    width: 80px;
     text-align: center;
 }
 
 .weekly-table td:nth-child(5) {
+    width: 80px;
+    text-align: center;
+}
+
+/* Coluna 6: Ação - CENTRALIZADO */
+.weekly-table th:nth-child(6) {
+    width: 200px;
+    text-align: center;
+}
+
+.weekly-table td:nth-child(6) {
     width: 200px;
     text-align: center;
 }
@@ -156,26 +162,28 @@
 
 .weekly-table .member-avatar {
     display: inline-block;
-    width: 40px;
-    height: 40px;
-    line-height: 40px;
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #7c8ffd 0%, #8b6bc2 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     text-align: center;
-    font-size: 17px;
-    font-weight: 800;
+    font-size: 18px;
+    font-weight: 900;
     color: #fff;
-    margin-right: 14px;
+    margin-right: 16px;
     vertical-align: middle;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .weekly-table .member-name {
     display: inline;
     font-weight: 700;
     color: #ffffff;
-    font-size: 15px;
+    font-size: 16px;
     white-space: nowrap;
     vertical-align: middle;
+    letter-spacing: 0.3px;
 }
 
 

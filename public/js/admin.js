@@ -970,13 +970,20 @@ function renderWeeklyTable(filter) {
                 actionHtml = `${editBtn}<span class="no-action">-</span>`;
         }
         
+        // Separar editBtn e actionHtml
+        const allowedEditRoles = ['gerente_geral', 'gerente_farm', '01', '02'];
+        const canEditStatus = currentUser && allowedEditRoles.includes(currentUser.role);
+        const editBtnOnly = canEditStatus ? `<button class="action-btn edit" onclick='openEditStatusModal(${JSON.stringify(member).replace(/'/g, "&apos;")})' title="Editar Status">✏️</button>` : '-';
+        const actionHtmlClean = actionHtml.replace(editBtn, '');
+        
         return `
             <tr class="status-${member.status}">
                 <td class="passport-cell">${member.passport || '-'}</td>
                 <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name">${member.name}${member.is_late_payment ? ' ⏰' : ''}</span></td>
                 <td class="role-cell">${roleName}</td>
                 <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
-                <td>${actionHtml}</td>
+                <td>${editBtnOnly}</td>
+                <td>${actionHtmlClean}</td>
             </tr>
         `;
     }).join('');
