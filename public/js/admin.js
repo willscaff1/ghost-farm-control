@@ -931,14 +931,10 @@ function renderWeeklyTable(filter) {
                 actionHtml = `${editBtn}<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Extrato</button>`;
                 break;
             case 'partial':
-                // Em progresso: Ver Detalhes + ADV se semana passou (não completou a meta)
+                // Em progresso: Ver Detalhes
                 actionHtml = `${editBtn}<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Detalhes</button>`;
-                if (weekPassed) {
-                    if (member.has_adv_applied) {
-                        actionHtml += ` <span class="adv-applied-badge">⚠️ ADV APLICADA</span>`;
-                    } else {
-                        actionHtml += ` <button class="action-btn adv" onclick="applyWeeklyAdv(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${selectedWeek ? selectedWeek.start : ''}', '${selectedWeek ? selectedWeek.end : ''}')">⚠️ Aplicar ADV</button>`;
-                    }
+                if (weekPassed && member.has_adv_applied) {
+                    actionHtml += ` <span class="adv-applied-badge">⚠️ ADV APLICADA</span>`;
                 }
                 break;
             case 'pending':
@@ -953,7 +949,7 @@ function renderWeeklyTable(filter) {
                     if (member.has_adv_applied) {
                         actionHtml = `${editBtn}<span class="adv-applied-badge">⚠️ ADV APLICADA</span>`;
                     } else {
-                        actionHtml = `${editBtn}<button class="action-btn adv" onclick="applyWeeklyAdv(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${selectedWeek ? selectedWeek.start : ''}', '${selectedWeek ? selectedWeek.end : ''}')">⚠️ Aplicar ADV</button>`;
+                        actionHtml = `${editBtn}<span class="no-action">⚠️ Pendente ADV</span>`;
                     }
                 } else {
                     actionHtml = `${editBtn}<span class="no-action">⏳ Semana em andamento</span>`;
