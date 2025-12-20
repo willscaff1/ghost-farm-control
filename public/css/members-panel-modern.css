@@ -57,10 +57,14 @@
 
 .weekly-table thead th:first-child {
     border-radius: 12px 0 0 0;
+    width: 80px;
+    text-align: center;
 }
 
 .weekly-table thead th:last-child {
     border-radius: 0 12px 0 0;
+    width: 120px;
+    text-align: center;
 }
 
 /* Linha de Membro */
@@ -99,15 +103,13 @@
     font-size: 14px;
 }
 
-/* Célula de Passaporte */
+/* Célula de ID */
 .passport-cell {
-    font-weight: 800;
+    font-weight: 700;
     color: #a5b4fc !important;
-    background: rgba(108, 92, 231, 0.1);
     text-align: center;
-    font-size: 13px !important;
-    min-width: 80px;
-    border-right: 1px solid rgba(108, 92, 231, 0.2);
+    font-size: 14px !important;
+    width: 80px;
 }
 
 /* Célula de Membro com Avatar */
@@ -140,6 +142,17 @@
     font-weight: 600;
     font-size: 15px;
     color: #fff;
+}
+
+/* Coluna de Cargo */
+.member-row td:nth-child(3) {
+    font-weight: 500;
+    color: #8fa8ff;
+}
+
+/* Coluna de Ação */
+.member-row td:nth-child(4) {
+    text-align: center;
 }
 
 /* Botão Ver */
@@ -223,6 +236,6 @@
     }
     
     .passport-cell {
-        min-width: 60px;
+        width: 60px;
     }
 }

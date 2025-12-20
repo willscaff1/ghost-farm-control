@@ -429,7 +429,7 @@ function renderOverviewTable() {
         
         return `
             <tr class="${advClass}" data-name="${member.name.toLowerCase()}" data-passport="${member.passport || ''}">
-                <td class="passport-cell">${member.passport || '-'}</td>
+                <td class="passport-cell">${member.id}</td>
                 <td>
                     <div class="member-cell">
                         <div class="member-avatar">${initial}</div>
@@ -625,7 +625,7 @@ function renderMembersList() {
         const initial = member.name.charAt(0).toUpperCase();
         return `
             <tr class="member-row" onclick="openMemberExtract(${member.id})">
-                <td class="passport-cell">${member.passport || '-'}</td>
+                <td class="passport-cell">${member.id}</td>
                 <td>
                     <div class="member-cell">
                         <div class="member-avatar">${initial}</div>
