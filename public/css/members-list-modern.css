@@ -1,0 +1,221 @@
+/* ========================================
+    LISTA DE MEMBROS MODERNA
+   ======================================== */
+
+.member-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.member-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #667eea, #764ba2);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.member-item:hover::before {
+    opacity: 1;
+}
+
+.member-item:hover {
+    background: linear-gradient(145deg, #1e1e38 0%, #1a2548 100%);
+    border-color: rgba(255, 255, 255, 0.12);
+    transform: translateX(3px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.member-item.inactive {
+    opacity: 0.5;
+}
+
+.member-item.inactive::before {
+    background: linear-gradient(180deg, #666, #444);
+}
+
+.member-item.inactive .member-passport {
+    background: linear-gradient(135deg, #555 0%, #333 100%);
+}
+
+/* Info do Membro */
+.member-item .member-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.member-item .member-passport {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 13px;
+    min-width: 65px;
+    text-align: center;
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+    flex-shrink: 0;
+}
+
+.member-item .member-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #fff;
+    min-width: 150px;
+    flex-shrink: 0;
+}
+
+.member-item .role-select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 160px;
+}
+
+.member-item .role-select:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #667eea;
+}
+
+.member-item .role-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.member-item .role {
+    background: rgba(102, 126, 234, 0.15);
+    color: #a5b4fc;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    min-width: 160px;
+    text-align: center;
+}
+
+/* Ações */
+.member-item .member-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.member-item .member-actions .btn-small {
+    padding: 7px 12px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    white-space: nowrap;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.member-item .member-actions .btn-small:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.member-item .member-actions .btn-secondary {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    border: none;
+}
+
+.member-item .member-actions .btn-secondary:hover {
+    background: linear-gradient(135deg, #5a6578 0%, #3d4758 100%);
+}
+
+.member-item .member-actions .btn-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border: none;
+}
+
+.member-item .member-actions .btn-warning:hover {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+}
+
+.member-item .member-actions .btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: none;
+}
+
+.member-item .member-actions .btn-success:hover {
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+}
+
+.member-item .member-actions .btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border: none;
+}
+
+.member-item .member-actions .btn-danger:hover {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+}
+
+/* Container da Lista */
+.members-list {
+    max-height: calc(100vh - 250px);
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.members-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.members-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+}
+
+.members-list::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.5);
+    border-radius: 10px;
+}
+
+.members-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 126, 234, 0.7);
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+    .member-item {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .member-item .member-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .member-item .member-actions {
+        width: 100%;
+        justify-content: center;
+    }
+}
