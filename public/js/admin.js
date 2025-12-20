@@ -313,92 +313,174 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
     });
 });
 
-// Carregar visão geral dos membros
+// Carregar visão geral dos membros - SIMPLIFICADA
 async function loadMembersOverview() {
     try {
-        const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
-        const response = await fetch(`/api/admin/members-overview${params}`);
+        const response = await fetch('/api/admin/members');
         const data = await response.json();
         
-        const grid = document.getElementById('membersOverviewGrid');
+        const tbody = document.getElementById('overviewTableBody');
         
         if (data.members && data.members.length > 0) {
-            grid.innerHTML = data.members.map(member => {
-                // Determinar ícone e classe do status do farm
-                let farmIcon, farmText, farmClass;
-                switch (member.farmStatus) {
-                    case 'approved':
-                        farmIcon = '✅';
-                        farmText = 'Farm Pago';
-                        farmClass = 'status-approved';
-                        break;
-                    case 'pending':
-                        farmIcon = '⏳';
-                        farmText = 'Aguardando';
-                        farmClass = 'status-pending';
-                        break;
-                    case 'rejected':
-                        farmIcon = '❌';
-                        farmText = 'Rejeitado';
-                        farmClass = 'status-rejected';
-                        break;
-                    case 'justified':
-                        farmIcon = '📋';
-                        farmText = 'Justificado';
-                        farmClass = 'status-justified';
-                        break;
-                    case 'justification_pending':
-                        farmIcon = '📝';
-                        farmText = 'Just. Pendente';
-                        farmClass = 'status-pending';
-                        break;
-                    default:
-                        farmIcon = '❌';
-                        farmText = 'Não Entregou';
-                        farmClass = 'status-missing';
+            // Ordenar por nome
+            const members = data.members.sort((a, b) => a.name.localeCompare(b.name));
+            
+            // Buscar contagem de ADVs para cada membro
+            const membersWithAdvs = await Promise.all(members.map(async (member) => {
+                try {
+                    const advResponse = await fetch(`/api/admin/members/${member.id}/warnings`);
+                    const advData = await advResponse.json();
+                    return {
+                        ...member,
+                        warningsCount: advData.warnings ? advData.warnings.length : 0,
+                        warnings: advData.warnings || []
+                    };
+                } catch {
+                    return { ...member, warningsCount: 0, warnings: [] };
+                }
+            }));
+            
+            tbody.innerHTML = membersWithAdvs.map(member => {
+                const initial = member.name.charAt(0).toUpperCase();
+                
+                // Classe baseada no número de ADVs
+                let advClass = '';
+                let advBadge = '';
+                if (member.warningsCount >= 3) {
+                    advClass = 'adv-critical';
+                    advBadge = '🔴';
+                } else if (member.warningsCount >= 2) {
+                    advClass = 'adv-high';
+                    advBadge = '🟠';
+                } else if (member.warningsCount >= 1) {
+                    advClass = 'adv-warning';
+                    advBadge = '🟡';
+                } else {
+                    advBadge = '🟢';
                 }
                 
-                // Determinar classe das ADVs
-                let advClass = 'adv-zero';
-                if (member.warningsCount >= 3) advClass = 'adv-critical';
-                else if (member.warningsCount >= 2) advClass = 'adv-high';
-                else if (member.warningsCount >= 1) advClass = 'adv-warning';
-                
-                // Dados para os cliques
-                const memberData = JSON.stringify({
-                    id: member.id,
-                    name: member.name,
-                    farmStatus: member.farmStatus,
-                    warningsCount: member.warningsCount
-                }).replace(/"/g, '&quot;');
+                // Só 6999 pode remover ADV
+                const canRemoveAdv = currentUser && currentUser.passport === '6999';
                 
                 return `
-                    <div class="member-overview-card">
-                        <div class="member-overview-header">
-                            <span class="member-overview-name">👤 ${member.name}</span>
-                            <span class="member-overview-role">${roleNames[member.role] || member.role}</span>
-                        </div>
-                        <div class="member-overview-stats">
-                            <div class="overview-stat ${farmClass} clickable-stat" onclick="showMemberFarmDetails(${member.id}, '${member.name.replace(/'/g, "\\'")}')">
-                                <span class="overview-icon">${farmIcon}</span>
-                                <span class="overview-label">${farmText}</span>
-                                <span class="stat-hint">🔍</span>
+                    <tr class="${advClass}" data-name="${member.name.toLowerCase()}">
+                        <td>
+                            <div class="member-cell">
+                                <div class="member-avatar">${initial}</div>
+                                <div>
+                                    <div class="member-name">${member.name}</div>
+                                    <div class="member-passport">ID: ${member.passport}</div>
+                                </div>
                             </div>
-                            <div class="overview-stat ${advClass} clickable-stat" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">
-                                <span class="overview-icon">⚠️</span>
-                                <span class="overview-value">${member.warningsCount}</span>
-                                <span class="overview-label">ADV${member.warningsCount !== 1 ? 's' : ''}</span>
-                                <span class="stat-hint">🔍</span>
-                            </div>
-                        </div>
-                    </div>
+                        </td>
+                        <td class="adv-cell">
+                            <span class="adv-count">${advBadge} ${member.warningsCount} ADV${member.warningsCount !== 1 ? 's' : ''}</span>
+                        </td>
+                        <td class="actions-cell">
+                            <button class="action-btn add-adv" onclick="openQuickAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">➕ Adicionar ADV</button>
+                            ${member.warningsCount > 0 ? `
+                                <button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver ADVs</button>
+                            ` : ''}
+                        </td>
+                    </tr>
                 `;
             }).join('');
         } else {
-            grid.innerHTML = '<div class="empty-state">👥 Nenhum membro cadastrado</div>';
+            tbody.innerHTML = '<tr><td colspan="3" class="loading">👥 Nenhum membro cadastrado</td></tr>';
         }
     } catch (error) {
         console.error('Erro ao carregar visão geral:', error);
+        document.getElementById('overviewTableBody').innerHTML = 
+            '<tr><td colspan="3" class="loading">Erro ao carregar dados</td></tr>';
+    }
+}
+
+// Filtrar tabela de visão geral
+function filterOverviewTable() {
+    const searchTerm = document.getElementById('searchOverview').value.toLowerCase();
+    const rows = document.querySelectorAll('#overviewTableBody tr');
+    
+    rows.forEach(row => {
+        const name = row.getAttribute('data-name') || '';
+        if (name.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Modal rápido para adicionar ADV
+function openQuickAdvModal(memberId, memberName) {
+    // Criar modal se não existir
+    let modal = document.getElementById('quickAdvModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'quickAdvModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3>⚠️ Adicionar Advertência</h3>
+                    <button class="close-btn" onclick="closeQuickAdvModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Membro:</strong> <span id="quickAdvMemberName"></span></p>
+                    <input type="hidden" id="quickAdvMemberId">
+                    
+                    <div class="form-group">
+                        <label>Motivo da Advertência:</label>
+                        <textarea id="quickAdvReason" rows="3" placeholder="Descreva o motivo da advertência..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeQuickAdvModal()">Cancelar</button>
+                    <button class="btn btn-danger" onclick="saveQuickAdv()">⚠️ Aplicar ADV</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    document.getElementById('quickAdvMemberId').value = memberId;
+    document.getElementById('quickAdvMemberName').textContent = memberName;
+    document.getElementById('quickAdvReason').value = '';
+    modal.style.display = 'flex';
+}
+
+function closeQuickAdvModal() {
+    const modal = document.getElementById('quickAdvModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function saveQuickAdv() {
+    const memberId = document.getElementById('quickAdvMemberId').value;
+    const reason = document.getElementById('quickAdvReason').value.trim();
+    
+    if (!reason) {
+        alert('Por favor, informe o motivo da advertência!');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/members/${memberId}/warnings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ Advertência aplicada com sucesso!');
+            closeQuickAdvModal();
+            loadMembersOverview(); // Recarregar tabela
+        } else {
+            alert(data.error || 'Erro ao aplicar advertência');
+        }
+    } catch (error) {
+        console.error('Erro ao aplicar ADV:', error);
+        alert('Erro ao aplicar advertência');
     }
 }
 

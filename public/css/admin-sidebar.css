@@ -862,6 +862,114 @@ body.admin-layout {
     background: rgba(52, 152, 219, 0.4);
 }
 
+/* Visão Geral - Simplificada */
+.overview-controls {
+    margin-bottom: 20px;
+}
+
+.overview-controls .search-input {
+    width: 100%;
+    max-width: 400px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid #333;
+    background: #1e1e1e;
+    color: #fff;
+    font-size: 14px;
+}
+
+.overview-controls .search-input:focus {
+    outline: none;
+    border-color: #6c5ce7;
+}
+
+#overviewTable .adv-cell {
+    text-align: center;
+}
+
+#overviewTable .adv-count {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+#overviewTable .actions-cell {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#overviewTable .action-btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+#overviewTable .action-btn.add-adv {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+}
+
+#overviewTable .action-btn.add-adv:hover {
+    background: rgba(231, 76, 60, 0.4);
+}
+
+#overviewTable .action-btn.view-adv {
+    background: rgba(52, 152, 219, 0.2);
+    color: #3498db;
+}
+
+#overviewTable .action-btn.view-adv:hover {
+    background: rgba(52, 152, 219, 0.4);
+}
+
+#overviewTable tr.adv-warning {
+    background: rgba(241, 196, 15, 0.1);
+}
+
+#overviewTable tr.adv-high {
+    background: rgba(230, 126, 34, 0.1);
+}
+
+#overviewTable tr.adv-critical {
+    background: rgba(231, 76, 60, 0.15);
+}
+
+/* Quick ADV Modal */
+#quickAdvModal .modal-content {
+    max-width: 500px;
+}
+
+#quickAdvModal .form-group {
+    margin-bottom: 15px;
+}
+
+#quickAdvModal label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #ccc;
+}
+
+#quickAdvModal textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #1e1e1e;
+    color: #fff;
+    resize: vertical;
+    font-family: inherit;
+}
+
+#quickAdvModal textarea:focus {
+    outline: none;
+    border-color: #6c5ce7;
+}
+
 .weekly-table .adv-applied-badge {
     display: inline-block;
     padding: 6px 12px;

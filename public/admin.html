@@ -181,9 +181,25 @@
             <div id="members-overview-tab" class="tab-content">
                 <div class="card">
                     <h2>👁️ Visão Geral dos Membros</h2>
-                    <p class="subtitle">Status de farm e advertências de todos os membros na semana selecionada</p>
-                    <div id="membersOverviewGrid" class="members-overview-grid">
-                        <p class="loading">Carregando...</p>
+                    <p class="subtitle">Gerencie advertências dos membros</p>
+                    
+                    <div class="overview-controls">
+                        <input type="text" id="searchOverview" placeholder="🔍 Buscar membro..." class="search-input" onkeyup="filterOverviewTable()">
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="weekly-table" id="overviewTable">
+                            <thead>
+                                <tr>
+                                    <th>Membro</th>
+                                    <th>ADVs</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overviewTableBody">
+                                <tr><td colspan="3" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
