@@ -1027,25 +1027,44 @@ function openEditStatusModal(member) {
         statusSelect.value = 'not_delivered';
     }
     
-    document.getElementById('editStatusModal').classList.add('show');
+    const modalEl = document.getElementById('editStatusModal');
+    modalEl.style.display = 'flex';
+    setTimeout(() => modalEl.classList.add('show'), 10);
 }
 
 function createEditStatusModal() {
     const modalHtml = `
-        <div id="editStatusModal" class="modal">
-            <div class="modal-content" style="max-width: 400px;">
-                <div class="modal-header">
-                    <h2>✏️ Editar Status</h2>
-                    <button class="modal-close" onclick="closeEditStatusModal()">&times;</button>
+        <div id="editStatusModal" class="modal-edit-status">
+            <div class="modal-edit-overlay" onclick="closeEditStatusModal()"></div>
+            <div class="modal-edit-window">
+                <div class="modal-edit-header">
+                    <div class="modal-edit-icon">✏️</div>
+                    <h2 class="modal-edit-title">Editar Status do Membro</h2>
+                    <button class="modal-edit-close" onclick="closeEditStatusModal()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
-                <div class="modal-body">
+                
+                <div class="modal-edit-body">
                     <input type="hidden" id="editStatusMemberId">
-                    <p><strong>Membro:</strong> <span id="editStatusMemberName"></span></p>
-                    <p><strong>Semana:</strong> ${selectedWeek ? selectedWeek.label : 'Atual'}</p>
                     
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Novo Status:</label>
-                        <select id="editStatusSelect" class="form-control">
+                    <div class="modal-edit-info">
+                        <div class="info-item">
+                            <span class="info-label">👤 Membro:</span>
+                            <span class="info-value" id="editStatusMemberName"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">📅 Semana:</span>
+                            <span class="info-value">${selectedWeek ? selectedWeek.label : 'Atual'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-edit-field">
+                        <label class="field-label">Status</label>
+                        <select id="editStatusSelect" class="field-select">
                             <option value="approved">✅ Meta Completa (Aprovado)</option>
                             <option value="partial">🔄 Em Progresso (Parcial)</option>
                             <option value="pending">⏳ Aguardando Aprovação</option>
@@ -1054,14 +1073,22 @@ function createEditStatusModal() {
                         </select>
                     </div>
                     
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label>Observação (opcional):</label>
-                        <textarea id="editStatusNote" class="form-control" rows="2" placeholder="Motivo da alteração..."></textarea>
+                    <div class="modal-edit-field">
+                        <label class="field-label">Observação <span class="field-optional">(opcional)</span></label>
+                        <textarea id="editStatusNote" class="field-textarea" rows="3" placeholder="Digite o motivo da alteração..."></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeEditStatusModal()">Cancelar</button>
-                    <button class="btn btn-primary" onclick="saveEditStatus()">💾 Salvar</button>
+                
+                <div class="modal-edit-footer">
+                    <button class="btn-edit-cancel" onclick="closeEditStatusModal()">Cancelar</button>
+                    <button class="btn-edit-save" onclick="saveEditStatus()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Salvar Alterações
+                    </button>
                 </div>
             </div>
         </div>
@@ -1070,7 +1097,9 @@ function createEditStatusModal() {
 }
 
 function closeEditStatusModal() {
-    document.getElementById('editStatusModal').classList.remove('show');
+    const modalEl = document.getElementById('editStatusModal');
+    modalEl.classList.remove('show');
+    setTimeout(() => modalEl.style.display = 'none', 300);
     editingMember = null;
 }
 

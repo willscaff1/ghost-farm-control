@@ -286,6 +286,236 @@
     vertical-align: middle;
 }
 
+/* ============================================
+   MODAL DE EDIÇÃO DE STATUS - ESTILO JANELA
+   ============================================ */
+
+.modal-edit-status {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal-edit-status.show {
+    opacity: 1;
+}
+
+.modal-edit-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+}
+
+.modal-edit-window {
+    position: relative;
+    width: 90%;
+    max-width: 520px;
+    background: linear-gradient(145deg, #1e1e2e 0%, #16213e 100%);
+    border-radius: 20px;
+    border: 1px solid rgba(108, 92, 231, 0.3);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(108, 92, 231, 0.2);
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-edit-status.show .modal-edit-window {
+    transform: scale(1);
+}
+
+.modal-edit-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 28px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
+    border-radius: 20px 20px 0 0;
+}
+
+.modal-edit-icon {
+    font-size: 28px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.modal-edit-title {
+    flex: 1;
+    font-size: 20px;
+    font-weight: 700;
+    color: #e0e7ff;
+    margin: 0;
+}
+
+.modal-edit-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(255, 255, 255, 0.05);
+    color: #aaa;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.modal-edit-close:hover {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    transform: rotate(90deg);
+}
+
+.modal-edit-body {
+    padding: 28px;
+}
+
+.modal-edit-info {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 24px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.info-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.info-label {
+    font-size: 12px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 15px;
+    color: #e0e7ff;
+    font-weight: 700;
+}
+
+.modal-edit-field {
+    margin-bottom: 20px;
+}
+
+.field-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #a5b4fc;
+    margin-bottom: 8px;
+}
+
+.field-optional {
+    font-size: 12px;
+    color: #666;
+    font-weight: 400;
+}
+
+.field-select,
+.field-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.field-select:focus,
+.field-textarea:focus {
+    outline: none;
+    border-color: rgba(108, 92, 231, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
+}
+
+.field-select {
+    cursor: pointer;
+}
+
+.field-textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.modal-edit-footer {
+    display: flex;
+    gap: 12px;
+    padding: 20px 28px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 20px 20px;
+}
+
+.btn-edit-cancel,
+.btn-edit-save {
+    flex: 1;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-edit-cancel {
+    background: rgba(255, 255, 255, 0.05);
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-edit-cancel:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.btn-edit-save {
+    background: linear-gradient(135deg, #6c5ce7 0%, #5541d9 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+}
+
+.btn-edit-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(108, 92, 231, 0.4);
+}
+
+.btn-edit-save:active {
+    transform: translateY(0);
+}
+
 /* Cursor pointer para linhas clicáveis */
 .member-row {
     cursor: pointer;
