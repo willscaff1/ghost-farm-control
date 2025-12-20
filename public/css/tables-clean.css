@@ -591,7 +591,7 @@
     font-weight: 600;
 }
 
-/* Coluna 3: ADVs - CENTRALIZADO */
+/* Coluna 3: ADVs - CENTRALIZADO PERFEITO */
 #overviewTable th:nth-child(3) {
     width: 120px;
     text-align: center;
@@ -602,17 +602,19 @@
     text-align: center;
     font-weight: 700;
     font-size: 18px;
+    vertical-align: middle;
 }
 
-/* Coluna 4: Ações - CENTRALIZADO */
+/* Coluna 4: Ações - CENTRALIZADO PERFEITO */
 #overviewTable th:nth-child(4) {
-    width: 250px;
+    width: 280px;
     text-align: center;
 }
 
 #overviewTable td:nth-child(4) {
-    width: 250px;
+    width: 280px;
     text-align: center;
+    vertical-align: middle;
 }
 
 /* Botões de ação da tabela ADV */
