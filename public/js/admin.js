@@ -217,13 +217,13 @@ async function loadSelectedWeek() {
 function previousWeek() {
     if (selectedWeekOffset > -8) {
         selectedWeekOffset--;
-        loadSelectedWeek().then(() => loadAll());
+        loadSelectedWeek().then(() => loadWeeklyStatus());
     }
 }
 
 function nextWeek() {
     selectedWeekOffset++;
-    loadSelectedWeek().then(() => loadAll());
+        loadSelectedWeek().then(() => loadWeeklyStatus());
 }
 
 // Carregar todos os dados da semana
