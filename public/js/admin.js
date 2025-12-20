@@ -936,45 +936,39 @@ function renderWeeklyTable(filter) {
         // Determinar ação
         let actionHtml = '';
         
-        // Botão de edição para roles permitidos
-        const allowedEditRoles = ['gerente_geral', 'gerente_farm', '01', '02'];
-        const canEditStatus = currentUser && allowedEditRoles.includes(currentUser.role);
-        const editBtn = canEditStatus ? `<button class="action-btn edit" onclick='openEditStatusModal(${JSON.stringify(member).replace(/'/g, "&apos;")})' title="Editar Status">✏️</button> ` : '';
-        
         switch (member.status) {
             case 'completed':
-                actionHtml = `${editBtn}<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Extrato</button>`;
+                actionHtml = `<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Extrato</button>`;
                 break;
             case 'partial':
                 // Em progresso: Ver Detalhes
-                actionHtml = `${editBtn}<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Detalhes</button>`;
+                actionHtml = `<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Detalhes</button>`;
                 break;
             case 'pending':
                 if (member.has_justification_pending) {
-                    actionHtml = `${editBtn}<button class="action-btn approve" onclick='showJustificationModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📝 Avaliar</button>`;
+                    actionHtml = `<button class="action-btn approve" onclick='showJustificationModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📝 Avaliar</button>`;
                 } else {
-                    actionHtml = `${editBtn}<button class="action-btn approve" onclick='showApprovalModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>✔️ Aprovar</button>`;
+                    actionHtml = `<button class="action-btn approve" onclick='showApprovalModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>✔️ Aprovar</button>`;
                 }
                 break;
             case 'missing':
                 if (weekPassed) {
-                    actionHtml = `${editBtn}<span class="no-action">❌ Não entregou</span>`;
+                    actionHtml = `<span class="no-action">❌ Não entregou</span>`;
                 } else {
-                    actionHtml = `${editBtn}<span class="no-action">⏳ Semana em andamento</span>`;
+                    actionHtml = `<span class="no-action">⏳ Semana em andamento</span>`;
                 }
                 break;
             case 'justified':
-                actionHtml = `${editBtn}<button class="action-btn view" onclick='showJustifiedDetails(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📋 Ver Justificativa</button>`;
+                actionHtml = `<button class="action-btn view" onclick='showJustifiedDetails(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📋 Ver Justificativa</button>`;
                 break;
             default:
-                actionHtml = `${editBtn}<span class="no-action">-</span>`;
+                actionHtml = `<span class="no-action">-</span>`;
         }
         
         // Separar editBtn e actionHtml
         const allowedEditRoles = ['gerente_geral', 'gerente_farm', '01', '02'];
         const canEditStatus = currentUser && allowedEditRoles.includes(currentUser.role);
         const editBtnOnly = canEditStatus ? `<button class="action-btn edit" onclick='openEditStatusModal(${JSON.stringify(member).replace(/'/g, "&apos;")})' title="Editar Status">✏️</button>` : '-';
-        const actionHtmlClean = actionHtml.replace(editBtn, '');
         
         return `
             <tr class="status-${member.status}">
@@ -983,7 +977,7 @@ function renderWeeklyTable(filter) {
                 <td class="role-cell">${roleName}</td>
                 <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
                 <td>${editBtnOnly}</td>
-                <td>${actionHtmlClean}</td>
+                <td>${actionHtml}</td>
             </tr>
         `;
     }).join('');
