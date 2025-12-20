@@ -847,23 +847,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             ORDER BY name
         `);
         
-        // Filtrar membros que foram criados ANTES do início da semana selecionada
-        // Membros novos só participam do farm a partir da semana SEGUINTE à criação
-        // Ex: criado dia 10/12 (semana 08-14) -> só aparece a partir de 15-21/12
-        const weekStartDate = new Date(weekStart);
-        weekStartDate.setHours(0, 0, 0, 0);
-        
-        const membersToCheck = allMembers.filter(member => {
-            // Se não tem data de criação, inclui (membros antigos do sistema)
-            if (!member.created_at) return true;
-            
-            const memberCreatedAt = new Date(member.created_at);
-            memberCreatedAt.setHours(0, 0, 0, 0);
-            
-            // Membro aparece se foi criado ANTES do início da semana selecionada
-            // Ou seja, se criado na semana X, só aparece na semana X+1
-            return memberCreatedAt < weekStartDate;
-        });
+        // TODO: Reativar filtro de membros novos depois
+        // Por enquanto, mostrar todos os membros
+        const membersToCheck = allMembers;
         
         const completed = [];      // Farm aprovado COMPLETO (700+ de cada)
         const partial = [];        // Farm EM PROGRESSO (ainda não completou 700 de cada)
