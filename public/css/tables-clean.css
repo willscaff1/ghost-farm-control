@@ -39,6 +39,16 @@
     vertical-align: middle;
 }
 
+/* Transição suave ao mudar de semana */
+.weekly-table tbody {
+    opacity: 1;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.weekly-table tbody.loading-transition {
+    opacity: 0.3;
+}
+
 /* Coluna 1: Passaporte - CENTRALIZADO */
 .weekly-table th:nth-child(1) {
     width: 110px;
@@ -53,7 +63,7 @@
     color: #a5b4fc;
 }
 
-/* Coluna 2: Membro - ESQUERDA */
+/* Coluna 2: Membro - ESQUERDA - SEM QUEBRA DE LINHA */
 .weekly-table th:nth-child(2) {
     width: auto;
     min-width: 220px;
@@ -62,6 +72,8 @@
 
 .weekly-table td:nth-child(2) {
     text-align: left;
+    white-space: nowrap;
+    overflow: visible;
 }
 
 /* Coluna 3: Cargo - ESQUERDA */
@@ -98,11 +110,13 @@
     text-align: center;
 }
 
-/* Member cell com avatar */
+/* Member cell com avatar - TUDO EM UMA LINHA */
 .weekly-table .member-cell {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
 }
 
 .weekly-table .member-avatar {
@@ -122,6 +136,16 @@
 .weekly-table .member-name {
     font-weight: 600;
     color: #fff;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.weekly-table .late-tag {
+    display: inline;
+    font-size: 11px;
+    color: #f39c12;
+    margin-left: 5px;
+    white-space: nowrap;
 }
 
 /* Botões de ação */

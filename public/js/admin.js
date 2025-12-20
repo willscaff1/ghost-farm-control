@@ -216,14 +216,20 @@ async function loadSelectedWeek() {
 // Navegar entre semanas
 function previousWeek() {
     if (selectedWeekOffset > -8) {
+        const tbody = document.getElementById('weeklyTableBody');
+        if (tbody) tbody.classList.add('loading-transition');
+        
         selectedWeekOffset--;
         loadSelectedWeek().then(() => loadWeeklyStatus());
     }
 }
 
 function nextWeek() {
+    const tbody = document.getElementById('weeklyTableBody');
+    if (tbody) tbody.classList.add('loading-transition');
+    
     selectedWeekOffset++;
-        loadSelectedWeek().then(() => loadWeeklyStatus());
+    loadSelectedWeek().then(() => loadWeeklyStatus());
 }
 
 // Carregar todos os dados da semana
@@ -846,6 +852,9 @@ function renderWeeklyTable(filter) {
     const tbody = document.getElementById('weeklyTableBody');
     if (!tbody || !weeklyStatusData) return;
     
+    // Adicionar classe de transição
+    tbody.classList.add('loading-transition');
+    
     currentFilter = filter;
     const data = weeklyStatusData;
     const weekPassed = data.weekPassed;
@@ -976,10 +985,7 @@ function renderWeeklyTable(filter) {
                 <td>
                     <div class="member-cell">
                         <div class="member-avatar">${initial}</div>
-                        <div>
-                            <div class="member-name">${member.name}${member.is_late_payment ? ' <span class="late-tag">⏰ ATRASADO</span>' : ''}</div>
-                            
-                        </div>
+                        <div class="member-name">${member.name}${member.is_late_payment ? ' <span class="late-tag">⏰</span>' : ''}</div>
                     </div>
                 </td>
                 <td class="role-cell">${roleName}</td>
