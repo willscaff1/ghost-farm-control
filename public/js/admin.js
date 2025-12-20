@@ -740,8 +740,9 @@ function renderWeeklyTable(filter) {
         // Determinar ação
         let actionHtml = '';
         
-        // Botão de edição apenas para gerente_geral
-        const canEditStatus = currentUser && currentUser.role === 'gerente_geral';
+        // Botão de edição para roles permitidos
+        const allowedEditRoles = ['gerente_geral', 'gerente_farm', '01', '02'];
+        const canEditStatus = currentUser && allowedEditRoles.includes(currentUser.role);
         const editBtn = canEditStatus ? `<button class="action-btn edit" onclick='openEditStatusModal(${JSON.stringify(member).replace(/'/g, "&apos;")})' title="Editar Status">✏️</button> ` : '';
         
         switch (member.status) {

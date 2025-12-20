@@ -449,6 +449,7 @@ router.delete('/members/:id', requireAdmin, async (req, res) => {
         }
         await runQuery('DELETE FROM deliveries WHERE user_id = ?', [memberId]);
         await runQuery('DELETE FROM justifications WHERE user_id = ?', [memberId]);
+        await runQuery('DELETE FROM warnings WHERE user_id = ?', [memberId]);
         await runQuery('DELETE FROM users WHERE id = ?', [memberId]);
         
         res.json({ success: true, message: 'Membro deletado com sucesso' });
@@ -1342,9 +1343,10 @@ router.post('/edit-member-status', requireAdmin, async (req, res) => {
         const adminId = req.session.user.id;
         const adminUser = req.session.user;
         
-        // Apenas gerente_geral pode editar
-        if (adminUser.role !== 'gerente_geral') {
-            return res.status(403).json({ error: 'Apenas o Gerente Geral pode editar status de pagamento' });
+        // Roles permitidos para editar status
+        const allowedRoles = ['gerente_geral', 'gerente_farm', '01', '02'];
+        if (!allowedRoles.includes(adminUser.role)) {
+            return res.status(403).json({ error: 'Você não tem permissão para editar status de pagamento' });
         }
         
         if (!user_id || !week_start || !week_end || !new_status) {
