@@ -680,12 +680,22 @@ function renderWeeklyTable(filter) {
     // Adicionar em progresso
     if (data.partial) {
         data.partial.forEach(member => {
-            allMembers.push({
-                ...member,
-                status: 'partial',
-                statusLabel: '⚡ Em Progresso',
-                statusClass: 'partial'
-            });
+            // Se a semana passou e está em progresso, mudar para "Não Entregou"
+            if (weekPassed) {
+                allMembers.push({
+                    ...member,
+                    status: 'partial',
+                    statusLabel: '❌ Não Entregou',
+                    statusClass: 'missing'
+                });
+            } else {
+                allMembers.push({
+                    ...member,
+                    status: 'partial',
+                    statusLabel: '⚡ Em Progresso',
+                    statusClass: 'partial'
+                });
+            }
         });
     }
     

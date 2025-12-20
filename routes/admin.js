@@ -840,16 +840,25 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         const whitelist = await getAll(`SELECT user_id FROM farm_whitelist`);
         const whitelistIds = whitelist.map(w => w.user_id);
         
-        // Todos os membros ativos (NÃO filtramos whitelist aqui - será tratado individualmente)
+        // Todos os membros ativos com data de criação
         const allMembers = await getAll(`
-            SELECT id, name, passport, role FROM users 
+            SELECT id, name, passport, role, created_at FROM users 
             WHERE active = 1
             ORDER BY name
         `);
         
-        // Não filtramos mais membros da whitelist aqui
-        // Se estão na whitelist MAS entregaram, devem aparecer no relatório
-        const membersToCheck = allMembers;
+        // Filtrar membros que foram criados ANTES do início da semana
+        // Membros novos só participam do farm a partir da semana seguinte à criação
+        const weekStartDate = new Date(weekStart);
+        weekStartDate.setHours(0, 0, 0, 0);
+        
+        const membersToCheck = allMembers.filter(member => {
+            if (!member.created_at) return true; // Se não tem data, inclui (membros antigos)
+            const memberCreatedAt = new Date(member.created_at);
+            memberCreatedAt.setHours(0, 0, 0, 0);
+            // Membro só aparece se foi criado ANTES do início da semana
+            return memberCreatedAt < weekStartDate;
+        });
         
         const completed = [];      // Farm aprovado COMPLETO (700+ de cada)
         const partial = [];        // Farm EM PROGRESSO (ainda não completou 700 de cada)
@@ -1518,6 +1527,17 @@ router.post('/members/:id/warnings', requireAdmin, async (req, res) => {
         // Não pode dar ADV no passaporte 6999
         if (member.passport === '6999') {
             return res.status(400).json({ error: 'Não é possível advertir este usuário' });
+        }
+        
+        // Verificar se já existe ADV para essa semana (impedir duplicada)
+        if (week_start && week_end) {
+            const existingAdv = await getOne(
+                'SELECT id FROM warnings WHERE user_id = ? AND week_start = ? AND week_end = ?',
+                [memberId, week_start, week_end]
+            );
+            if (existingAdv) {
+                return res.status(400).json({ error: 'Este membro já possui ADV para esta semana' });
+            }
         }
         
         // Inserir com ou sem referência de semana
