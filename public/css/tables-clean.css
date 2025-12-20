@@ -589,6 +589,33 @@
     text-align: left;
     font-size: 16px;
     font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Avatar e nome inline - igual Status da Semana */
+#overviewTable .member-avatar {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    text-align: center;
+    font-size: 17px;
+    font-weight: 900;
+    color: #fff;
+    margin-right: 14px;
+    vertical-align: middle;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+#overviewTable .member-name {
+    display: inline;
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 16px;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 
 /* Coluna 3: ADVs - CENTRALIZADO PERFEITO */

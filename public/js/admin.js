@@ -440,21 +440,12 @@ function renderOverviewTable() {
         
         return `
             <tr class="${advClass}" data-name="${member.name.toLowerCase()}" data-passport="${member.passport || ''}">
-                <td class="passport-cell">${member.passport || '-'}</td>
+                <td>${member.passport || '-'}</td>
+                <td><span class="member-avatar">${initial}</span><span class="member-name">${member.name}</span></td>
+                <td>${advBadge} ${member.warningsCount}</td>
                 <td>
-                    <div class="member-cell">
-                        <div class="member-avatar">${initial}</div>
-                        <div class="member-name">${member.name}</div>
-                    </div>
-                </td>
-                <td class="adv-cell">
-                    <span class="adv-count">${advBadge} ${member.warningsCount} ADV${member.warningsCount !== 1 ? 's' : ''}</span>
-                </td>
-                <td class="actions-cell">
                     <button class="action-btn add-adv" onclick="openQuickAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">➕ ADV</button>
-                    ${member.warningsCount > 0 ? `
-                        <button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver</button>
-                    ` : ''}
+                    ${member.warningsCount > 0 ? `<button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver</button>` : ''}
                 </td>
             </tr>
         `;
