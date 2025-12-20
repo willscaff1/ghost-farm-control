@@ -216,18 +216,12 @@ async function loadSelectedWeek() {
 // Navegar entre semanas
 function previousWeek() {
     if (selectedWeekOffset > -8) {
-        const tbody = document.getElementById('weeklyTableBody');
-        if (tbody) tbody.classList.add('loading-transition');
-        
         selectedWeekOffset--;
         loadSelectedWeek().then(() => loadWeeklyStatus());
     }
 }
 
 function nextWeek() {
-    const tbody = document.getElementById('weeklyTableBody');
-    if (tbody) tbody.classList.add('loading-transition');
-    
     selectedWeekOffset++;
     loadSelectedWeek().then(() => loadWeeklyStatus());
 }
@@ -851,9 +845,6 @@ async function loadWeeklyStatus() {
 function renderWeeklyTable(filter) {
     const tbody = document.getElementById('weeklyTableBody');
     if (!tbody || !weeklyStatusData) return;
-    
-    // Adicionar classe de transição
-    tbody.classList.add('loading-transition');
     
     currentFilter = filter;
     const data = weeklyStatusData;
