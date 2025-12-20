@@ -739,13 +739,18 @@ function renderWeeklyTable(filter) {
         
         // Determinar ação
         let actionHtml = '';
+        
+        // Botão de edição apenas para gerente_geral
+        const canEditStatus = currentUser && currentUser.role === 'gerente_geral';
+        const editBtn = canEditStatus ? `<button class="action-btn edit" onclick='openEditStatusModal(${JSON.stringify(member).replace(/'/g, "&apos;")})' title="Editar Status">✏️</button> ` : '';
+        
         switch (member.status) {
             case 'completed':
-                actionHtml = `<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Extrato</button>`;
+                actionHtml = `${editBtn}<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Extrato</button>`;
                 break;
             case 'partial':
                 // Em progresso: Ver Detalhes + ADV se semana passou (não completou a meta)
-                actionHtml = `<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Detalhes</button>`;
+                actionHtml = `${editBtn}<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Detalhes</button>`;
                 if (weekPassed) {
                     if (member.has_adv_applied) {
                         actionHtml += ` <span class="adv-applied-badge">⚠️ ADV APLICADA</span>`;
@@ -756,27 +761,27 @@ function renderWeeklyTable(filter) {
                 break;
             case 'pending':
                 if (member.has_justification_pending) {
-                    actionHtml = `<button class="action-btn approve" onclick='showJustificationModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📝 Avaliar</button>`;
+                    actionHtml = `${editBtn}<button class="action-btn approve" onclick='showJustificationModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📝 Avaliar</button>`;
                 } else {
-                    actionHtml = `<button class="action-btn approve" onclick='showApprovalModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>✔️ Aprovar</button>`;
+                    actionHtml = `${editBtn}<button class="action-btn approve" onclick='showApprovalModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>✔️ Aprovar</button>`;
                 }
                 break;
             case 'missing':
                 if (weekPassed) {
                     if (member.has_adv_applied) {
-                        actionHtml = `<span class="adv-applied-badge">⚠️ ADV APLICADA</span>`;
+                        actionHtml = `${editBtn}<span class="adv-applied-badge">⚠️ ADV APLICADA</span>`;
                     } else {
-                        actionHtml = `<button class="action-btn adv" onclick="applyWeeklyAdv(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${selectedWeek ? selectedWeek.start : ''}', '${selectedWeek ? selectedWeek.end : ''}')">⚠️ Aplicar ADV</button>`;
+                        actionHtml = `${editBtn}<button class="action-btn adv" onclick="applyWeeklyAdv(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${selectedWeek ? selectedWeek.start : ''}', '${selectedWeek ? selectedWeek.end : ''}')">⚠️ Aplicar ADV</button>`;
                     }
                 } else {
-                    actionHtml = '<span class="no-action">⏳ Semana em andamento</span>';
+                    actionHtml = `${editBtn}<span class="no-action">⏳ Semana em andamento</span>`;
                 }
                 break;
             case 'justified':
-                actionHtml = `<button class="action-btn view" onclick='showJustifiedDetails(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📋 Ver Justificativa</button>`;
+                actionHtml = `${editBtn}<button class="action-btn view" onclick='showJustifiedDetails(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📋 Ver Justificativa</button>`;
                 break;
             default:
-                actionHtml = '<span class="no-action">-</span>';
+                actionHtml = `${editBtn}<span class="no-action">-</span>`;
         }
         
         return `
@@ -809,6 +814,122 @@ function filterWeeklyTable(filter) {
     });
     
     renderWeeklyTable(filter);
+}
+
+// Modal: Editar status de pagamento (apenas gerente_geral)
+let editingMember = null;
+
+function openEditStatusModal(member) {
+    editingMember = member;
+    
+    const modal = document.getElementById('editStatusModal');
+    if (!modal) {
+        // Criar modal se não existir
+        createEditStatusModal();
+    }
+    
+    document.getElementById('editStatusMemberName').textContent = member.name;
+    document.getElementById('editStatusMemberId').value = member.id;
+    
+    // Selecionar status atual
+    const statusSelect = document.getElementById('editStatusSelect');
+    if (member.status === 'completed') {
+        statusSelect.value = 'approved';
+    } else if (member.status === 'partial') {
+        statusSelect.value = 'partial';
+    } else if (member.status === 'pending') {
+        statusSelect.value = 'pending';
+    } else if (member.status === 'missing') {
+        statusSelect.value = 'not_delivered';
+    } else if (member.status === 'justified') {
+        statusSelect.value = 'justified';
+    } else {
+        statusSelect.value = 'not_delivered';
+    }
+    
+    document.getElementById('editStatusModal').classList.add('show');
+}
+
+function createEditStatusModal() {
+    const modalHtml = `
+        <div id="editStatusModal" class="modal">
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2>✏️ Editar Status</h2>
+                    <button class="modal-close" onclick="closeEditStatusModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editStatusMemberId">
+                    <p><strong>Membro:</strong> <span id="editStatusMemberName"></span></p>
+                    <p><strong>Semana:</strong> ${selectedWeek ? selectedWeek.label : 'Atual'}</p>
+                    
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Novo Status:</label>
+                        <select id="editStatusSelect" class="form-control">
+                            <option value="approved">✅ Meta Completa (Aprovado)</option>
+                            <option value="partial">🔄 Em Progresso (Parcial)</option>
+                            <option value="pending">⏳ Aguardando Aprovação</option>
+                            <option value="not_delivered">❌ Não Entregou</option>
+                            <option value="justified">📋 Justificado</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Observação (opcional):</label>
+                        <textarea id="editStatusNote" class="form-control" rows="2" placeholder="Motivo da alteração..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeEditStatusModal()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="saveEditStatus()">💾 Salvar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeEditStatusModal() {
+    document.getElementById('editStatusModal').classList.remove('show');
+    editingMember = null;
+}
+
+async function saveEditStatus() {
+    const memberId = document.getElementById('editStatusMemberId').value;
+    const newStatus = document.getElementById('editStatusSelect').value;
+    const note = document.getElementById('editStatusNote').value;
+    
+    if (!selectedWeek) {
+        alert('Selecione uma semana primeiro!');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/admin/edit-member-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: memberId,
+                week_start: selectedWeek.start,
+                week_end: selectedWeek.end,
+                new_status: newStatus,
+                note: note
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert('✅ Status atualizado com sucesso!');
+            closeEditStatusModal();
+            loadWeeklyStatus(); // Recarregar tabela
+        } else {
+            alert(data.error || 'Erro ao atualizar status');
+        }
+    } catch (error) {
+        console.error('Erro ao salvar status:', error);
+        alert('Erro ao atualizar status');
+    }
 }
 
 // Modal: Mostrar extrato de farm aprovado

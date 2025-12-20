@@ -1333,6 +1333,149 @@ router.put('/justifications/:id/reject', requireAdmin, async (req, res) => {
     }
 });
 
+// ===================== EDITAR STATUS DE PAGAMENTO (GERENTE GERAL) =====================
+
+// Editar status de pagamento de um membro em uma semana específica
+router.post('/edit-member-status', requireAdmin, async (req, res) => {
+    try {
+        const { user_id, week_start, week_end, new_status, note } = req.body;
+        const adminId = req.session.user.id;
+        const adminUser = req.session.user;
+        
+        // Apenas gerente_geral pode editar
+        if (adminUser.role !== 'gerente_geral') {
+            return res.status(403).json({ error: 'Apenas o Gerente Geral pode editar status de pagamento' });
+        }
+        
+        if (!user_id || !week_start || !week_end || !new_status) {
+            return res.status(400).json({ error: 'Dados incompletos' });
+        }
+        
+        const member = await getOne('SELECT * FROM users WHERE id = ?', [user_id]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        
+        // Verificar entrega existente
+        const existingDelivery = await getOne(
+            'SELECT * FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ?',
+            [user_id, week_start, week_end]
+        );
+        
+        // Verificar justificativa existente
+        const existingJustification = await getOne(
+            'SELECT * FROM justifications WHERE user_id = ? AND week_start = ? AND week_end = ?',
+            [user_id, week_start, week_end]
+        );
+        
+        const noteText = note ? ` [Editado por ${adminUser.name}: ${note}]` : ` [Editado por ${adminUser.name}]`;
+        
+        switch (new_status) {
+            case 'approved':
+                // Marcar como pago/aprovado
+                if (existingDelivery) {
+                    await runQuery(
+                        'UPDATE deliveries SET status = ?, is_partial = 0, description = COALESCE(description, \'\') || ? WHERE id = ?',
+                        ['approved', noteText, existingDelivery.id]
+                    );
+                } else {
+                    // Criar delivery virtual (editado pelo admin)
+                    const result = await runQuery(
+                        `INSERT INTO deliveries (user_id, week_start, week_end, status, description, is_partial, payment_type)
+                         VALUES (?, ?, ?, 'approved', ?, 0, 'material')`,
+                        [user_id, week_start, week_end, `Marcado como pago${noteText}`]
+                    );
+                }
+                // Remover justificativa se existir
+                if (existingJustification) {
+                    await runQuery('DELETE FROM justifications WHERE id = ?', [existingJustification.id]);
+                }
+                break;
+                
+            case 'partial':
+                // Marcar como parcial/em progresso
+                if (existingDelivery) {
+                    await runQuery(
+                        'UPDATE deliveries SET status = ?, is_partial = 1, description = COALESCE(description, \'\') || ? WHERE id = ?',
+                        ['pending', noteText, existingDelivery.id]
+                    );
+                } else {
+                    await runQuery(
+                        `INSERT INTO deliveries (user_id, week_start, week_end, status, description, is_partial, payment_type)
+                         VALUES (?, ?, ?, 'pending', ?, 1, 'material')`,
+                        [user_id, week_start, week_end, `Marcado como parcial${noteText}`]
+                    );
+                }
+                if (existingJustification) {
+                    await runQuery('DELETE FROM justifications WHERE id = ?', [existingJustification.id]);
+                }
+                break;
+                
+            case 'pending':
+                // Marcar como aguardando aprovação
+                if (existingDelivery) {
+                    await runQuery(
+                        'UPDATE deliveries SET status = ?, is_partial = 0, description = COALESCE(description, \'\') || ? WHERE id = ?',
+                        ['pending', noteText, existingDelivery.id]
+                    );
+                } else {
+                    await runQuery(
+                        `INSERT INTO deliveries (user_id, week_start, week_end, status, description, is_partial, payment_type)
+                         VALUES (?, ?, ?, 'pending', ?, 0, 'material')`,
+                        [user_id, week_start, week_end, `Aguardando aprovação${noteText}`]
+                    );
+                }
+                if (existingJustification) {
+                    await runQuery('DELETE FROM justifications WHERE id = ?', [existingJustification.id]);
+                }
+                break;
+                
+            case 'not_delivered':
+                // Marcar como não entregou (remover delivery e justificativa)
+                if (existingDelivery) {
+                    // Primeiro remover screenshots e items
+                    await runQuery('DELETE FROM delivery_screenshots WHERE delivery_id = ?', [existingDelivery.id]);
+                    await runQuery('DELETE FROM delivery_items WHERE delivery_id = ?', [existingDelivery.id]);
+                    await runQuery('DELETE FROM deliveries WHERE id = ?', [existingDelivery.id]);
+                }
+                if (existingJustification) {
+                    await runQuery('DELETE FROM justifications WHERE id = ?', [existingJustification.id]);
+                }
+                break;
+                
+            case 'justified':
+                // Marcar como justificado
+                if (existingJustification) {
+                    await runQuery(
+                        'UPDATE justifications SET status = ?, reason = COALESCE(reason, \'\') || ? WHERE id = ?',
+                        ['approved', noteText, existingJustification.id]
+                    );
+                } else {
+                    await runQuery(
+                        `INSERT INTO justifications (user_id, week_start, week_end, reason, status, approved_by)
+                         VALUES (?, ?, ?, ?, 'approved', ?)`,
+                        [user_id, week_start, week_end, `Justificado pelo admin${noteText}`, adminId]
+                    );
+                }
+                // Remover delivery se existir
+                if (existingDelivery) {
+                    await runQuery('DELETE FROM delivery_screenshots WHERE delivery_id = ?', [existingDelivery.id]);
+                    await runQuery('DELETE FROM delivery_items WHERE delivery_id = ?', [existingDelivery.id]);
+                    await runQuery('DELETE FROM deliveries WHERE id = ?', [existingDelivery.id]);
+                }
+                break;
+                
+            default:
+                return res.status(400).json({ error: 'Status inválido' });
+        }
+        
+        res.json({ success: true, message: 'Status atualizado com sucesso' });
+    } catch (error) {
+        console.error('Erro ao editar status:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ===================== ADVERTÊNCIAS =====================
 
 // Listar advertências de um membro

@@ -851,6 +851,17 @@ body.admin-layout {
     background: rgba(231, 76, 60, 0.4);
 }
 
+.weekly-table .action-btn.edit {
+    background: rgba(52, 152, 219, 0.2);
+    color: #3498db;
+    padding: 6px 8px;
+    min-width: auto;
+}
+
+.weekly-table .action-btn.edit:hover {
+    background: rgba(52, 152, 219, 0.4);
+}
+
 .weekly-table .adv-applied-badge {
     display: inline-block;
     padding: 6px 12px;
