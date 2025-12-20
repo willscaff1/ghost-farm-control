@@ -313,20 +313,20 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
     });
 });
 
+// Dados da visão geral para ordenação
+let overviewData = [];
+let overviewSortColumn = 'name';
+let overviewSortDirection = 'asc';
+
 // Carregar visão geral dos membros - SIMPLIFICADA
 async function loadMembersOverview() {
     try {
         const response = await fetch('/api/admin/members');
         const data = await response.json();
         
-        const tbody = document.getElementById('overviewTableBody');
-        
         if (data.members && data.members.length > 0) {
-            // Ordenar por nome
-            const members = data.members.sort((a, b) => a.name.localeCompare(b.name));
-            
             // Buscar contagem de ADVs para cada membro
-            const membersWithAdvs = await Promise.all(members.map(async (member) => {
+            overviewData = await Promise.all(data.members.map(async (member) => {
                 try {
                     const advResponse = await fetch(`/api/admin/members/${member.id}/warnings`);
                     const advData = await advResponse.json();
@@ -340,53 +340,10 @@ async function loadMembersOverview() {
                 }
             }));
             
-            tbody.innerHTML = membersWithAdvs.map(member => {
-                const initial = member.name.charAt(0).toUpperCase();
-                
-                // Classe baseada no número de ADVs
-                let advClass = '';
-                let advBadge = '';
-                if (member.warningsCount >= 3) {
-                    advClass = 'adv-critical';
-                    advBadge = '🔴';
-                } else if (member.warningsCount >= 2) {
-                    advClass = 'adv-high';
-                    advBadge = '🟠';
-                } else if (member.warningsCount >= 1) {
-                    advClass = 'adv-warning';
-                    advBadge = '🟡';
-                } else {
-                    advBadge = '🟢';
-                }
-                
-                // Só 6999 pode remover ADV
-                const canRemoveAdv = currentUser && currentUser.passport === '6999';
-                
-                return `
-                    <tr class="${advClass}" data-name="${member.name.toLowerCase()}">
-                        <td>
-                            <div class="member-cell">
-                                <div class="member-avatar">${initial}</div>
-                                <div>
-                                    <div class="member-name">${member.name}</div>
-                                    <div class="member-passport">ID: ${member.passport}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="adv-cell">
-                            <span class="adv-count">${advBadge} ${member.warningsCount} ADV${member.warningsCount !== 1 ? 's' : ''}</span>
-                        </td>
-                        <td class="actions-cell">
-                            <button class="action-btn add-adv" onclick="openQuickAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">➕ Adicionar ADV</button>
-                            ${member.warningsCount > 0 ? `
-                                <button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver ADVs</button>
-                            ` : ''}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            renderOverviewTable();
         } else {
-            tbody.innerHTML = '<tr><td colspan="3" class="loading">👥 Nenhum membro cadastrado</td></tr>';
+            document.getElementById('overviewTableBody').innerHTML = 
+                '<tr><td colspan="3" class="loading">👥 Nenhum membro cadastrado</td></tr>';
         }
     } catch (error) {
         console.error('Erro ao carregar visão geral:', error);
@@ -395,19 +352,151 @@ async function loadMembersOverview() {
     }
 }
 
-// Filtrar tabela de visão geral
-function filterOverviewTable() {
-    const searchTerm = document.getElementById('searchOverview').value.toLowerCase();
-    const rows = document.querySelectorAll('#overviewTableBody tr');
+// Renderizar tabela de visão geral
+function renderOverviewTable() {
+    const tbody = document.getElementById('overviewTableBody');
+    const searchTerm = document.getElementById('searchOverview')?.value?.toLowerCase() || '';
     
-    rows.forEach(row => {
-        const name = row.getAttribute('data-name') || '';
-        if (name.includes(searchTerm)) {
-            row.style.display = '';
+    // Filtrar por busca
+    let filtered = overviewData.filter(m => {
+        if (!searchTerm) return true;
+        return m.name.toLowerCase().includes(searchTerm) || 
+               m.passport?.toLowerCase().includes(searchTerm);
+    });
+    
+    // Filtrar por ADV
+    if (overviewAdvFilter === 'with') {
+        filtered = filtered.filter(m => m.warningsCount > 0);
+    } else if (overviewAdvFilter === 'without') {
+        filtered = filtered.filter(m => m.warningsCount === 0);
+    }
+    
+    // Ordenar
+    filtered.sort((a, b) => {
+        let valA, valB;
+        
+        switch (overviewSortColumn) {
+            case 'name':
+                valA = a.name.toLowerCase();
+                valB = b.name.toLowerCase();
+                break;
+            case 'adv':
+                valA = a.warningsCount;
+                valB = b.warningsCount;
+                break;
+            default:
+                valA = a.name.toLowerCase();
+                valB = b.name.toLowerCase();
+        }
+        
+        if (overviewSortDirection === 'asc') {
+            return valA > valB ? 1 : valA < valB ? -1 : 0;
         } else {
-            row.style.display = 'none';
+            return valA < valB ? 1 : valA > valB ? -1 : 0;
         }
     });
+    
+    // Atualizar headers com indicadores de ordenação
+    updateOverviewSortIndicators();
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="loading">Nenhum membro encontrado</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(member => {
+        const initial = member.name.charAt(0).toUpperCase();
+        
+        // Classe baseada no número de ADVs
+        let advClass = '';
+        let advBadge = '';
+        if (member.warningsCount >= 3) {
+            advClass = 'adv-critical';
+            advBadge = '🔴';
+        } else if (member.warningsCount >= 2) {
+            advClass = 'adv-high';
+            advBadge = '🟠';
+        } else if (member.warningsCount >= 1) {
+            advClass = 'adv-warning';
+            advBadge = '🟡';
+        } else {
+            advBadge = '🟢';
+        }
+        
+        return `
+            <tr class="${advClass}" data-name="${member.name.toLowerCase()}">
+                <td>
+                    <div class="member-cell">
+                        <div class="member-avatar">${initial}</div>
+                        <div>
+                            <div class="member-name">${member.name}</div>
+                            <div class="member-passport">ID: ${member.passport}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="adv-cell">
+                    <span class="adv-count">${advBadge} ${member.warningsCount} ADV${member.warningsCount !== 1 ? 's' : ''}</span>
+                </td>
+                <td class="actions-cell">
+                    <button class="action-btn add-adv" onclick="openQuickAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">➕ Adicionar ADV</button>
+                    ${member.warningsCount > 0 ? `
+                        <button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver ADVs</button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Ordenar visão geral por coluna
+function sortOverview(column) {
+    if (overviewSortColumn === column) {
+        // Inverter direção se clicar na mesma coluna
+        overviewSortDirection = overviewSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        overviewSortColumn = column;
+        overviewSortDirection = column === 'adv' ? 'desc' : 'asc'; // ADV começa decrescente
+    }
+    renderOverviewTable();
+}
+
+// Atualizar indicadores de ordenação
+function updateOverviewSortIndicators() {
+    const headers = document.querySelectorAll('#overviewTable th.sortable');
+    headers.forEach(th => {
+        const col = th.getAttribute('data-sort');
+        const arrow = th.querySelector('.sort-arrow');
+        if (arrow) {
+            if (col === overviewSortColumn) {
+                arrow.textContent = overviewSortDirection === 'asc' ? ' ▲' : ' ▼';
+                arrow.style.opacity = '1';
+            } else {
+                arrow.textContent = ' ▲';
+                arrow.style.opacity = '0.3';
+            }
+        }
+    });
+}
+
+// Filtro de ADV ativo
+let overviewAdvFilter = 'all';
+
+// Filtrar por quantidade de ADV
+function filterOverviewByAdv(filter) {
+    overviewAdvFilter = filter;
+    
+    // Atualizar botões ativos
+    document.querySelectorAll('.overview-filters .filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    renderOverviewTable();
+}
+
+// Filtrar tabela de visão geral
+function filterOverviewTable() {
+    renderOverviewTable();
 }
 
 // Modal rápido para adicionar ADV

@@ -938,6 +938,60 @@ body.admin-layout {
     background: rgba(231, 76, 60, 0.15);
 }
 
+/* Sortable columns */
+#overviewTable th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+#overviewTable th.sortable:hover {
+    background: rgba(108, 92, 231, 0.2);
+}
+
+#overviewTable th .sort-arrow {
+    font-size: 10px;
+    margin-left: 5px;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+
+/* Overview filters */
+.overview-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.overview-filters {
+    display: flex;
+    gap: 8px;
+}
+
+.overview-filters .filter-btn {
+    padding: 8px 16px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #1e1e1e;
+    color: #888;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.overview-filters .filter-btn:hover {
+    border-color: #6c5ce7;
+    color: #fff;
+}
+
+.overview-filters .filter-btn.active {
+    background: #6c5ce7;
+    border-color: #6c5ce7;
+    color: #fff;
+}
+
 /* Quick ADV Modal */
 #quickAdvModal .modal-content {
     max-width: 500px;

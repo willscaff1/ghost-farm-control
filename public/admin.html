@@ -181,18 +181,23 @@
             <div id="members-overview-tab" class="tab-content">
                 <div class="card">
                     <h2>👁️ Visão Geral dos Membros</h2>
-                    <p class="subtitle">Gerencie advertências dos membros</p>
+                    <p class="subtitle">Gerencie advertências dos membros - Clique nas colunas para ordenar</p>
                     
                     <div class="overview-controls">
                         <input type="text" id="searchOverview" placeholder="🔍 Buscar membro..." class="search-input" onkeyup="filterOverviewTable()">
+                        <div class="overview-filters">
+                            <button class="filter-btn active" onclick="filterOverviewByAdv('all')">Todos</button>
+                            <button class="filter-btn" onclick="filterOverviewByAdv('with')">🔴 Com ADV</button>
+                            <button class="filter-btn" onclick="filterOverviewByAdv('without')">🟢 Sem ADV</button>
+                        </div>
                     </div>
                     
                     <div class="table-container">
                         <table class="weekly-table" id="overviewTable">
                             <thead>
                                 <tr>
-                                    <th>Membro</th>
-                                    <th>ADVs</th>
+                                    <th class="sortable" data-sort="name" onclick="sortOverview('name')">Membro <span class="sort-arrow">▲</span></th>
+                                    <th class="sortable" data-sort="adv" onclick="sortOverview('adv')">ADVs <span class="sort-arrow">▲</span></th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
