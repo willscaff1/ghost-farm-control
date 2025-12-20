@@ -64,6 +64,7 @@
                 <div class="sidebar-section-title">📊 Dashboard</div>
                 <button class="sidebar-item active" data-tab="weekly-status">📅 Status da Semana</button>
                 <button class="sidebar-item" data-tab="members-panel">👥 Painel de Membros</button>
+                <button class="sidebar-item" data-tab="members-overview">👁️ Visão Geral</button>
             </div>
 
             <div class="sidebar-section">
@@ -76,7 +77,7 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">👥 Membros</div>
                 <button class="sidebar-item" data-tab="members">📋 Lista de Membros</button>
-                <button class="sidebar-item" data-tab="members-overview">⚠️ Gerenciar ADV</button>
+                <button class="sidebar-item" data-tab="members-adv">⚠️ Gerenciar ADVs</button>
                 <button class="sidebar-item" data-tab="new-member">➕ Novo Membro</button>
             </div>
 
@@ -109,7 +110,7 @@
                     <p class="subtitle">Clique em um membro para ver o histórico completo</p>
                     
                     <div class="members-panel-header">
-                        <input type="text" id="searchMembersPanel" placeholder="🔍 Buscar membro por nome ou passaporte..." oninput="filterMembersPanel()" class="search-members-modern">
+                        <input type="text" id="searchMembersPanel" placeholder="🔍 Buscar por nome ou passaporte..." oninput="filterMembersPanel()" class="search-input-full">
                     </div>
                     
                     <div class="table-container">
@@ -131,10 +132,9 @@
             </div>
 
             <!-- Member Extract Modal -->
-            <div id="memberExtractModal" class="modal-member-extract" style="display: none;">
-                <div class="modal-member-extract-overlay" onclick="closeMemberExtractModal()"></div>
-                <div class="modal-member-extract-window">
-                    <div class="modal-member-extract-header">
+            <div id="memberExtractModal" class="modal" style="display: none;">
+                <div class="modal-content member-extract-modal-content">
+                    <div class="modal-header member-extract-header">
                         <div class="member-extract-title">
                             <span class="member-extract-icon">👤</span>
                             <div class="member-extract-info">
@@ -142,14 +142,14 @@
                                 <span id="extractMemberDetails" class="member-extract-details">Passaporte: 1234 | Cargo: Membro</span>
                             </div>
                         </div>
-                        <button class="modal-member-extract-close" onclick="closeMemberExtractModal()">&times;</button>
+                        <button class="modal-close" onclick="closeMemberExtractModal()">&times;</button>
                     </div>
                     
-                    <div class="modal-member-extract-body">
-                        <div class="member-extract-stats" id="extractStats">
-                            <!-- Stats cards -->
-                        </div>
-                        
+                    <div class="member-extract-stats" id="extractStats">
+                        <!-- Stats cards -->
+                    </div>
+                    
+                    <div class="member-extract-body">
                         <div class="extract-section">
                             <h3>📋 Histórico de Farms (Últimos 10)</h3>
                             <div class="extract-farms-list" id="extractFarmsList">
@@ -170,8 +170,8 @@
             <!-- Members Overview Tab -->
             <div id="members-overview-tab" class="tab-content">
                 <div class="card">
-                    <h2>⚠️ Gerenciar ADV dos Membros</h2>
-                    <p class="subtitle">Adicione ou visualize advertências - Clique nas colunas para ordenar</p>
+                    <h2>👁️ Visão Geral dos Membros</h2>
+                    <p class="subtitle">Gerencie advertências dos membros - Clique nas colunas para ordenar</p>
                     
                     <div class="overview-controls">
                         <input type="text" id="searchOverview" placeholder="🔍 Buscar membro..." class="search-input" onkeyup="filterOverviewTable()">
@@ -186,7 +186,7 @@
                         <table class="weekly-table" id="overviewTable">
                             <thead>
                                 <tr>
-                                    <th class="sortable" data-sort="passport" onclick="sortOverview('passport')">Passaporte <span class="sort-arrow">▲</span></th>
+                                    <th class="sortable" data-sort="passport" onclick="sortOverview('passport')">ID <span class="sort-arrow">▲</span></th>
                                     <th class="sortable" data-sort="name" onclick="sortOverview('name')">Membro <span class="sort-arrow">▲</span></th>
                                     <th class="sortable" data-sort="adv" onclick="sortOverview('adv')">ADVs <span class="sort-arrow">▲</span></th>
                                     <th>Ações</th>
@@ -204,11 +204,12 @@
             <div id="weekly-status-tab" class="tab-content active">
                 <div class="week-header">
                     <div class="week-selector-inline">
-                        <button class="week-nav-btn" onclick="previousWeek()" id="btnPrevWeek">⬅️</button>
+                    <div class="week-selector-inline">
+                        <button class="week-nav-btn" onclick="previousWeek()" id="btnPrevWeek"></button>
                         <div class="week-display">
                             <span id="selectedWeekLabel">Carregando...</span>
                         </div>
-                        <button class="week-nav-btn" onclick="nextWeek()" id="btnNextWeek">➡️</button>
+                        <button class="week-nav-btn" onclick="nextWeek()" id="btnNextWeek"></button>
                     </div>
                     <h2>📅 Status da Semana: <span id="currentWeekLabel">Carregando...</span></h2>
                 </div>
@@ -260,7 +261,6 @@
                         <table class="weekly-table">
                             <thead><tr><th>Passaporte</th><th>Membro</th><th>Cargo</th>
                                     <th>Status</th>
-                                    <th>Editar</th>
                                     <th>Ação</th>
                                 </tr>
                             </thead>
@@ -302,31 +302,8 @@
             <div id="members-tab" class="tab-content">
                 <div class="card">
                     <h2>👥 Lista de Membros</h2>
-                    <p class="subtitle">Gerencie todos os membros - Clique nas colunas para ordenar</p>
-                    
-                    <div class="members-controls">
-                        <input type="text" id="searchMembers" placeholder="🔍 Buscar por nome ou passaporte..." class="search-members-input" onkeyup="filterMembersTable()">
-                        <div class="members-filters">
-                            <button class="filter-btn active" onclick="filterMembersByStatus('all')">Todos</button>
-                            <button class="filter-btn" onclick="filterMembersByStatus('active')">✅ Ativos</button>
-                            <button class="filter-btn" onclick="filterMembersByStatus('inactive')">🚫 Inativos</button>
-                        </div>
-                    </div>
-                    
-                    <div class="table-container">
-                        <table class="weekly-table" id="membersTable">
-                            <thead>
-                                <tr>
-                                    <th class="sortable" onclick="sortMembersTable('passport')">Passaporte <span class="sort-arrow"></span></th>
-                                    <th class="sortable" onclick="sortMembersTable('name')">Membro <span class="sort-arrow"></span></th>
-                                    <th class="sortable" onclick="sortMembersTable('role')">Cargo <span class="sort-arrow"></span></th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="membersTableBody">
-                                <tr><td colspan="4" class="loading">Carregando...</td></tr>
-                            </tbody>
-                        </table>
+                    <div id="membersList" class="members-list">
+                        <p class="loading">Carregando...</p>
                     </div>
                 </div>
             </div>
@@ -418,17 +395,13 @@
             </div>
             
             <!-- Modal ADV -->
-            <div id="advMemberModal" class="modal-add-adv" style="display: none;">
-                <div class="modal-add-adv-overlay" onclick="closeAdvModal()"></div>
-                <div class="modal-add-adv-window">
-                    <div class="modal-add-adv-header">
-                        <div class="modal-add-adv-title">
-                            <span class="modal-adv-icon">⚠️</span>
-                            <h2>Aplicar Advertência</h2>
-                        </div>
-                        <button class="modal-add-adv-close" onclick="closeAdvModal()">&times;</button>
+            <div id="advMemberModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>⚠️ Aplicar Advertência</h2>
+                        <button class="modal-close" onclick="closeAdvModal()">&times;</button>
                     </div>
-                    <div class="modal-add-adv-body">
+                    <div class="modal-body">
                         <div class="modal-member-info">
                             <!-- Preenchido via JS -->
                         </div>
@@ -436,10 +409,10 @@
                             <label for="advReason">Motivo da Advertência *</label>
                             <textarea id="advReason" placeholder="Descreva o motivo da advertência..."></textarea>
                         </div>
-                    </div>
-                    <div class="modal-add-adv-footer">
-                        <button class="btn-cancel-adv" onclick="closeAdvModal()">Cancelar</button>
-                        <button class="btn-confirm-adv" onclick="applyAdvFromModal()">⚠️ Aplicar ADV</button>
+                        <div class="modal-actions">
+                            <button class="btn-cancel-adv" onclick="closeAdvModal()">Cancelar</button>
+                            <button class="btn-confirm-adv" onclick="applyAdvFromModal()">⚠️ Aplicar ADV</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -458,21 +431,17 @@
             </div>
             
             <!-- Modal Member Warnings -->
-            <div id="memberWarningsModal" class="modal-view-warnings" style="display: none;">
-                <div class="modal-view-warnings-overlay" onclick="closeMemberWarningsModal()"></div>
-                <div class="modal-view-warnings-window">
-                    <div class="modal-view-warnings-header">
-                        <div class="modal-view-warnings-title">
-                            <span class="modal-warnings-icon">⚠️</span>
-                            <h2>Advertências do Membro</h2>
-                        </div>
-                        <button class="modal-view-warnings-close" onclick="closeMemberWarningsModal()">&times;</button>
+            <div id="memberWarningsModal" class="modal" style="display: none;">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h3>⚠️ Advertências do Membro</h3>
+                        <button class="close-btn" onclick="closeMemberWarningsModal()">×</button>
                     </div>
-                    <div class="modal-view-warnings-body" id="memberWarningsBody">
+                    <div class="modal-body" id="memberWarningsBody">
                         <!-- Preenchido via JS -->
                     </div>
-                    <div class="modal-view-warnings-footer">
-                        <button class="btn-close-warnings" onclick="closeMemberWarningsModal()">Fechar</button>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeMemberWarningsModal()">Fechar</button>
                     </div>
                 </div>
             </div>

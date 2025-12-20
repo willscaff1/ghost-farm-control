@@ -2013,57 +2013,161 @@ async function rejectDelivery(id) {
 }
 
 // Carregar membros
+// Variáveis para lista de membros
+let membersTableData = [];
+let membersSortColumn = 'passport';
+let membersSortDirection = 'asc';
+let membersStatusFilter = 'all';
+
 async function loadMembers() {
     try {
         const response = await fetch('/api/admin/members');
         const data = await response.json();
         
-        const membersList = document.getElementById('membersList');
-        const isSuperAdmin = currentUser && currentUser.passport === '6999';
-        
-        if (data.members && data.members.length > 0) {
-            membersList.innerHTML = data.members.map(member => `
-                <div class="member-item ${member.active ? '' : 'inactive'}" id="member-${member.id}">
-                    <div class="member-info">
-                        <span class="member-passport">${member.passport}</span>
-                        <span class="member-name">${member.name}</span>
-                        ${isSuperAdmin && member.passport !== '6999' ? `
-                            <select class="role-select" onchange="changeRole(${member.id}, this.value)">
-                                <option value="member" ${member.role === 'member' ? 'selected' : ''}>Membro</option>
-                                <option value="01" ${member.role === '01' ? 'selected' : ''}>01</option>
-                                <option value="02" ${member.role === '02' ? 'selected' : ''}>02</option>
-                                <option value="gerente_farm" ${member.role === 'gerente_farm' ? 'selected' : ''}>Gerente de Farm</option>
-                                <option value="gerente_acao" ${member.role === 'gerente_acao' ? 'selected' : ''}>Gerente de Ação</option>
-                                <option value="gerente_recrutamento" ${member.role === 'gerente_recrutamento' ? 'selected' : ''}>Gerente de Recrutamento</option>
-                                <option value="gerente_encomendas" ${member.role === 'gerente_encomendas' ? 'selected' : ''}>Gerente de Encomendas</option>
-                                <option value="gerente_geral" ${member.role === 'gerente_geral' ? 'selected' : ''}>Gerente Geral</option>
-                            </select>
-                        ` : `
-                            <span class="role ${member.role}">${roleNames[member.role] || member.role}${member.passport === '6999' ? ' 👑' : ''}</span>
-                        `}
-                    </div>
-                    <div class="member-actions">
-                        ${isSuperAdmin && member.passport !== '6999' ? `
-                            <button class="btn btn-small btn-secondary" onclick="openEditMemberModal(${member.id}, '${member.name.replace(/'/g, "\\'") }', '${member.passport}', '${member.email || ''}', '${member.role}')">✏️ Editar</button>
-                            <button class="btn ${member.active ? 'btn-warning' : 'btn-success'} btn-small" onclick="toggleMember(${member.id})">
-                                ${member.active ? '🚫 Desativar' : '✅ Ativar'}
-                            </button>
-                            <button class="btn btn-danger btn-small" onclick="deleteMember(${member.id}, '${member.name.replace(/'/g, "\\'")}')">🗑️ Deletar</button>
-                        ` : ''}
-                    </div>
-                </div>
-            `).join('');
-        } else {
-            membersList.innerHTML = `
-                <div class="empty-state">
-                    <span>👥</span>
-                    <p>Nenhum membro cadastrado.</p>
-                </div>
-            `;
-        }
+        membersTableData = data.members || [];
+        renderMembersTable();
     } catch (error) {
         console.error('Erro ao carregar membros:', error);
+        document.getElementById('membersTableBody').innerHTML = '<tr><td colspan="4" class="loading">Erro ao carregar membros</td></tr>';
     }
+}
+
+function renderMembersTable() {
+    const tbody = document.getElementById('membersTableBody');
+    const searchTerm = document.getElementById('searchMembers')?.value?.toLowerCase() || '';
+    const isSuperAdmin = currentUser && currentUser.passport === '6999';
+    
+    // Filtrar por busca
+    let filtered = membersTableData.filter(m => {
+        if (!searchTerm) return true;
+        return m.name.toLowerCase().includes(searchTerm) || 
+               m.passport?.toLowerCase().includes(searchTerm);
+    });
+    
+    // Filtrar por status
+    if (membersStatusFilter === 'active') {
+        filtered = filtered.filter(m => m.active);
+    } else if (membersStatusFilter === 'inactive') {
+        filtered = filtered.filter(m => !m.active);
+    }
+    
+    // Ordenar
+    filtered.sort((a, b) => {
+        let valA, valB;
+        
+        switch (membersSortColumn) {
+            case 'passport':
+                valA = parseInt(a.passport) || 999999;
+                valB = parseInt(b.passport) || 999999;
+                break;
+            case 'name':
+                valA = a.name.toLowerCase();
+                valB = b.name.toLowerCase();
+                break;
+            case 'role':
+                valA = roleNames[a.role] || a.role;
+                valB = roleNames[b.role] || b.role;
+                break;
+            default:
+                valA = a.name.toLowerCase();
+                valB = b.name.toLowerCase();
+        }
+        
+        if (membersSortDirection === 'asc') {
+            return valA > valB ? 1 : valA < valB ? -1 : 0;
+        } else {
+            return valA < valB ? 1 : valA > valB ? -1 : 0;
+        }
+    });
+    
+    // Atualizar headers com indicadores de ordenação
+    updateMembersSortIndicators();
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="loading">Nenhum membro encontrado</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = filtered.map(member => {
+        const initial = member.name.charAt(0).toUpperCase();
+        const statusClass = member.active ? '' : 'inactive-row';
+        const statusIcon = member.active ? '' : '🚫 ';
+        
+        return `
+            <tr class="${statusClass}" data-name="${member.name.toLowerCase()}" data-passport="${member.passport || ''}">
+                <td>${member.passport || '-'}</td>
+                <td><span class="member-avatar">${initial}</span><span class="member-name">${statusIcon}${member.name}</span></td>
+                <td>
+                    ${isSuperAdmin && member.passport !== '6999' ? `
+                        <select class="role-select-inline" onchange="changeRole(${member.id}, this.value)">
+                            <option value="member" ${member.role === 'member' ? 'selected' : ''}>Membro</option>
+                            <option value="01" ${member.role === '01' ? 'selected' : ''}>01</option>
+                            <option value="02" ${member.role === '02' ? 'selected' : ''}>02</option>
+                            <option value="gerente_farm" ${member.role === 'gerente_farm' ? 'selected' : ''}>Gerente de Farm</option>
+                            <option value="gerente_acao" ${member.role === 'gerente_acao' ? 'selected' : ''}>Gerente de Ação</option>
+                            <option value="gerente_recrutamento" ${member.role === 'gerente_recrutamento' ? 'selected' : ''}>Gerente de Recrutamento</option>
+                            <option value="gerente_encomendas" ${member.role === 'gerente_encomendas' ? 'selected' : ''}>Gerente de Encomendas</option>
+                            <option value="gerente_geral" ${member.role === 'gerente_geral' ? 'selected' : ''}>Gerente Geral</option>
+                        </select>
+                    ` : `
+                        <span class="role-badge ${member.role}">${roleNames[member.role] || member.role}${member.passport === '6999' ? ' 👑' : ''}</span>
+                    `}
+                </td>
+                <td>
+                    ${isSuperAdmin && member.passport !== '6999' ? `
+                        <button class="action-btn-small edit" onclick="openEditMemberModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${member.passport}', '${member.email || ''}', '${member.role}')">✏️ Editar</button>
+                        <button class="action-btn-small ${member.active ? 'toggle' : 'activate'}" onclick="toggleMember(${member.id})">
+                            ${member.active ? '🚫 Desativar' : '✅ Ativar'}
+                        </button>
+                        <button class="action-btn-small delete" onclick="deleteMember(${member.id}, '${member.name.replace(/'/g, "\\'")}'  )">🗑️</button>
+                    ` : '<span class="no-actions">-</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function sortMembersTable(column) {
+    if (membersSortColumn === column) {
+        membersSortDirection = membersSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        membersSortColumn = column;
+        membersSortDirection = 'asc';
+    }
+    renderMembersTable();
+}
+
+function updateMembersSortIndicators() {
+    const headers = document.querySelectorAll('#membersTable th.sortable');
+    headers.forEach(th => {
+        const arrow = th.querySelector('.sort-arrow');
+        arrow.textContent = '';
+    });
+    
+    const activeHeader = Array.from(headers).find(th => {
+        const text = th.textContent.toLowerCase();
+        return text.includes(membersSortColumn);
+    });
+    
+    if (activeHeader) {
+        const arrow = activeHeader.querySelector('.sort-arrow');
+        arrow.textContent = membersSortDirection === 'asc' ? ' ▲' : ' ▼';
+    }
+}
+
+function filterMembersTable() {
+    renderMembersTable();
+}
+
+function filterMembersByStatus(type) {
+    membersStatusFilter = type;
+    
+    document.querySelectorAll('.members-filters .filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    renderMembersTable();
 }
 
 // Abrir modal de edição de membro
