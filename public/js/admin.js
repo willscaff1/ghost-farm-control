@@ -444,7 +444,7 @@ function renderOverviewTable() {
                 <td><span class="member-avatar">${initial}</span><span class="member-name">${member.name}</span></td>
                 <td>${advBadge} ${member.warningsCount}</td>
                 <td>
-                    <button class="action-btn add-adv" onclick="openQuickAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">➕ ADV</button>
+                    <button class="action-btn add-adv" onclick="showAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', ${member.warningsCount})">➕ ADV</button>
                     ${member.warningsCount > 0 ? `<button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver</button>` : ''}
                 </td>
             </tr>
