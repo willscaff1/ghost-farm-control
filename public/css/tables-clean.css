@@ -448,6 +448,12 @@
     font-family: inherit;
 }
 
+.field-select option {
+    background: #1e1e2e;
+    color: #fff;
+    padding: 10px;
+}
+
 .field-select:focus,
 .field-textarea:focus {
     outline: none;
