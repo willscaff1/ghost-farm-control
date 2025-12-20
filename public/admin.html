@@ -76,7 +76,7 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">👥 Membros</div>
                 <button class="sidebar-item" data-tab="members">📋 Lista de Membros</button>
-                <button class="sidebar-item" data-tab="members-overview">👁️ Visão Geral</button>
+                <button class="sidebar-item" data-tab="members-overview">⚠️ Gerenciar ADV</button>
                 <button class="sidebar-item" data-tab="new-member">➕ Novo Membro</button>
             </div>
 
@@ -169,8 +169,8 @@
             <!-- Members Overview Tab -->
             <div id="members-overview-tab" class="tab-content">
                 <div class="card">
-                    <h2>👁️ Visão Geral dos Membros</h2>
-                    <p class="subtitle">Gerencie advertências dos membros - Clique nas colunas para ordenar</p>
+                    <h2>⚠️ Gerenciar ADV dos Membros</h2>
+                    <p class="subtitle">Adicione ou visualize advertências - Clique nas colunas para ordenar</p>
                     
                     <div class="overview-controls">
                         <input type="text" id="searchOverview" placeholder="🔍 Buscar membro..." class="search-input" onkeyup="filterOverviewTable()">
@@ -185,7 +185,7 @@
                         <table class="weekly-table" id="overviewTable">
                             <thead>
                                 <tr>
-                                    <th class="sortable" data-sort="passport" onclick="sortOverview('passport')">ID <span class="sort-arrow">▲</span></th>
+                                    <th class="sortable" data-sort="passport" onclick="sortOverview('passport')">Passaporte <span class="sort-arrow">▲</span></th>
                                     <th class="sortable" data-sort="name" onclick="sortOverview('name')">Membro <span class="sort-arrow">▲</span></th>
                                     <th class="sortable" data-sort="adv" onclick="sortOverview('adv')">ADVs <span class="sort-arrow">▲</span></th>
                                     <th>Ações</th>

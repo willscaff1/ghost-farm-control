@@ -522,6 +522,130 @@
     transform: translateY(0);
 }
 
+/* ============================================
+   TABELA GERENCIAR ADV - ALINHAMENTO
+   ============================================ */
+
+#overviewTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#overviewTable thead {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+#overviewTable th {
+    padding: 14px;
+    text-align: left;
+    font-weight: 700;
+    color: #a5b4fc;
+    font-size: 14px;
+    text-transform: uppercase;
+    border-bottom: 2px solid rgba(108, 92, 231, 0.3);
+}
+
+#overviewTable tbody tr {
+    background: linear-gradient(145deg, rgba(40, 40, 60, 0.8), rgba(30, 40, 70, 0.8));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s;
+}
+
+#overviewTable tbody tr:hover {
+    background: linear-gradient(145deg, rgba(50, 50, 80, 0.9), rgba(40, 50, 90, 0.9));
+}
+
+#overviewTable td {
+    padding: 14px;
+    color: #ffffff;
+    font-size: 15px;
+    vertical-align: middle;
+}
+
+/* Coluna 1: Passaporte - CENTRALIZADO */
+#overviewTable th:nth-child(1) {
+    width: 120px;
+    text-align: center;
+}
+
+#overviewTable td:nth-child(1) {
+    width: 120px;
+    text-align: center;
+    font-weight: 700;
+    color: #d4dbff;
+    font-size: 15px;
+}
+
+/* Coluna 2: Membro - ESQUERDA */
+#overviewTable th:nth-child(2) {
+    width: auto;
+    min-width: 250px;
+    text-align: left;
+}
+
+#overviewTable td:nth-child(2) {
+    text-align: left;
+    white-space: nowrap;
+}
+
+/* Coluna 3: ADVs - CENTRALIZADO */
+#overviewTable th:nth-child(3) {
+    width: 120px;
+    text-align: center;
+}
+
+#overviewTable td:nth-child(3) {
+    width: 120px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+/* Coluna 4: Ações - CENTRALIZADO */
+#overviewTable th:nth-child(4) {
+    width: 250px;
+    text-align: center;
+}
+
+#overviewTable td:nth-child(4) {
+    width: 250px;
+    text-align: center;
+}
+
+/* Botões de ação da tabela ADV */
+#overviewTable .action-btn {
+    display: inline-block;
+    padding: 9px 16px;
+    margin: 0 4px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+#overviewTable .action-btn.add-adv {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: #fff;
+}
+
+#overviewTable .action-btn.add-adv:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+#overviewTable .action-btn.view-adv {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: #fff;
+}
+
+#overviewTable .action-btn.view-adv:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+}
+
 /* Cursor pointer para linhas clicáveis */
 .member-row {
     cursor: pointer;
