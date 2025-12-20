@@ -424,7 +424,7 @@ function renderOverviewTable() {
     updateOverviewSortIndicators();
     
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="loading">Nenhum membro encontrado</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">Nenhum membro encontrado</td></tr>';
         return;
     }
     
@@ -449,7 +449,7 @@ function renderOverviewTable() {
         
         return `
             <tr class="${advClass}" data-name="${member.name.toLowerCase()}" data-passport="${member.passport || ''}">
-                <td class="passport-cell">${member.id}</td>
+                <td class="passport-cell">${member.passport || '-'}</td>
                 <td>
                     <div class="member-cell">
                         <div class="member-avatar">${initial}</div>
@@ -645,7 +645,7 @@ function renderMembersList() {
         const initial = member.name.charAt(0).toUpperCase();
         return `
             <tr class="member-row" onclick="openMemberExtract(${member.id})">
-                <td class="passport-cell">${member.id}</td>
+                <td class="passport-cell">${member.passport || '-'}</td>
                 <td>
                     <div class="member-cell">
                         <div class="member-avatar">${initial}</div>
@@ -845,7 +845,7 @@ async function loadWeeklyStatus() {
         console.error('Erro ao carregar status semanal:', error);
         const tbody = document.getElementById('weeklyTableBody');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="4" class="loading">❌ Erro ao carregar dados</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="loading">❌ Erro ao carregar dados</td></tr>';
         }
     }
 }
@@ -933,7 +933,7 @@ function renderWeeklyTable(filter) {
     allMembers.sort((a, b) => a.name.localeCompare(b.name));
     
     if (allMembers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="loading">😴 Nenhum membro encontrado com este filtro</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">😴 Nenhum membro encontrado com este filtro</td></tr>';
         return;
     }
     
@@ -981,12 +981,13 @@ function renderWeeklyTable(filter) {
         
         return `
             <tr class="status-${member.status}">
+                <td class="passport-cell">${member.passport || '-'}</td>
                 <td>
                     <div class="member-cell">
                         <div class="member-avatar">${initial}</div>
                         <div>
                             <div class="member-name">${member.name}${member.is_late_payment ? ' <span class="late-tag">⏰ ATRASADO</span>' : ''}</div>
-                            <div class="member-passport">ID: ${member.passport || member.id}</div>
+                            
                         </div>
                     </div>
                 </td>
