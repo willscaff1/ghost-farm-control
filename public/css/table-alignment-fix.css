@@ -1,0 +1,99 @@
+/* ================================================
+   ALINHAMENTO FIXO PARA TODAS AS TABELAS
+   ================================================ */
+
+/* Forçar alinhamento dos headers */
+.weekly-table th {
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+}
+
+.weekly-table th:first-child {
+    text-align: center !important;
+    width: 120px !important;
+}
+
+.weekly-table th:nth-child(2) {
+    text-align: left !important;
+    width: auto !important;
+    min-width: 220px !important;
+}
+
+.weekly-table th:nth-child(3) {
+    text-align: left !important;
+    width: 180px !important;
+}
+
+.weekly-table th:nth-child(4) {
+    text-align: center !important;
+    width: 150px !important;
+}
+
+.weekly-table th:nth-child(5) {
+    text-align: center !important;
+    width: 150px !important;
+}
+
+/* Alinhamento das células */
+.weekly-table td {
+    vertical-align: middle !important;
+}
+
+.weekly-table td:first-child,
+.weekly-table .passport-cell {
+    text-align: center !important;
+    font-weight: 700 !important;
+    color: #a5b4fc !important;
+}
+
+.weekly-table td:nth-child(3) {
+    text-align: left !important;
+}
+
+.weekly-table td:nth-child(4),
+.weekly-table td:nth-child(5) {
+    text-align: center !important;
+}
+
+/* Garantir que os botões fiquem centralizados */
+.weekly-table .action-btn,
+.weekly-table .btn-small-view {
+    display: inline-block !important;
+    margin: 0 4px !important;
+    vertical-align: middle !important;
+}
+
+/* Member cell sempre alinhado à esquerda */
+.weekly-table .member-cell {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    text-align: left !important;
+}
+
+.weekly-table .member-avatar {
+    flex-shrink: 0 !important;
+}
+
+/* Garantir que member-row do painel tenha cursor pointer */
+.member-row {
+    cursor: pointer !important;
+}
+
+/* Status badge sempre centralizado */
+.weekly-table .status-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* ADV cell centralizado */
+.weekly-table .adv-cell {
+    text-align: center !important;
+}
+
+/* Actions cell centralizado */
+.weekly-table .actions-cell {
+    text-align: center !important;
+}
