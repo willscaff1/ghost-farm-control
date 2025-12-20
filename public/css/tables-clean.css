@@ -110,43 +110,34 @@
     text-align: center;
 }
 
-/* Member cell com avatar - TUDO EM UMA LINHA */
+/* Member cell - INLINE PURO SEM DIV */
 .weekly-table .member-cell {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: nowrap;
     white-space: nowrap;
 }
 
 .weekly-table .member-avatar {
-    width: 40px;
-    height: 40px;
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
     border-radius: 50%;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
+    text-align: center;
+    font-size: 15px;
     font-weight: 800;
     color: #fff;
-    flex-shrink: 0;
+    margin-right: 12px;
+    vertical-align: middle;
 }
 
 .weekly-table .member-name {
+    display: inline;
     font-weight: 600;
     color: #fff;
     white-space: nowrap;
-    display: inline-block;
+    vertical-align: middle;
 }
 
-.weekly-table .late-tag {
-    display: inline;
-    font-size: 11px;
-    color: #f39c12;
-    margin-left: 5px;
-    white-space: nowrap;
-}
 
 /* Botões de ação */
 .weekly-table .action-btn,

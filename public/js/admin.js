@@ -982,12 +982,7 @@ function renderWeeklyTable(filter) {
         return `
             <tr class="status-${member.status}">
                 <td class="passport-cell">${member.passport || '-'}</td>
-                <td>
-                    <div class="member-cell">
-                        <div class="member-avatar">${initial}</div>
-                        <div class="member-name">${member.name}${member.is_late_payment ? ' <span class="late-tag">⏰</span>' : ''}</div>
-                    </div>
-                </td>
+                <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name">${member.name}${member.is_late_payment ? ' ⏰' : ''}</span></td>
                 <td class="role-cell">${roleName}</td>
                 <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
                 <td>${actionHtml}</td>
