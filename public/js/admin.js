@@ -627,16 +627,11 @@ function renderMembersList() {
         const initial = member.name.charAt(0).toUpperCase();
         return `
             <tr class="member-row" onclick="openMemberExtract(${member.id})">
-                <td class="passport-cell">${member.passport || '-'}</td>
-                <td>
-                    <div class="member-cell">
-                        <div class="member-avatar">${initial}</div>
-                        <span class="member-name">${member.name}</span>
-                    </div>
-                </td>
+                <td>${member.passport || '-'}</td>
+                <td><span class="member-avatar">${initial}</span><span class="member-name">${member.name}</span></td>
                 <td>${roleNames[member.role] || member.role}</td>
                 <td>
-                    <button class="btn-small-view" onclick="event.stopPropagation(); openMemberExtract(${member.id})">👁️ Ver</button>
+                    <button class="btn-small-view" onclick="event.stopPropagation(); openMemberExtract(${member.id})">👁️ Ver Histórico</button>
                 </td>
             </tr>
         `;

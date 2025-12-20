@@ -109,7 +109,7 @@
                     <p class="subtitle">Clique em um membro para ver o histórico completo</p>
                     
                     <div class="members-panel-header">
-                        <input type="text" id="searchMembersPanel" placeholder="🔍 Buscar por nome ou passaporte..." oninput="filterMembersPanel()" class="search-input-full">
+                        <input type="text" id="searchMembersPanel" placeholder="🔍 Buscar membro por nome ou passaporte..." oninput="filterMembersPanel()" class="search-members-modern">
                     </div>
                     
                     <div class="table-container">
@@ -131,9 +131,10 @@
             </div>
 
             <!-- Member Extract Modal -->
-            <div id="memberExtractModal" class="modal" style="display: none;">
-                <div class="modal-content member-extract-modal-content">
-                    <div class="modal-header member-extract-header">
+            <div id="memberExtractModal" class="modal-member-extract" style="display: none;">
+                <div class="modal-member-extract-overlay" onclick="closeMemberExtractModal()"></div>
+                <div class="modal-member-extract-window">
+                    <div class="modal-member-extract-header">
                         <div class="member-extract-title">
                             <span class="member-extract-icon">👤</span>
                             <div class="member-extract-info">
@@ -141,14 +142,14 @@
                                 <span id="extractMemberDetails" class="member-extract-details">Passaporte: 1234 | Cargo: Membro</span>
                             </div>
                         </div>
-                        <button class="modal-close" onclick="closeMemberExtractModal()">&times;</button>
+                        <button class="modal-member-extract-close" onclick="closeMemberExtractModal()">&times;</button>
                     </div>
                     
-                    <div class="member-extract-stats" id="extractStats">
-                        <!-- Stats cards -->
-                    </div>
-                    
-                    <div class="member-extract-body">
+                    <div class="modal-member-extract-body">
+                        <div class="member-extract-stats" id="extractStats">
+                            <!-- Stats cards -->
+                        </div>
+                        
                         <div class="extract-section">
                             <h3>📋 Histórico de Farms (Últimos 10)</h3>
                             <div class="extract-farms-list" id="extractFarmsList">
@@ -394,13 +395,17 @@
             </div>
             
             <!-- Modal ADV -->
-            <div id="advMemberModal" class="modal" style="display: none;">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>⚠️ Aplicar Advertência</h2>
-                        <button class="modal-close" onclick="closeAdvModal()">&times;</button>
+            <div id="advMemberModal" class="modal-add-adv" style="display: none;">
+                <div class="modal-add-adv-overlay" onclick="closeAdvModal()"></div>
+                <div class="modal-add-adv-window">
+                    <div class="modal-add-adv-header">
+                        <div class="modal-add-adv-title">
+                            <span class="modal-adv-icon">⚠️</span>
+                            <h2>Aplicar Advertência</h2>
+                        </div>
+                        <button class="modal-add-adv-close" onclick="closeAdvModal()">&times;</button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-add-adv-body">
                         <div class="modal-member-info">
                             <!-- Preenchido via JS -->
                         </div>
@@ -408,10 +413,10 @@
                             <label for="advReason">Motivo da Advertência *</label>
                             <textarea id="advReason" placeholder="Descreva o motivo da advertência..."></textarea>
                         </div>
-                        <div class="modal-actions">
-                            <button class="btn-cancel-adv" onclick="closeAdvModal()">Cancelar</button>
-                            <button class="btn-confirm-adv" onclick="applyAdvFromModal()">⚠️ Aplicar ADV</button>
-                        </div>
+                    </div>
+                    <div class="modal-add-adv-footer">
+                        <button class="btn-cancel-adv" onclick="closeAdvModal()">Cancelar</button>
+                        <button class="btn-confirm-adv" onclick="applyAdvFromModal()">⚠️ Aplicar ADV</button>
                     </div>
                 </div>
             </div>
@@ -430,17 +435,21 @@
             </div>
             
             <!-- Modal Member Warnings -->
-            <div id="memberWarningsModal" class="modal" style="display: none;">
-                <div class="modal-content" style="max-width: 600px;">
-                    <div class="modal-header">
-                        <h3>⚠️ Advertências do Membro</h3>
-                        <button class="close-btn" onclick="closeMemberWarningsModal()">×</button>
+            <div id="memberWarningsModal" class="modal-view-warnings" style="display: none;">
+                <div class="modal-view-warnings-overlay" onclick="closeMemberWarningsModal()"></div>
+                <div class="modal-view-warnings-window">
+                    <div class="modal-view-warnings-header">
+                        <div class="modal-view-warnings-title">
+                            <span class="modal-warnings-icon">⚠️</span>
+                            <h2>Advertências do Membro</h2>
+                        </div>
+                        <button class="modal-view-warnings-close" onclick="closeMemberWarningsModal()">&times;</button>
                     </div>
-                    <div class="modal-body" id="memberWarningsBody">
+                    <div class="modal-view-warnings-body" id="memberWarningsBody">
                         <!-- Preenchido via JS -->
                     </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="closeMemberWarningsModal()">Fechar</button>
+                    <div class="modal-view-warnings-footer">
+                        <button class="btn-close-warnings" onclick="closeMemberWarningsModal()">Fechar</button>
                     </div>
                 </div>
             </div>
