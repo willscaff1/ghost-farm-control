@@ -164,3 +164,82 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(0, 0, 0, 0.2);
 }
+
+
+/* ==========================================
+   VISÃO GERAL - ESTILOS ESPECÍFICOS
+   ========================================== */
+
+#overviewTable .adv-cell {
+    text-align: center;
+}
+
+#overviewTable .actions-cell {
+    text-align: center;
+}
+
+#overviewTable .adv-count {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+#overviewTable .action-btn {
+    display: inline-block;
+    padding: 6px 12px;
+    margin: 0 3px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#overviewTable .action-btn.add-adv {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: #fff;
+}
+
+#overviewTable .action-btn.add-adv:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+#overviewTable .action-btn.view-adv {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: #fff;
+}
+
+#overviewTable .action-btn.view-adv:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+}
+
+/* Highlight de ADVs */
+#overviewTable tr.adv-warning {
+    background: rgba(241, 196, 15, 0.08);
+}
+
+#overviewTable tr.adv-high {
+    background: rgba(230, 126, 34, 0.08);
+}
+
+#overviewTable tr.adv-critical {
+    background: rgba(231, 76, 60, 0.08);
+}
+
+/* Sortable headers */
+.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sortable:hover {
+    background: rgba(108, 92, 231, 0.15);
+}
+
+.sort-arrow {
+    font-size: 10px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
