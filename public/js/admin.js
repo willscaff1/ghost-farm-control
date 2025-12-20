@@ -599,11 +599,11 @@ async function loadMembersPanel() {
     } catch (error) {
         console.error('Erro ao carregar painel de membros:', error);
         document.getElementById('membersExtractList').innerHTML = 
-            '<p class="loading">Erro ao carregar dados</p>';
+            '<tr><td colspan="4" class="loading">Erro ao carregar dados</td></tr>';
     }
 }
 
-// Renderizar lista de membros
+// Renderizar lista de membros em tabela
 function renderMembersList() {
     const searchTerm = document.getElementById('searchMembersPanel')?.value?.toLowerCase() || '';
     
@@ -617,27 +617,28 @@ function renderMembersList() {
     const list = document.getElementById('membersExtractList');
     
     if (filtered.length === 0) {
-        list.innerHTML = '<p class="extract-empty">Nenhum membro encontrado</p>';
+        list.innerHTML = '<tr><td colspan="4" class="loading">Nenhum membro encontrado</td></tr>';
         return;
     }
     
-    list.innerHTML = filtered.map(member => `
-        <div class="member-extract-card" onclick="openMemberExtract(${member.id})">
-            <div class="member-extract-avatar">👤</div>
-            <div class="member-extract-card-info">
-                <div class="member-extract-card-name">${member.name}</div>
-                <div class="member-extract-card-details">
-                    <span class="member-extract-card-passport">#${member.passport}</span>
-                    <span>${roleNames[member.role] || member.role}</span>
-                </div>
-            </div>
-            <div class="member-extract-card-stats">
-                <span class="member-mini-stat advs ${parseInt(member.warnings_count) === 0 ? 'zero' : ''}">
-                    ⚠️ ${parseInt(member.warnings_count) || 0}
-                </span>
-            </div>
-        </div>
-    `).join('');
+    list.innerHTML = filtered.map(member => {
+        const initial = member.name.charAt(0).toUpperCase();
+        return `
+            <tr class="member-row" onclick="openMemberExtract(${member.id})">
+                <td class="passport-cell">${member.passport || '-'}</td>
+                <td>
+                    <div class="member-cell">
+                        <div class="member-avatar">${initial}</div>
+                        <span class="member-name">${member.name}</span>
+                    </div>
+                </td>
+                <td>${roleNames[member.role] || member.role}</td>
+                <td>
+                    <button class="btn-small-view" onclick="event.stopPropagation(); openMemberExtract(${member.id})">👁️ Ver</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 // Filtrar painel de membros
