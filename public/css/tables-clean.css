@@ -23,19 +23,19 @@
 }
 
 .weekly-table tbody tr {
-    background: linear-gradient(145deg, rgba(30, 30, 46, 0.5), rgba(22, 33, 62, 0.5));
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: linear-gradient(145deg, rgba(40, 40, 60, 0.8), rgba(30, 40, 70, 0.8));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.2s;
 }
 
 .weekly-table tbody tr:hover {
-    background: linear-gradient(145deg, rgba(40, 40, 66, 0.7), rgba(30, 43, 82, 0.7));
+    background: linear-gradient(145deg, rgba(50, 50, 80, 0.9), rgba(40, 50, 90, 0.9));
 }
 
 .weekly-table td {
-    padding: 12px;
-    color: #e0e0e0;
-    font-size: 14px;
+    padding: 14px;
+    color: #ffffff;
+    font-size: 15px;
     vertical-align: middle;
 }
 
@@ -60,7 +60,8 @@
     width: 110px;
     text-align: center;
     font-weight: 700;
-    color: #a5b4fc;
+    color: #d4dbff;
+    font-size: 15px;
 }
 
 /* Coluna 2: Membro - ESQUERDA - SEM QUEBRA DE LINHA */
@@ -83,7 +84,8 @@
 .weekly-table td:nth-child(3) {
     width: 170px;
     text-align: left;
-    color: #8fa8ff;
+    color: #b8c5ff;
+    font-size: 15px;
 }
 
 /* Coluna 4: Status - CENTRALIZADO */
@@ -115,16 +117,16 @@
 
 .weekly-table .member-avatar {
     display: inline-block;
-    width: 36px;
-    height: 36px;
-    line-height: 36px;
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #7c8ffd 0%, #8b6bc2 100%);
     text-align: center;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 800;
     color: #fff;
-    margin-right: 12px;
+    margin-right: 14px;
     vertical-align: middle;
 }
 
@@ -132,7 +134,7 @@
     display: inline;
     font-weight: 700;
     color: #ffffff;
-    font-size: 14px;
+    font-size: 15px;
     white-space: nowrap;
     vertical-align: middle;
 }
@@ -142,12 +144,12 @@
 .weekly-table .action-btn,
 .weekly-table .btn-small-view {
     display: inline-block;
-    padding: 8px 14px;
+    padding: 9px 16px;
     margin: 0 3px;
     border: none;
     border-radius: 8px;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -189,10 +191,10 @@
 /* Status badges */
 .weekly-table .status-badge {
     display: inline-block;
-    padding: 6px 12px;
+    padding: 8px 14px;
     border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     white-space: nowrap;
     vertical-align: middle;
 }
@@ -229,8 +231,8 @@
 
 /* No action text */
 .weekly-table .no-action {
-    color: #888;
-    font-size: 12px;
+    color: #aaa;
+    font-size: 13px;
     font-style: italic;
     white-space: nowrap;
     display: inline-block;
