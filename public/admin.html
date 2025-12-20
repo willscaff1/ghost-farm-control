@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="css/modals-adv-modern.css">
     <link rel="stylesheet" href="css/members-list-modern.css">
     <link rel="stylesheet" href="css/members-panel-modern.css">
-    <link rel="stylesheet" href="css/tables-unified.css">
 </head>
 <body class="admin-layout">
     <nav class="navbar">
@@ -212,6 +211,13 @@
             <!-- Weekly Status Tab -->
             <div id="weekly-status-tab" class="tab-content active">
                 <div class="week-header">
+                    <div class="week-selector-inline">
+                        <button class="week-nav-btn" onclick="previousWeek()" id="btnPrevWeek"></button>
+                        <div class="week-display">
+                            <span id="selectedWeekLabel">Carregando...</span>
+                        </div>
+                        <button class="week-nav-btn" onclick="nextWeek()" id="btnNextWeek">➡️</button>
+                    </div>
                     <h2>📅 Status da Semana: <span id="currentWeekLabel">Carregando...</span></h2>
                 </div>
                 

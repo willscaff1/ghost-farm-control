@@ -156,16 +156,7 @@ function showTab(tabId) {
     // Mostrar a tab
     const tab = document.getElementById(`${tabId}-tab`);
     if (tab) tab.classList.add('active');
-    
-    // Mostrar/esconder seletor de semanas
-    const weekSelector = document.querySelector('.sidebar-week-selector');
-    if (weekSelector) {
-        if (tabId === 'weekly-status') {
-            weekSelector.classList.add('show-week-selector');
-        } else {
-            weekSelector.classList.remove('show-week-selector');
-        }
-    }
+
     
     // Carregar dados da tab
     switch (tabId) {

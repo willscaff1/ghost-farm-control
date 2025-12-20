@@ -4224,3 +4224,47 @@ body.admin-layout {
 .sidebar-week-selector.show-week-selector {
     display: flex;
 }
+/* Seletor de semanas INLINE na página Status da Semana */
+.week-selector-inline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    background: linear-gradient(145deg, #1a1a2e, #12121f);
+    border-radius: 14px;
+    border: 1px solid rgba(74, 144, 226, 0.2);
+}
+
+.week-selector-inline .week-nav-btn {
+    background: rgba(74, 144, 226, 0.2);
+    border: 1px solid rgba(74, 144, 226, 0.4);
+    color: #4a90e2;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+.week-selector-inline .week-nav-btn:hover {
+    background: rgba(74, 144, 226, 0.4);
+    transform: scale(1.05);
+}
+
+.week-selector-inline .week-display {
+    min-width: 280px;
+    text-align: center;
+}
+
+.week-selector-inline .week-display span {
+    font-size: 16px;
+    font-weight: 600;
+    color: #4a90e2;
+}
+
+/* Remover seletor da sidebar permanentemente */
+.sidebar-week-selector {
+    display: none !important;
+}
