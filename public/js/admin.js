@@ -376,6 +376,10 @@ function renderOverviewTable() {
         let valA, valB;
         
         switch (overviewSortColumn) {
+            case 'passport':
+                valA = parseInt(a.passport) || 999999;
+                valB = parseInt(b.passport) || 999999;
+                break;
             case 'name':
                 valA = a.name.toLowerCase();
                 valB = b.name.toLowerCase();
@@ -400,7 +404,7 @@ function renderOverviewTable() {
     updateOverviewSortIndicators();
     
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="loading">Nenhum membro encontrado</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="loading">Nenhum membro encontrado</td></tr>';
         return;
     }
     
@@ -424,23 +428,21 @@ function renderOverviewTable() {
         }
         
         return `
-            <tr class="${advClass}" data-name="${member.name.toLowerCase()}">
+            <tr class="${advClass}" data-name="${member.name.toLowerCase()}" data-passport="${member.passport || ''}">
+                <td class="passport-cell">${member.passport || '-'}</td>
                 <td>
                     <div class="member-cell">
                         <div class="member-avatar">${initial}</div>
-                        <div>
-                            <div class="member-name">${member.name}</div>
-                            <div class="member-passport">ID: ${member.passport}</div>
-                        </div>
+                        <div class="member-name">${member.name}</div>
                     </div>
                 </td>
                 <td class="adv-cell">
                     <span class="adv-count">${advBadge} ${member.warningsCount} ADV${member.warningsCount !== 1 ? 's' : ''}</span>
                 </td>
                 <td class="actions-cell">
-                    <button class="action-btn add-adv" onclick="openQuickAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">➕ Adicionar ADV</button>
+                    <button class="action-btn add-adv" onclick="openQuickAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">➕ ADV</button>
                     ${member.warningsCount > 0 ? `
-                        <button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver ADVs</button>
+                        <button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver</button>
                     ` : ''}
                 </td>
             </tr>
@@ -455,7 +457,8 @@ function sortOverview(column) {
         overviewSortDirection = overviewSortDirection === 'asc' ? 'desc' : 'asc';
     } else {
         overviewSortColumn = column;
-        overviewSortDirection = column === 'adv' ? 'desc' : 'asc'; // ADV começa decrescente
+        // ADV começa decrescente, passaporte crescente
+        overviewSortDirection = column === 'adv' ? 'desc' : 'asc';
     }
     renderOverviewTable();
 }
@@ -933,9 +936,6 @@ function renderWeeklyTable(filter) {
             case 'partial':
                 // Em progresso: Ver Detalhes
                 actionHtml = `${editBtn}<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️ Ver Detalhes</button>`;
-                if (weekPassed && member.has_adv_applied) {
-                    actionHtml += ` <span class="adv-applied-badge">⚠️ ADV APLICADA</span>`;
-                }
                 break;
             case 'pending':
                 if (member.has_justification_pending) {
@@ -946,11 +946,7 @@ function renderWeeklyTable(filter) {
                 break;
             case 'missing':
                 if (weekPassed) {
-                    if (member.has_adv_applied) {
-                        actionHtml = `${editBtn}<span class="adv-applied-badge">⚠️ ADV APLICADA</span>`;
-                    } else {
-                        actionHtml = `${editBtn}<span class="no-action">⚠️ Pendente ADV</span>`;
-                    }
+                    actionHtml = `${editBtn}<span class="no-action">❌ Não entregou</span>`;
                 } else {
                     actionHtml = `${editBtn}<span class="no-action">⏳ Semana em andamento</span>`;
                 }
@@ -3381,41 +3377,47 @@ async function showMemberWarningsModal(memberId, memberName) {
         modal.dataset.memberId = memberId;
         modal.dataset.memberName = memberName;
         
+        const canRemoveAdv = currentUser && currentUser.passport === '6999';
+        
         let content = `
-            <div class="warnings-member-info">
-                <h3>👤 ${memberName}</h3>
-                <p class="warnings-total">Total de advertências: <strong>${data.count}</strong></p>
+            <div class="adv-modal-header-info">
+                <div class="adv-member-name">👤 ${memberName}</div>
+                <div class="adv-count-badge ${data.count >= 3 ? 'critical' : data.count >= 2 ? 'high' : data.count >= 1 ? 'warning' : 'zero'}">
+                    ${data.count} ADV${data.count !== 1 ? 's' : ''}
+                </div>
             </div>
         `;
         
-        const canRemoveAdv = currentUser && currentUser.passport === '6999';
-        
         if (data.warnings && data.warnings.length > 0) {
-            content += `
-                <div class="warnings-list">
-                    ${data.warnings.map((warning, index) => `
-                        <div class="warning-detail-item">
-                            <div class="warning-number">#${data.warnings.length - index}</div>
-                            <div class="warning-content">
-                                <div class="warning-reason-text">📝 ${warning.reason}</div>
-                                <div class="warning-meta-info">
-                                    <span>👤 Aplicada por: <strong>${warning.given_by_name || 'Sistema'}</strong></span>
-                                    <span>📅 ${warning.created_at ? new Date(warning.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Data não disponível'}</span>
-                                </div>
-                            </div>
-                            ${canRemoveAdv ? `
-                                <button class="btn btn-danger btn-small" onclick="removeWarning(${warning.id}, '${memberName.replace(/'/g, "\\'")}')">
-                                    🗑️ Remover
-                                </button>
-                            ` : ''}
+            content += `<div class="adv-list">`;
+            data.warnings.forEach((warning, index) => {
+                const date = warning.created_at ? new Date(warning.created_at).toLocaleDateString('pt-BR', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }) : 'Data não disponível';
+                
+                content += `
+                    <div class="adv-item">
+                        <div class="adv-item-header">
+                            <span class="adv-number">#${data.warnings.length - index}</span>
+                            <span class="adv-date">📅 ${date}</span>
                         </div>
-                    `).join('')}
-                </div>
-            `;
+                        <div class="adv-reason">📝 ${warning.reason}</div>
+                        <div class="adv-footer">
+                            <span class="adv-by">Aplicada por: <strong>${warning.given_by_name || 'Sistema'}</strong></span>
+                            ${canRemoveAdv ? `<button class="btn-remove-adv" onclick="removeWarning(${warning.id}, '${memberName.replace(/'/g, "\\'")}')">🗑️ Remover</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            content += `</div>`;
         } else {
             content += `
-                <div class="no-warnings-found">
-                    <div class="icon">✅</div>
+                <div class="adv-empty">
+                    <div class="adv-empty-icon">✅</div>
                     <p>Este membro não possui advertências!</p>
                 </div>
             `;

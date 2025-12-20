@@ -196,13 +196,14 @@
                         <table class="weekly-table" id="overviewTable">
                             <thead>
                                 <tr>
+                                    <th class="sortable" data-sort="passport" onclick="sortOverview('passport')">ID <span class="sort-arrow">▲</span></th>
                                     <th class="sortable" data-sort="name" onclick="sortOverview('name')">Membro <span class="sort-arrow">▲</span></th>
                                     <th class="sortable" data-sort="adv" onclick="sortOverview('adv')">ADVs <span class="sort-arrow">▲</span></th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="overviewTableBody">
-                                <tr><td colspan="3" class="loading">Carregando...</td></tr>
+                                <tr><td colspan="4" class="loading">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
