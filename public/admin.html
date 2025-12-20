@@ -435,14 +435,17 @@
             </div>
             
             <!-- Modal Member Warnings -->
-            <div id="memberWarningsModal" class="modal overview-modal" style="display: none;">
-                <div class="modal-content">
-                    <div class="modal-header warnings-header">
-                        <h2>⚠️ Advertências do Membro</h2>
-                        <button class="modal-close" onclick="closeMemberWarningsModal()">&times;</button>
+            <div id="memberWarningsModal" class="modal" style="display: none;">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h3>⚠️ Advertências do Membro</h3>
+                        <button class="close-btn" onclick="closeMemberWarningsModal()">×</button>
                     </div>
                     <div class="modal-body" id="memberWarningsBody">
                         <!-- Preenchido via JS -->
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeMemberWarningsModal()">Fechar</button>
                     </div>
                 </div>
             </div>

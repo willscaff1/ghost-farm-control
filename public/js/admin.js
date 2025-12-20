@@ -3392,6 +3392,8 @@ async function showMemberWarningsModal(memberId, memberName) {
             </div>
         `;
         
+        const canRemoveAdv = currentUser && currentUser.passport === '6999';
+        
         if (data.warnings && data.warnings.length > 0) {
             content += `
                 <div class="warnings-list">
@@ -3401,13 +3403,15 @@ async function showMemberWarningsModal(memberId, memberName) {
                             <div class="warning-content">
                                 <div class="warning-reason-text">📝 ${warning.reason}</div>
                                 <div class="warning-meta-info">
-                                    <span>👤 Aplicada por: <strong>${warning.given_by_name}</strong></span>
-                                    <span>📅 ${new Date(warning.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                    <span>👤 Aplicada por: <strong>${warning.given_by_name || 'Sistema'}</strong></span>
+                                    <span>📅 ${warning.created_at ? new Date(warning.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Data não disponível'}</span>
                                 </div>
                             </div>
-                            <button class="btn btn-danger btn-small" onclick="removeWarning(${warning.id}, '${memberName.replace(/'/g, "\\'")}')">
-                                🗑️ Remover
-                            </button>
+                            ${canRemoveAdv ? `
+                                <button class="btn btn-danger btn-small" onclick="removeWarning(${warning.id}, '${memberName.replace(/'/g, "\\'")}')">
+                                    🗑️ Remover
+                                </button>
+                            ` : ''}
                         </div>
                     `).join('')}
                 </div>
