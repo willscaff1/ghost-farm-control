@@ -353,8 +353,7 @@ body.admin-layout {
 }
 
 /* Week Selector in Sidebar */
-.sidebar-week-selector {
-    display: flex;
+.sidebar-week-selector { display: none;
     align-items: center;
     justify-content: center;
     gap: 12px;
@@ -4216,4 +4215,12 @@ body.admin-layout {
 .mode-label small {
     color: #888;
     font-size: 0.85rem;
+}
+/* Esconder seletor de semanas por padrão (mostrar apenas no Status da Semana) */
+.sidebar-week-selector {
+    display: none;
+}
+
+.sidebar-week-selector.show-week-selector {
+    display: flex;
 }

@@ -157,6 +157,16 @@ function showTab(tabId) {
     const tab = document.getElementById(`${tabId}-tab`);
     if (tab) tab.classList.add('active');
     
+    // Mostrar/esconder seletor de semanas
+    const weekSelector = document.querySelector('.sidebar-week-selector');
+    if (weekSelector) {
+        if (tabId === 'weekly-status') {
+            weekSelector.classList.add('show-week-selector');
+        } else {
+            weekSelector.classList.remove('show-week-selector');
+        }
+    }
+    
     // Carregar dados da tab
     switch (tabId) {
         case 'weekly-status': loadWeeklyStatus(); break;
@@ -252,6 +262,16 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
         item.classList.add('active');
         const tabId = item.dataset.tab;
         document.getElementById(`${tabId}-tab`).classList.add('active');
+        
+        // Mostrar seletor de semanas apenas no Status da Semana
+        const weekSelector = document.querySelector('.sidebar-week-selector');
+        if (weekSelector) {
+            if (tabId === 'weekly-status') {
+                weekSelector.classList.add('show-week-selector');
+            } else {
+                weekSelector.classList.remove('show-week-selector');
+            }
+        }
         
         switch (tabId) {
             case 'weekly-status':
