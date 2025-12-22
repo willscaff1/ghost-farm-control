@@ -1141,7 +1141,6 @@ async function openPaymentHistory(memberId) {
                     </div>
                 `;
             }).join('');
-        }
         
     } catch (error) {
         console.error('Erro ao carregar histórico de pagamentos:', error);
