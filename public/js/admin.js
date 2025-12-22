@@ -707,12 +707,19 @@ async function loadMembersPanel() {
 // Renderizar lista de membros em tabela
 function renderMembersList() {
     const searchTerm = document.getElementById('searchMembersPanel')?.value?.toLowerCase() || '';
+    const roleFilter = document.getElementById('filterMemberRole')?.value || 'all';
     
     // Filtrar
     const filtered = membersPanelData.filter(m => {
-        if (!searchTerm) return true;
-        return m.name?.toLowerCase().includes(searchTerm) || 
-               m.passport?.toLowerCase().includes(searchTerm);
+        // Filtro de busca (passaporte e nome)
+        const matchesSearch = !searchTerm || 
+            m.name?.toLowerCase().includes(searchTerm) || 
+            m.passport?.toLowerCase().includes(searchTerm);
+        
+        // Filtro de cargo
+        const matchesRole = roleFilter === 'all' || m.role === roleFilter;
+        
+        return matchesSearch && matchesRole;
     });
     
     const list = document.getElementById('membersExtractList');
@@ -911,11 +918,28 @@ async function openMemberExtract(memberId) {
                 const recordStartNorm = String(record.week_start).split('T')[0];
                 const recordEndNorm = String(record.week_end).split('T')[0];
                 
+                console.log('\n=== VERIFICANDO ADV (MEMBER EXTRACT) ===');
+                console.log('Record week:', recordStartNorm, '-', recordEndNorm);
+                console.log('Total warnings:', data.warnings.length);
+                
                 const hasAdv = data.warnings.some(w => {
-                    if (!w.week_start || !w.week_end) return false;
+                    console.log('Checking warning:', w);
+                    if (!w.week_start || !w.week_end) {
+                        console.log('  -> ADV sem datas de semana');
+                        return false;
+                    }
                     const wStartNorm = String(w.week_start).split('T')[0];
                     const wEndNorm = String(w.week_end).split('T')[0];
-                    return wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
+                    console.log('  Warning week:', wStartNorm, '-', wEndNorm);
+                    const match = wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
+                    console.log('  Match?', match);
+                    return match;
+                });
+                
+                console.log('Has ADV?', hasAdv);
+                console.log('Can have ADV?', canHaveAdv);
+                console.log('Show button?', isWeekPassed && canHaveAdv && !hasAdv);
+                console.log('======================\n');
                 });
                 
                 // Mostrar botão de ADV apenas se: semana passou + pode ter ADV + não tem ADV ainda
