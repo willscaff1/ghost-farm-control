@@ -808,11 +808,11 @@ async function openMemberExtract(memberId) {
             today.setHours(0, 0, 0, 0);
             
             for (let i = 1; i <= 3; i++) {
-                // Calcular fim da semana (domingo) - i semanas atrás
+                // Calcular fim da semana (sábado) - i semanas atrás
                 const weekEnd = new Date(today);
-                weekEnd.setDate(today.getDate() - (i * 7));
+                weekEnd.setDate(today.getDate() - (i * 7) - 1);
                 
-                // Calcular início da semana (segunda)
+                // Calcular início da semana (domingo)
                 const weekStart = new Date(weekEnd);
                 weekStart.setDate(weekEnd.getDate() - 6);
                 
@@ -1023,7 +1023,7 @@ async function openPaymentHistory(memberId) {
             
             for (let i = 1; i <= 3; i++) {
                 const weekEnd = new Date(today);
-                weekEnd.setDate(today.getDate() - (i * 7));
+                weekEnd.setDate(today.getDate() - (i * 7) - 1);
                 
                 const weekStart = new Date(weekEnd);
                 weekStart.setDate(weekEnd.getDate() - 6);
