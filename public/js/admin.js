@@ -697,26 +697,27 @@ async function openMemberExtract(memberId) {
         if (data.deliveries.length === 0 && data.justifications.length === 0) {
             farmsList.innerHTML = '<p class="extract-empty">Nenhum farm registrado</p>';
         } else {
+            console.log('=== DADOS DO EXTRATO ===');
+            console.log('Deliveries:', data.deliveries);
+            console.log('Justifications:', data.justifications);
+            console.log('Warnings:', data.warnings);
+            
             // Combinar deliveries e justifications e ordenar por data
             const allRecords = [
                 ...data.deliveries.map(d => ({ ...d, type: 'delivery' })),
                 ...data.justifications.map(j => ({ ...j, type: 'justification' }))
             ].sort((a, b) => new Date(b.week_start) - new Date(a.week_start)).slice(0, 10);
             
-            // Obter data atual para verificar se a semana já passou
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            console.log('Registros combinados:', allRecords);
             
             farmsList.innerHTML = allRecords.map(record => {
                 const weekLabel = formatWeekLabel(record.week_start, record.week_end);
                 
-                console.log('Registro:', {
-                    type: record.type,
-                    week_start: record.week_start,
-                    week_end: record.week_end,
-                    status: record.status,
-                    weekLabel
-                });
+                console.log('--- Processando registro ---');
+                console.log('Type:', record.type);
+                console.log('Week:', record.week_start, '-', record.week_end);
+                console.log('Status:', record.status);
+                console.log('Week Label:', weekLabel);
                 
                 if (record.type === 'justification') {
                     return `
@@ -736,7 +737,7 @@ async function openMemberExtract(memberId) {
                     `<span class="extract-farm-material">${item.material_icon || '📦'} ${item.amount}</span>`
                 ).join('') || '';
                 
-                // Verificar se a semana já passou e se o status é rejeitado/não pago
+                // Verificar se a semana já passou
                 const weekEndStr = String(record.week_end).split('T')[0];
                 const weekEnd = new Date(weekEndStr + 'T23:59:59');
                 const today = new Date();
@@ -750,16 +751,17 @@ async function openMemberExtract(memberId) {
                     w.week_start === record.week_start && w.week_end === record.week_end
                 );
                 
-                console.log('Verificação ADV:', {
-                    weekEnd: weekEndStr,
-                    isWeekPassed,
-                    isNotPaid,
-                    hasAdv,
-                    status: record.status
-                });
+                console.log('Week End:', weekEndStr, '→', weekEnd);
+                console.log('Today:', today);
+                console.log('Is Week Passed?', isWeekPassed);
+                console.log('Is Not Paid?', isNotPaid, '(status:', record.status, ')');
+                console.log('Has ADV?', hasAdv);
                 
                 // Mostrar botão de ADV apenas se: semana passou + não foi pago + não tem ADV ainda
                 const showAdvBtn = isWeekPassed && isNotPaid && !hasAdv;
+                
+                console.log('SHOW ADV BUTTON?', showAdvBtn);
+                console.log('---');
                 
                 const advButton = showAdvBtn 
                     ? `<button class="btn-apply-adv-extract" onclick='applyAdvFromExtract(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
