@@ -710,6 +710,14 @@ async function openMemberExtract(memberId) {
             farmsList.innerHTML = allRecords.map(record => {
                 const weekLabel = formatWeekLabel(record.week_start, record.week_end);
                 
+                console.log('Registro:', {
+                    type: record.type,
+                    week_start: record.week_start,
+                    week_end: record.week_end,
+                    status: record.status,
+                    weekLabel
+                });
+                
                 if (record.type === 'justification') {
                     return `
                         <div class="extract-justified-item">
@@ -729,14 +737,26 @@ async function openMemberExtract(memberId) {
                 ).join('') || '';
                 
                 // Verificar se a semana já passou e se o status é rejeitado/não pago
-                const weekEnd = new Date(record.week_end + 'T00:00:00');
+                const weekEndStr = String(record.week_end).split('T')[0];
+                const weekEnd = new Date(weekEndStr + 'T23:59:59');
+                const today = new Date();
                 const isWeekPassed = weekEnd < today;
-                const isNotPaid = record.status === 'rejected' || record.status === 'in_progress';
+                
+                // Verificar se não está pago (status diferente de approved)
+                const isNotPaid = record.status !== 'approved';
                 
                 // Verificar se já existe ADV para esta semana
                 const hasAdv = data.warnings.some(w => 
                     w.week_start === record.week_start && w.week_end === record.week_end
                 );
+                
+                console.log('Verificação ADV:', {
+                    weekEnd: weekEndStr,
+                    isWeekPassed,
+                    isNotPaid,
+                    hasAdv,
+                    status: record.status
+                });
                 
                 // Mostrar botão de ADV apenas se: semana passou + não foi pago + não tem ADV ainda
                 const showAdvBtn = isWeekPassed && isNotPaid && !hasAdv;
@@ -880,14 +900,22 @@ async function openPaymentHistory(memberId) {
                 } else if (record.status === 'pending') {
                     statusClass = 'pending';
                     statusText = '⏳ Pendente';
+                    showAdvBtn = false; // Não mostrar para pendentes
                 } else if (record.status === 'rejected') {
                     statusClass = 'missing';
                     statusText = '❌ Não Pago';
-                    showAdvBtn = true; // Mostrar botão de ADV para não pagos
+                    showAdvBtn = true;
                 } else {
                     statusClass = 'pending';
                     statusText = '⚡ Em Progresso';
+                    showAdvBtn = false;
                 }
+                
+                // Verificar se a semana já passou
+                const weekEndStr = String(record.week_end).split('T')[0];
+                const weekEnd = new Date(weekEndStr + 'T23:59:59');
+                const today = new Date();
+                const isWeekPassed = weekEnd < today;
                 
                 // Verificar se já existe ADV para esta semana
                 const hasAdv = data.warnings.some(w => 
@@ -898,9 +926,12 @@ async function openPaymentHistory(memberId) {
                     `<span class="payment-history-material">${item.material_icon || '📦'} ${item.amount}</span>`
                 ).join('') || '<span class="payment-history-material">-</span>';
                 
-                const advButton = showAdvBtn && !hasAdv 
+                // Só mostrar botão se a semana passou, não está pago e não tem ADV
+                const canApplyAdv = isWeekPassed && showAdvBtn && !hasAdv;
+                
+                const advButton = canApplyAdv 
                     ? `<button class="btn-apply-adv" onclick='applyAdvFromHistory(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
-                    : (hasAdv ? `<span class="payment-history-status missing">⚠️ ADV Aplicada</span>` : '');
+                    : (hasAdv && showAdvBtn ? `<span class="payment-history-status missing">⚠️ ADV Aplicada</span>` : '');
                 
                 return `
                     <div class="payment-history-item">
@@ -1019,10 +1050,29 @@ async function applyAdvFromExtract(member, weekStart, weekEnd) {
 
 // Formatar label da semana
 function formatWeekLabel(start, end) {
-    if (!start || !end) return '-';
-    const startDate = new Date(start + 'T00:00:00');
-    const endDate = new Date(end + 'T00:00:00');
-    return `${startDate.toLocaleDateString('pt-BR')} - ${endDate.toLocaleDateString('pt-BR')}`;
+    if (!start || !end) {
+        console.warn('formatWeekLabel: start ou end vazio', { start, end });
+        return '-';
+    }
+    
+    try {
+        // Remover parte de hora se existir e garantir formato correto
+        const startStr = String(start).split('T')[0];
+        const endStr = String(end).split('T')[0];
+        
+        const startDate = new Date(startStr + 'T00:00:00');
+        const endDate = new Date(endStr + 'T00:00:00');
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            console.error('formatWeekLabel: Datas inválidas', { start, end, startDate, endDate });
+            return `${startStr} - ${endStr}`;
+        }
+        
+        return `${startDate.toLocaleDateString('pt-BR')} - ${endDate.toLocaleDateString('pt-BR')}`;
+    } catch (error) {
+        console.error('formatWeekLabel: Erro ao formatar', error, { start, end });
+        return '-';
+    }
 }
 
 // Texto do status no extrato
