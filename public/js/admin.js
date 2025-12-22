@@ -764,6 +764,13 @@ async function openMemberExtract(memberId) {
         if (data.deliveries.length === 0 && data.justifications.length === 0) {
             farmsList.innerHTML = '<p class="extract-empty">Nenhum farm registrado</p>';
         } else {
+            console.log('📊 DADOS DO EXTRATO:', {
+                deliveries: data.deliveries,
+                justifications: data.justifications,
+                warnings: data.warnings,
+                member: data.member
+            });
+            
             // Combinar deliveries e justifications e ordenar por data
             const allRecords = [
                 ...data.deliveries.map(d => ({ ...d, type: 'delivery' })),
@@ -805,12 +812,25 @@ async function openMemberExtract(memberId) {
                     w.week_start === record.week_start && w.week_end === record.week_end
                 );
                 
+                console.log(`🔍 Semana ${weekLabel}:`, {
+                    week_start: record.week_start,
+                    week_end: record.week_end,
+                    weekEndStr,
+                    weekEnd,
+                    today,
+                    isWeekPassed,
+                    status: record.status,
+                    isNotPaid,
+                    hasAdv,
+                    showAdvBtn: isWeekPassed && isNotPaid && !hasAdv
+                });
+                
                 // Mostrar botão de ADV apenas se: semana passou + não foi pago + não tem ADV ainda
                 const showAdvBtn = isWeekPassed && isNotPaid && !hasAdv;
                 
                 const advButton = showAdvBtn 
                     ? `<button class="btn-apply-adv-extract" onclick='applyAdvFromExtract(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
-                    : (hasAdv && isNotPaid ? `<span class="extract-adv-applied">⚠️ ADV Aplicada</span>` : '');
+                    : (hasAdv && isNotPaid ? `<span class="extract-adv-applied">⚠️ ADV JÁ APLICADA POR NÃO ENTREGA DO FARM</span>` : '');
                 
                 return `
                     <div class="extract-farm-item">
