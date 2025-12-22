@@ -2603,14 +2603,23 @@ function copyPassword(password) {
 // Carregar estatísticas admin (da semana selecionada)
 async function loadAdminStats() {
     try {
+        // Verificar se os elementos existem na página antes de tentar atualizá-los
+        const totalMembersEl = document.getElementById('totalMembers');
+        const pendingDeliveriesEl = document.getElementById('pendingDeliveries');
+        const approvedCountEl = document.getElementById('approvedCount');
+        
+        if (!totalMembersEl || !pendingDeliveriesEl || !approvedCountEl) {
+            return; // Elementos não existem nesta página
+        }
+        
         const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
         const response = await fetch(`/api/admin/stats${params}`);
         const data = await response.json();
         
         if (data.stats) {
-            document.getElementById('totalMembers').textContent = data.stats.total_members || 0;
-            document.getElementById('pendingDeliveries').textContent = data.stats.pending_deliveries || 0;
-            document.getElementById('approvedCount').textContent = data.stats.approved_count || 0;
+            totalMembersEl.textContent = data.stats.total_members || 0;
+            pendingDeliveriesEl.textContent = data.stats.pending_deliveries || 0;
+            approvedCountEl.textContent = data.stats.approved_count || 0;
         }
     } catch (error) {
         console.error('Erro ao carregar estatísticas:', error);
