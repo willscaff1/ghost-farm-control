@@ -704,22 +704,60 @@ async function loadMembersPanel() {
     }
 }
 
+// Variáveis de ordenação do painel de membros
+let membersPanelSortColumn = 'passport';
+let membersPanelSortDirection = 'asc';
+
 // Renderizar lista de membros em tabela
 function renderMembersList() {
     const searchTerm = document.getElementById('searchMembersPanel')?.value?.toLowerCase() || '';
-    const roleFilter = document.getElementById('filterMemberRole')?.value || 'all';
     
     // Filtrar
     const filtered = membersPanelData.filter(m => {
-        // Filtro de busca (passaporte e nome)
-        const matchesSearch = !searchTerm || 
-            m.name?.toLowerCase().includes(searchTerm) || 
-            m.passport?.toLowerCase().includes(searchTerm);
+        if (!searchTerm) return true;
+        return m.name?.toLowerCase().includes(searchTerm) || 
+               m.passport?.toLowerCase().includes(searchTerm);
+    });
+    
+    // Ordenar
+    filtered.sort((a, b) => {
+        let valA, valB;
         
-        // Filtro de cargo
-        const matchesRole = roleFilter === 'all' || m.role === roleFilter;
+        switch (membersPanelSortColumn) {
+            case 'passport':
+                valA = parseInt(a.passport) || 0;
+                valB = parseInt(b.passport) || 0;
+                break;
+            case 'name':
+                valA = a.name.toLowerCase();
+                valB = b.name.toLowerCase();
+                break;
+            case 'role':
+                valA = roleNames[a.role] || a.role;
+                valB = roleNames[b.role] || b.role;
+                break;
+            default:
+                return 0;
+        }
         
-        return matchesSearch && matchesRole;
+        if (membersPanelSortDirection === 'asc') {
+            return valA > valB ? 1 : valA < valB ? -1 : 0;
+        } else {
+            return valA < valB ? 1 : valA > valB ? -1 : 0;
+        }
+    });
+    
+    // Atualizar indicadores de ordenação
+    document.querySelectorAll('#membersPanelTable th.sortable').forEach(th => {
+        const col = th.getAttribute('data-sort');
+        const arrow = th.querySelector('.sort-arrow');
+        if (arrow) {
+            if (col === membersPanelSortColumn) {
+                arrow.textContent = membersPanelSortDirection === 'asc' ? ' ▲' : ' ▼';
+            } else {
+                arrow.textContent = '';
+            }
+        }
     });
     
     const list = document.getElementById('membersExtractList');
@@ -742,6 +780,17 @@ function renderMembersList() {
             </tr>
         `;
     }).join('');
+}
+
+// Ordenar painel de membros
+function sortMembersPanel(column) {
+    if (membersPanelSortColumn === column) {
+        membersPanelSortDirection = membersPanelSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        membersPanelSortColumn = column;
+        membersPanelSortDirection = 'asc';
+    }
+    renderMembersList();
 }
 
 // Filtrar painel de membros

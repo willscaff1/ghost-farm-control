@@ -110,26 +110,21 @@
                     
                     <div class="members-panel-header">
                         <input type="text" id="searchMembersPanel" placeholder="🔍 Buscar membro por nome ou passaporte..." oninput="filterMembersPanel()" class="search-members-modern">
-                        <select id="filterMemberRole" onchange="filterMembersPanel()" class="filter-select-modern">
-                            <option value="all">Todos os Cargos</option>
-                            <option value="member">Membro</option>
-                            <option value="01">01</option>
-                            <option value="02">02</option>
-                            <option value="gerente_farm">Gerente de Farm</option>
-                            <option value="gerente_acao">Gerente de Ação</option>
-                            <option value="gerente_recrutamento">Gerente de Recrutamento</option>
-                            <option value="gerente_encomendas">Gerente de Encomendas</option>
-                            <option value="gerente_geral">Gerente Geral</option>
-                        </select>
                     </div>
                     
                     <div class="table-container">
                         <table class="weekly-table" id="membersPanelTable">
                             <thead>
                                 <tr>
-                                    <th>Passaporte</th>
-                                    <th>Membro</th>
-                                    <th>Cargo</th>
+                                    <th class="sortable" data-sort="passport" onclick="sortMembersPanel('passport')">
+                                        Passaporte <span class="sort-arrow"></span>
+                                    </th>
+                                    <th class="sortable" data-sort="name" onclick="sortMembersPanel('name')">
+                                        Membro <span class="sort-arrow"></span>
+                                    </th>
+                                    <th class="sortable" data-sort="role" onclick="sortMembersPanel('role')">
+                                        Cargo <span class="sort-arrow"></span>
+                                    </th>
                                     <th>Ação</th>
                                 </tr>
                             </thead>
