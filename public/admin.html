@@ -477,6 +477,36 @@
                 </div>
             </div>
 
+            <!-- Modal Payment History -->
+            <div id="paymentHistoryModal" class="modal-payment-history" style="display: none;">
+                <div class="modal-payment-history-overlay" onclick="closePaymentHistoryModal()"></div>
+                <div class="modal-payment-history-window">
+                    <div class="modal-payment-history-header">
+                        <div class="payment-history-title">
+                            <span class="payment-history-icon">💰</span>
+                            <div class="payment-history-info">
+                                <h2 id="paymentHistoryMemberName">Nome do Membro</h2>
+                                <span id="paymentHistoryMemberDetails" class="payment-history-details">Passaporte: 1234 | Cargo: Membro</span>
+                            </div>
+                        </div>
+                        <button class="modal-payment-history-close" onclick="closePaymentHistoryModal()">&times;</button>
+                    </div>
+                    
+                    <div class="modal-payment-history-body">
+                        <div class="payment-history-stats" id="paymentHistoryStats">
+                            <!-- Stats cards -->
+                        </div>
+                        
+                        <div class="payment-history-section">
+                            <h3>📅 Histórico de Semanas (Últimos 10)</h3>
+                            <div class="payment-history-list" id="paymentHistoryList">
+                                <p class="loading">Carregando...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Ranking Tab -->
             <div id="ranking-tab" class="tab-content">
                 <div class="card">

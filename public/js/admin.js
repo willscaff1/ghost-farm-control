@@ -766,6 +766,194 @@ function closeMemberExtractModal() {
     document.getElementById('memberExtractModal').style.display = 'none';
 }
 
+// ========== MODAL PAYMENT HISTORY ==========
+
+// Abrir modal de histórico de pagamentos
+async function openPaymentHistory(memberId) {
+    const modal = document.getElementById('paymentHistoryModal');
+    modal.style.display = 'flex';
+    
+    // Mostrar loading
+    document.getElementById('paymentHistoryMemberName').textContent = 'Carregando...';
+    document.getElementById('paymentHistoryMemberDetails').textContent = '';
+    document.getElementById('paymentHistoryStats').innerHTML = '<p class="loading">Carregando...</p>';
+    document.getElementById('paymentHistoryList').innerHTML = '<p class="loading">Carregando...</p>';
+    
+    try {
+        const response = await fetch(`/api/admin/member-extract/${memberId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Erro ao carregar histórico');
+        }
+        
+        // Preencher header
+        document.getElementById('paymentHistoryMemberName').textContent = data.member.name;
+        document.getElementById('paymentHistoryMemberDetails').textContent = 
+            `Passaporte: ${data.member.passport} | Cargo: ${roleNames[data.member.role] || data.member.role}`;
+        
+        // Preencher estatísticas
+        document.getElementById('paymentHistoryStats').innerHTML = `
+            <div class="payment-stat-card approved">
+                <span class="payment-stat-number">${data.stats.totalApproved}</span>
+                <span class="payment-stat-label">✅ Aprovados</span>
+            </div>
+            <div class="payment-stat-card pending">
+                <span class="payment-stat-number">${data.stats.totalPending}</span>
+                <span class="payment-stat-label">⏳ Pendentes</span>
+            </div>
+            <div class="payment-stat-card missing">
+                <span class="payment-stat-number">${data.deliveries.filter(d => d.status === 'rejected').length}</span>
+                <span class="payment-stat-label">❌ Não Pagos</span>
+            </div>
+            <div class="payment-stat-card justified">
+                <span class="payment-stat-number">${data.stats.totalJustified}</span>
+                <span class="payment-stat-label">📋 Justificados</span>
+            </div>
+            <div class="payment-stat-card warnings">
+                <span class="payment-stat-number">${data.stats.totalWarnings}</span>
+                <span class="payment-stat-label">⚠️ ADVs</span>
+            </div>
+        `;
+        
+        // Preencher histórico
+        const historyList = document.getElementById('paymentHistoryList');
+        if (data.deliveries.length === 0 && data.justifications.length === 0) {
+            historyList.innerHTML = '<p class="payment-history-empty">Nenhum registro encontrado</p>';
+        } else {
+            // Combinar deliveries e justifications e ordenar por data
+            const allRecords = [
+                ...data.deliveries.map(d => ({ ...d, type: 'delivery' })),
+                ...data.justifications.map(j => ({ ...j, type: 'justification' }))
+            ].sort((a, b) => new Date(b.week_start) - new Date(a.week_start)).slice(0, 10);
+            
+            historyList.innerHTML = allRecords.map(record => {
+                const weekLabel = formatWeekLabel(record.week_start, record.week_end);
+                
+                if (record.type === 'justification') {
+                    // Justificativa aprovada
+                    return `
+                        <div class="payment-history-item">
+                            <div class="payment-history-item-left">
+                                <div class="payment-history-week">${weekLabel}</div>
+                                <span class="payment-history-status justified">📋 Justificado</span>
+                                <div class="payment-history-materials">
+                                    <span class="payment-history-material">${record.reason || 'Sem motivo informado'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Delivery
+                let statusClass = '';
+                let statusText = '';
+                let showAdvBtn = false;
+                
+                if (record.status === 'approved') {
+                    statusClass = 'approved';
+                    statusText = '✅ Pago';
+                } else if (record.status === 'pending') {
+                    statusClass = 'pending';
+                    statusText = '⏳ Pendente';
+                } else if (record.status === 'rejected') {
+                    statusClass = 'missing';
+                    statusText = '❌ Não Pago';
+                    showAdvBtn = true; // Mostrar botão de ADV para não pagos
+                } else {
+                    statusClass = 'pending';
+                    statusText = '⚡ Em Progresso';
+                }
+                
+                // Verificar se já existe ADV para esta semana
+                const hasAdv = data.warnings.some(w => 
+                    w.week_start === record.week_start && w.week_end === record.week_end
+                );
+                
+                const materials = record.items?.map(item => 
+                    `<span class="payment-history-material">${item.material_icon || '📦'} ${item.amount}</span>`
+                ).join('') || '<span class="payment-history-material">-</span>';
+                
+                const advButton = showAdvBtn && !hasAdv 
+                    ? `<button class="btn-apply-adv" onclick='applyAdvFromHistory(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
+                    : (hasAdv ? `<span class="payment-history-status missing">⚠️ ADV Aplicada</span>` : '');
+                
+                return `
+                    <div class="payment-history-item">
+                        <div class="payment-history-item-left">
+                            <div class="payment-history-week">${weekLabel}</div>
+                            <span class="payment-history-status ${statusClass}">${statusText}</span>
+                            <div class="payment-history-materials">${materials}</div>
+                        </div>
+                        <div class="payment-history-item-actions">
+                            ${advButton}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar histórico de pagamentos:', error);
+        document.getElementById('paymentHistoryList').innerHTML = 
+            '<p class="payment-history-empty">Erro ao carregar dados</p>';
+    }
+}
+
+// Fechar modal de histórico de pagamentos
+function closePaymentHistoryModal() {
+    document.getElementById('paymentHistoryModal').style.display = 'none';
+}
+
+// Aplicar advertência a partir do histórico
+async function applyAdvFromHistory(member, weekStart, weekEnd) {
+    const reason = prompt(`🚨 Aplicar advertência para ${member.name}\n\nSemana: ${formatWeekLabel(weekStart, weekEnd)}\n\nMotivo da advertência:`);
+    
+    if (!reason || reason.trim() === '') {
+        alert('⚠️ Você precisa informar um motivo para a advertência');
+        return;
+    }
+    
+    if (!confirm(`Confirmar advertência para ${member.name}?\n\nMotivo: ${reason}`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/members/${member.id}/warnings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                reason: reason.trim(),
+                week_start: weekStart,
+                week_end: weekEnd
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            // Recarregar o modal para atualizar a visualização
+            openPaymentHistory(member.id);
+        } else {
+            alert(`❌ Erro: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Erro ao aplicar advertência:', error);
+        alert(`❌ Erro: ${error.message}`);
+    }
+}
+
+// Fechar modal ao clicar fora
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('paymentHistoryModal');
+    if (e.target === modal) {
+        closePaymentHistoryModal();
+    }
+});
+
+// ========== FIM MODAL PAYMENT HISTORY ==========
+
 // Formatar label da semana
 function formatWeekLabel(start, end) {
     if (!start || !end) return '-';
@@ -959,7 +1147,7 @@ function renderWeeklyTable(filter) {
         return `
             <tr class="status-${member.status}">
                 <td class="passport-cell">${member.passport || '-'}</td>
-                <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name">${member.name}${member.is_late_payment ? ' ⏰' : ''}</span></td>
+                <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${member.name}${member.is_late_payment ? ' ⏰' : ''}</span></td>
                 <td class="role-cell">${roleName}</td>
                 <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
                 <td>${editBtnOnly}</td>
