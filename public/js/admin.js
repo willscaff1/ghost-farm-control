@@ -2562,10 +2562,10 @@ function renderJustifExtract() {
                 
                 <div class="justif-extract-footer">
                     <span class="justif-extract-week">
-                        📅 Semana: ${formatDate(new Date(j.week_start))} - ${formatDate(new Date(j.week_end))}
+                        📅 Semana: ${new Date(j.week_start).toLocaleDateString('pt-BR')} - ${new Date(j.week_end).toLocaleDateString('pt-BR')}
                     </span>
                     <span class="justif-extract-date">
-                        🕒 Enviada em: ${new Date(j.created_at).toLocaleDateString('pt-BR')} às ${new Date(j.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        🕒 Enviada: ${new Date(j.created_at).toLocaleDateString('pt-BR')} ${new Date(j.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                 </div>
             </div>
@@ -2696,10 +2696,10 @@ function renderFarmsExtract() {
                 
                 <div class="justif-extract-footer">
                     <span class="justif-extract-week">
-                        📅 Semana: ${formatDate(new Date(f.week_start))} - ${formatDate(new Date(f.week_end))}
+                        📅 Semana: ${new Date(f.week_start).toLocaleDateString('pt-BR')} - ${new Date(f.week_end).toLocaleDateString('pt-BR')}
                     </span>
                     <span class="justif-extract-date">
-                        🕒 Entregue em: ${new Date(f.created_at).toLocaleDateString('pt-BR')} às ${new Date(f.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        🕒 Entregue: ${new Date(f.created_at).toLocaleDateString('pt-BR')} ${new Date(f.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                 </div>
             </div>

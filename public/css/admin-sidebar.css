@@ -4955,17 +4955,25 @@ body.admin-layout {
     padding-top: 15px;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 15px;
 }
 
 .justif-extract-week {
-    color: #888;
-    font-size: 13px;
+    color: #a29bfe;
+    font-size: 14px;
+    font-weight: 500;
+    background: rgba(108, 92, 231, 0.1);
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(108, 92, 231, 0.2);
 }
 
 .justif-extract-date {
-    color: #666;
-    font-size: 12px;
+    color: #888;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 12px;
+    border-radius: 6px;
 }
 
 @keyframes fadeIn {
