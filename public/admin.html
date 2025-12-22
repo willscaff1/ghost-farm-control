@@ -68,7 +68,7 @@
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">✅ Aprovações</div>
-                <button class="sidebar-item" data-tab="pending">🕐 Farms Pendentes</button>
+                <button class="sidebar-item" data-tab="pending">🕐 Farms</button>
                 <button class="sidebar-item" data-tab="absences">📝 Justificativas</button>
                 <button class="sidebar-item" data-tab="password-resets">🔑 Recuperar Senhas</button>
             </div>
@@ -278,9 +278,43 @@
             <!-- Pending Tab -->
             <div id="pending-tab" class="tab-content">
                 <div class="card">
-                    <h2>🕐 Farms Pendentes de Aprovação</h2>
-                    <div id="pendingList" class="deliveries-list">
-                        <p class="loading">Carregando...</p>
+                    <h2>🕐 Farms</h2>
+                    
+                    <!-- Sub-abas de Farms -->
+                    <div class="justifications-tabs">
+                        <button class="justif-tab-btn active" onclick="switchFarmsTab('pending')">
+                            Pendentes
+                        </button>
+                        <button class="justif-tab-btn" onclick="switchFarmsTab('extract')">
+                            Extrato
+                        </button>
+                    </div>
+                    
+                    <!-- Aba Pendentes -->
+                    <div id="farms-pending-content" class="justif-tab-content active">
+                        <p class="subtitle">Farms aguardando aprovação</p>
+                        <div id="pendingList" class="deliveries-list">
+                            <p class="loading">Carregando...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Aba Extrato -->
+                    <div id="farms-extract-content" class="justif-tab-content">
+                        <p class="subtitle">Histórico completo de todos os farms</p>
+                        
+                        <div class="justif-extract-filters">
+                            <input type="text" id="searchFarmsExtract" placeholder="🔍 Buscar por nome ou passaporte..." onkeyup="filterFarmsExtract()">
+                            <select id="filterFarmsStatus" onchange="filterFarmsExtract()">
+                                <option value="all">Todos os Status</option>
+                                <option value="approved">✅ Aprovados</option>
+                                <option value="rejected">❌ Rejeitados</option>
+                                <option value="pending">⏳ Pendentes</option>
+                            </select>
+                        </div>
+                        
+                        <div id="farmsExtract" class="farms-extract">
+                            <p class="loading">Carregando...</p>
+                        </div>
                     </div>
                 </div>
             </div>

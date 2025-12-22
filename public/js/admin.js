@@ -2577,6 +2577,140 @@ function filterJustifExtract() {
     renderJustifExtract();
 }
 
+// ==================== ABAS DE FARMS ====================
+
+let farmsExtractData = [];
+
+function switchFarmsTab(tab) {
+    // Trocar abas
+    document.querySelectorAll('.justif-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.justif-tab-content').forEach(content => content.classList.remove('active'));
+    
+    const activeButton = Array.from(document.querySelectorAll('.justif-tab-btn')).find(btn => btn.onclick.toString().includes(`switchFarmsTab('${tab}')`));
+    if (activeButton) activeButton.classList.add('active');
+    
+    document.getElementById(`farms-${tab}-content`).classList.add('active');
+    
+    // Carregar dados da aba
+    if (tab === 'pending') {
+        loadPendingDeliveries();
+    } else if (tab === 'extract') {
+        loadFarmsExtract();
+    }
+}
+
+async function loadFarmsExtract() {
+    const container = document.getElementById('farmsExtract');
+    
+    try {
+        container.innerHTML = '<p class="loading">Carregando extrato...</p>';
+        
+        const response = await fetch('/api/admin/deliveries/all-farms');
+        const data = await response.json();
+        
+        farmsExtractData = data.deliveries || [];
+        
+        if (farmsExtractData.length === 0) {
+            container.innerHTML = '<div class="empty-state">📦 Nenhum farm registrado</div>';
+            return;
+        }
+        
+        renderFarmsExtract();
+        
+    } catch (error) {
+        console.error('Erro ao carregar extrato:', error);
+        container.innerHTML = '<div class="empty-state">❌ Erro ao carregar extrato</div>';
+    }
+}
+
+function renderFarmsExtract() {
+    const container = document.getElementById('farmsExtract');
+    const searchTerm = document.getElementById('searchFarmsExtract')?.value.toLowerCase() || '';
+    const statusFilter = document.getElementById('filterFarmsStatus')?.value || 'all';
+    
+    let filtered = farmsExtractData;
+    
+    // Filtrar por busca
+    if (searchTerm) {
+        filtered = filtered.filter(f => 
+            f.user_name.toLowerCase().includes(searchTerm) ||
+            f.passport?.toString().includes(searchTerm)
+        );
+    }
+    
+    // Filtrar por status
+    if (statusFilter !== 'all') {
+        filtered = filtered.filter(f => f.status === statusFilter);
+    }
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">🔍 Nenhum farm encontrado</div>';
+        return;
+    }
+    
+    container.innerHTML = filtered.map(f => {
+        const statusClass = f.status;
+        const statusText = {
+            'approved': '✅ Aprovado',
+            'rejected': '❌ Rejeitado',
+            'pending': '⏳ Pendente'
+        }[f.status] || f.status;
+        
+        // Montar lista de materiais
+        let materialsHtml = '';
+        if (f.items && f.items.length > 0) {
+            materialsHtml = f.items.map(item => 
+                `<span class="material-tag">${item.material_icon || '📦'} ${item.material_name}: ${formatNumber(item.amount)}</span>`
+            ).join('');
+        }
+        
+        // Montar galeria de screenshots
+        let screenshotsHtml = '';
+        if (f.screenshots && f.screenshots.length > 0) {
+            screenshotsHtml = `
+                <div class="farm-extract-screenshots">
+                    ${f.screenshots.map(s => `
+                        <img src="${s.screenshot_url}" onclick="openModal('${s.screenshot_url}')" alt="Screenshot">
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="justif-extract-item">
+                <div class="justif-extract-header">
+                    <div class="justif-extract-member">
+                        <strong>${f.user_name}</strong>
+                        <span class="passport">#${f.passport || 'N/A'}</span>
+                    </div>
+                    <span class="justif-extract-status ${statusClass}">${statusText}</span>
+                </div>
+                
+                <div class="justif-extract-body">
+                    <div class="farm-extract-materials">
+                        ${materialsHtml || '<span style="color:#888;">Sem materiais</span>'}
+                    </div>
+                    ${f.description ? `<p style="margin-top:10px;color:#bbb;">${f.description}</p>` : ''}
+                    ${screenshotsHtml}
+                </div>
+                
+                <div class="justif-extract-footer">
+                    <span class="justif-extract-week">
+                        📅 Semana: ${formatDate(new Date(f.week_start))} - ${formatDate(new Date(f.week_end))}
+                    </span>
+                    <span class="justif-extract-date">
+                        🕒 Entregue em: ${new Date(f.created_at).toLocaleDateString('pt-BR')} às ${new Date(f.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterFarmsExtract() {
+    renderFarmsExtract();
+}
+
 // ==================== RECUPERAÇÃO DE SENHA ====================
 // Versão atualizada: v2
 

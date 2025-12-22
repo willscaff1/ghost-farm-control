@@ -202,6 +202,38 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
     }
 });
 
+// Buscar todos os farms (extrato completo)
+router.get('/deliveries/all-farms', requireAdmin, async (req, res) => {
+    try {
+        const deliveries = await getAll(`
+            SELECT d.*, u.name as user_name, u.passport, a.name as approved_by_name
+            FROM deliveries d
+            JOIN users u ON d.user_id = u.id AND u.active = 1
+            LEFT JOIN users a ON d.approved_by = a.id
+            ORDER BY d.created_at DESC
+            LIMIT 500
+        `);
+        
+        // Para cada entrega, buscar os itens e screenshots
+        for (let delivery of deliveries) {
+            delivery.items = await getAll(`
+                SELECT di.*, m.name as material_name, m.icon as material_icon
+                FROM delivery_items di
+                JOIN materials m ON di.material_id = m.id
+                WHERE di.delivery_id = ?
+            `, [delivery.id]);
+            
+            delivery.screenshots = await getAll(`
+                SELECT screenshot_url FROM delivery_screenshots WHERE delivery_id = ?
+            `, [delivery.id]);
+        }
+        
+        res.json({ deliveries });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Aprovar entrega
 router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
     try {
