@@ -3224,12 +3224,12 @@ async function toggleMember(id) {
 // Carregar ranking (da semana selecionada)
 async function loadRanking() {
     try {
+        const farmsRankingList = document.getElementById('farmsRankingList');
+        if (!farmsRankingList) return; // Página não existe mais
+        
         // Ranking sempre mostra o total de TODAS as semanas (não filtra por semana)
         const response = await fetch(`/api/admin/ranking`);
         const data = await response.json();
-        
-        // Ranking de Farms
-        const farmsRankingList = document.getElementById('farmsRankingList');
         const farmsRanking = data.ranking.filter(p => p.farms_count > 0).sort((a, b) => b.farms_count - a.farms_count);
         
         if (farmsRanking.length > 0) {
@@ -3262,11 +3262,12 @@ async function loadRanking() {
 // Carregar estatísticas de materiais (da semana selecionada)
 async function loadMaterialsStats() {
     try {
+        const statsList = document.getElementById('materialsStatsList');
+        if (!statsList) return; // Página não existe mais
+        
         const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
         const response = await fetch(`/api/admin/materials-stats${params}`);
         const data = await response.json();
-        
-        const statsList = document.getElementById('materialsStatsList');
         
         if (data.stats && data.stats.length > 0) {
             statsList.innerHTML = data.stats.map(mat => `
@@ -3293,11 +3294,12 @@ async function loadMaterialsStats() {
 // Carregar todas as entregas
 async function loadAllDeliveries() {
     try {
+        const allDeliveriesList = document.getElementById('allDeliveriesList');
+        if (!allDeliveriesList) return; // Página não existe mais
+        
         const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
         const response = await fetch(`/api/admin/deliveries/all${params}`);
         const data = await response.json();
-        
-        const allDeliveriesList = document.getElementById('allDeliveriesList');
         
         if (data.deliveries && data.deliveries.length > 0) {
             allDeliveriesList.innerHTML = data.deliveries.map(delivery => `
