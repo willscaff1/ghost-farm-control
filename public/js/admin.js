@@ -217,13 +217,80 @@ async function loadSelectedWeek() {
 function previousWeek() {
     if (selectedWeekOffset > -8) {
         selectedWeekOffset--;
-        loadSelectedWeek().then(() => loadWeeklyStatus());
+        loadWeekData();
     }
 }
 
 function nextWeek() {
     selectedWeekOffset++;
-    loadSelectedWeek().then(() => loadWeeklyStatus());
+    loadWeekData();
+}
+
+// Carregar dados da semana de forma otimizada
+async function loadWeekData() {
+    try {
+        // Mostrar indicador de loading na tabela
+        const tbody = document.getElementById('weeklyTableBody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Carregando...</td></tr>';
+        }
+        
+        // Fazer ambas requisições em paralelo
+        const [weekResponse, statusResponse] = await Promise.all([
+            fetch(`/api/admin/week/${selectedWeekOffset}`),
+            fetch(`/api/admin/weekly-status${selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : ''}`)
+        ]);
+        
+        const weekData = await weekResponse.json();
+        const statusData = await statusResponse.json();
+        
+        // Atualizar semana selecionada
+        selectedWeek = weekData.week;
+        
+        let sidebarLabel;
+        if (selectedWeekOffset === 0) {
+            sidebarLabel = `${weekData.week.label} (Atual)`;
+        } else if (selectedWeekOffset === 1) {
+            sidebarLabel = `${weekData.week.label} (Próxima)`;
+        } else if (selectedWeekOffset > 1) {
+            sidebarLabel = `${weekData.week.label} (+${selectedWeekOffset})`;
+        } else {
+            sidebarLabel = `${weekData.week.label} (${selectedWeekOffset})`;
+        }
+        
+        document.getElementById('selectedWeekLabel').textContent = sidebarLabel;
+        
+        const currentWeekLabel = document.getElementById('currentWeekLabel');
+        if (currentWeekLabel) {
+            currentWeekLabel.textContent = weekData.week.label;
+        }
+        
+        // Controlar visibilidade do botão anterior
+        const btnPrev = document.getElementById('btnPrevWeek');
+        if (btnPrev) {
+            btnPrev.style.visibility = selectedWeekOffset > -8 ? 'visible' : 'hidden';
+        }
+        
+        // Atualizar status
+        weeklyStatusData = statusData;
+        
+        // Contadores
+        document.getElementById('completedCount').textContent = statusData.completed.length;
+        document.getElementById('partialCount').textContent = statusData.partial ? statusData.partial.length : 0;
+        document.getElementById('pendingApprovalCount').textContent = statusData.pendingApproval.length;
+        document.getElementById('notDeliveredCount').textContent = statusData.notDelivered.length;
+        document.getElementById('justifiedCount').textContent = statusData.justified.length;
+        
+        // Renderizar tabela
+        renderWeeklyTable(currentFilter);
+        
+    } catch (error) {
+        console.error('Erro ao carregar dados da semana:', error);
+        const tbody = document.getElementById('weeklyTableBody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">❌ Erro ao carregar dados</td></tr>';
+        }
+    }
 }
 
 // Carregar todos os dados da semana
@@ -697,27 +764,14 @@ async function openMemberExtract(memberId) {
         if (data.deliveries.length === 0 && data.justifications.length === 0) {
             farmsList.innerHTML = '<p class="extract-empty">Nenhum farm registrado</p>';
         } else {
-            console.log('=== DADOS DO EXTRATO ===');
-            console.log('Deliveries:', data.deliveries);
-            console.log('Justifications:', data.justifications);
-            console.log('Warnings:', data.warnings);
-            
             // Combinar deliveries e justifications e ordenar por data
             const allRecords = [
                 ...data.deliveries.map(d => ({ ...d, type: 'delivery' })),
                 ...data.justifications.map(j => ({ ...j, type: 'justification' }))
             ].sort((a, b) => new Date(b.week_start) - new Date(a.week_start)).slice(0, 10);
             
-            console.log('Registros combinados:', allRecords);
-            
             farmsList.innerHTML = allRecords.map(record => {
                 const weekLabel = formatWeekLabel(record.week_start, record.week_end);
-                
-                console.log('--- Processando registro ---');
-                console.log('Type:', record.type);
-                console.log('Week:', record.week_start, '-', record.week_end);
-                console.log('Status:', record.status);
-                console.log('Week Label:', weekLabel);
                 
                 if (record.type === 'justification') {
                     return `
@@ -751,17 +805,8 @@ async function openMemberExtract(memberId) {
                     w.week_start === record.week_start && w.week_end === record.week_end
                 );
                 
-                console.log('Week End:', weekEndStr, '→', weekEnd);
-                console.log('Today:', today);
-                console.log('Is Week Passed?', isWeekPassed);
-                console.log('Is Not Paid?', isNotPaid, '(status:', record.status, ')');
-                console.log('Has ADV?', hasAdv);
-                
                 // Mostrar botão de ADV apenas se: semana passou + não foi pago + não tem ADV ainda
                 const showAdvBtn = isWeekPassed && isNotPaid && !hasAdv;
-                
-                console.log('SHOW ADV BUTTON?', showAdvBtn);
-                console.log('---');
                 
                 const advButton = showAdvBtn 
                     ? `<button class="btn-apply-adv-extract" onclick='applyAdvFromExtract(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
@@ -1104,9 +1149,13 @@ let currentFilter = 'all';
 
 // Carregar status semanal (da semana selecionada)
 async function loadWeeklyStatus() {
+    // Se já temos selectedWeek, usar loadWeekData que é mais rápido
+    if (selectedWeek) {
+        return loadWeekData();
+    }
+    
     try {
-        const params = selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : '';
-        const response = await fetch(`/api/admin/weekly-status${params}`);
+        const response = await fetch(`/api/admin/weekly-status`);
         const data = await response.json();
         
         weeklyStatusData = data;
