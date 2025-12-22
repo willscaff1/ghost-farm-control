@@ -761,21 +761,70 @@ async function openMemberExtract(memberId) {
         
         // Preencher farms
         const farmsList = document.getElementById('extractFarmsList');
-        if (data.deliveries.length === 0 && data.justifications.length === 0) {
+        
+        console.log('📊 DADOS DO EXTRATO:', {
+            deliveries: data.deliveries,
+            justifications: data.justifications,
+            warnings: data.warnings,
+            member: data.member
+        });
+        
+        // Gerar últimas 10 semanas (incluindo semanas sem entrega)
+        function generateLast10Weeks() {
+            const weeks = [];
+            const today = new Date();
+            
+            for (let i = 0; i < 10; i++) {
+                const weekEnd = new Date(today);
+                weekEnd.setDate(today.getDate() - (i * 7));
+                weekEnd.setHours(0, 0, 0, 0);
+                
+                const weekStart = new Date(weekEnd);
+                weekStart.setDate(weekEnd.getDate() - 6);
+                
+                weeks.push({
+                    week_start: weekStart.toISOString().split('T')[0],
+                    week_end: weekEnd.toISOString().split('T')[0]
+                });
+            }
+            return weeks;
+        }
+        
+        const allWeeks = generateLast10Weeks();
+        console.log('📅 Últimas 10 semanas geradas:', allWeeks);
+        
+        // Combinar deliveries, justifications e semanas vazias
+        const allRecords = allWeeks.map(week => {
+            // Verificar se existe delivery para esta semana
+            const delivery = data.deliveries.find(d => 
+                d.week_start === week.week_start && d.week_end === week.week_end
+            );
+            
+            // Verificar se existe justificativa para esta semana
+            const justification = data.justifications.find(j => 
+                j.week_start === week.week_start && j.week_end === week.week_end
+            );
+            
+            if (justification) {
+                return { ...justification, type: 'justification' };
+            } else if (delivery) {
+                return { ...delivery, type: 'delivery' };
+            } else {
+                // Semana sem entrega - criar registro virtual
+                return {
+                    ...week,
+                    type: 'delivery',
+                    status: 'not_delivered',
+                    items: []
+                };
+            }
+        });
+        
+        console.log('📋 Registros combinados (incluindo semanas vazias):', allRecords);
+        
+        if (allRecords.length === 0) {
             farmsList.innerHTML = '<p class="extract-empty">Nenhum farm registrado</p>';
         } else {
-            console.log('📊 DADOS DO EXTRATO:', {
-                deliveries: data.deliveries,
-                justifications: data.justifications,
-                warnings: data.warnings,
-                member: data.member
-            });
-            
-            // Combinar deliveries e justifications e ordenar por data
-            const allRecords = [
-                ...data.deliveries.map(d => ({ ...d, type: 'delivery' })),
-                ...data.justifications.map(j => ({ ...j, type: 'justification' }))
-            ].sort((a, b) => new Date(b.week_start) - new Date(a.week_start)).slice(0, 10);
             
             farmsList.innerHTML = allRecords.map(record => {
                 const weekLabel = formatWeekLabel(record.week_start, record.week_end);
@@ -793,7 +842,13 @@ async function openMemberExtract(memberId) {
                 }
                 
                 const statusClass = record.status;
-                const statusText = getExtractStatusText(record.status);
+                let statusText = getExtractStatusText(record.status);
+                
+                // Se é not_delivered, ajustar texto
+                if (record.status === 'not_delivered') {
+                    statusText = '❌ Não Entregou';
+                }
+                
                 const materials = record.items?.map(item => 
                     `<span class="extract-farm-material">${item.material_icon || '📦'} ${item.amount}</span>`
                 ).join('') || '';
@@ -804,7 +859,7 @@ async function openMemberExtract(memberId) {
                 const today = new Date();
                 const isWeekPassed = weekEnd < today;
                 
-                // Verificar se não está pago (status diferente de approved)
+                // Verificar se não está pago (status diferente de approved e not_delivered também conta)
                 const isNotPaid = record.status !== 'approved';
                 
                 // Verificar se já existe ADV para esta semana
@@ -1148,7 +1203,8 @@ function getExtractStatusText(status) {
         'approved': '✅ Aprovado',
         'pending': '⏳ Pendente',
         'rejected': '❌ Rejeitado',
-        'in_progress': '⚡ Em Progresso'
+        'in_progress': '⚡ Em Progresso',
+        'not_delivered': '❌ Não Entregou'
     };
     return texts[status] || status;
 }
