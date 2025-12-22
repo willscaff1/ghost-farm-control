@@ -899,10 +899,16 @@ async function openMemberExtract(memberId) {
                 // Verificar se deve mostrar botão ADV
                 const canHaveAdv = record.status === 'rejected' || record.status === 'not_delivered';
                 
-                // Verificar se já existe ADV para esta semana
-                const hasAdv = data.warnings.some(w => 
-                    w.week_start === record.week_start && w.week_end === record.week_end
-                );
+                // Verificar se já existe ADV para esta semana (normalizar datas)
+                const recordStartNorm = String(record.week_start).split('T')[0];
+                const recordEndNorm = String(record.week_end).split('T')[0];
+                
+                const hasAdv = data.warnings.some(w => {
+                    if (!w.week_start || !w.week_end) return false;
+                    const wStartNorm = String(w.week_start).split('T')[0];
+                    const wEndNorm = String(w.week_end).split('T')[0];
+                    return wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
+                });
                 
                 // Mostrar botão de ADV apenas se: semana passou + pode ter ADV + não tem ADV ainda
                 const showAdvBtn = isWeekPassed && canHaveAdv && !hasAdv;
@@ -1113,10 +1119,16 @@ async function openPaymentHistory(memberId) {
                 const today = new Date();
                 const isWeekPassed = weekEnd < today;
                 
-                // Verificar se já existe ADV para esta semana
-                const hasAdv = data.warnings.some(w => 
-                    w.week_start === record.week_start && w.week_end === record.week_end
-                );
+                // Verificar se já existe ADV para esta semana (normalizar datas)
+                const recordStartNorm = String(record.week_start).split('T')[0];
+                const recordEndNorm = String(record.week_end).split('T')[0];
+                
+                const hasAdv = data.warnings.some(w => {
+                    if (!w.week_start || !w.week_end) return false;
+                    const wStartNorm = String(w.week_start).split('T')[0];
+                    const wEndNorm = String(w.week_end).split('T')[0];
+                    return wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
+                });
                 
                 const materials = record.items?.map(item => 
                     `<span class="payment-history-material">${item.material_icon || '📦'} ${item.amount}</span>`
