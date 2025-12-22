@@ -886,35 +886,22 @@ async function openMemberExtract(memberId) {
                 const weekEndStr = String(record.week_end).split('T')[0];
                 const weekEnd = new Date(weekEndStr + 'T23:59:59');
                 const today = new Date();
-                today.setHours(23, 59, 59, 999); // Fim do dia de hoje
                 const isWeekPassed = weekEnd < today;
                 
-                // Verificar se não está pago (status diferente de approved e not_delivered também conta)
-                const isNotPaid = record.status !== 'approved';
+                // Verificar se deve mostrar botão ADV
+                const canHaveAdv = record.status === 'rejected' || record.status === 'not_delivered';
                 
                 // Verificar se já existe ADV para esta semana
                 const hasAdv = data.warnings.some(w => 
                     w.week_start === record.week_start && w.week_end === record.week_end
                 );
                 
-                console.log(`🔍 Semana ${weekLabel}:`, {
-                    week_end: record.week_end,
-                    weekEndStr,
-                    weekEnd: weekEnd.toISOString(),
-                    today: today.toISOString(),
-                    isWeekPassed,
-                    status: record.status,
-                    isNotPaid,
-                    hasAdv,
-                    SHOW_BUTTON: isWeekPassed && isNotPaid && !hasAdv
-                });
-                
-                // Mostrar botão de ADV apenas se: semana passou + não foi pago + não tem ADV ainda
-                const showAdvBtn = isWeekPassed && isNotPaid && !hasAdv;
+                // Mostrar botão de ADV apenas se: semana passou + pode ter ADV + não tem ADV ainda
+                const showAdvBtn = isWeekPassed && canHaveAdv && !hasAdv;
                 
                 const advButton = showAdvBtn 
                     ? `<button class="btn-apply-adv-extract" onclick='applyAdvFromExtract(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
-                    : (hasAdv && isNotPaid ? `<span class="extract-adv-applied">⚠️ ADV JÁ APLICADA POR NÃO ENTREGA DO FARM</span>` : '');
+                    : (hasAdv && canHaveAdv ? `<span class="extract-adv-applied">⚠️ ADV JÁ APLICADA</span>` : '');
                 
                 return `
                     <div class="extract-farm-item">
@@ -1124,7 +1111,7 @@ async function openPaymentHistory(memberId) {
                 
                 const advButton = canApplyAdv 
                     ? `<button class="btn-apply-adv" onclick='applyAdvFromHistory(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
-                    : (hasAdv && showAdvBtn ? `<span class="payment-history-status missing">⚠️ ADV Aplicada</span>` : '');
+                    : (hasAdv && showAdvBtn ? `<span class="payment-history-status missing">⚠️ ADV JÁ APLICADA</span>` : '');
                 
                 return `
                     <div class="payment-history-item">
