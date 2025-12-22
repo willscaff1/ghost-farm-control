@@ -216,9 +216,8 @@ async function loadSelectedWeek() {
 // Cache para dados das semanas
 const weekDataCache = new Map();
 let isLoadingWeek = false;
-let lastLoadTime = 0;
 
-// Navegar entre semanas com debounce e cache
+// Navegar entre semanas
 function previousWeek() {
     if (selectedWeekOffset > -8 && !isLoadingWeek) {
         selectedWeekOffset--;
@@ -233,40 +232,11 @@ function nextWeek() {
     }
 }
 
-// Pré-carregar semanas adjacentes em background
-async function preloadAdjacentWeeks() {
-    // Pré-carregar semana anterior e próxima se ainda não estiverem no cache
-    const toPreload = [selectedWeekOffset - 1, selectedWeekOffset + 1];
-    
-    for (const offset of toPreload) {
-        if (offset >= -8 && !weekDataCache.has(offset)) {
-            try {
-                const [weekResponse, statusResponse] = await Promise.all([
-                    fetch(`/api/admin/week/${offset}`),
-                    fetch(`/api/admin/weekly-status?week_start=${selectedWeek?.start || ''}&week_end=${selectedWeek?.end || ''}`)
-                ]);
-                
-                const weekData = await weekResponse.json();
-                const statusData = await statusResponse.json();
-                
-                weekDataCache.set(offset, { weekData, statusData, timestamp: Date.now() });
-            } catch (error) {
-                // Ignorar erros de pré-carregamento
-            }
-        }
-    }
-}
-
-// Carregar dados da semana de forma otimizada com cache
+// Carregar dados da semana de forma otimizada
 async function loadWeekData() {
-    // Prevenir múltiplas requisições simultâneas
-    const now = Date.now();
-    if (isLoadingWeek || now - lastLoadTime < 200) {
-        return;
-    }
+    if (isLoadingWeek) return;
     
     isLoadingWeek = true;
-    lastLoadTime = now;
     
     try {
         // Mostrar indicador de loading
@@ -275,37 +245,21 @@ async function loadWeekData() {
             tbody.innerHTML = '<tr><td colspan="6" class="loading">⏳</td></tr>';
         }
         
-        let weekData, statusData;
+        // Verificar se já temos no cache
+        const cacheKey = `week_${selectedWeekOffset}`;
+        const cached = weekDataCache.get(cacheKey);
         
-        // Verificar cache (válido por 2 minutos)
-        const cached = weekDataCache.get(selectedWeekOffset);
-        if (cached && (now - cached.timestamp) < 120000) {
-            console.log('📦 Usando dados do cache para offset:', selectedWeekOffset);
-            weekData = cached.weekData;
-            statusData = cached.statusData;
-        } else {
-            // Fazer ambas requisições em paralelo
-            const [weekResponse, statusResponse] = await Promise.all([
-                fetch(`/api/admin/week/${selectedWeekOffset}`),
-                fetch(`/api/admin/weekly-status${selectedWeek ? `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}` : ''}`)
-            ]);
-            
-            weekData = await weekResponse.json();
-            statusData = await statusResponse.json();
-            
-            // Armazenar no cache
-            weekDataCache.set(selectedWeekOffset, { weekData, statusData, timestamp: now });
-            
-            // Limpar cache antigo (manter apenas últimas 5 semanas)
-            if (weekDataCache.size > 5) {
-                const oldestKey = Math.min(...weekDataCache.keys());
-                weekDataCache.delete(oldestKey);
-            }
-        }
-        
-        // Atualizar semana selecionada
+        // SEMPRE buscar a semana primeiro para ter os dados corretos
+        const weekResponse = await fetch(`/api/admin/week/${selectedWeekOffset}`);
+        const weekData = await weekResponse.json();
         selectedWeek = weekData.week;
         
+        // Agora buscar o status COM os dados corretos da semana
+        const statusParams = `?week_start=${selectedWeek.start}&week_end=${selectedWeek.end}`;
+        const statusResponse = await fetch(`/api/admin/weekly-status${statusParams}`);
+        const statusData = await statusResponse.json();
+        
+        // Atualizar labels
         let sidebarLabel;
         if (selectedWeekOffset === 0) {
             sidebarLabel = `${weekData.week.label} (Atual)`;
@@ -343,8 +297,22 @@ async function loadWeekData() {
         // Renderizar tabela
         renderWeeklyTable(currentFilter);
         
-        // Pré-carregar semanas adjacentes em background (não esperar)
-        setTimeout(() => preloadAdjacentWeeks(), 100);
+        // Armazenar no cache (válido por 30 segundos)
+        weekDataCache.set(cacheKey, {
+            weekData,
+            statusData,
+            timestamp: Date.now()
+        });
+        
+        // Limpar cache antigo
+        setTimeout(() => {
+            const now = Date.now();
+            for (const [key, value] of weekDataCache.entries()) {
+                if (now - value.timestamp > 30000) {
+                    weekDataCache.delete(key);
+                }
+            }
+        }, 100);
         
     } catch (error) {
         console.error('Erro ao carregar dados da semana:', error);
