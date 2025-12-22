@@ -4842,7 +4842,10 @@ let reportWeekOffset = 0;
 // Popular select de semanas com datas legíveis
 function populateReportWeekSelect() {
     const select = document.getElementById('reportWeekSelect');
-    if (!select) return;
+    if (!select) {
+        console.error('reportWeekSelect não encontrado');
+        return;
+    }
     
     const DAY_MS = 86400000;
     const now = Date.now();
@@ -4870,6 +4873,9 @@ function populateReportWeekSelect() {
         option.textContent = label;
         select.appendChild(option);
     }
+    
+    // Selecionar a primeira opção
+    select.value = '0';
 }
 
 // Carregar relatório semanal
