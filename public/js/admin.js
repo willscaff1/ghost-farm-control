@@ -847,6 +847,209 @@ async function openMemberExtract(memberId) {
             </div>
         `;
         
+        // Preencher farms - USAR MESMA LÓGICA DO PAYMENT HISTORY
+        const farmsList = document.getElementById('extractFarmsList');
+        
+        // Gerar últimas 3 semanas
+        function generateLast3Weeks() {
+            const weeks = [];
+            const now = Date.now();
+            const DAY_MS = 86400000;
+            
+            for (let i = 1; i <= 3; i++) {
+                const weekEndMs = now - (i * 7 - 6) * DAY_MS;
+                const weekStartMs = weekEndMs - 6 * DAY_MS;
+                
+                const weekEnd = new Date(weekEndMs);
+                const weekStart = new Date(weekStartMs);
+                
+                weeks.push({
+                    week_start: weekStart.toISOString().slice(0, 10),
+                    week_end: weekEnd.toISOString().slice(0, 10)
+                });
+            }
+            return weeks;
+        }
+        
+        const allWeeks = generateLast3Weeks();
+        
+        // Combinar deliveries, justifications e semanas vazias
+        const allRecords = allWeeks.map(week => {
+            // Normalizar datas para comparação
+            const weekStartNorm = week.week_start.split('T')[0];
+            const weekEndNorm = week.week_end.split('T')[0];
+            
+            const delivery = data.deliveries.find(d => {
+                const dStartNorm = String(d.week_start).split('T')[0];
+                const dEndNorm = String(d.week_end).split('T')[0];
+                return dStartNorm === weekStartNorm && dEndNorm === weekEndNorm;
+            });
+            
+            const justification = data.justifications.find(j => {
+                const jStartNorm = String(j.week_start).split('T')[0];
+                const jEndNorm = String(j.week_end).split('T')[0];
+                return jStartNorm === weekStartNorm && jEndNorm === weekEndNorm;
+            });
+            
+            if (justification) {
+                return { ...justification, type: 'justification' };
+            } else if (delivery) {
+                return { ...delivery, type: 'delivery' };
+            } else {
+                return {
+                    ...week,
+                    type: 'delivery',
+                    status: 'not_delivered',
+                    items: []
+                };
+            }
+        });
+        
+        farmsList.innerHTML = allRecords.map(record => {
+            const weekLabel = formatWeekLabel(record.week_start, record.week_end);
+                
+                if (record.type === 'justification') {
+                    return `
+                        <div class="extract-farm-item">
+                            <div class="extract-farm-left">
+                                <div class="extract-farm-week">${weekLabel}</div>
+                                <span class="extract-farm-status justified">📋 Justificado</span>
+                                <div class="extract-farm-materials">
+                                    <span class="extract-farm-material">${record.reason || 'Sem motivo informado'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                const statusClass = record.status;
+                let statusText = getExtractStatusText(record.status);
+                
+                // Verificar se a semana já passou primeiro
+                const weekEndStr = String(record.week_end).split('T')[0];
+                const weekEnd = new Date(weekEndStr + 'T23:59:59');
+                const today = new Date();
+                const isWeekPassed = weekEnd < today;
+                
+                // Ajustar status baseado se a semana passou
+                if (record.status === 'not_delivered') {
+                    statusText = '❌ Não Entregou';
+                } else if ((record.status === 'in_progress' || record.status === 'pending') && isWeekPassed) {
+                    statusText = '❌ Não Entregou';
+                }
+                
+                const materials = record.items?.map(item => 
+                    `<span class="extract-farm-material">${item.material_icon || '📦'} ${item.amount}</span>`
+                ).join('') || '';
+                
+                // Verificar se deve mostrar botão ADV
+                const canHaveAdv = record.status === 'rejected' || 
+                                   record.status === 'not_delivered' || 
+                                   ((record.status === 'in_progress' || record.status === 'pending') && isWeekPassed);
+                
+                // Verificar se já existe ADV para esta semana (normalizar datas)
+                const recordStartNorm = String(record.week_start).split('T')[0];
+                const recordEndNorm = String(record.week_end).split('T')[0];
+                
+                const hasAdv = data.warnings.some(w => {
+                    if (!w.week_start || !w.week_end) return false;
+                    const wStartNorm = String(w.week_start).split('T')[0];
+                    const wEndNorm = String(w.week_end).split('T')[0];
+                    return wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
+                });
+                
+                // Mostrar botão de ADV apenas se: semana passou + pode ter ADV + não tem ADV ainda
+                const showAdvBtn = isWeekPassed && canHaveAdv && !hasAdv;
+                
+                const advButton = showAdvBtn 
+                    ? `<button class="btn-apply-adv-extract" onclick='applyAdvFromExtract(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
+                    : (hasAdv && canHaveAdv ? `<span class="extract-adv-applied">⚠️ ADV JÁ APLICADA</span>` : '');
+                
+                return `
+                    <div class="extract-farm-item">
+                        <div class="extract-farm-left">
+                            <div class="extract-farm-week">${weekLabel}</div>
+                            <span class="extract-farm-status ${statusClass}">${statusText}</span>
+                            <div class="extract-farm-materials">${materials || '<span class="extract-farm-material">-</span>'}</div>
+                        </div>
+                        ${advButton ? `<div class="extract-farm-actions">${advButton}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        
+        // Preencher advertências
+        document.getElementById('extractWarningsCount').textContent = data.warnings.length;
+        const warningsList = document.getElementById('extractWarningsList');
+        if (data.warnings.length === 0) {
+            warningsList.innerHTML = '<p class="extract-empty">🎉 Nenhuma advertência</p>';
+        } else {
+            warningsList.innerHTML = data.warnings.map(warning => `
+                <div class="extract-warning-item">
+                    <span class="extract-warning-icon">⚠️</span>
+                    <div class="extract-warning-info">
+                        <div class="extract-warning-reason">${warning.reason || 'Sem motivo informado'}</div>
+                        <div class="extract-warning-meta">
+                            Por ${warning.given_by_name} em ${new Date(warning.created_at).toLocaleDateString('pt-BR')}
+                            ${warning.week_start ? ` | Semana: ${formatWeekLabel(warning.week_start, warning.week_end)}` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar extrato:', error);
+        document.getElementById('extractFarmsList').innerHTML = 
+            '<p class="extract-empty">Erro ao carregar dados</p>';
+    }
+} {
+    const modal = document.getElementById('memberExtractModal');
+    modal.style.display = 'flex';
+    
+    // Mostrar loading
+    document.getElementById('extractMemberName').textContent = 'Carregando...';
+    document.getElementById('extractMemberDetails').textContent = '';
+    document.getElementById('extractStats').innerHTML = '<p class="loading">Carregando...</p>';
+    document.getElementById('extractFarmsList').innerHTML = '<p class="loading">Carregando...</p>';
+    document.getElementById('extractWarningsList').innerHTML = '<p class="loading">Carregando...</p>';
+    
+    try {
+        const response = await fetch(`/api/admin/member-extract/${memberId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Erro ao carregar extrato');
+        }
+        
+        // Preencher header
+        document.getElementById('extractMemberName').textContent = data.member.name;
+        document.getElementById('extractMemberDetails').textContent = 
+            `Passaporte: ${data.member.passport} | Cargo: ${roleNames[data.member.role] || data.member.role}`;
+        
+        // Preencher estatísticas
+        document.getElementById('extractStats').innerHTML = `
+            <div class="extract-stat-card approved">
+                <span class="extract-stat-number">${data.stats.totalApproved}</span>
+                <span class="extract-stat-label">✅ Aprovados</span>
+            </div>
+            <div class="extract-stat-card pending">
+                <span class="extract-stat-number">${data.stats.totalPending}</span>
+                <span class="extract-stat-label">⏳ Pendentes</span>
+            </div>
+            <div class="extract-stat-card rejected">
+                <span class="extract-stat-number">${data.stats.totalRejected}</span>
+                <span class="extract-stat-label">❌ Rejeitados</span>
+            </div>
+            <div class="extract-stat-card justified">
+                <span class="extract-stat-number">${data.stats.totalJustified}</span>
+                <span class="extract-stat-label">📋 Justificados</span>
+            </div>
+            <div class="extract-stat-card warnings">
+                <span class="extract-stat-number">${data.stats.totalWarnings}</span>
+                <span class="extract-stat-label">⚠️ ADVs</span>
+            </div>
+        `;
+        
         // Preencher farms
         const farmsList = document.getElementById('extractFarmsList');
         
