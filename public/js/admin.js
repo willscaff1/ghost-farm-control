@@ -804,21 +804,19 @@ async function openMemberExtract(memberId) {
         // Gerar últimas 3 semanas (incluindo semanas sem entrega)
         function generateLast3Weeks() {
             const weeks = [];
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const now = Date.now();
+            const DAY_MS = 86400000; // 24h em milissegundos
             
             for (let i = 1; i <= 3; i++) {
-                // Calcular fim da semana (sábado) - i semanas atrás
-                const weekEnd = new Date(today);
-                weekEnd.setDate(today.getDate() - (i * 7 - 6));
+                const weekEndMs = now - (i * 7 - 6) * DAY_MS;
+                const weekStartMs = weekEndMs - 6 * DAY_MS;
                 
-                // Calcular início da semana (domingo)
-                const weekStart = new Date(weekEnd);
-                weekStart.setDate(weekEnd.getDate() - 6);
+                const weekEnd = new Date(weekEndMs);
+                const weekStart = new Date(weekStartMs);
                 
                 weeks.push({
-                    week_start: weekStart.toISOString().split('T')[0],
-                    week_end: weekEnd.toISOString().split('T')[0]
+                    week_start: weekEnd.toISOString().slice(0, 10),
+                    week_end: weekStart.toISOString().slice(0, 10)
                 });
             }
             return weeks;
@@ -1018,19 +1016,19 @@ async function openPaymentHistory(memberId) {
         // Gerar últimas 3 semanas
         function generateLast3Weeks() {
             const weeks = [];
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const now = Date.now();
+            const DAY_MS = 86400000;
             
             for (let i = 1; i <= 3; i++) {
-                const weekEnd = new Date(today);
-                weekEnd.setDate(today.getDate() - (i * 7 - 6));
+                const weekEndMs = now - (i * 7 - 6) * DAY_MS;
+                const weekStartMs = weekEndMs - 6 * DAY_MS;
                 
-                const weekStart = new Date(weekEnd);
-                weekStart.setDate(weekEnd.getDate() - 6);
+                const weekEnd = new Date(weekEndMs);
+                const weekStart = new Date(weekStartMs);
                 
                 weeks.push({
-                    week_start: weekStart.toISOString().split('T')[0],
-                    week_end: weekEnd.toISOString().split('T')[0]
+                    week_start: weekStart.toISOString().slice(0, 10),
+                    week_end: weekEnd.toISOString().slice(0, 10)
                 });
             }
             return weeks;
