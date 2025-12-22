@@ -911,22 +911,12 @@ async function openMemberExtract(memberId) {
                 const recordStartNorm = String(record.week_start).split('T')[0];
                 const recordEndNorm = String(record.week_end).split('T')[0];
                 
-                console.log(`🔍 Verificando ADV para semana ${recordStartNorm} - ${recordEndNorm}`);
-                console.log('Warnings do membro:', data.warnings);
-                
                 const hasAdv = data.warnings.some(w => {
-                    if (!w.week_start || !w.week_end) {
-                        console.log('⚠️ ADV sem week_start/week_end:', w);
-                        return false;
-                    }
+                    if (!w.week_start || !w.week_end) return false;
                     const wStartNorm = String(w.week_start).split('T')[0];
                     const wEndNorm = String(w.week_end).split('T')[0];
-                    const match = wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
-                    console.log(`Comparando: ${wStartNorm} - ${wEndNorm} === ${recordStartNorm} - ${recordEndNorm}? ${match}`);
-                    return match;
+                    return wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
                 });
-                
-                console.log(`Resultado hasAdv: ${hasAdv}`);
                 
                 // Mostrar botão de ADV apenas se: semana passou + pode ter ADV + não tem ADV ainda
                 const showAdvBtn = isWeekPassed && canHaveAdv && !hasAdv;
