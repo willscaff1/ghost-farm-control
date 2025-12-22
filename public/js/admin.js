@@ -1002,8 +1002,18 @@ async function openMemberExtract(memberId) {
         document.getElementById('extractFarmsList').innerHTML = 
             '<p class="extract-empty">Erro ao carregar dados</p>';
     }
-} {
-    const modal = document.getElementById('memberExtractModal');
+}
+
+// Fechar modal de extrato
+function closeMemberExtractModal() {
+    document.getElementById('memberExtractModal').style.display = 'none';
+}
+
+// ========== MODAL PAYMENT HISTORY ==========
+
+// Abrir modal de histórico de pagamentos
+async function openPaymentHistory(memberId) {
+    const modal = document.getElementById('paymentHistoryModal');
     modal.style.display = 'flex';
     
     // Mostrar loading
