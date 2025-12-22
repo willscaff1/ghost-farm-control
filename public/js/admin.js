@@ -4979,43 +4979,38 @@ let reportWeekOffset = 0;
 function populateReportWeekSelect() {
     const select = document.getElementById('reportWeekSelect');
     if (!select) {
-        console.error('reportWeekSelect não encontrado');
+        console.error('❌ reportWeekSelect NÃO ENCONTRADO!');
         return;
     }
     
-    const DAY_MS = 86400000;
-    const now = Date.now();
+    console.log('✅ Encontrou o select, populando...');
+    
     select.innerHTML = '';
     
-    for (let i = 0; i <= 8; i++) {
-        const weekEnd = new Date(now - (i * 7 - 6) * DAY_MS);
-        weekEnd.setHours(0, 0, 0, 0);
-        const weekStart = new Date(weekEnd.getTime() - 6 * DAY_MS);
-        
-        // Formatar datas manualmente
-        const startStr = weekStart.toLocaleDateString('pt-BR').split(' ')[0];
-        const endStr = weekEnd.toLocaleDateString('pt-BR').split(' ')[0];
-        
-        let label;
-        if (i === 0) {
-            label = `Semana Atual (${startStr} até ${endStr})`;
-        } else if (i === 1) {
-            label = `Semana Passada (${startStr} até ${endStr})`;
-        } else {
-            label = `${i} Semanas Atrás (${startStr} até ${endStr})`;
-        }
-        
-        const option = document.createElement('option');
-        option.value = i === 0 ? '0' : `-${i}`;
-        option.textContent = label;
-        select.appendChild(option);
-    }
+    // Criar opções manualmente e simples
+    const options = [
+        { value: '0', text: 'Semana Atual' },
+        { value: '-1', text: 'Semana Passada' },
+        { value: '-2', text: '2 Semanas Atrás' },
+        { value: '-3', text: '3 Semanas Atrás' },
+        { value: '-4', text: '4 Semanas Atrás' },
+        { value: '-5', text: '5 Semanas Atrás' },
+        { value: '-6', text: '6 Semanas Atrás' },
+        { value: '-7', text: '7 Semanas Atrás' },
+        { value: '-8', text: '8 Semanas Atrás' }
+    ];
     
-    // Selecionar a primeira opção e carregar relatório automaticamente
+    options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.text;
+        select.appendChild(option);
+    });
+    
     select.value = '0';
     reportWeekOffset = 0;
     
-    console.log('Select populado com', select.options.length, 'opções');
+    console.log('✅ Select populado com', select.options.length, 'opções');
 }
 
 // Carregar relatório semanal
