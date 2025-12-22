@@ -810,7 +810,7 @@ async function openMemberExtract(memberId) {
             for (let i = 1; i <= 3; i++) {
                 // Calcular fim da semana (sábado) - i semanas atrás
                 const weekEnd = new Date(today);
-                weekEnd.setDate(today.getDate() - (i * 7) - 1);
+                weekEnd.setDate(today.getDate() - (i * 7 - 6));
                 
                 // Calcular início da semana (domingo)
                 const weekStart = new Date(weekEnd);
@@ -1023,7 +1023,7 @@ async function openPaymentHistory(memberId) {
             
             for (let i = 1; i <= 3; i++) {
                 const weekEnd = new Date(today);
-                weekEnd.setDate(today.getDate() - (i * 7) - 1);
+                weekEnd.setDate(today.getDate() - (i * 7 - 6));
                 
                 const weekStart = new Date(weekEnd);
                 weekStart.setDate(weekEnd.getDate() - 6);
