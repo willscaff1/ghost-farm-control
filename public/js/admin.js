@@ -940,7 +940,6 @@ async function openMemberExtract(memberId) {
                 console.log('Can have ADV?', canHaveAdv);
                 console.log('Show button?', isWeekPassed && canHaveAdv && !hasAdv);
                 console.log('======================\n');
-                });
                 
                 // Mostrar botão de ADV apenas se: semana passou + pode ter ADV + não tem ADV ainda
                 const showAdvBtn = isWeekPassed && canHaveAdv && !hasAdv;
