@@ -881,8 +881,19 @@ async function openMemberExtract(memberId) {
                 const statusClass = record.status;
                 let statusText = getExtractStatusText(record.status);
                 
+                // Verificar se a semana já passou
+                const weekEndStr = String(record.week_end).split('T')[0];
+                const weekEnd = new Date(weekEndStr + 'T23:59:59');
+                const today = new Date();
+                const isWeekPassed = weekEnd < today;
+                
                 // Se é not_delivered, ajustar texto
                 if (record.status === 'not_delivered') {
+                    statusText = '❌ Não Entregou';
+                }
+                
+                // Se está em progresso/pendente mas a semana passou, tratar como não entregou
+                if ((record.status === 'in_progress' || record.status === 'pending') && isWeekPassed) {
                     statusText = '❌ Não Entregou';
                 }
                 
@@ -890,14 +901,11 @@ async function openMemberExtract(memberId) {
                     `<span class="extract-farm-material">${item.material_icon || '📦'} ${item.amount}</span>`
                 ).join('') || '';
                 
-                // Verificar se a semana já passou
-                const weekEndStr = String(record.week_end).split('T')[0];
-                const weekEnd = new Date(weekEndStr + 'T23:59:59');
-                const today = new Date();
-                const isWeekPassed = weekEnd < today;
-                
                 // Verificar se deve mostrar botão ADV
-                const canHaveAdv = record.status === 'rejected' || record.status === 'not_delivered';
+                // Incluir in_progress/pending que já passaram da semana
+                const canHaveAdv = record.status === 'rejected' || 
+                                   record.status === 'not_delivered' || 
+                                   ((record.status === 'in_progress' || record.status === 'pending') && isWeekPassed);
                 
                 // Verificar se já existe ADV para esta semana (normalizar datas)
                 const recordStartNorm = String(record.week_start).split('T')[0];
@@ -1102,13 +1110,27 @@ async function openPaymentHistory(memberId) {
                 let statusText = '';
                 let showAdvBtn = false;
                 
+                // Verificar se a semana já passou primeiro
+                const weekEndStr = String(record.week_end).split('T')[0];
+                const weekEnd = new Date(weekEndStr + 'T23:59:59');
+                const today = new Date();
+                const isWeekPassed = weekEnd < today;
+                
                 if (record.status === 'approved') {
                     statusClass = 'approved';
                     statusText = '✅ Pago';
-                } else if (record.status === 'pending') {
-                    statusClass = 'pending';
-                    statusText = '⏳ Pendente';
-                    showAdvBtn = false;
+                } else if (record.status === 'pending' || record.status === 'in_progress') {
+                    if (isWeekPassed) {
+                        // Semana passou e ainda está pendente/em progresso = não entregou
+                        statusClass = 'missing';
+                        statusText = '❌ Não Entregou';
+                        showAdvBtn = true;
+                    } else {
+                        // Semana vigente, manter como pendente
+                        statusClass = 'pending';
+                        statusText = record.status === 'pending' ? '⏳ Pendente' : '⚡ Em Progresso';
+                        showAdvBtn = false;
+                    }
                 } else if (record.status === 'rejected') {
                     statusClass = 'missing';
                     statusText = '❌ Não Pago';
@@ -1122,12 +1144,6 @@ async function openPaymentHistory(memberId) {
                     statusText = '⚡ Em Progresso';
                     showAdvBtn = false;
                 }
-                
-                // Verificar se a semana já passou
-                const weekEndStr = String(record.week_end).split('T')[0];
-                const weekEnd = new Date(weekEndStr + 'T23:59:59');
-                const today = new Date();
-                const isWeekPassed = weekEnd < today;
                 
                 // Verificar se já existe ADV para esta semana (normalizar datas)
                 const recordStartNorm = String(record.week_start).split('T')[0];
