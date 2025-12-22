@@ -4992,8 +4992,9 @@ function populateReportWeekSelect() {
         weekEnd.setHours(0, 0, 0, 0);
         const weekStart = new Date(weekEnd.getTime() - 6 * DAY_MS);
         
-        const startStr = formatDate(weekStart);
-        const endStr = formatDate(weekEnd);
+        // Formatar datas manualmente
+        const startStr = weekStart.toLocaleDateString('pt-BR').split(' ')[0];
+        const endStr = weekEnd.toLocaleDateString('pt-BR').split(' ')[0];
         
         let label;
         if (i === 0) {
@@ -5013,6 +5014,8 @@ function populateReportWeekSelect() {
     // Selecionar a primeira opção e carregar relatório automaticamente
     select.value = '0';
     reportWeekOffset = 0;
+    
+    console.log('Select populado com', select.options.length, 'opções');
 }
 
 // Carregar relatório semanal
