@@ -2467,6 +2467,116 @@ async function rejectJustification(id) {
     }
 }
 
+// ==================== ABAS DE JUSTIFICATIVAS ====================
+
+let justifExtractData = [];
+
+function switchJustificationTab(tab) {
+    // Trocar abas
+    document.querySelectorAll('.justif-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.justif-tab-content').forEach(content => content.classList.remove('active'));
+    
+    document.querySelector(`.justif-tab-btn[onclick*="${tab}"]`).classList.add('active');
+    document.getElementById(`justif-${tab}-content`).classList.add('active');
+    
+    // Carregar dados da aba
+    if (tab === 'pending') {
+        loadJustifications();
+    } else if (tab === 'extract') {
+        loadJustificationsExtract();
+    }
+}
+
+async function loadJustificationsExtract() {
+    const container = document.getElementById('justificationsExtract');
+    
+    try {
+        container.innerHTML = '<p class="loading">Carregando extrato...</p>';
+        
+        const response = await fetch('/api/admin/justifications/all');
+        const data = await response.json();
+        
+        justifExtractData = data.justifications || [];
+        
+        if (justifExtractData.length === 0) {
+            container.innerHTML = '<div class="empty-state">📝 Nenhuma justificativa registrada</div>';
+            return;
+        }
+        
+        renderJustifExtract();
+        
+    } catch (error) {
+        console.error('Erro ao carregar extrato:', error);
+        container.innerHTML = '<div class="empty-state">❌ Erro ao carregar extrato</div>';
+    }
+}
+
+function renderJustifExtract() {
+    const container = document.getElementById('justificationsExtract');
+    const searchTerm = document.getElementById('searchJustifExtract')?.value.toLowerCase() || '';
+    const statusFilter = document.getElementById('filterJustifStatus')?.value || 'all';
+    
+    let filtered = justifExtractData;
+    
+    // Filtrar por busca
+    if (searchTerm) {
+        filtered = filtered.filter(j => 
+            j.user_name.toLowerCase().includes(searchTerm) ||
+            j.passport?.toString().includes(searchTerm)
+        );
+    }
+    
+    // Filtrar por status
+    if (statusFilter !== 'all') {
+        filtered = filtered.filter(j => j.status === statusFilter);
+    }
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">🔍 Nenhuma justificativa encontrada</div>';
+        return;
+    }
+    
+    container.innerHTML = filtered.map(j => {
+        const statusClass = j.status;
+        const statusText = {
+            'approved': '✅ Aprovada',
+            'rejected': '❌ Rejeitada',
+            'pending': '⏳ Pendente'
+        }[j.status] || j.status;
+        
+        return `
+            <div class="justif-extract-item">
+                <div class="justif-extract-header">
+                    <div class="justif-extract-member">
+                        <strong>${j.user_name}</strong>
+                        <span class="passport">#${j.passport || 'N/A'}</span>
+                    </div>
+                    <span class="justif-extract-status ${statusClass}">${statusText}</span>
+                </div>
+                
+                <div class="justif-extract-body">
+                    <div class="justif-extract-reason">
+                        ${j.reason}
+                    </div>
+                </div>
+                
+                <div class="justif-extract-footer">
+                    <span class="justif-extract-week">
+                        📅 Semana: ${formatDate(new Date(j.week_start))} - ${formatDate(new Date(j.week_end))}
+                    </span>
+                    <span class="justif-extract-date">
+                        🕒 Enviada em: ${new Date(j.created_at).toLocaleDateString('pt-BR')} às ${new Date(j.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterJustifExtract() {
+    renderJustifExtract();
+}
+
 // ==================== RECUPERAÇÃO DE SENHA ====================
 // Versão atualizada: v2
 

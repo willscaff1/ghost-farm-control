@@ -291,10 +291,43 @@
             <!-- Absences/Justifications Tab -->
             <div id="absences-tab" class="tab-content">
                 <div class="card">
-                    <h2>📝 Justificativas Pendentes</h2>
-                    <p class="subtitle">Membros que justificaram a não entrega do farm</p>
-                    <div id="justificationsList" class="justifications-list">
-                        <p class="loading">Carregando...</p>
+                    <h2>📝 Justificativas</h2>
+                    
+                    <!-- Sub-abas de Justificativas -->
+                    <div class="justifications-tabs">
+                        <button class="justif-tab-btn active" onclick="switchJustificationTab('pending')">
+                            Pendentes
+                        </button>
+                        <button class="justif-tab-btn" onclick="switchJustificationTab('extract')">
+                            Extrato
+                        </button>
+                    </div>
+                    
+                    <!-- Aba Pendentes -->
+                    <div id="justif-pending-content" class="justif-tab-content active">
+                        <p class="subtitle">Membros que justificaram a não entrega do farm</p>
+                        <div id="justificationsList" class="justifications-list">
+                            <p class="loading">Carregando...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Aba Extrato -->
+                    <div id="justif-extract-content" class="justif-tab-content">
+                        <p class="subtitle">Histórico completo de todas as justificativas</p>
+                        
+                        <div class="justif-extract-filters">
+                            <input type="text" id="searchJustifExtract" placeholder="🔍 Buscar por nome ou passaporte..." onkeyup="filterJustifExtract()">
+                            <select id="filterJustifStatus" onchange="filterJustifExtract()">
+                                <option value="all">Todos os Status</option>
+                                <option value="approved">✅ Aprovadas</option>
+                                <option value="rejected">❌ Rejeitadas</option>
+                                <option value="pending">⏳ Pendentes</option>
+                            </select>
+                        </div>
+                        
+                        <div id="justificationsExtract" class="justifications-extract">
+                            <p class="loading">Carregando...</p>
+                        </div>
                     </div>
                 </div>
             </div>

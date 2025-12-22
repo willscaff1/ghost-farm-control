@@ -1290,6 +1290,25 @@ router.get('/justifications/pending', requireAdmin, async (req, res) => {
     }
 });
 
+// Buscar todas as justificativas (extrato)
+router.get('/justifications/all', requireAdmin, async (req, res) => {
+    try {
+        const query = `
+            SELECT j.*, u.name as user_name, u.passport, u.role as user_role
+            FROM justifications j
+            JOIN users u ON j.user_id = u.id
+            ORDER BY j.created_at DESC
+            LIMIT 500
+        `;
+        
+        const justifications = await getAll(query);
+        
+        res.json({ justifications });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Aprovar justificativa
 router.put('/justifications/:id/approve', requireAdmin, async (req, res) => {
     try {

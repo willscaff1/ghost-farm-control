@@ -4741,3 +4741,183 @@ body.admin-layout {
     display: inline-block;
     text-align: center;
 }
+/* Justifications Tabs */
+.justifications-tabs {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+}
+
+.justif-tab-btn {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+    top: 2px;
+}
+
+.justif-tab-btn:hover {
+    color: #ddd;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.justif-tab-btn.active {
+    color: #6c5ce7;
+    border-bottom-color: #6c5ce7;
+}
+
+.justif-tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.justif-tab-content.active {
+    display: block;
+}
+
+.justif-extract-filters {
+    display: flex;
+    gap: 15px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.justif-extract-filters input {
+    flex: 1;
+    min-width: 250px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.justif-extract-filters select {
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.justif-extract-filters input::placeholder {
+    color: #666;
+}
+
+.justifications-extract {
+    display: grid;
+    gap: 15px;
+}
+
+.justif-extract-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.justif-extract-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.justif-extract-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.justif-extract-member {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.justif-extract-member strong {
+    font-size: 16px;
+    color: #fff;
+}
+
+.justif-extract-member .passport {
+    color: #888;
+    font-size: 13px;
+}
+
+.justif-extract-status {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.justif-extract-status.approved {
+    background: rgba(39, 174, 96, 0.2);
+    color: #27ae60;
+    border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.justif-extract-status.rejected {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.justif-extract-status.pending {
+    background: rgba(241, 196, 15, 0.2);
+    color: #f1c40f;
+    border: 1px solid rgba(241, 196, 15, 0.3);
+}
+
+.justif-extract-body {
+    margin: 15px 0;
+}
+
+.justif-extract-reason {
+    background: rgba(108, 92, 231, 0.1);
+    padding: 12px;
+    border-radius: 8px;
+    color: #ddd;
+    font-size: 14px;
+    line-height: 1.6;
+    border-left: 3px solid #6c5ce7;
+}
+
+.justif-extract-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.justif-extract-week {
+    color: #888;
+    font-size: 13px;
+}
+
+.justif-extract-date {
+    color: #666;
+    font-size: 12px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
