@@ -3155,7 +3155,14 @@ body.admin-layout {
     color: #fff;
     font-size: 14px;
     cursor: pointer;
-    min-width: 200px;
+    min-width: 300px;
+    max-width: 500px;
+}
+
+.report-header select option {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 10px;
 }
 
 .report-header select:focus {
