@@ -4682,3 +4682,60 @@ body.admin-layout {
     color: #4a90e2;
     border-bottom-color: #4a90e2;
 }
+
+/* Botão de ADV no modal de extrato */
+.extract-farm-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.extract-farm-left {
+    flex: 1;
+}
+
+.extract-farm-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-apply-adv-extract {
+    background: linear-gradient(135deg, #FF6B6B 0%, #EE5A52 100%);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+    white-space: nowrap;
+}
+
+.btn-apply-adv-extract:hover {
+    background: linear-gradient(135deg, #EE5A52 0%, #FF6B6B 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+.btn-apply-adv-extract:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.extract-adv-applied {
+    background: rgba(239, 83, 80, 0.2);
+    color: #EF5350;
+    border: 1px solid rgba(239, 83, 80, 0.3);
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}

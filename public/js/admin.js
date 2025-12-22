@@ -703,6 +703,10 @@ async function openMemberExtract(memberId) {
                 ...data.justifications.map(j => ({ ...j, type: 'justification' }))
             ].sort((a, b) => new Date(b.week_start) - new Date(a.week_start)).slice(0, 10);
             
+            // Obter data atual para verificar se a semana já passou
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
             farmsList.innerHTML = allRecords.map(record => {
                 const weekLabel = formatWeekLabel(record.week_start, record.week_end);
                 
@@ -724,11 +728,31 @@ async function openMemberExtract(memberId) {
                     `<span class="extract-farm-material">${item.material_icon || '📦'} ${item.amount}</span>`
                 ).join('') || '';
                 
+                // Verificar se a semana já passou e se o status é rejeitado/não pago
+                const weekEnd = new Date(record.week_end + 'T00:00:00');
+                const isWeekPassed = weekEnd < today;
+                const isNotPaid = record.status === 'rejected' || record.status === 'in_progress';
+                
+                // Verificar se já existe ADV para esta semana
+                const hasAdv = data.warnings.some(w => 
+                    w.week_start === record.week_start && w.week_end === record.week_end
+                );
+                
+                // Mostrar botão de ADV apenas se: semana passou + não foi pago + não tem ADV ainda
+                const showAdvBtn = isWeekPassed && isNotPaid && !hasAdv;
+                
+                const advButton = showAdvBtn 
+                    ? `<button class="btn-apply-adv-extract" onclick='applyAdvFromExtract(${JSON.stringify(data.member).replace(/'/g, "&apos;")}, "${record.week_start}", "${record.week_end}")'>⚠️ Aplicar ADV</button>`
+                    : (hasAdv && isNotPaid ? `<span class="extract-adv-applied">⚠️ ADV Aplicada</span>` : '');
+                
                 return `
                     <div class="extract-farm-item">
-                        <div class="extract-farm-week">${weekLabel}</div>
-                        <span class="extract-farm-status ${statusClass}">${statusText}</span>
-                        <div class="extract-farm-materials">${materials || '<span class="extract-farm-material">-</span>'}</div>
+                        <div class="extract-farm-left">
+                            <div class="extract-farm-week">${weekLabel}</div>
+                            <span class="extract-farm-status ${statusClass}">${statusText}</span>
+                            <div class="extract-farm-materials">${materials || '<span class="extract-farm-material">-</span>'}</div>
+                        </div>
+                        ${advButton ? `<div class="extract-farm-actions">${advButton}</div>` : ''}
                     </div>
                 `;
             }).join('');
@@ -951,6 +975,45 @@ document.addEventListener('click', (e) => {
         closePaymentHistoryModal();
     }
 });
+
+// Aplicar advertência a partir do modal de extrato
+async function applyAdvFromExtract(member, weekStart, weekEnd) {
+    const reason = prompt(`🚨 Aplicar advertência para ${member.name}\n\nSemana: ${formatWeekLabel(weekStart, weekEnd)}\n\nMotivo da advertência:`);
+    
+    if (!reason || reason.trim() === '') {
+        alert('⚠️ Você precisa informar um motivo para a advertência');
+        return;
+    }
+    
+    if (!confirm(`Confirmar advertência para ${member.name}?\n\nMotivo: ${reason}`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/members/${member.id}/warnings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                reason: reason.trim(),
+                week_start: weekStart,
+                week_end: weekEnd
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            // Recarregar o modal para atualizar a visualização
+            openMemberExtract(member.id);
+        } else {
+            alert(`❌ Erro: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Erro ao aplicar advertência:', error);
+        alert(`❌ Erro: ${error.message}`);
+    }
+}
 
 // ========== FIM MODAL PAYMENT HISTORY ==========
 
