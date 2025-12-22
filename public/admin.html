@@ -682,23 +682,12 @@
                     <div class="report-header">
                         <label for="reportWeekSelect">Semana:</label>
                         <select id="reportWeekSelect" onchange="changeReportWeek()">
-                            <option value="0">Semana Atual</option>
-                            <option value="-1">Semana Passada</option>
-                            <option value="-2">2 Semanas Atrás</option>
-                            <option value="-3">3 Semanas Atrás</option>
-                            <option value="-4">4 Semanas Atrás</option>
-                            <option value="-5">5 Semanas Atrás</option>
-                            <option value="-6">6 Semanas Atrás</option>
-                            <option value="-7">7 Semanas Atrás</option>
-                            <option value="-8">8 Semanas Atrás</option>
+                            <!-- Options will be populated by JavaScript with readable dates -->
                         </select>
                         
                         <div class="export-buttons">
                             <button class="btn-export pdf" onclick="generateReportPDF()">
                                 📄 Exportar PDF
-                            </button>
-                            <button class="btn-export excel" onclick="generateReportExcel()">
-                                📊 Exportar Excel
                             </button>
                         </div>
                     </div>

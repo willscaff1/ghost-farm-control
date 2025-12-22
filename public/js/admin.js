@@ -175,7 +175,7 @@ function showTab(tabId) {
         case 'edit-permissions': loadEditPermissions(); break;
         case 'ranking': loadRanking(); break;
         case 'all-deliveries': loadAllDeliveries(); break;
-        case 'weekly-report': loadWeeklyReport(); break;
+        case 'weekly-report': populateReportWeekSelect(); loadWeeklyReport(); break;
         case 'role-permissions': break; // Carrega via iframe
         case 'members-adv': loadMembersAdv(); break;
     }
@@ -4720,6 +4720,39 @@ function formatTimeAgo(dateStr) {
 let reportData = null;
 let reportWeekOffset = 0;
 
+// Popular select de semanas com datas legíveis
+function populateReportWeekSelect() {
+    const select = document.getElementById('reportWeekSelect');
+    if (!select) return;
+    
+    const DAY_MS = 86400000;
+    const now = Date.now();
+    select.innerHTML = '';
+    
+    for (let i = 0; i <= 8; i++) {
+        const weekEnd = new Date(now - (i * 7 - 6) * DAY_MS);
+        weekEnd.setHours(0, 0, 0, 0);
+        const weekStart = new Date(weekEnd.getTime() - 6 * DAY_MS);
+        
+        const startStr = formatDate(weekStart);
+        const endStr = formatDate(weekEnd);
+        
+        let label;
+        if (i === 0) {
+            label = `Semana Atual (${startStr} até ${endStr})`;
+        } else if (i === 1) {
+            label = `Semana Passada (${startStr} até ${endStr})`;
+        } else {
+            label = `${i} Semanas Atrás (${startStr} até ${endStr})`;
+        }
+        
+        const option = document.createElement('option');
+        option.value = -i;
+        option.textContent = label;
+        select.appendChild(option);
+    }
+}
+
 // Carregar relatório semanal
 async function loadWeeklyReport() {
     const container = document.getElementById('reportPreview');
@@ -5031,54 +5064,6 @@ async function generateReportPDF() {
 }
 
 // Gerar Excel do relatório (CSV)
-function generateReportExcel() {
-    if (!reportData) {
-        alert('Carregue o relatório primeiro!');
-        return;
-    }
-    
-    // Criar conteúdo CSV
-    let csv = 'sep=;\n'; // Para Excel reconhecer separador
-    csv += 'RELATÓRIO SEMANAL DE FARM - GHOSTS\n';
-    csv += `Semana;${reportData.week.label}\n`;
-    csv += `Gerado em;${new Date().toLocaleString('pt-BR')}\n`;
-    csv += '\n';
-    csv += 'RESUMO\n';
-    csv += `Total de Membros;${reportData.total}\n`;
-    csv += `Pagaram;${reportData.paid.length}\n`;
-    csv += `Não Pagaram;${reportData.notPaid.length}\n`;
-    csv += `Taxa de Pagamento;${reportData.rate}%\n`;
-    csv += '\n';
-    csv += 'PAGARAM O FARM\n';
-    csv += 'Passaporte;Nome;Cargo;Tipo Pagamento;Status\n';
-    reportData.paid.forEach(m => {
-        const status = m.farmStatus === 'justified' ? 'Justificado' : (m.isLatePayment ? 'Pago (Atrasado)' : 'Pago');
-        const tipoPagamento = m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais');
-        csv += `${m.passport};${m.name};${m.role};${tipoPagamento};${status}\n`;
-    });
-    csv += '\n';
-    csv += 'NÃO PAGARAM\n';
-    csv += 'Passaporte;Nome;Cargo;Status\n';
-    reportData.notPaid.forEach(m => {
-        let statusText = 'Sem Entrega';
-        if (m.farmStatus === 'pending') statusText = 'Aguardando Aprovação';
-        else if (m.farmStatus === 'rejected') statusText = 'Rejeitado';
-        else if (m.farmStatus === 'justification_pending') statusText = 'Justificativa Pendente';
-        csv += `${m.passport};${m.name};${m.role};${statusText}\n`;
-    });
-    
-    // Criar blob e download
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `relatorio_farm_${reportData.week.start}_${reportData.week.end}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
 // ==================== FIM RELATÓRIO SEMANAL ====================
 
 // ==================== PERMISSÕES DE EDIÇÃO ====================
