@@ -827,15 +827,23 @@ async function openMemberExtract(memberId) {
         
         // Combinar deliveries, justifications e semanas vazias
         const allRecords = allWeeks.map(week => {
+            // Normalizar datas para comparação
+            const weekStartNorm = week.week_start.split('T')[0];
+            const weekEndNorm = week.week_end.split('T')[0];
+            
             // Verificar se existe delivery para esta semana
-            const delivery = data.deliveries.find(d => 
-                d.week_start === week.week_start && d.week_end === week.week_end
-            );
+            const delivery = data.deliveries.find(d => {
+                const dStartNorm = String(d.week_start).split('T')[0];
+                const dEndNorm = String(d.week_end).split('T')[0];
+                return dStartNorm === weekStartNorm && dEndNorm === weekEndNorm;
+            });
             
             // Verificar se existe justificativa para esta semana
-            const justification = data.justifications.find(j => 
-                j.week_start === week.week_start && j.week_end === week.week_end
-            );
+            const justification = data.justifications.find(j => {
+                const jStartNorm = String(j.week_start).split('T')[0];
+                const jEndNorm = String(j.week_end).split('T')[0];
+                return jStartNorm === weekStartNorm && jEndNorm === weekEndNorm;
+            });
             
             if (justification) {
                 return { ...justification, type: 'justification' };
@@ -1025,13 +1033,21 @@ async function openPaymentHistory(memberId) {
         
         // Combinar com deliveries e justifications existentes
         const allRecords = allWeeks.map(week => {
-            const delivery = data.deliveries.find(d => 
-                d.week_start === week.week_start && d.week_end === week.week_end
-            );
+            // Normalizar datas para comparação
+            const weekStartNorm = week.week_start.split('T')[0];
+            const weekEndNorm = week.week_end.split('T')[0];
             
-            const justification = data.justifications.find(j => 
-                j.week_start === week.week_start && j.week_end === week.week_end
-            );
+            const delivery = data.deliveries.find(d => {
+                const dStartNorm = String(d.week_start).split('T')[0];
+                const dEndNorm = String(d.week_end).split('T')[0];
+                return dStartNorm === weekStartNorm && dEndNorm === weekEndNorm;
+            });
+            
+            const justification = data.justifications.find(j => {
+                const jStartNorm = String(j.week_start).split('T')[0];
+                const jEndNorm = String(j.week_end).split('T')[0];
+                return jStartNorm === weekStartNorm && jEndNorm === weekEndNorm;
+            });
             
             if (justification) {
                 return { ...justification, type: 'justification' };
