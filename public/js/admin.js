@@ -889,6 +889,7 @@ async function openMemberExtract(memberId) {
                 const weekEndStr = String(record.week_end).split('T')[0];
                 const weekEnd = new Date(weekEndStr + 'T23:59:59');
                 const today = new Date();
+                today.setHours(23, 59, 59, 999); // Fim do dia de hoje
                 const isWeekPassed = weekEnd < today;
                 
                 // Verificar se não está pago (status diferente de approved e not_delivered também conta)
@@ -900,16 +901,15 @@ async function openMemberExtract(memberId) {
                 );
                 
                 console.log(`🔍 Semana ${weekLabel}:`, {
-                    week_start: record.week_start,
                     week_end: record.week_end,
                     weekEndStr,
-                    weekEnd,
-                    today,
+                    weekEnd: weekEnd.toISOString(),
+                    today: today.toISOString(),
                     isWeekPassed,
                     status: record.status,
                     isNotPaid,
                     hasAdv,
-                    showAdvBtn: isWeekPassed && isNotPaid && !hasAdv
+                    SHOW_BUTTON: isWeekPassed && isNotPaid && !hasAdv
                 });
                 
                 // Mostrar botão de ADV apenas se: semana passou + não foi pago + não tem ADV ainda
