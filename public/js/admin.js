@@ -854,12 +854,9 @@ async function openMemberExtract(memberId) {
         
         console.log('📋 Registros combinados (incluindo semanas vazias):', allRecords);
         
-        if (allRecords.length === 0) {
-            farmsList.innerHTML = '<p class="extract-empty">Nenhum farm registrado</p>';
-        } else {
-            
-            farmsList.innerHTML = allRecords.map(record => {
-                const weekLabel = formatWeekLabel(record.week_start, record.week_end);
+        // SEMPRE mostrar as semanas geradas
+        farmsList.innerHTML = allRecords.map(record => {
+            const weekLabel = formatWeekLabel(record.week_start, record.week_end);
                 
                 if (record.type === 'justification') {
                     return `
@@ -930,7 +927,6 @@ async function openMemberExtract(memberId) {
                     </div>
                 `;
             }).join('');
-        }
         
         // Preencher advertências
         document.getElementById('extractWarningsCount').textContent = data.warnings.length;
