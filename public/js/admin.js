@@ -801,16 +801,18 @@ async function openMemberExtract(memberId) {
             member: data.member
         });
         
-        // Gerar últimas 10 semanas (incluindo semanas sem entrega)
-        function generateLast10Weeks() {
+        // Gerar últimas 3 semanas (incluindo semanas sem entrega)
+        function generateLast3Weeks() {
             const weeks = [];
             const today = new Date();
+            today.setHours(0, 0, 0, 0);
             
-            for (let i = 0; i < 10; i++) {
+            for (let i = 1; i <= 3; i++) {
+                // Calcular fim da semana (domingo) - i semanas atrás
                 const weekEnd = new Date(today);
                 weekEnd.setDate(today.getDate() - (i * 7));
-                weekEnd.setHours(0, 0, 0, 0);
                 
+                // Calcular início da semana (segunda)
                 const weekStart = new Date(weekEnd);
                 weekStart.setDate(weekEnd.getDate() - 6);
                 
@@ -822,8 +824,8 @@ async function openMemberExtract(memberId) {
             return weeks;
         }
         
-        const allWeeks = generateLast10Weeks();
-        console.log('📅 Últimas 10 semanas geradas:', allWeeks);
+        const allWeeks = generateLast3Weeks();
+        console.log('📅 Últimas 3 semanas geradas:', allWeeks);
         
         // Combinar deliveries, justifications e semanas vazias
         const allRecords = allWeeks.map(week => {
@@ -1012,17 +1014,56 @@ async function openPaymentHistory(memberId) {
         
         // Preencher histórico
         const historyList = document.getElementById('paymentHistoryList');
-        if (data.deliveries.length === 0 && data.justifications.length === 0) {
-            historyList.innerHTML = '<p class="payment-history-empty">Nenhum registro encontrado</p>';
-        } else {
-            // Combinar deliveries e justifications e ordenar por data
-            const allRecords = [
-                ...data.deliveries.map(d => ({ ...d, type: 'delivery' })),
-                ...data.justifications.map(j => ({ ...j, type: 'justification' }))
-            ].sort((a, b) => new Date(b.week_start) - new Date(a.week_start)).slice(0, 10);
+        
+        // Gerar últimas 3 semanas
+        function generateLast3Weeks() {
+            const weeks = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
             
-            historyList.innerHTML = allRecords.map(record => {
-                const weekLabel = formatWeekLabel(record.week_start, record.week_end);
+            for (let i = 1; i <= 3; i++) {
+                const weekEnd = new Date(today);
+                weekEnd.setDate(today.getDate() - (i * 7));
+                
+                const weekStart = new Date(weekEnd);
+                weekStart.setDate(weekEnd.getDate() - 6);
+                
+                weeks.push({
+                    week_start: weekStart.toISOString().split('T')[0],
+                    week_end: weekEnd.toISOString().split('T')[0]
+                });
+            }
+            return weeks;
+        }
+        
+        const allWeeks = generateLast3Weeks();
+        
+        // Combinar com deliveries e justifications existentes
+        const allRecords = allWeeks.map(week => {
+            const delivery = data.deliveries.find(d => 
+                d.week_start === week.week_start && d.week_end === week.week_end
+            );
+            
+            const justification = data.justifications.find(j => 
+                j.week_start === week.week_start && j.week_end === week.week_end
+            );
+            
+            if (justification) {
+                return { ...justification, type: 'justification' };
+            } else if (delivery) {
+                return { ...delivery, type: 'delivery' };
+            } else {
+                return {
+                    ...week,
+                    type: 'delivery',
+                    status: 'not_delivered',
+                    items: []
+                };
+            }
+        });
+        
+        historyList.innerHTML = allRecords.map(record => {
+            const weekLabel = formatWeekLabel(record.week_start, record.week_end);
                 
                 if (record.type === 'justification') {
                     // Justificativa aprovada
@@ -1050,10 +1091,14 @@ async function openPaymentHistory(memberId) {
                 } else if (record.status === 'pending') {
                     statusClass = 'pending';
                     statusText = '⏳ Pendente';
-                    showAdvBtn = false; // Não mostrar para pendentes
+                    showAdvBtn = false;
                 } else if (record.status === 'rejected') {
                     statusClass = 'missing';
                     statusText = '❌ Não Pago';
+                    showAdvBtn = true;
+                } else if (record.status === 'not_delivered') {
+                    statusClass = 'missing';
+                    statusText = '❌ Não Entregou';
                     showAdvBtn = true;
                 } else {
                     statusClass = 'pending';
