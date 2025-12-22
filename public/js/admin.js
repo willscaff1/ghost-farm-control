@@ -5005,13 +5005,14 @@ function populateReportWeekSelect() {
         }
         
         const option = document.createElement('option');
-        option.value = -i;
+        option.value = i === 0 ? '0' : `-${i}`;
         option.textContent = label;
         select.appendChild(option);
     }
     
-    // Selecionar a primeira opção
+    // Selecionar a primeira opção e carregar relatório automaticamente
     select.value = '0';
+    reportWeekOffset = 0;
 }
 
 // Carregar relatório semanal
