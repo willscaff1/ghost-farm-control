@@ -1087,11 +1087,15 @@ async function openPaymentHistory(memberId) {
             const now = new Date();
             now.setHours(12, 0, 0, 0);
             
+            console.log('🔍 EXTRATO - HOJE:', now.toLocaleDateString('pt-BR'), '(', now.getDay(), ')');
+            
             // Encontrar a segunda-feira da SEMANA ATUAL
             const todayDayOfWeek = now.getDay();
             const daysToCurrentMonday = (todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1);
             const currentMonday = new Date(now.getTime() - (daysToCurrentMonday * 24 * 60 * 60 * 1000));
             currentMonday.setHours(12, 0, 0, 0);
+            
+            console.log('🔍 Segunda da semana atual:', currentMonday.toLocaleDateString('pt-BR'));
             
             // A partir da segunda-feira da semana PASSADA, pegar 3 semanas
             for (let i = 1; i <= 3; i++) {
@@ -1102,6 +1106,8 @@ async function openPaymentHistory(memberId) {
                 // Domingo (6 dias depois)
                 const sunday = new Date(monday.getTime() + (6 * 24 * 60 * 60 * 1000));
                 sunday.setHours(12, 0, 0, 0);
+                
+                console.log(`🔍 Semana ${i}:`, monday.toLocaleDateString('pt-BR'), '-', sunday.toLocaleDateString('pt-BR'));
                 
                 // Formatar no formato local
                 const formatLocalDate = (date) => {
