@@ -853,19 +853,35 @@ async function openMemberExtract(memberId) {
         // Gerar últimas 3 semanas
         function generateLast3Weeks() {
             const weeks = [];
-            const now = Date.now();
-            const DAY_MS = 86400000;
+            const now = new Date();
             
             for (let i = 1; i <= 3; i++) {
-                const weekEndMs = now - (i * 7 - 6) * DAY_MS;
-                const weekStartMs = weekEndMs - 6 * DAY_MS;
+                // Calcular data base (semanas atrás)
+                const baseDate = new Date(now);
+                baseDate.setDate(now.getDate() - (i * 7));
                 
-                const weekEnd = new Date(weekEndMs);
-                const weekStart = new Date(weekStartMs);
+                // Encontrar a segunda-feira desta semana
+                const dayOfWeek = baseDate.getDay();
+                const monday = new Date(baseDate);
+                monday.setDate(baseDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+                monday.setHours(0, 0, 0, 0);
+                
+                // Domingo é 6 dias depois da segunda
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+                sunday.setHours(23, 59, 59, 999);
+                
+                // Formatar no formato local
+                const formatLocalDate = (date) => {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
                 
                 weeks.push({
-                    week_start: weekStart.toISOString().slice(0, 10),
-                    week_end: weekEnd.toISOString().slice(0, 10)
+                    week_start: formatLocalDate(monday),
+                    week_end: formatLocalDate(sunday)
                 });
             }
             return weeks;
