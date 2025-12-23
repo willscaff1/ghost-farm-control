@@ -1326,22 +1326,39 @@ async function openPaymentHistory(memberId) {
         // Preencher histórico
         const historyList = document.getElementById('paymentHistoryList');
         
-        // Gerar últimas 3 semanas
+        // Gerar últimas 3 semanas - MESMA LÓGICA DO EXTRATO
         function generateLast3Weeks() {
             const weeks = [];
-            const now = Date.now();
-            const DAY_MS = 86400000;
+            const now = new Date();
+            now.setHours(12, 0, 0, 0);
             
+            // Encontrar a segunda-feira da SEMANA ATUAL
+            const todayDayOfWeek = now.getDay();
+            const daysToCurrentMonday = (todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1);
+            const currentMonday = new Date(now.getTime() - (daysToCurrentMonday * 24 * 60 * 60 * 1000));
+            currentMonday.setHours(12, 0, 0, 0);
+            
+            // A partir da segunda-feira da semana PASSADA, pegar 3 semanas
             for (let i = 1; i <= 3; i++) {
-                const weekEndMs = now - (i * 7 - 6) * DAY_MS;
-                const weekStartMs = weekEndMs - 6 * DAY_MS;
+                // Segunda-feira de i semanas atrás
+                const monday = new Date(currentMonday.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
+                monday.setHours(12, 0, 0, 0);
                 
-                const weekEnd = new Date(weekEndMs);
-                const weekStart = new Date(weekStartMs);
+                // Domingo (6 dias depois)
+                const sunday = new Date(monday.getTime() + (6 * 24 * 60 * 60 * 1000));
+                sunday.setHours(12, 0, 0, 0);
+                
+                // Formatar no formato local
+                const formatLocalDate = (date) => {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
                 
                 weeks.push({
-                    week_start: weekStart.toISOString().slice(0, 10),
-                    week_end: weekEnd.toISOString().slice(0, 10)
+                    week_start: formatLocalDate(monday),
+                    week_end: formatLocalDate(sunday)
                 });
             }
             return weeks;
