@@ -1081,6 +1081,7 @@ async function openPaymentHistory(memberId) {
         const farmsList = document.getElementById('extractFarmsList');
         
         // Gerar últimas 3 semanas (incluindo semanas sem entrega)
+        // VERSÃO CORRIGIDA: Últimas 3 semanas COMPLETAS (não inclui semana atual)
         function generateLast3Weeks() {
             const weeks = [];
             const now = new Date();
