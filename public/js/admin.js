@@ -1107,20 +1107,6 @@ async function openPaymentHistory(memberId) {
                     const day = String(date.getDate()).padStart(2, '0');
                     return `${year}-${month}-${day}`;
                 };
-                monday.setHours(0, 0, 0, 0);
-                
-                // Domingo é 6 dias depois da segunda
-                const sunday = new Date(monday);
-                sunday.setDate(monday.getDate() + 6);
-                sunday.setHours(23, 59, 59, 999);
-                
-                // Formatar no formato local
-                const formatLocalDate = (date) => {
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
-                    return `${year}-${month}-${day}`;
-                };
                 
                 weeks.push({
                     week_start: formatLocalDate(monday),
