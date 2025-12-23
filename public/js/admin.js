@@ -1079,25 +1079,6 @@ async function openPaymentHistory(memberId) {
         // Preencher farms
         const farmsList = document.getElementById('extractFarmsList');
         
-        console.log('📊 DADOS DO EXTRATO:', {
-            deliveries: data.deliveries,
-            justifications: data.justifications,
-            warnings: data.warnings,
-            warningsLength: data.warnings?.length,
-            member: data.member
-        });
-        
-        console.log('🚨 WARNINGS COMPLETAS:');
-        data.warnings.forEach((w, idx) => {
-            console.log(`Warning ${idx}:`, {
-                id: w.id,
-                reason: w.reason,
-                week_start: w.week_start,
-                week_end: w.week_end,
-                created_at: w.created_at
-            });
-        });
-        
         // Gerar últimas 3 semanas (incluindo semanas sem entrega)
         function generateLast3Weeks() {
             const weeks = [];
@@ -1136,7 +1117,6 @@ async function openPaymentHistory(memberId) {
         }
         
         const allWeeks = generateLast3Weeks();
-        console.log('📅 Últimas 3 semanas geradas:', allWeeks);
         
         // Combinar deliveries, justifications e semanas vazias
         const allRecords = allWeeks.map(week => {
@@ -1224,28 +1204,14 @@ async function openPaymentHistory(memberId) {
                 const recordStartNorm = String(record.week_start).split('T')[0];
                 const recordEndNorm = String(record.week_end).split('T')[0];
                 
-                console.log('\n=== VERIFICANDO ADV (MEMBER EXTRACT) ===');
-                console.log('Record week:', recordStartNorm, '-', recordEndNorm);
-                console.log('Total warnings:', data.warnings.length);
-                
                 const hasAdv = data.warnings.some(w => {
-                    console.log('Checking warning:', w);
                     if (!w.week_start || !w.week_end) {
-                        console.log('  -> ADV sem datas de semana');
                         return false;
                     }
                     const wStartNorm = String(w.week_start).split('T')[0];
                     const wEndNorm = String(w.week_end).split('T')[0];
-                    console.log('  Warning week:', wStartNorm, '-', wEndNorm);
-                    const match = wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
-                    console.log('  Match?', match);
-                    return match;
+                    return wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
                 });
-                
-                console.log('Has ADV?', hasAdv);
-                console.log('Can have ADV?', canHaveAdv);
-                console.log('Show button?', isWeekPassed && canHaveAdv && !hasAdv);
-                console.log('======================\n');
                 
                 // Mostrar botão de ADV apenas se: semana passou + pode ter ADV + não tem ADV ainda
                 const showAdvBtn = isWeekPassed && canHaveAdv && !hasAdv;
