@@ -1085,20 +1085,29 @@ async function openPaymentHistory(memberId) {
             const now = new Date();
             now.setHours(12, 0, 0, 0); // Meio-dia para evitar problemas de timezone
             
+            console.log('HOJE:', now.toLocaleDateString('pt-BR'), 'Day:', now.getDay());
+            
             for (let i = 1; i <= 3; i++) {
                 // Calcular quantos dias voltar
                 const daysBack = i * 7;
                 const baseDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack, 12, 0, 0);
                 
+                console.log(`\nSemana ${i} (${daysBack} dias atrás):`);
+                console.log('  baseDate:', baseDate.toLocaleDateString('pt-BR'), 'Day:', baseDate.getDay());
+                
                 // Encontrar a segunda-feira desta semana
                 const dayOfWeek = baseDate.getDay();
                 const daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+                
+                console.log('  daysToMonday:', daysToMonday);
                 
                 // Segunda-feira
                 const monday = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() - daysToMonday, 12, 0, 0);
                 
                 // Domingo (6 dias depois)
                 const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 12, 0, 0);
+                
+                console.log('  RESULTADO:', monday.toLocaleDateString('pt-BR'), '-', sunday.toLocaleDateString('pt-BR'));
                 
                 // Formatar no formato local
                 const formatLocalDate = (date) => {
