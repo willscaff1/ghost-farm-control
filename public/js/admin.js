@@ -854,22 +854,23 @@ async function openMemberExtract(memberId) {
         function generateLast3Weeks() {
             const weeks = [];
             const now = new Date();
-            now.setHours(12, 0, 0, 0); // Meio-dia para evitar problemas de timezone
+            now.setHours(12, 0, 0, 0);
             
             for (let i = 1; i <= 3; i++) {
-                // Calcular quantos dias voltar
-                const daysBack = i * 7;
-                const baseDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack, 12, 0, 0);
+                // Calcular data base usando milissegundos
+                const baseDate = new Date(now.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
                 
                 // Encontrar a segunda-feira desta semana
                 const dayOfWeek = baseDate.getDay();
                 const daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
                 
                 // Segunda-feira
-                const monday = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() - daysToMonday, 12, 0, 0);
+                const monday = new Date(baseDate.getTime() - (daysToMonday * 24 * 60 * 60 * 1000));
+                monday.setHours(12, 0, 0, 0);
                 
                 // Domingo (6 dias depois)
-                const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 12, 0, 0);
+                const sunday = new Date(monday.getTime() + (6 * 24 * 60 * 60 * 1000));
+                sunday.setHours(12, 0, 0, 0);
                 
                 // Formatar no formato local
                 const formatLocalDate = (date) => {
@@ -1083,31 +1084,23 @@ async function openPaymentHistory(memberId) {
         function generateLast3Weeks() {
             const weeks = [];
             const now = new Date();
-            now.setHours(12, 0, 0, 0); // Meio-dia para evitar problemas de timezone
-            
-            console.log('HOJE:', now.toLocaleDateString('pt-BR'), 'Day:', now.getDay());
+            now.setHours(12, 0, 0, 0);
             
             for (let i = 1; i <= 3; i++) {
-                // Calcular quantos dias voltar
-                const daysBack = i * 7;
-                const baseDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack, 12, 0, 0);
-                
-                console.log(`\nSemana ${i} (${daysBack} dias atrás):`);
-                console.log('  baseDate:', baseDate.toLocaleDateString('pt-BR'), 'Day:', baseDate.getDay());
+                // Calcular data base usando milissegundos
+                const baseDate = new Date(now.getTime() - (i * 7 * 24 * 60 * 60 * 1000));
                 
                 // Encontrar a segunda-feira desta semana
                 const dayOfWeek = baseDate.getDay();
                 const daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
                 
-                console.log('  daysToMonday:', daysToMonday);
-                
                 // Segunda-feira
-                const monday = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() - daysToMonday, 12, 0, 0);
+                const monday = new Date(baseDate.getTime() - (daysToMonday * 24 * 60 * 60 * 1000));
+                monday.setHours(12, 0, 0, 0);
                 
                 // Domingo (6 dias depois)
-                const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 12, 0, 0);
-                
-                console.log('  RESULTADO:', monday.toLocaleDateString('pt-BR'), '-', sunday.toLocaleDateString('pt-BR'));
+                const sunday = new Date(monday.getTime() + (6 * 24 * 60 * 60 * 1000));
+                sunday.setHours(12, 0, 0, 0);
                 
                 // Formatar no formato local
                 const formatLocalDate = (date) => {
