@@ -332,7 +332,6 @@ router.get('/members', requireAdmin, async (req, res) => {
                    (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as approved_count,
                    (SELECT COUNT(*) FROM warnings WHERE user_id = u.id) as warnings_count
             FROM users u
-            WHERE u.active = 1
             ORDER BY CAST(u.passport AS INTEGER) ASC
         `);
         
