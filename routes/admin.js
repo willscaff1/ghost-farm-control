@@ -24,17 +24,28 @@ const getWeekWithOffset = (offset = 0) => {
     const now = new Date();
     now.setDate(now.getDate() + (offset * 7));
     const dayOfWeek = now.getDay();
+    
+    // Segunda-feira é o início da semana (segunda = 1)
     const monday = new Date(now);
     monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
     monday.setHours(0, 0, 0, 0);
     
+    // Domingo é o fim da semana (6 dias depois da segunda)
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
     
+    // Ajustar para fuso horário local (evitar -1 dia por causa do UTC)
+    const formatLocalDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    
     return {
-        start: monday.toISOString().split('T')[0],
-        end: sunday.toISOString().split('T')[0],
+        start: formatLocalDate(monday),
+        end: formatLocalDate(sunday),
         label: `${monday.toLocaleDateString('pt-BR')} até ${sunday.toLocaleDateString('pt-BR')}`
     };
 };
