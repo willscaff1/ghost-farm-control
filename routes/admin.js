@@ -22,20 +22,19 @@ const roleNames = {
 // Helper para calcular semana com offset
 const getWeekWithOffset = (offset = 0) => {
     const now = new Date();
-    now.setDate(now.getDate() + (offset * 7));
+    now.setHours(12, 0, 0, 0); // Meio-dia para evitar problemas de timezone
+    
+    // Encontrar a segunda-feira da semana
     const dayOfWeek = now.getDay();
+    const daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
     
-    // Segunda-feira é o início da semana (segunda = 1)
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    monday.setHours(0, 0, 0, 0);
+    // Criar segunda-feira usando construtor com ano, mês, dia
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToMonday + (offset * 7), 12, 0, 0);
     
-    // Domingo é o fim da semana (6 dias depois da segunda)
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
+    // Domingo é 6 dias depois
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 12, 0, 0);
     
-    // Ajustar para fuso horário local (evitar -1 dia por causa do UTC)
+    // Ajustar para fuso horário local
     const formatLocalDate = (date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
