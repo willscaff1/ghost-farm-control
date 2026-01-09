@@ -9,76 +9,199 @@
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #12121f; color: #fff; padding: 20px; }
         h2 { margin-bottom: 5px; }
         .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .subtitle { color: #888; margin-bottom: 25px; font-size: 14px; }
-        .card { background: #1a1a2e; border-radius: 12px; margin-bottom: 15px; overflow: hidden; }
+        .subtitle { color: #888; margin-bottom: 20px; font-size: 14px; }
+        .top-actions { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
+        .btn-new { background: #4CAF50; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .btn-new:hover { background: #45a049; }
+        .btn-reset { background: #ff9800; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        .btn-reset:hover { background: #f57c00; }
+        .card { background: #1a1a2e; border-radius: 12px; margin-bottom: 15px; overflow: hidden; border: 2px solid transparent; transition: border 0.3s; }
+        .card.custom { border-color: #4CAF50; }
         .card-header { padding: 15px 20px; background: #16213e; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .card-header:hover { background: #1a2744; }
-        .card-header b { font-size: 16px; }
+        .card-header::after { content: '👆 Clique para expandir e editar permissões'; font-size: 11px; color: #666; margin-left: 15px; font-weight: normal; }
+        .card-header.expanded::after { content: ''; }
+        .card-header-left { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .card-header-left b { font-size: 16px; }
+        .card-header-actions { display: flex; gap: 8px; align-items: center; }
+        .btn-icon { background: none; border: none; color: #fff; cursor: pointer; font-size: 18px; padding: 5px 10px; border-radius: 4px; transition: background 0.2s; }
+        .btn-icon:hover { background: rgba(255,255,255,0.1); }
+        .btn-delete { color: #ff6b6b; }
+        .btn-delete:hover { background: rgba(255, 107, 107, 0.2); }
         .card-body { display: none; padding: 20px; border-top: 1px solid #2a2a4a; }
+        .edit-name-section { margin-bottom: 20px; padding: 15px; background: #0f0f1a; border-radius: 8px; }
+        .edit-name-section label { display: block; color: #888; margin-bottom: 8px; font-size: 14px; }
+        .edit-name-section input { width: 100%; padding: 10px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 6px; color: #fff; font-size: 15px; }
+        .edit-name-section input:focus { outline: none; border-color: #4CAF50; }
         .option { margin: 15px 0; }
         .option label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; }
         .option input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
         .tabs-section { margin: 20px 0; }
         .tabs-section p { color: #888; margin-bottom: 10px; font-size: 14px; }
         .tabs-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-        .tab-label { display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: #0f0f1a; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .tab-label { display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: #0f0f1a; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background 0.2s; }
         .tab-label:hover { background: #1f1f3a; }
         .tab-label input { cursor: pointer; }
-        .btn-save { background: #4CAF50; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 15px; }
+        .btn-save { background: #4CAF50; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 15px; font-weight: 600; }
         .btn-save:hover { background: #45a049; }
-        .btn-reset { background: #ff9800; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
-        .btn-reset:hover { background: #f57c00; }
         .disabled { opacity: 0.5; pointer-events: none; }
         .loading { text-align: center; padding: 50px; color: #888; }
         .error { color: #ff6b6b; padding: 20px; text-align: center; }
         .badge { background: #4CAF50; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-left: 10px; }
+        .badge-custom { background: #2196F3; }
+        .badge-protected { background: #FF9800; }
+        
+        /* Modal Criar Grupo */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: #1a1a2e; border-radius: 12px; padding: 30px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-header { margin-bottom: 20px; }
+        .modal-header h3 { font-size: 22px; }
+        .modal-body { margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; color: #888; margin-bottom: 8px; font-size: 14px; }
+        .form-group input { width: 100%; padding: 12px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 6px; color: #fff; font-size: 15px; }
+        .form-group input:focus { outline: none; border-color: #4CAF50; }
+        .form-group small { color: #666; font-size: 12px; display: block; margin-top: 5px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .btn-modal { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .btn-modal-cancel { background: #666; color: white; }
+        .btn-modal-cancel:hover { background: #555; }
+        .btn-modal-create { background: #4CAF50; color: white; }
+        .btn-modal-create:hover { background: #45a049; }
+        
+        /* Seção de Membros */
+        .members-section { margin-top: 25px; padding-top: 20px; border-top: 2px solid #2a2a4a; }
+        .members-section h4 { margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .members-list { background: #0f0f1a; border-radius: 8px; padding: 15px; margin-bottom: 15px; max-height: 300px; overflow-y: auto; }
+        .member-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #1a1a2e; border-radius: 6px; margin-bottom: 8px; }
+        .member-info { display: flex; flex-direction: column; }
+        .member-name { font-weight: 600; font-size: 14px; }
+        .member-passport { color: #888; font-size: 12px; }
+        .btn-remove-member { background: #ff6b6b; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .btn-remove-member:hover { background: #ff5252; }
+        .btn-add-member { background: #2196F3; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .btn-add-member:hover { background: #1976D2; }
+        .empty-members { color: #666; text-align: center; padding: 20px; font-style: italic; }
+        
+        /* Modal Adicionar Membro */
+        .modal-member-search { margin-bottom: 15px; }
+        .modal-member-search input { width: 100%; padding: 12px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 6px; color: #fff; }
+        .user-list { max-height: 300px; overflow-y: auto; background: #0f0f1a; border-radius: 8px; padding: 10px; }
+        .user-item { padding: 12px; background: #1a1a2e; border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s; }
+        .user-item:hover { background: #242442; }
+        .user-item-name { font-weight: 600; font-size: 14px; }
+        .user-item-passport { color: #888; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="header-row">
-        <h2>🔐 Permissões de Grupos</h2>
-        <button class="btn-reset" onclick="resetPermissions()">🔄 Resetar para Padrão</button>
+        <h2>🔐 Gerenciamento de Grupos e Permissões</h2>
+        <button class="btn-reset" onclick="resetPermissions()">🔄 Resetar</button>
     </div>
-    <p class="subtitle">Configure quais funcionalidades cada grupo/cargo pode acessar</p>
+    <p class="subtitle">Crie, edite e configure permissões para cada grupo/cargo do sistema</p>
+    
+    <div class="top-actions">
+        <button class="btn-new" onclick="openCreateModal()">➕ Criar Novo Grupo</button>
+    </div>
     
     <div id="container">
         <div class="loading">Carregando grupos...</div>
+    </div>
+    
+    <!-- Modal Criar Grupo -->
+    <div id="createGroupModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ Criar Novo Grupo</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nome do Grupo (ID interno) *</label>
+                    <input type="text" id="newRoleName" placeholder="ex: gerente_vendas">
+                    <small>Use apenas letras minúsculas, números e underscore (_)</small>
+                </div>
+                <div class="form-group">
+                    <label>Nome de Exibição *</label>
+                    <input type="text" id="newDisplayName" placeholder="ex: Gerente de Vendas">
+                    <small>Nome que aparecerá na interface</small>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-modal btn-modal-cancel" onclick="closeCreateModal()">Cancelar</button>
+                <button class="btn-modal btn-modal-create" onclick="createGroup()">Criar Grupo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Adicionar Membro -->
+    <div id="addMemberModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👥 Adicionar Membro ao Grupo</h3>
+                <p style="color: #888; font-size: 14px; margin-top: 8px;" id="addMemberGroupName"></p>
+            </div>
+            <div class="modal-body">
+                <div class="modal-member-search">
+                    <input type="text" id="memberSearch" placeholder="🔍 Buscar usuário..." oninput="filterUsers()">
+                </div>
+                <div class="user-list" id="userList">
+                    <div class="loading">Carregando usuários...</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-modal btn-modal-cancel" onclick="closeAddMemberModal()">Fechar</button>
+            </div>
+        </div>
     </div>
 
     <script>
         var roles = [];
         var tabs = [];
+        var expandedCards = {}; // Rastrear quais cards estão expandidos
         var icons = {
-            'gerente_geral': '👑',
+            'super_admin': '⚡',
             '01': '🥇',
             '02': '🥈',
+            'gerente_geral': '👑',
             'gerente_farm': '🌾',
-            'gerente_acao': '⚡',
+            'gerente_acao': '💥',
             'gerente_recrutamento': '📋',
-            'gerente_encomendas': '📦'
+            'gerente_encomendas': '📦',
+            'member': '👤'
         };
+        
+        // Grupos protegidos (não podem ser deletados)
+        var protectedRoles = ['super_admin', '01', '02', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'member'];
 
-        fetch('/api/admin/role-permissions')
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (data.error) {
-                    document.getElementById('container').innerHTML = '<div class="error">Erro: ' + data.error + '</div>';
-                    return;
-                }
-                
-                roles = data.roles || [];
-                tabs = data.availableTabs || [];
-                
-                if (roles.length === 0) {
-                    document.getElementById('container').innerHTML = '<div class="error">Nenhum grupo encontrado</div>';
-                    return;
-                }
-                
-                renderCards();
-            })
-            .catch(function(err) {
-                document.getElementById('container').innerHTML = '<div class="error">Erro: ' + err.message + '</div>';
-            });
+        // Carregar dados
+        function loadRoles() {
+            fetch('/api/admin/role-permissions')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    console.log('Dados recebidos:', data);
+                    
+                    if (data.error) {
+                        document.getElementById('container').innerHTML = '<div class="error">Erro: ' + data.error + '</div>';
+                        return;
+                    }
+                    
+                    roles = data.roles || [];
+                    tabs = data.availableTabs || [];
+                    
+                    if (roles.length === 0) {
+                        document.getElementById('container').innerHTML = '<div class="error">Nenhum grupo encontrado</div>';
+                        return;
+                    }
+                    
+                    renderCards();
+                })
+                .catch(function(err) {
+                    document.getElementById('container').innerHTML = '<div class="error">Erro: ' + err.message + '</div>';
+                });
+        }
+        
+        loadRoles();
 
         function renderCards() {
             var html = '';
@@ -88,26 +211,49 @@
                 var perms = role.permissions || [];
                 var hasAll = perms.indexOf('all') >= 0;
                 var icon = icons[role.role_name] || '👤';
-                var isProtected = role.role_name === 'gerente_geral';
+                var isProtected = protectedRoles.indexOf(role.role_name) >= 0;
+                var isCustom = !isProtected;
                 
-                html += '<div class="card">';
-                html += '<div class="card-header" onclick="toggleCard(' + i + ')">';
+                html += '<div class="card ' + (isCustom ? 'custom' : '') + '">';
+                html += '<div class="card-header">';
+                html += '<div class="card-header-left" onclick="toggleCard(' + i + ')">';
                 html += '<b>' + icon + ' ' + role.display_name + '</b>';
-                html += '<span id="arrow' + i + '">▼</span>';
                 html += '</div>';
-                html += '<div class="card-body" id="body' + i + '">';
+                html += '<div class="card-header-actions">';
+                if (!isProtected) {
+                    html += '<button class="btn-icon btn-delete" onclick="deleteGroup(' + i + ', event)" title="Deletar Grupo">🗑️</button>';
+                }
                 
+                // Verificar se o card estava expandido anteriormente
+                var isExpanded = expandedCards[role.role_name] !== undefined ? expandedCards[role.role_name] : false;
+                var arrowIcon = isExpanded ? '▲' : '▼';
+                var displayStyle = isExpanded ? 'block' : 'none';
+                
+                html += '<span id="arrow' + i + '" onclick="toggleCard(' + i + ')">'+arrowIcon+'</span>';
+                html += '</div>';
+                html += '</div>';
+                html += '<div class="card-body" id="body' + i + '" style="display:'+displayStyle+';">';
+                
+                // Seção de Edição de Nome (TODOS editáveis)
+                html += '<div class="edit-name-section">';
+                html += '<label>Nome do Grupo</label>';
+                html += '<div style="display:flex;gap:10px;align-items:center;">';
+                html += '<input type="text" id="displayName' + i + '" value="' + role.display_name + '" style="flex:1;">';
+                html += '<button class="btn-save" style="margin:0;padding:8px 16px;" onclick="saveRoleName(' + i + ')">💾 Salvar Nome</button>';
+                html += '</div>';
+                html += '</div>';
+                // Checkbox Acesso Total
                 html += '<div class="option">';
                 html += '<label>';
-                html += '<input type="checkbox" id="all' + i + '" ' + (hasAll ? 'checked' : '') + ' ' + (isProtected ? 'disabled' : '') + ' onchange="onAllChange(' + i + ')">';
+                html += '<input type="checkbox" id="all' + i + '" ' + (hasAll ? 'checked' : '') + ' onchange="onAllChange(' + i + ')">';
                 html += '<span>✅ <b>Acesso Total</b></span>';
-                if (isProtected) html += '<span class="badge">Protegido</span>';
                 html += '</label>';
                 html += '</div>';
                 
+                // Checkbox Pode Configurar
                 html += '<div class="option">';
                 html += '<label>';
-                html += '<input type="checkbox" id="cfg' + i + '" ' + (role.can_config ? 'checked' : '') + ' ' + (isProtected ? 'disabled' : '') + '>';
+                html += '<input type="checkbox" id="cfg' + i + '" ' + (role.can_config ? 'checked' : '') + '>';
                 html += '<span>⚙️ <b>Pode acessar Configurações</b></span>';
                 html += '</label>';
                 html += '</div>';
@@ -120,32 +266,38 @@
                     var tab = tabs[j];
                     var isChecked = hasAll || perms.indexOf(tab.id) >= 0;
                     html += '<label class="tab-label">';
-                    html += '<input type="checkbox" class="tabcb' + i + '" data-tab="' + tab.id + '" ' + (isChecked ? 'checked' : '') + ' ' + (isProtected ? 'disabled' : '') + '>';
+                    html += '<input type="checkbox" class="tabcb' + i + '" data-tab="' + tab.id + '" ' + (isChecked ? 'checked' : '') + '>';
                     html += tab.icon + ' ' + tab.name;
                     html += '</label>';
                 }
                 
-                html += '</div></div>';
+                html += '</div>'; // Fecha tabs-grid
+                html += '</div>'; // Fecha tabs-section
                 
-                if (!isProtected) {
-                    html += '<button class="btn-save" onclick="saveRole(' + i + ')">💾 Salvar Alterações</button>';
-                }
+                // Seção de Membros do Grupo
+                html += '<div class="members-section" id="membersSection' + i + '">';
+                html += '<h4>👥 Membros deste Grupo <button class="btn-add-member" onclick="openAddMemberModal(\'' + role.role_name + '\', event)">➕ Adicionar Membro</button></h4>';
+                html += '<div class="members-list" id="membersList' + i + '">';
+                html += '<div class="loading">Carregando membros...</div>';
+                html += '</div>';
+                html += '</div>';
                 
-                html += '</div></div>';
+                // Botão de Salvar Permissões (sempre visível)
+                html += '<div style="margin-top:20px;padding-top:20px;border-top:2px solid #2a2a4a;">';
+                html += '<button class="btn-save" onclick="saveRole(' + i + ')" style="width:100%;padding:14px;font-size:15px;">💾 Salvar Todas as Alterações de Permissões</button>';
+                html += '</div>';
+                
+                html += '</div>'; // Fecha card-body
+                html += '</div>'; // Fecha card
             }
             
             document.getElementById('container').innerHTML = html;
-        }
-
-        function toggleCard(index) {
-            var body = document.getElementById('body' + index);
-            var arrow = document.getElementById('arrow' + index);
-            if (body.style.display === 'block') {
-                body.style.display = 'none';
-                arrow.textContent = '▼';
-            } else {
-                body.style.display = 'block';
-                arrow.textContent = '▲';
+            
+            // Carregar membros apenas dos grupos expandidos
+            for (var i = 0; i < roles.length; i++) {
+                if (expandedCards[roles[i].role_name]) {
+                    loadGroupMembers(roles[i].role_name, i);
+                }
             }
         }
 
@@ -165,11 +317,50 @@
             }
         }
 
+        function saveRoleName(index) {
+            var role = roles[index];
+            var displayName = document.getElementById('displayName' + index).value.trim();
+            
+            if (!displayName) {
+                alert('❌ O nome não pode estar vazio!');
+                return;
+            }
+            
+            fetch('/api/admin/role-permissions/' + role.role_name, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    display_name: displayName,
+                    permissions: role.permissions,
+                    can_config: role.can_config
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('✅ Nome do grupo alterado com sucesso!');
+                    role.display_name = displayName;
+                    loadRoles();
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Falha ao salvar'));
+                }
+            })
+            .catch(function(err) {
+                alert('❌ Erro: ' + err.message);
+            });
+        }
+        
         function saveRole(index) {
             var role = roles[index];
             var hasAll = document.getElementById('all' + index).checked;
             var canConfig = document.getElementById('cfg' + index).checked ? 1 : 0;
+            var displayName = document.getElementById('displayName' + index).value.trim();
             var permissions = [];
+            
+            if (!displayName) {
+                alert('❌ O nome de exibição não pode estar vazio!');
+                return;
+            }
             
             if (hasAll) {
                 permissions = ['all'];
@@ -184,7 +375,7 @@
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    display_name: role.display_name,
+                    display_name: displayName,
                     permissions: permissions,
                     can_config: canConfig
                 })
@@ -192,11 +383,250 @@
             .then(function(res) { return res.json(); })
             .then(function(data) {
                 if (data.success) {
-                    alert('✅ Permissões do grupo "' + role.display_name + '" salvas com sucesso!');
+                    alert('✅ Grupo "' + displayName + '" salvo com sucesso!');
+                    role.display_name = displayName;
                     role.permissions = permissions;
                     role.can_config = canConfig;
+                    loadRoles();
                 } else {
                     alert('❌ Erro: ' + (data.error || 'Falha ao salvar'));
+                }
+            })
+            .catch(function(err) {
+                alert('❌ Erro: ' + err.message);
+            });
+        }
+        
+        function deleteGroup(index, event) {
+            event.stopPropagation();
+            var role = roles[index];
+            
+            if (!confirm('⚠️ Tem certeza que deseja deletar o grupo "' + role.display_name + '"?\n\nEsta ação não pode ser desfeita!')) {
+                return;
+            }
+            
+            fetch('/api/admin/role-permissions/' + role.role_name, {
+                method: 'DELETE'
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('✅ Grupo deletado com sucesso!');
+                    loadRoles();
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Falha ao deletar'));
+                }
+            })
+            .catch(function(err) {
+                alert('❌ Erro: ' + err.message);
+            });
+        }
+        
+        function openCreateModal() {
+            document.getElementById('createGroupModal').classList.add('show');
+            document.getElementById('newRoleName').value = '';
+            document.getElementById('newDisplayName').value = '';
+        }
+        
+        function closeCreateModal() {
+            document.getElementById('createGroupModal').classList.remove('show');
+        }
+        
+        function createGroup() {
+            var roleName = document.getElementById('newRoleName').value.trim();
+            var displayName = document.getElementById('newDisplayName').value.trim();
+            
+            if (!roleName || !displayName) {
+                alert('❌ Preencha todos os campos obrigatórios!');
+                return;
+            }
+            
+            if (!/^[a-z0-9_]+$/.test(roleName)) {
+                alert('❌ O nome do grupo deve conter apenas letras minúsculas, números e underscore (_)');
+                return;
+            }
+            
+            fetch('/api/admin/role-permissions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    role_name: roleName,
+                    display_name: displayName,
+                    permissions: [],
+                    can_config: 0
+                })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('✅ Grupo "' + displayName + '" criado com sucesso!');
+                    closeCreateModal();
+                    loadRoles();
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Falha ao criar grupo'));
+                }
+            })
+            .catch(function(err) {
+                alert('❌ Erro: ' + err.message);
+            });
+        }
+        
+        // ==================== GERENCIAR MEMBROS ====================
+        
+        var currentGroupForMembers = '';
+        var allUsers = [];
+        var groupMembers = [];
+        
+        // Carregar membros de um grupo quando o card é aberto
+        function toggleCard(index) {
+            var role = roles[index];
+            var body = document.getElementById('body' + index);
+            var arrow = document.getElementById('arrow' + index);
+            if (body.style.display === 'block') {
+                body.style.display = 'none';
+                arrow.textContent = '▼';
+                expandedCards[role.role_name] = false;
+            } else {
+                body.style.display = 'block';
+                arrow.textContent = '▲';
+                expandedCards[role.role_name] = true;
+                // Carregar membros quando abrir
+                loadGroupMembers(role.role_name, index);
+            }
+        }
+        
+        function loadGroupMembers(roleName, index) {
+            var membersList = document.getElementById('membersList' + index);
+            membersList.innerHTML = '<div class="loading">Carregando membros...</div>';
+            
+            fetch('/api/admin/role-permissions/' + roleName + '/members')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    groupMembers = data.members || [];
+                    renderGroupMembers(roleName, index);
+                })
+                .catch(function(err) {
+                    membersList.innerHTML = '<div class="error">Erro ao carregar membros</div>';
+                });
+        }
+        
+        function renderGroupMembers(roleName, index) {
+            var membersList = document.getElementById('membersList' + index);
+            
+            if (groupMembers.length === 0) {
+                membersList.innerHTML = '<div class="empty-members">Nenhum membro neste grupo</div>';
+                return;
+            }
+            
+            var html = '';
+            for (var i = 0; i < groupMembers.length; i++) {
+                var member = groupMembers[i];
+                html += '<div class="member-item">';
+                html += '<div class="member-info">';
+                html += '<div class="member-name">' + member.name + '</div>';
+                html += '<div class="member-passport">Passaporte: ' + member.passport + '</div>';
+                html += '</div>';
+                html += '<button class="btn-remove-member" onclick="removeMemberFromGroup(\'' + roleName + '\', ' + member.id + ', ' + index + ')">Remover</button>';
+                html += '</div>';
+            }
+            
+            membersList.innerHTML = html;
+        }
+        
+        function removeMemberFromGroup(roleName, userId, cardIndex) {
+            if (!confirm('Tem certeza que deseja remover este membro do grupo?')) {
+                return;
+            }
+            
+            fetch('/api/admin/role-permissions/' + roleName + '/members/' + userId, {
+                method: 'DELETE'
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('✅ Membro removido com sucesso!');
+                    loadGroupMembers(roleName, cardIndex);
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Falha ao remover membro'));
+                }
+            })
+            .catch(function(err) {
+                alert('❌ Erro: ' + err.message);
+            });
+        }
+        
+        function openAddMemberModal(roleName, event) {
+            event.stopPropagation();
+            currentGroupForMembers = roleName;
+            document.getElementById('addMemberGroupName').textContent = 'Adicionar membro ao grupo: ' + roleName;
+            document.getElementById('addMemberModal').classList.add('show');
+            document.getElementById('memberSearch').value = '';
+            loadAvailableUsers();
+        }
+        
+        function closeAddMemberModal() {
+            document.getElementById('addMemberModal').classList.remove('show');
+            currentGroupForMembers = '';
+        }
+        
+        function loadAvailableUsers() {
+            var userList = document.getElementById('userList');
+            userList.innerHTML = '<div class="loading">Carregando usuários...</div>';
+            
+            fetch('/api/admin/users/available')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    allUsers = data.users || [];
+                    renderUserList();
+                })
+                .catch(function(err) {
+                    userList.innerHTML = '<div class="error">Erro ao carregar usuários</div>';
+                });
+        }
+        
+        function renderUserList() {
+            var search = document.getElementById('memberSearch').value.toLowerCase();
+            var filtered = allUsers.filter(function(u) {
+                return u.name.toLowerCase().indexOf(search) >= 0 || u.passport.indexOf(search) >= 0;
+            });
+            
+            var userList = document.getElementById('userList');
+            
+            if (filtered.length === 0) {
+                userList.innerHTML = '<div class="empty-members">Nenhum usuário encontrado</div>';
+                return;
+            }
+            
+            var html = '';
+            for (var i = 0; i < filtered.length; i++) {
+                var user = filtered[i];
+                html += '<div class="user-item" onclick="addUserToGroup(' + user.id + ')">';
+                html += '<div class="user-item-name">' + user.name + '</div>';
+                html += '<div class="user-item-passport">Passaporte: ' + user.passport + '</div>';
+                html += '</div>';
+            }
+            
+            userList.innerHTML = html;
+        }
+        
+        function filterUsers() {
+            renderUserList();
+        }
+        
+        function addUserToGroup(userId) {
+            fetch('/api/admin/role-permissions/' + currentGroupForMembers + '/members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    closeAddMemberModal();
+                    loadRoles(); // Recarregar para atualizar a lista
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Falha ao adicionar membro'));
                 }
             })
             .catch(function(err) {
@@ -217,7 +647,7 @@
             .then(function(data) {
                 if (data.success) {
                     alert('✅ Permissões resetadas para os valores padrão!');
-                    window.location.reload();
+                    loadRoles();
                 } else {
                     alert('❌ Erro: ' + (data.error || 'Falha ao resetar'));
                 }

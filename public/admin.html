@@ -437,22 +437,6 @@
                                 </label>
                                 <input type="text" id="editMemberPassport" placeholder="Ex: 1234" required>
                             </div>
-                            <div class="edit-form-group">
-                                <label for="editMemberRole">
-                                    <span class="label-icon">👔</span>
-                                    Cargo
-                                </label>
-                                <select id="editMemberRole">
-                                    <option value="member">Membro</option>
-                                    <option value="01">01 (Primeiro Líder)</option>
-                                    <option value="02">02 (Segundo Líder)</option>
-                                    <option value="gerente_farm">Gerente de Farm</option>
-                                    <option value="gerente_acao">Gerente de Ação</option>
-                                    <option value="gerente_recrutamento">Gerente de Recrutamento</option>
-                                    <option value="gerente_encomendas">Gerente de Encomendas</option>
-                                    <option value="gerente_geral">Gerente Geral</option>
-                                </select>
-                            </div>
                         </div>
                         <div class="edit-form-group full-width">
                             <label for="editMemberName">
@@ -460,6 +444,16 @@
                                 Nome Completo
                             </label>
                             <input type="text" id="editMemberName" placeholder="Nome do membro" required>
+                        </div>
+                        <div class="edit-form-group full-width" style="background: #1a1a2e; padding: 15px; border-radius: 8px; border-left: 3px solid #4CAF50;">
+                            <label style="color: #888; font-size: 13px; display: block; margin-bottom: 8px;">
+                                <span class="label-icon">👔</span>
+                                Grupos/Cargos
+                            </label>
+                            <p style="color: #aaa; font-size: 14px; margin: 0;">
+                                Os grupos e cargos são gerenciados em <strong>"Permissões de Grupos"</strong>.<br>
+                                Lá você pode adicionar ou remover este usuário de grupos específicos.
+                            </p>
                         </div>
                         <div class="edit-form-group full-width">
                             <label for="editMemberEmail">
@@ -655,7 +649,33 @@
                             </div>
                             <div class="form-group">
                                 <label for="materialIcon">Ícone</label>
-                                <input type="text" id="materialIcon" placeholder="🌿" maxlength="4">
+                                <select id="materialIcon" class="icon-select">
+                                    <option value="🌿">🌿 Folha</option>
+                                    <option value="🪵">🪵 Madeira</option>
+                                    <option value="⛏️">⛏️ Minério</option>
+                                    <option value="💎">💎 Diamante</option>
+                                    <option value="🔥">🔥 Fogo</option>
+                                    <option value="💧">💧 Água</option>
+                                    <option value="🌾">🌾 Trigo</option>
+                                    <option value="🥕">🥕 Cenoura</option>
+                                    <option value="🍖">🍖 Carne</option>
+                                    <option value="🐟">🐟 Peixe</option>
+                                    <option value="🧱">🧱 Tijolo</option>
+                                    <option value="🪨">🪨 Pedra</option>
+                                    <option value="⚒️">⚒️ Ferramenta</option>
+                                    <option value="🗡️">🗡️ Espada</option>
+                                    <option value="🏹">🏹 Arco</option>
+                                    <option value="🛡️">🛡️ Escudo</option>
+                                    <option value="👕">👕 Roupa</option>
+                                    <option value="🍞">🍞 Pão</option>
+                                    <option value="🍺">🍺 Poção</option>
+                                    <option value="📦">📦 Caixa</option>
+                                    <option value="⭐">⭐ Estrela</option>
+                                    <option value="🎁">🎁 Presente</option>
+                                    <option value="🔮">🔮 Cristal</option>
+                                    <option value="⚡">⚡ Raio</option>
+                                    <option value="🌟">🌟 Brilho</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="materialGoal">Meta Semanal</label>
@@ -688,7 +708,23 @@
                             </div>
                             <div class="form-group">
                                 <label for="paymentTypeIcon">Ícone</label>
-                                <input type="text" id="paymentTypeIcon" placeholder="💰" maxlength="4">
+                                <select id="paymentTypeIcon" class="icon-select">
+                                    <option value="💰">💰 Dinheiro</option>
+                                    <option value="💵">💵 Nota</option>
+                                    <option value="💸">💸 Grana</option>
+                                    <option value="🪙">🪙 Moeda</option>
+                                    <option value="💎">💎 Diamante</option>
+                                    <option value="👑">👑 Coroa</option>
+                                    <option value="🏆">🏆 Troféu</option>
+                                    <option value="⭐">⭐ Estrela</option>
+                                    <option value="💳">💳 Cartão</option>
+                                    <option value="🎯">🎯 Alvo</option>
+                                    <option value="💼">💼 Maleta</option>
+                                    <option value="🎁">🎁 Presente</option>
+                                    <option value="🔑">🔑 Chave</option>
+                                    <option value="🔥">🔥 Fogo</option>
+                                    <option value="⚡">⚡ Raio</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="paymentTypeGoal">Meta (R$)</label>

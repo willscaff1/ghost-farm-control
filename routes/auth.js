@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { runQuery, getOne } = require('../database/db');
+const { runQuery, getOne, getAll } = require('../database/db');
 
 const router = express.Router();
 
@@ -44,16 +44,39 @@ router.post('/logout', (req, res) => {
 });
 
 // Get current user
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
     if (req.session.user) {
-        res.json({ user: req.session.user });
+        // Buscar grupos do usuário SEMPRE do banco para pegar dados atualizados
+        try {
+            const userGroups = await getAll(
+                'SELECT group_name FROM user_groups WHERE user_id = ?',
+                [req.session.user.id]
+            );
+            const groups = userGroups.map(g => g.group_name);
+            
+            console.log(`👤 Usuário ${req.session.user.name} (ID: ${req.session.user.id}) tem grupos:`, groups);
+            
+            // Atualizar a sessão com os grupos mais recentes
+            req.session.user.groups = groups;
+            
+            res.json({ 
+                user: {
+                    ...req.session.user,
+                    groups: groups
+                }
+            });
+        } catch (error) {
+            console.error('❌ Erro ao buscar grupos do usuário:', error);
+            // Fallback para role antigo se der erro
+            res.json({ user: req.session.user });
+        }
     } else {
         res.status(401).json({ error: 'Não autenticado' });
     }
 });
 
 // Cargos que podem gerenciar membros
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
 // Cadastro público (membros se cadastram)
 router.post('/register-public', async (req, res) => {
@@ -108,7 +131,19 @@ router.post('/register', async (req, res) => {
         }
         
         const hashedPassword = bcrypt.hashSync(password, 10);
-        const validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+        
+        // Buscar grupos válidos do banco de dados
+        let validRoles = ['member']; // fallback
+        try {
+            const rolesFromDB = await getAll('SELECT role_name FROM role_permissions WHERE active = 1');
+            if (rolesFromDB && rolesFromDB.length > 0) {
+                validRoles = rolesFromDB.map(r => r.role_name);
+            }
+        } catch (err) {
+            console.log('Usando validRoles padrão:', err.message);
+            validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+        }
+        
         const userRole = validRoles.includes(role) ? role : 'member';
         
         const result = await runQuery(

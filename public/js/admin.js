@@ -4,27 +4,72 @@ let selectedWeekOffset = 0; // 0 = semana atual, +1 = próxima, +2 = próxima+1,
 let selectedWeek = null;
 let adminNotifications = [];
 let currentUserPermissions = null; // Permissões carregadas do banco
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
-const roleNames = {
-    'member': 'Membro',
-    '01': '01 (Primeiro Líder)',
-    '02': '02 (Segundo Líder)',
-    'gerente_farm': 'Gerente de Farm',
-    'gerente_acao': 'Gerente de Ação',
-    'gerente_recrutamento': 'Gerente de Recrutamento',
-    'gerente_encomendas': 'Gerente de Encomendas',
-    'gerente_geral': 'Gerente Geral'
-};
+// Nomes de exibição dos grupos (carregados dinamicamente do banco)
+let roleNames = {};
+
+// Carregar nomes de exibição dos grupos do banco
+async function loadRoleNames() {
+    try {
+        const response = await fetch('/api/admin/role-permissions');
+        if (response.ok) {
+            const data = await response.json();
+            roleNames = {};
+            data.roles.forEach(role => {
+                roleNames[role.role_name] = role.display_name;
+            });
+            console.log('📋 Nomes dos grupos carregados:', roleNames);
+        }
+    } catch (error) {
+        console.error('Erro ao carregar nomes dos grupos:', error);
+        // Fallback básico
+        roleNames = {
+            'member': 'Membro',
+            'super_admin': 'Super Admin',
+            'gerente_geral': 'Gerente Geral'
+        };
+    }
+}
 
 // Carregar permissões do banco de dados
-async function loadUserPermissions(roleName) {
+async function loadUserPermissions(userGroups) {
     try {
-        const response = await fetch(`/api/admin/role-permissions/${roleName}`);
-        if (response.ok) {
-            currentUserPermissions = await response.json();
-            return currentUserPermissions;
+        // Se receber apenas uma string, converter para array
+        const groups = Array.isArray(userGroups) ? userGroups : [userGroups];
+        
+        // Carregar permissões de todos os grupos
+        const allPermissions = [];
+        let mergedPermissions = new Set();
+        let canConfig = false;
+        
+        for (const groupName of groups) {
+            const response = await fetch(`/api/admin/role-permissions/${groupName}`);
+            if (response.ok) {
+                const groupPerms = await response.json();
+                allPermissions.push(groupPerms);
+                
+                // Merge: se qualquer grupo tem a permissão, o usuário tem
+                if (groupPerms.permissions) {
+                    groupPerms.permissions.forEach(perm => mergedPermissions.add(perm));
+                }
+                
+                // Se qualquer grupo pode configurar, o usuário pode
+                if (groupPerms.can_config) {
+                    canConfig = true;
+                }
+            }
         }
+        
+        // Criar objeto de permissões combinadas
+        currentUserPermissions = {
+            permissions: Array.from(mergedPermissions),
+            can_config: canConfig
+        };
+        
+        console.log('🔐 Permissões combinadas de', groups.length, 'grupos:', currentUserPermissions);
+        return currentUserPermissions;
+        
     } catch (error) {
         console.error('Erro ao carregar permissões:', error);
     }
@@ -95,18 +140,27 @@ async function checkAuth() {
         const response = await fetch('/api/auth/me');
         const data = await response.json();
         
-        if (data.user && adminRoles.includes(data.user.role)) {
+        // Verificar se o usuário tem pelo menos um grupo administrativo
+        const userGroups = data.user?.groups || [data.user?.role];
+        // Considerar admin qualquer grupo que não seja apenas "member"
+        const hasAdminAccess = userGroups.some(group => group !== 'member');
+        
+        if (data.user && hasAdminAccess) {
             currentUser = data.user;
+            
+            // Usar o primeiro grupo administrativo para display
+            const primaryAdminRole = userGroups.find(g => adminRoles.includes(g)) || userGroups[0];
+            
             document.getElementById('userName').textContent = currentUser.name;
-            document.getElementById('userRole').textContent = roleNames[currentUser.role] || currentUser.role;
+            document.getElementById('userRole').textContent = roleNames[primaryAdminRole] || primaryAdminRole;
             document.getElementById('userRole').className = 'role-badge-mini';
             
             // Dropdown info
             document.getElementById('dropdownUserName').textContent = currentUser.name;
-            document.getElementById('dropdownUserRole').textContent = roleNames[currentUser.role] || currentUser.role;
+            document.getElementById('dropdownUserRole').textContent = roleNames[primaryAdminRole] || primaryAdminRole;
             
-            // Carregar permissões do banco de dados
-            await loadUserPermissions(currentUser.role);
+            // Carregar permissões de TODOS os grupos do usuário (merge com OR - mais permissões ganham)
+            await loadUserPermissions(userGroups);
             
             // Aplicar permissões baseadas no cargo
             applyRolePermissions();
@@ -166,7 +220,7 @@ function showTab(tabId) {
         case 'absences': loadJustifications(); break;
         case 'pending': loadPendingDeliveries(); break;
         case 'password-resets': loadPasswordResets(); break;
-        case 'members': loadMembers(); break;
+        case 'members': loadMembers(); break; // Sempre recarregar para pegar grupos atualizados
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
         case 'manage-materials': loadMaterials(); break;
@@ -176,7 +230,13 @@ function showTab(tabId) {
         case 'ranking': loadRanking(); break;
         case 'all-deliveries': loadAllDeliveries(); break;
         case 'weekly-report': populateReportWeekSelect(); loadWeeklyReport(); break;
-        case 'role-permissions': break; // Carrega via iframe
+        case 'role-permissions': 
+            // Recarregar iframe para pegar dados atualizados
+            const iframe = document.querySelector('#role-permissions-tab iframe');
+            if (iframe) {
+                iframe.src = iframe.src; // Force reload
+            }
+            break;
         case 'members-adv': loadMembersAdv(); break;
     }
 }
@@ -733,8 +793,23 @@ function renderMembersList() {
                 valB = b.name.toLowerCase();
                 break;
             case 'role':
-                valA = roleNames[a.role] || a.role;
-                valB = roleNames[b.role] || b.role;
+                // Ordenar pelos grupos (primeiro grupo de cada usuário)
+                valA = (() => {
+                    if (a.groups && a.groups.length > 0) {
+                        const displayGroups = a.groups.filter(g => g !== 'member' || a.groups.length === 1);
+                        const firstGroup = displayGroups[0] || a.groups[0];
+                        return roleNames[firstGroup] || firstGroup;
+                    }
+                    return roleNames[a.role] || a.role;
+                })();
+                valB = (() => {
+                    if (b.groups && b.groups.length > 0) {
+                        const displayGroups = b.groups.filter(g => g !== 'member' || b.groups.length === 1);
+                        const firstGroup = displayGroups[0] || b.groups[0];
+                        return roleNames[firstGroup] || firstGroup;
+                    }
+                    return roleNames[b.role] || b.role;
+                })();
                 break;
             default:
                 return 0;
@@ -769,11 +844,23 @@ function renderMembersList() {
     
     list.innerHTML = filtered.map(member => {
         const initial = member.name.charAt(0).toUpperCase();
+        
+        // Exibir grupos como badges
+        let groupsDisplay = '';
+        if (member.groups && member.groups.length > 0) {
+            const displayGroups = member.groups.filter(g => g !== 'member' || member.groups.length === 1);
+            groupsDisplay = displayGroups.map(group => 
+                `<span class="group-badge" style="background: #667eea; color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px; margin-right: 4px; display: inline-block;">${roleNames[group] || group}</span>`
+            ).join('');
+        } else {
+            groupsDisplay = roleNames[member.role] || member.role;
+        }
+        
         return `
             <tr class="member-row" onclick="openMemberExtract(${member.id})">
                 <td>${member.passport || '-'}</td>
                 <td><span class="member-avatar">${initial}</span><span class="member-name">${member.name}</span></td>
-                <td>${roleNames[member.role] || member.role}</td>
+                <td>${groupsDisplay}</td>
                 <td>
                     <button class="btn-small-view" onclick="event.stopPropagation(); openMemberExtract(${member.id})">👁️ Ver Histórico</button>
                 </td>
@@ -820,8 +907,18 @@ async function openMemberExtract(memberId) {
         
         // Preencher header
         document.getElementById('extractMemberName').textContent = data.member.name;
+        
+        // Exibir grupos
+        let groupsText = '';
+        if (data.member.groups && data.member.groups.length > 0) {
+            const displayGroups = data.member.groups.filter(g => g !== 'member' || data.member.groups.length === 1);
+            groupsText = displayGroups.map(g => roleNames[g] || g).join(', ');
+        } else {
+            groupsText = roleNames[data.member.role] || data.member.role;
+        }
+        
         document.getElementById('extractMemberDetails').textContent = 
-            `Passaporte: ${data.member.passport} | Cargo: ${roleNames[data.member.role] || data.member.role}`;
+            `Passaporte: ${data.member.passport} | Cargo: ${groupsText}`;
         
         // Preencher estatísticas
         document.getElementById('extractStats').innerHTML = `
@@ -1296,8 +1393,18 @@ async function openPaymentHistory(memberId) {
         
         // Preencher header
         document.getElementById('paymentHistoryMemberName').textContent = data.member.name;
+        
+        // Exibir grupos
+        let groupsText = '';
+        if (data.member.groups && data.member.groups.length > 0) {
+            const displayGroups = data.member.groups.filter(g => g !== 'member' || data.member.groups.length === 1);
+            groupsText = displayGroups.map(g => roleNames[g] || g).join(', ');
+        } else {
+            groupsText = roleNames[data.member.role] || data.member.role;
+        }
+        
         document.getElementById('paymentHistoryMemberDetails').textContent = 
-            `Passaporte: ${data.member.passport} | Cargo: ${roleNames[data.member.role] || data.member.role}`;
+            `Passaporte: ${data.member.passport} | Cargo: ${groupsText}`;
         
         // Preencher estatísticas
         document.getElementById('paymentHistoryStats').innerHTML = `
@@ -1775,7 +1882,17 @@ function renderWeeklyTable(filter) {
     // Gerar linhas da tabela
     tbody.innerHTML = allMembers.map(member => {
         const initial = member.name.charAt(0).toUpperCase();
-        const roleName = roleNames[member.role] || member.role || '-';
+        
+        // Exibir grupos como badges (similar à Lista de Membros)
+        let groupsDisplay = '';
+        if (member.groups && member.groups.length > 0) {
+            const displayGroups = member.groups.filter(g => g !== 'member' || member.groups.length === 1);
+            groupsDisplay = displayGroups.map(group => 
+                `<span class="group-badge" style="background: #667eea; color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px; margin-right: 4px; display: inline-block;">${roleNames[group] || group}</span>`
+            ).join('');
+        } else {
+            groupsDisplay = roleNames[member.role] || member.role || '-';
+        }
         
         // Determinar ação
         let actionHtml = '';
@@ -1818,7 +1935,7 @@ function renderWeeklyTable(filter) {
             <tr class="status-${member.status}">
                 <td class="passport-cell">${member.passport || '-'}</td>
                 <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${member.name}${member.is_late_payment ? ' ⏰' : ''}</span></td>
-                <td class="role-cell">${roleName}</td>
+                <td class="role-cell">${groupsDisplay}</td>
                 <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
                 <td>${editBtnOnly}</td>
                 <td>${actionHtml}</td>
@@ -2412,12 +2529,22 @@ async function loadJustifications() {
             return;
         }
         
-        container.innerHTML = justifications.map(j => `
+        container.innerHTML = justifications.map(j => {
+            // Exibir grupos
+            let groupsDisplay = '';
+            if (j.user_groups && j.user_groups.length > 0) {
+                const displayGroups = j.user_groups.filter(g => g !== 'member' || j.user_groups.length === 1);
+                groupsDisplay = displayGroups.map(group => roleNames[group] || group).join(', ');
+            } else {
+                groupsDisplay = roleNames[j.user_role || j.role] || j.user_role || j.role;
+            }
+            
+            return `
             <div class="justification-card">
                 <div class="justification-header">
                     <div class="justification-user">
                         <span class="user-name">👤 ${j.user_name || j.name}</span>
-                        <span class="user-role">${roleNames[j.user_role || j.role] || j.user_role || j.role}</span>
+                        <span class="user-role">${groupsDisplay}</span>
                     </div>
                     <div class="justification-date">
                         📅 Semana: ${formatWeekDate(j.week_start)} - ${formatWeekDate(j.week_end)}
@@ -2441,7 +2568,8 @@ async function loadJustifications() {
                     </button>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
         
     } catch (error) {
         console.error('Erro ao carregar justificativas:', error);
@@ -3136,6 +3264,12 @@ async function loadMembers() {
         const data = await response.json();
         
         membersTableData = data.members || [];
+        
+        // Atualizar roleNames com os dados do backend
+        if (data.roleNames) {
+            Object.assign(roleNames, data.roleNames);
+        }
+        
         renderMembersTable();
     } catch (error) {
         console.error('Erro ao carregar membros:', error);
@@ -3204,29 +3338,28 @@ function renderMembersTable() {
         const statusClass = member.active ? '' : 'inactive-row';
         const statusIcon = member.active ? '' : '🚫 ';
         
+        // Exibir grupos do usuário (apenas leitura)
+        // Se tem outros grupos além de "member", não mostrar "member"
+        let groups = member.groups || [];
+        if (groups.length > 1 && groups.includes('member')) {
+            groups = groups.filter(g => g !== 'member');
+        }
+        
+        const groupsDisplay = groups.length > 0 
+            ? groups.map(g => `<span class="role-badge ${g}">${roleNames[g] || g}</span>`).join(' ')
+            : '<span style="color:#666;">Sem grupo</span>';
+        
         return `
             <tr class="${statusClass}" data-name="${member.name.toLowerCase()}" data-passport="${member.passport || ''}">
                 <td>${member.passport || '-'}</td>
                 <td><span class="member-avatar">${initial}</span><span class="member-name">${statusIcon}${member.name}</span></td>
                 <td>
-                    ${isSuperAdmin && member.passport !== '6999' ? `
-                        <select class="role-select-inline" onchange="changeRole(${member.id}, this.value)">
-                            <option value="member" ${member.role === 'member' ? 'selected' : ''}>Membro</option>
-                            <option value="01" ${member.role === '01' ? 'selected' : ''}>01</option>
-                            <option value="02" ${member.role === '02' ? 'selected' : ''}>02</option>
-                            <option value="gerente_farm" ${member.role === 'gerente_farm' ? 'selected' : ''}>Gerente de Farm</option>
-                            <option value="gerente_acao" ${member.role === 'gerente_acao' ? 'selected' : ''}>Gerente de Ação</option>
-                            <option value="gerente_recrutamento" ${member.role === 'gerente_recrutamento' ? 'selected' : ''}>Gerente de Recrutamento</option>
-                            <option value="gerente_encomendas" ${member.role === 'gerente_encomendas' ? 'selected' : ''}>Gerente de Encomendas</option>
-                            <option value="gerente_geral" ${member.role === 'gerente_geral' ? 'selected' : ''}>Gerente Geral</option>
-                        </select>
-                    ` : `
-                        <span class="role-badge ${member.role}">${roleNames[member.role] || member.role}${member.passport === '6999' ? ' 👑' : ''}</span>
-                    `}
+                    ${groupsDisplay}
+                    <div style="font-size:11px;color:#888;margin-top:4px;">Edite em "Permissões de Grupos"</div>
                 </td>
                 <td>
                     ${isSuperAdmin && member.passport !== '6999' ? `
-                        <button class="action-btn-small edit" onclick="openEditMemberModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${member.passport}', '${member.email || ''}', '${member.role}')">✏️ Editar</button>
+                        <button class="action-btn-small edit" onclick="openEditMemberModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${member.passport}', '${member.email || ''}')">✏️ Editar</button>
                         <button class="action-btn-small ${member.active ? 'toggle' : 'activate'}" onclick="toggleMember(${member.id})">
                             ${member.active ? '🚫 Desativar' : '✅ Ativar'}
                         </button>
@@ -3284,12 +3417,11 @@ function filterMembersByStatus(type) {
 // Abrir modal de edição de membro
 let editingMemberId = null;
 
-function openEditMemberModal(id, name, passport, email, role) {
+function openEditMemberModal(id, name, passport, email) {
     editingMemberId = id;
     document.getElementById('editMemberName').value = name;
     document.getElementById('editMemberPassport').value = passport;
     document.getElementById('editMemberEmail').value = email || '';
-    document.getElementById('editMemberRole').value = role;
     document.getElementById('editMemberModal').style.display = 'flex';
 }
 
@@ -3305,7 +3437,6 @@ async function saveEditMember() {
     const name = document.getElementById('editMemberName').value.trim();
     const passport = document.getElementById('editMemberPassport').value.trim();
     const email = document.getElementById('editMemberEmail').value.trim();
-    const role = document.getElementById('editMemberRole').value;
     const newPassword = document.getElementById('editMemberPassword').value;
     
     if (!name || !passport) {
@@ -3317,7 +3448,7 @@ async function saveEditMember() {
         const response = await fetch(`/api/admin/members/${editingMemberId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, passport, email, role, newPassword: newPassword || undefined })
+            body: JSON.stringify({ name, passport, email, newPassword: newPassword || undefined })
         });
         
         const data = await response.json();
@@ -3352,28 +3483,6 @@ function deleteMember(id, name) {
         }
     })
     .catch(() => alert('Erro ao deletar membro'));
-}
-
-// Alterar cargo do membro
-async function changeRole(memberId, newRole) {
-    try {
-        const response = await fetch(`/api/admin/members/${memberId}/role`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: newRole })
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-            alert(data.message);
-        } else {
-            alert(data.error || 'Erro ao alterar cargo');
-            loadMembers(); // Recarregar para voltar ao estado anterior
-        }
-    } catch (error) {
-        alert('Erro ao alterar cargo');
-        loadMembers();
-    }
 }
 
 // Ativar/Desativar membro
@@ -3546,18 +3655,52 @@ async function loadMaterials() {
 
 // Editar material
 async function editMaterial(id, currentName, currentIcon, currentGoal) {
-    const newName = prompt('Nome do material:', currentName);
-    if (newName === null) return;
+    const iconOptions = [
+        '🌿', '🪵', '⛏️', '💎', '🔥', '💧', '🌾', '🥕', '🍖', '🐟',
+        '🧱', '🪨', '⚒️', '🗡️', '🏹', '🛡️', '👕', '🍞', '🍺', '📦',
+        '⭐', '🎁', '🔮', '⚡', '🌟'
+    ];
     
-    const newIcon = prompt('Ícone do material:', currentIcon);
-    if (newIcon === null) return;
+    const iconOptionsHtml = iconOptions.map(icon => 
+        `<option value="${icon}" ${icon === currentIcon ? 'selected' : ''}>${icon}</option>`
+    ).join('');
     
-    const newGoal = prompt('Meta semanal:', currentGoal);
-    if (newGoal === null) return;
+    const modalHtml = `
+        <div class="edit-modal-overlay" id="editMaterialModal">
+            <div class="edit-modal-content">
+                <h3>✏️ Editar Material</h3>
+                <div class="edit-form">
+                    <div class="form-group">
+                        <label>Nome:</label>
+                        <input type="text" id="editMatName" value="${currentName}" class="edit-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Ícone:</label>
+                        <select id="editMatIcon" class="icon-select">${iconOptionsHtml}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Meta Semanal:</label>
+                        <input type="number" id="editMatGoal" value="${currentGoal}" min="1" class="edit-input">
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="btn btn-primary" onclick="saveEditMaterial(${id})">💾 Salvar</button>
+                        <button class="btn btn-secondary" onclick="closeEditModal()">❌ Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
     
-    const goalNum = parseInt(newGoal);
-    if (isNaN(goalNum) || goalNum < 1) {
-        alert('Meta deve ser um número válido maior que 0');
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function saveEditMaterial(id) {
+    const newName = document.getElementById('editMatName').value;
+    const newIcon = document.getElementById('editMatIcon').value;
+    const newGoal = parseInt(document.getElementById('editMatGoal').value);
+    
+    if (!newName || !newIcon || isNaN(newGoal) || newGoal < 1) {
+        alert('❌ Preencha todos os campos corretamente');
         return;
     }
     
@@ -3566,15 +3709,16 @@ async function editMaterial(id, currentName, currentIcon, currentGoal) {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                name: newName || currentName, 
-                icon: newIcon || currentIcon, 
-                weekly_goal: goalNum 
+                name: newName, 
+                icon: newIcon, 
+                weekly_goal: newGoal 
             })
         });
         
         const data = await response.json();
         
         if (data.success) {
+            closeEditModal();
             loadMaterials();
             loadMaterialsStats();
         } else {
@@ -3583,6 +3727,11 @@ async function editMaterial(id, currentName, currentIcon, currentGoal) {
     } catch (error) {
         alert('Erro ao atualizar material');
     }
+}
+
+function closeEditModal() {
+    const modal = document.getElementById('editMaterialModal') || document.getElementById('editPaymentModal');
+    if (modal) modal.remove();
 }
 
 // Ativar/Desativar material
@@ -3685,18 +3834,51 @@ async function loadPaymentTypes() {
 
 // Editar tipo de pagamento
 async function editPaymentType(id, currentName, currentIcon, currentGoal) {
-    const newName = prompt('Nome do tipo de pagamento:', currentName);
-    if (newName === null) return;
+    const iconOptions = [
+        '💰', '💵', '💸', '🪙', '💎', '👑', '🏆', '⭐', '💳', '🎯',
+        '💼', '🎁', '🔑', '🔥', '⚡'
+    ];
     
-    const newIcon = prompt('Ícone:', currentIcon);
-    if (newIcon === null) return;
+    const iconOptionsHtml = iconOptions.map(icon => 
+        `<option value="${icon}" ${icon === currentIcon ? 'selected' : ''}>${icon}</option>`
+    ).join('');
     
-    const newGoal = prompt('Meta semanal (R$):', currentGoal);
-    if (newGoal === null) return;
+    const modalHtml = `
+        <div class="edit-modal-overlay" id="editPaymentModal">
+            <div class="edit-modal-content">
+                <h3>✏️ Editar Tipo de Pagamento</h3>
+                <div class="edit-form">
+                    <div class="form-group">
+                        <label>Nome:</label>
+                        <input type="text" id="editPayName" value="${currentName}" class="edit-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Ícone:</label>
+                        <select id="editPayIcon" class="icon-select">${iconOptionsHtml}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Meta Semanal (R$):</label>
+                        <input type="number" id="editPayGoal" value="${currentGoal}" min="1" class="edit-input">
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="btn btn-primary" onclick="saveEditPaymentType(${id})">💾 Salvar</button>
+                        <button class="btn btn-secondary" onclick="closeEditModal()">❌ Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
     
-    const goalNum = parseInt(newGoal);
-    if (isNaN(goalNum) || goalNum < 1) {
-        alert('Meta deve ser um número válido maior que 0');
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function saveEditPaymentType(id) {
+    const newName = document.getElementById('editPayName').value;
+    const newIcon = document.getElementById('editPayIcon').value;
+    const newGoal = parseInt(document.getElementById('editPayGoal').value);
+    
+    if (!newName || !newIcon || isNaN(newGoal) || newGoal < 1) {
+        alert('❌ Preencha todos os campos corretamente');
         return;
     }
     
@@ -3705,15 +3887,16 @@ async function editPaymentType(id, currentName, currentIcon, currentGoal) {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                name: newName || currentName, 
-                icon: newIcon || currentIcon, 
-                weekly_goal: goalNum 
+                name: newName, 
+                icon: newIcon, 
+                weekly_goal: newGoal 
             })
         });
         
         const data = await response.json();
         
         if (data.success) {
+            closeEditModal();
             loadPaymentTypes();
         } else {
             alert(data.error || 'Erro ao atualizar tipo de pagamento');
@@ -5498,4 +5681,7 @@ async function revokeEditPermission(userId, userName) {
 // ==================== FIM PERMISSÕES DE EDIÇÃO ====================
 
 // Inicializa
-checkAuth();
+(async function() {
+    await loadRoleNames(); // Carregar nomes dos grupos do banco primeiro
+    checkAuth();
+})();

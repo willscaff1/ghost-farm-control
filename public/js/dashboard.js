@@ -11,15 +11,32 @@ let paymentTypes = []; // Lista de tipos de pagamento carregados do banco
 let screenshotFilesDirty = []; // Screenshots para pagamento alternativo
 let pastScreenshotFiles = []; // Screenshots para pagamento de semana passada
 let selectedPastWeek = null; // Semana passada selecionada para pagar
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
-const roleNames = {
-    'member': 'Membro',
-    '01': '01',
-    '02': '02',
-    'gerente_farm': 'Gerente de Farm',
-    'gerente_geral': 'Gerente Geral'
-};
+// Nomes de exibição dos grupos (carregados dinamicamente do banco)
+let roleNames = {};
+
+// Carregar nomes de exibição dos grupos do banco
+async function loadRoleNames() {
+    try {
+        const response = await fetch('/api/admin/role-permissions');
+        if (response.ok) {
+            const data = await response.json();
+            roleNames = {};
+            data.roles.forEach(role => {
+                roleNames[role.role_name] = role.display_name;
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar nomes dos grupos:', error);
+        // Fallback básico
+        roleNames = {
+            'member': 'Membro',
+            'super_admin': 'Super Admin',
+            'gerente_geral': 'Gerente Geral'
+        };
+    }
+}
 
 // Verifica autenticação
 async function checkAuth() {
@@ -31,13 +48,27 @@ async function checkAuth() {
             currentUser = data.user;
             document.getElementById('userName').textContent = currentUser.name;
             
+            // Usar grupos se disponível, senão usar role
+            const userGroups = data.user.groups || [data.user.role];
+            const primaryRole = userGroups[0] || data.user.role;
+            
+            console.log('👤 Usuário logado:', currentUser.name);
+            console.log('📋 Grupos do usuário:', userGroups);
+            console.log('🎯 Role primário:', primaryRole);
+            
             // Dropdown info
             document.getElementById('dropdownUserName').textContent = currentUser.name;
-            document.getElementById('dropdownUserRole').textContent = roleNames[currentUser.role] || currentUser.role;
+            document.getElementById('dropdownUserRole').textContent = roleNames[primaryRole] || primaryRole;
             
-            // Mostrar link de admin se for admin
-            if (adminRoles.includes(currentUser.role)) {
+            // Mostrar link de admin se tiver pelo menos um grupo que não seja "member"
+            const hasAdminAccess = userGroups.some(group => group !== 'member');
+            console.log('🔐 Tem acesso admin?', hasAdminAccess, '(grupos não-member:', userGroups.filter(g => g !== 'member').join(', ') + ')');
+            
+            if (hasAdminAccess) {
                 document.getElementById('dropdownAdminBtn').style.display = 'flex';
+                console.log('✅ Botão admin exibido');
+            } else {
+                console.log('❌ Botão admin NÃO exibido');
             }
             
             loadAvailableWeeks();
@@ -2158,4 +2189,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Inicializa
-checkAuth();
+(async function() {
+    await loadRoleNames(); // Carregar nomes dos grupos do banco primeiro
+    checkAuth();
+})();
