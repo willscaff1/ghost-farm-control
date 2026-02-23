@@ -8866,6 +8866,9 @@ function toggleRankingDetails(index) {
 // ==================== EDIÇÃO DE ENTREGAS (SUPER ADMIN) ====================
 
 let currentEditDeliveryId = null;
+let currentEditUserId = null;
+let currentEditWeekStart = null;
+let currentEditWeekEnd = null;
 let currentEditMemberId = null;
 let currentCreateMemberId = null;
 let currentCreateWeekStart = null;
@@ -8902,12 +8905,30 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
         
         // Guardar ID do primeiro delivery para edições
         currentEditDeliveryId = data.delivery.id;
+        currentEditUserId = memberId;
+        currentEditWeekStart = weekStart;
+        currentEditWeekEnd = weekEnd;
         
         // Preencher informações com status agregado e contagem de envios
         document.getElementById('editDeliveryMemberName').textContent = data.delivery.member_name;
         const weekLabel = formatWeekLabel(data.delivery.week_start, data.delivery.week_end);
         const deliveryCountBadge = data.delivery.delivery_count > 1 ? ` <span style="background: #3498db; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px;">${data.delivery.delivery_count} envios</span>` : '';
         document.getElementById('editDeliveryWeek').innerHTML = weekLabel + deliveryCountBadge;
+        
+        // Preencher campos de data
+        const wsInput = document.getElementById('editWeekStart');
+        const weInput = document.getElementById('editWeekEnd');
+        if (wsInput) wsInput.value = weekStart;
+        if (weInput) weInput.value = weekEnd;
+        const badge = document.getElementById('editWeekChangedBadge');
+        if (badge) badge.style.display = 'none';
+        // Mostrar badge quando alguma data for alterada
+        const onWeekChange = () => {
+            const changed = wsInput.value !== weekStart || weInput.value !== weekEnd;
+            if (badge) badge.style.display = changed ? 'inline' : 'none';
+        };
+        if (wsInput) { wsInput.onchange = onWeekChange; }
+        if (weInput) { weInput.onchange = onWeekChange; }
         
         // Renderizar screenshots existentes
         renderExistingScreenshots(data.screenshots || [], currentEditDeliveryId);
@@ -8996,17 +9017,28 @@ async function saveAllDeliveryItems() {
     const originalStatus = statusSelect ? statusSelect.dataset.original : null;
     const statusChanged = newStatus && newStatus !== originalStatus;
     
+    // Verificar alteração de semana
+    const wsInput = document.getElementById('editWeekStart');
+    const weInput = document.getElementById('editWeekEnd');
+    const newWeekStart = wsInput ? wsInput.value : null;
+    const newWeekEnd = weInput ? weInput.value : null;
+    const weekChanged = newWeekStart && newWeekEnd && (newWeekStart !== currentEditWeekStart || newWeekEnd !== currentEditWeekEnd);
+    
     // Verificar se há novos screenshots para enviar
     const screenshotInput = document.getElementById('editDeliveryScreenshotInput');
     const hasNewScreenshots = screenshotInput && screenshotInput.files && screenshotInput.files.length > 0;
     
-    if (changes.length === 0 && !statusChanged && !hasNewScreenshots) {
+    if (changes.length === 0 && !statusChanged && !hasNewScreenshots && !weekChanged) {
         showNotification('Nenhuma alteração detectada', 'warning');
         return;
     }
     
     // Montar mensagem de confirmação
     let confirmMsg = '⚠️ CONFIRMAR ALTERAÇÕES:\n\n';
+    
+    if (weekChanged) {
+        confirmMsg += `📅 SEMANA: ${currentEditWeekStart} ~ ${currentEditWeekEnd}\n       → ${newWeekStart} ~ ${newWeekEnd}\n\n`;
+    }
     
     if (statusChanged) {
         const statusLabels = {
@@ -9038,14 +9070,51 @@ async function saveAllDeliveryItems() {
     let successCount = 0;
     let errorCount = 0;
     
-    // Salvar status se alterado
-    if (statusChanged) {
+    // Salvar range de semana se alterado (fazer primeiro pois muda a semana dos deliveries)
+    if (weekChanged) {
         try {
-            const response = await fetch(`/api/admin/delivery/${deliveryId}/status`, {
+            const response = await fetch(`/api/admin/delivery/week-range`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({
+                    userId: currentEditUserId,
+                    old_week_start: currentEditWeekStart,
+                    old_week_end: currentEditWeekEnd,
+                    new_week_start: newWeekStart,
+                    new_week_end: newWeekEnd
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                currentEditWeekStart = newWeekStart;
+                currentEditWeekEnd = newWeekEnd;
+                const badge = document.getElementById('editWeekChangedBadge');
+                if (badge) badge.style.display = 'none';
+                successCount++;
+            } else {
+                showNotification(`❌ Erro ao alterar semana: ${data.error}`, 'error');
+                errorCount++;
+            }
+        } catch (error) {
+            console.error('Erro ao alterar semana:', error);
+            errorCount++;
+        }
+    }
+    
+    // Salvar status se alterado (usa endpoint em lote — atualiza TODOS os deliveries da semana)
+    if (statusChanged) {
+        try {
+            const response = await fetch(`/api/admin/delivery/batch-status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    userId: currentEditUserId,
+                    week_start: currentEditWeekStart,
+                    week_end: currentEditWeekEnd,
+                    status: newStatus
+                })
             });
             
             const data = await response.json();
@@ -9054,6 +9123,7 @@ async function saveAllDeliveryItems() {
                 statusSelect.dataset.original = newStatus;
                 successCount++;
             } else {
+                showNotification(`❌ Erro ao salvar status: ${data.error}`, 'error');
                 errorCount++;
             }
         } catch (error) {
@@ -9213,6 +9283,9 @@ async function removeScreenshot(deliveryId, screenshotId) {
 function closeEditDeliveryModal() {
     document.getElementById('editDeliveryModal').style.display = 'none';
     currentEditDeliveryId = null;
+    currentEditUserId = null;
+    currentEditWeekStart = null;
+    currentEditWeekEnd = null;
     currentEditMemberId = null;
     
     // Recarregar Status da Semana

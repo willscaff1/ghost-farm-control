@@ -4385,6 +4385,97 @@ router.put('/delivery/:deliveryId/item', requireAdmin, async (req, res) => {
     }
 });
 
+// Atualizar status de TODAS as entregas de um membro numa semana
+router.put('/delivery/batch-status', requireAdmin, async (req, res) => {
+    try {
+        const { userId, week_start, week_end, status } = req.body;
+        const adminId = req.session.user.id;
+
+        const validStatuses = ['approved', 'pending', 'in_progress', 'not_delivered'];
+        if (!status || !validStatuses.includes(status)) {
+            return res.status(400).json({ error: 'Status inválido' });
+        }
+        if (!userId || !week_start || !week_end) {
+            return res.status(400).json({ error: 'userId, week_start e week_end são obrigatórios' });
+        }
+
+        // is_partial baseado no status
+        let isPartial;
+        if (status === 'approved')        isPartial = false;
+        else if (status === 'in_progress') isPartial = true;   // "em progresso" = approved+partial
+        else                               isPartial = false;
+
+        // Status real a gravar: "em progresso" vira approved+partial
+        const realStatus = status === 'in_progress' ? 'approved' : status;
+
+        const deliveries = await getAll(
+            `SELECT id FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ? AND status NOT IN ('rejected','not_delivered')`,
+            [userId, week_start, week_end]
+        );
+
+        if (!deliveries.length) {
+            return res.status(404).json({ error: 'Nenhuma entrega encontrada para essa semana' });
+        }
+
+        for (const d of deliveries) {
+            await runQuery(
+                'UPDATE deliveries SET status = ?, is_partial = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [realStatus, isPartial, adminId, d.id]
+            );
+        }
+
+        console.log(`✏️ Admin #${adminId} alterou status em lote (${deliveries.length} entregas) usuário #${userId} semana ${week_start}: -> ${realStatus} (partial=${isPartial})`);
+        res.json({ success: true, message: `Status atualizado em ${deliveries.length} entrega(s)` });
+    } catch (error) {
+        console.error('❌ Erro ao atualizar status em lote:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Alterar range de semana de TODAS as entregas de um membro
+router.put('/delivery/week-range', requireAdmin, async (req, res) => {
+    try {
+        const { userId, old_week_start, old_week_end, new_week_start, new_week_end } = req.body;
+        const adminId = req.session.user.id;
+
+        if (!userId || !old_week_start || !old_week_end || !new_week_start || !new_week_end) {
+            return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+        }
+
+        // Validar formato de data YYYY-MM-DD
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(new_week_start) || !dateRegex.test(new_week_end)) {
+            return res.status(400).json({ error: 'Formato de data inválido (use YYYY-MM-DD)' });
+        }
+
+        if (new_week_start >= new_week_end) {
+            return res.status(400).json({ error: 'Data inicial deve ser anterior à data final' });
+        }
+
+        const deliveries = await getAll(
+            `SELECT id FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ?`,
+            [userId, old_week_start, old_week_end]
+        );
+
+        if (!deliveries.length) {
+            return res.status(404).json({ error: 'Nenhuma entrega encontrada para essa semana' });
+        }
+
+        for (const d of deliveries) {
+            await runQuery(
+                'UPDATE deliveries SET week_start = ?, week_end = ? WHERE id = ?',
+                [new_week_start, new_week_end, d.id]
+            );
+        }
+
+        console.log(`📅 Admin #${adminId} moveu ${deliveries.length} entrega(s) do usuário #${userId}: ${old_week_start}~${old_week_end} -> ${new_week_start}~${new_week_end}`);
+        res.json({ success: true, message: `${deliveries.length} entrega(s) movida(s) para a nova semana` });
+    } catch (error) {
+        console.error('❌ Erro ao alterar range de semana:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Atualizar status de uma entrega
 router.put('/delivery/:deliveryId/status', requireAdmin, async (req, res) => {
     try {

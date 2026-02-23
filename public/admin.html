@@ -1152,6 +1152,15 @@
                 <div id="editDeliveryInfo" style="margin-bottom: 20px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 10px;">
                     <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Membro:</strong> <span id="editDeliveryMemberName" style="color: #fff;">-</span></p>
                     <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Semana:</strong> <span id="editDeliveryWeek" style="color: #fff;">-</span></p>
+                    <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <strong style="color: #aaa;">Alterar semana:</strong>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <input type="date" id="editWeekStart" style="background: #2d2d44; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 5px 8px; border-radius: 6px; font-size: 13px;">
+                            <span style="color: #aaa;">até</span>
+                            <input type="date" id="editWeekEnd" style="background: #2d2d44; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 5px 8px; border-radius: 6px; font-size: 13px;">
+                            <span id="editWeekChangedBadge" style="display:none; background: #e67e22; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠️ semana alterada</span>
+                        </div>
+                    </div>
                     <p style="margin-bottom: 0;"><strong style="color: #aaa;">Status:</strong> <span id="editDeliveryStatus">-</span></p>
                 </div>
                 
