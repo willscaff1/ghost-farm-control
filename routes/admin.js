@@ -4199,8 +4199,8 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
         if (deliveryIds.length > 0) {
             const placeholders = deliveryIds.map(() => '?').join(',');
             allScreenshots = await getAll(`
-                SELECT ds.id, ds.screenshot_url, ds.delivery_id FROM delivery_screenshots 
-                WHERE delivery_id IN (${placeholders})
+                SELECT ds.id, ds.screenshot_url, ds.delivery_id FROM delivery_screenshots ds
+                WHERE ds.delivery_id IN (${placeholders})
                 ORDER BY ds.created_at ASC
             `, deliveryIds);
         }
