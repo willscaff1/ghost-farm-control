@@ -4401,15 +4401,16 @@ router.put('/delivery/batch-status', requireAdmin, async (req, res) => {
 
         // is_partial baseado no status
         let isPartial;
-        if (status === 'approved')        isPartial = false;
-        else if (status === 'in_progress') isPartial = true;   // "em progresso" = approved+partial
+        if (status === 'approved')         isPartial = false;
+        else if (status === 'in_progress') isPartial = true;  // em progresso = approved + partial
         else                               isPartial = false;
 
         // Status real a gravar: "em progresso" vira approved+partial
         const realStatus = status === 'in_progress' ? 'approved' : status;
 
+        // Buscar TODAS as entregas da semana (sem filtrar por status atual)
         const deliveries = await getAll(
-            `SELECT id FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ? AND status NOT IN ('rejected','not_delivered')`,
+            `SELECT id FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ?`,
             [userId, week_start, week_end]
         );
 
@@ -4418,10 +4419,18 @@ router.put('/delivery/batch-status', requireAdmin, async (req, res) => {
         }
 
         for (const d of deliveries) {
-            await runQuery(
-                'UPDATE deliveries SET status = ?, is_partial = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
-                [realStatus, isPartial, adminId, d.id]
-            );
+            // Só gravar approved_by/approved_at quando de fato aprovando
+            if (realStatus === 'approved') {
+                await runQuery(
+                    'UPDATE deliveries SET status = ?, is_partial = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
+                    [realStatus, isPartial, adminId, d.id]
+                );
+            } else {
+                await runQuery(
+                    'UPDATE deliveries SET status = ?, is_partial = ? WHERE id = ?',
+                    [realStatus, isPartial, d.id]
+                );
+            }
         }
 
         console.log(`✏️ Admin #${adminId} alterou status em lote (${deliveries.length} entregas) usuário #${userId} semana ${week_start}: -> ${realStatus} (partial=${isPartial})`);

@@ -8874,6 +8874,34 @@ let currentCreateMemberId = null;
 let currentCreateWeekStart = null;
 let currentCreateWeekEnd = null;
 
+// Gerar lista de semanas (16 semanas passadas + atual + 4 futuras)
+function generateWeekOptions(selectedStart, selectedEnd) {
+    const options = [];
+    // -16 até +4 semanas em relação à semana atual
+    for (let offset = -16; offset <= 4; offset++) {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + offset * 7);
+        const dow = d.getDay();
+        const daysFromMon = dow === 0 ? 6 : dow - 1;
+        const mon = new Date(d); mon.setDate(d.getDate() - daysFromMon);
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+        const fmt = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+        const ws = fmt(mon); const we = fmt(sun);
+        const label = `${mon.toLocaleDateString('pt-BR')} – ${sun.toLocaleDateString('pt-BR')}${offset === 0 ? ' (semana atual)' : ''}`;
+        options.push({ ws, we, label, isCurrent: offset === 0 });
+    }
+    return options;
+}
+
+function onEditWeekChange() {
+    const sel = document.getElementById('editWeekSelect');
+    const badge = document.getElementById('editWeekChangedBadge');
+    if (!sel || !badge) return;
+    const [ws, we] = sel.value.split('|');
+    badge.style.display = (ws !== currentEditWeekStart || we !== currentEditWeekEnd) ? 'inline' : 'none';
+}
+
 // Abrir modal para editar entrega existente
 async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
     // Qualquer admin pode editar entregas
@@ -8915,20 +8943,25 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
         const deliveryCountBadge = data.delivery.delivery_count > 1 ? ` <span style="background: #3498db; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px;">${data.delivery.delivery_count} envios</span>` : '';
         document.getElementById('editDeliveryWeek').innerHTML = weekLabel + deliveryCountBadge;
         
-        // Preencher campos de data
-        const wsInput = document.getElementById('editWeekStart');
-        const weInput = document.getElementById('editWeekEnd');
-        if (wsInput) wsInput.value = weekStart;
-        if (weInput) weInput.value = weekEnd;
-        const badge = document.getElementById('editWeekChangedBadge');
-        if (badge) badge.style.display = 'none';
-        // Mostrar badge quando alguma data for alterada
-        const onWeekChange = () => {
-            const changed = wsInput.value !== weekStart || weInput.value !== weekEnd;
-            if (badge) badge.style.display = changed ? 'inline' : 'none';
-        };
-        if (wsInput) { wsInput.onchange = onWeekChange; }
-        if (weInput) { weInput.onchange = onWeekChange; }
+        // Preencher dropdown de semanas
+        const weekSel = document.getElementById('editWeekSelect');
+        if (weekSel) {
+            const weeks = generateWeekOptions(weekStart, weekEnd);
+            weekSel.innerHTML = weeks.map(w => {
+                const selected = (w.ws === weekStart && w.we === weekEnd) ? 'selected' : '';
+                return `<option value="${w.ws}|${w.we}" ${selected}>${w.label}</option>`;
+            }).join('');
+            // garantir seleção se não estava na lista gerada
+            if (!weekSel.value) {
+                const opt = document.createElement('option');
+                opt.value = `${weekStart}|${weekEnd}`;
+                opt.textContent = `${weekStart} – ${weekEnd} (semana da entrega)`;
+                opt.selected = true;
+                weekSel.prepend(opt);
+            }
+            const badge = document.getElementById('editWeekChangedBadge');
+            if (badge) badge.style.display = 'none';
+        }
         
         // Renderizar screenshots existentes
         renderExistingScreenshots(data.screenshots || [], currentEditDeliveryId);
@@ -9018,11 +9051,15 @@ async function saveAllDeliveryItems() {
     const statusChanged = newStatus && newStatus !== originalStatus;
     
     // Verificar alteração de semana
-    const wsInput = document.getElementById('editWeekStart');
-    const weInput = document.getElementById('editWeekEnd');
-    const newWeekStart = wsInput ? wsInput.value : null;
-    const newWeekEnd = weInput ? weInput.value : null;
-    const weekChanged = newWeekStart && newWeekEnd && (newWeekStart !== currentEditWeekStart || newWeekEnd !== currentEditWeekEnd);
+    const weekSel = document.getElementById('editWeekSelect');
+    let newWeekStart = currentEditWeekStart;
+    let newWeekEnd = currentEditWeekEnd;
+    if (weekSel && weekSel.value) {
+        const parts = weekSel.value.split('|');
+        newWeekStart = parts[0];
+        newWeekEnd = parts[1];
+    }
+    const weekChanged = newWeekStart !== currentEditWeekStart || newWeekEnd !== currentEditWeekEnd;
     
     // Verificar se há novos screenshots para enviar
     const screenshotInput = document.getElementById('editDeliveryScreenshotInput');
