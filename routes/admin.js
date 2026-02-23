@@ -1479,7 +1479,22 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             
             const memberDeliveries = deliveriesByUserMap.get(member.id) || [];
             memberDeliveries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            const delivery = memberDeliveries[0] || null;
+            // Use priority logic (same as modal): approved-complete > approved-partial > pending > not_delivered/rejected
+            let delivery = null;
+            if (memberDeliveries.length > 0) {
+                const approvedComplete = memberDeliveries.find(d => d.status === 'approved' && !d.is_partial);
+                const approvedPartial  = memberDeliveries.find(d => d.status === 'approved' &&  d.is_partial);
+                const pendingDel       = memberDeliveries.find(d => d.status === 'pending');
+                if (approvedComplete) {
+                    delivery = approvedComplete;
+                } else if (approvedPartial) {
+                    delivery = approvedPartial;
+                } else if (pendingDel) {
+                    delivery = pendingDel;
+                } else {
+                    delivery = memberDeliveries[0]; // not_delivered / rejected / fallback
+                }
+            }
             const justification = justificationsMap.get(member.id);
 
             const weeklySubmissions = memberDeliveries.map(submission => {
