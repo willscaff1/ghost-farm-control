@@ -6,18 +6,20 @@ const authRoutes = require('./routes/auth');
 const deliveryRoutes = require('./routes/delivery');
 const adminRoutes = require('./routes/admin');
 
+const crypto = require('crypto');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production' || process.env.DATABASE_URL;
-const sessionSecret = process.env.SESSION_SECRET;
+let sessionSecret = process.env.SESSION_SECRET;
 
-if (isProduction && !sessionSecret) {
-    console.error('❌ SESSION_SECRET é obrigatório em produção. Defina a variável de ambiente e reinicie.');
-    process.exit(1);
-}
-
-if (!isProduction && !sessionSecret) {
-    console.warn('⚠️ SESSION_SECRET não definido. Usando segredo local de desenvolvimento.');
+if (!sessionSecret) {
+    sessionSecret = crypto.randomBytes(32).toString('hex');
+    if (isProduction) {
+        console.warn('⚠️ SESSION_SECRET não definido em produção. Gerado automaticamente. Recomenda-se definir a variável de ambiente SESSION_SECRET.');
+    } else {
+        console.warn('⚠️ SESSION_SECRET não definido. Usando segredo local de desenvolvimento.');
+    }
 }
 
 // Trust proxy para Railway
