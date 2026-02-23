@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghosts Farm Control - Login</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container login-container">
+        <div class="login-box">
+            <div class="logo">
+                <h1>👻 GHOSTS</h1>
+                <p>Farm Control System</p>
+            </div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="passport">Passaporte</label>
+                    <input type="text" id="passport" name="passport" required placeholder="Digite seu passaporte">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" name="password" required placeholder="Digite sua senha">
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+            </form>
+            
+            <div id="message" class="message"></div>
+            
+            <div class="login-links">
+                <a href="#" class="forgot-password-link" onclick="showRecoveryModal(); return false;">
+                    🔑 Esqueci minha senha
+                </a>
+                <div class="register-link">
+                    Ainda não é membro? <a href="/register">Cadastre-se</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Recuperação de Senha -->
+    <div id="recoveryModal" class="modal" style="display:none;">
+        <div class="modal-content recovery-modal">
+            <button class="modal-close-btn" onclick="closeRecoveryModal()">&times;</button>
+            <div class="recovery-header">
+                <div class="recovery-icon">🔑</div>
+                <h2>Recuperar Senha</h2>
+                <p>Digite seu passaporte para solicitar uma nova senha. Um administrador irá aprovar sua solicitação.</p>
+            </div>
+            <form id="recoveryForm">
+                <div class="form-group">
+                    <label for="recoveryPassport">Passaporte</label>
+                    <input type="text" id="recoveryPassport" required placeholder="Ex: 1234">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <span>📤</span> Enviar Solicitação
+                </button>
+            </form>
+            <div id="recoveryMessage" class="message" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+    
+    <script src="js/login.js"></script>
+    <script>
+        function showRecoveryModal() {
+            document.getElementById('recoveryModal').style.display = 'flex';
+        }
+        
+        function closeRecoveryModal() {
+            document.getElementById('recoveryModal').style.display = 'none';
+            document.getElementById('recoveryMessage').className = 'message';
+            document.getElementById('recoveryForm').reset();
+        }
+        
+        document.getElementById('recoveryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const passport = document.getElementById('recoveryPassport').value;
+            const msgEl = document.getElementById('recoveryMessage');
+            
+            try {
+                const response = await fetch('/api/auth/request-password-reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ passport })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    msgEl.textContent = data.message;
+                    msgEl.className = 'message show success';
+                    document.getElementById('recoveryForm').reset();
+                } else {
+                    msgEl.textContent = data.error || 'Erro ao solicitar recuperação';
+                    msgEl.className = 'message show error';
+                }
+            } catch (error) {
+                msgEl.textContent = 'Erro de conexão';
+                msgEl.className = 'message show error';
+            }
+        });
+        
+        // Fechar modal ao clicar fora
+        document.getElementById('recoveryModal').addEventListener('click', (e) => {
+            if (e.target.id === 'recoveryModal') closeRecoveryModal();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghosts Farm Control - Painel Admin</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin-sidebar.css"><link rel="stylesheet" href="css/tables-clean.css">
+    
+    
+    
+</head>
+<body class="admin-layout">
+    <nav class="navbar">
+        <div class="nav-brand">👻 GHOSTS - Painel Admin</div>
+        <div class="nav-user">
+            <!-- Sino de Notificações Admin -->
+            <div class="notification-bell" id="notificationBell" onclick="toggleAdminNotifications()">
+                🔔
+                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </div>
+            
+            <!-- User Dropdown -->
+            <div class="user-dropdown-container">
+                <div class="user-dropdown-trigger" onclick="toggleUserDropdown()">
+                    <span id="userName">Usuário</span>
+                    <span id="userRole" class="role-badge-mini"></span>
+                    <span class="dropdown-arrow">▼</span>
+                </div>
+                <div class="user-dropdown" id="userDropdown">
+                    <div class="dropdown-header">
+                        <span class="dropdown-user-name" id="dropdownUserName"></span>
+                        <span class="dropdown-user-role" id="dropdownUserRole"></span>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <a href="/dashboard" class="dropdown-item">📊 Meu Dashboard</a>
+                    <a href="#" class="dropdown-item" onclick="showTab('new-member'); closeUserDropdown();">➕ Cadastrar Membro</a>
+                    <a href="#" class="dropdown-item" onclick="showTab('manage-materials'); closeUserDropdown();">📦 Gerenciar Materiais</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="#" class="dropdown-item dropdown-item-danger" onclick="logout()">🚪 Sair</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dropdown de Notificações Admin -->
+    <div class="notifications-dropdown" id="notificationsDropdown">
+        <div class="notifications-header">
+            <span>🔔 Notificações</span>
+            <button class="btn-clear-notifications" onclick="markAllAdminAsRead()">Marcar como lidas</button>
+        </div>
+        <div class="notifications-list" id="notificationsList">
+            <div class="notification-empty">Carregando...</div>
+        </div>
+    </div>
+
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+
+            <!-- Menu Categories -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">📊 Dashboard</div>
+                <button class="sidebar-item active" data-tab="weekly-status">📅 Status da Semana</button>
+                <button class="sidebar-item" data-tab="members-panel">👥 Painel de Membros</button>
+                <button class="sidebar-item" data-tab="members-overview">👁️ Visão Geral</button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">✅ Aprovações</div>
+                <button class="sidebar-item" data-tab="pending">🕐 Farms Pendentes</button>
+                <button class="sidebar-item" data-tab="absences">📝 Justificativas</button>
+                <button class="sidebar-item" data-tab="password-resets">🔑 Recuperar Senhas</button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">👥 Membros</div>
+                <button class="sidebar-item" data-tab="members">📋 Lista de Membros</button>
+                <button class="sidebar-item" data-tab="members-adv">⚠️ Gerenciar ADVs</button>
+                <button class="sidebar-item" data-tab="new-member">➕ Novo Membro</button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">🏆 Estatísticas</div>
+                <button class="sidebar-item" data-tab="ranking">🏆 Ranking</button>
+                <button class="sidebar-item" data-tab="materials-stats">📊 Materiais</button>
+                <button class="sidebar-item" data-tab="all-deliveries">📋 Histórico</button>
+                <button class="sidebar-item" data-tab="weekly-report">📄 Relatório Semanal</button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">⚙️ Configurações</div>
+                <button class="sidebar-item" data-tab="farm-settings">🎛️ Config. do Farm</button>
+                <button class="sidebar-item" data-tab="edit-permissions">✏️ Liberar Edição</button>
+                <button class="sidebar-item" data-tab="manage-materials">📦 Gerenciar Materiais</button>
+                <button class="sidebar-item" data-tab="manage-payment-types">💰 Tipos de Pagamento</button>
+                <button class="sidebar-item" data-tab="whitelist">🛡️ Whitelist (Isentos)</button>
+                <button class="sidebar-item" data-tab="role-permissions">🔐 Permissões de Grupos</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- Members Panel Tab -->
+            <div id="members-panel-tab" class="tab-content">
+                <div class="card">
+                    <h2>👥 Extrato de Membros</h2>
+                    <p class="subtitle">Clique em um membro para ver o histórico completo</p>
+                    
+                    <div class="members-panel-header">
+                        <input type="text" id="searchMembersPanel" placeholder="🔍 Buscar por nome ou passaporte..." oninput="filterMembersPanel()" class="search-input-full">
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="weekly-table" id="membersPanelTable">
+                            <thead>
+                                <tr>
+                                    <th>Passaporte</th>
+                                    <th>Membro</th>
+                                    <th>Cargo</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="membersExtractList">
+                                <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Member Extract Modal -->
+            <div id="memberExtractModal" class="modal" style="display: none;">
+                <div class="modal-content member-extract-modal-content">
+                    <div class="modal-header member-extract-header">
+                        <div class="member-extract-title">
+                            <span class="member-extract-icon">👤</span>
+                            <div class="member-extract-info">
+                                <h2 id="extractMemberName">Nome do Membro</h2>
+                                <span id="extractMemberDetails" class="member-extract-details">Passaporte: 1234 | Cargo: Membro</span>
+                            </div>
+                        </div>
+                        <button class="modal-close" onclick="closeMemberExtractModal()">&times;</button>
+                    </div>
+                    
+                    <div class="member-extract-stats" id="extractStats">
+                        <!-- Stats cards -->
+                    </div>
+                    
+                    <div class="member-extract-body">
+                        <div class="extract-section">
+                            <h3>📋 Histórico de Farms (Últimos 10)</h3>
+                            <div class="extract-farms-list" id="extractFarmsList">
+                                <p class="loading">Carregando...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="extract-section">
+                            <h3>⚠️ Advertências (<span id="extractWarningsCount">0</span>)</h3>
+                            <div class="extract-warnings-list" id="extractWarningsList">
+                                <p class="loading">Carregando...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Members Overview Tab -->
+            <div id="members-overview-tab" class="tab-content">
+                <div class="card">
+                    <h2>👁️ Visão Geral dos Membros</h2>
+                    <p class="subtitle">Gerencie advertências dos membros - Clique nas colunas para ordenar</p>
+                    
+                    <div class="overview-controls">
+                        <input type="text" id="searchOverview" placeholder="🔍 Buscar membro..." class="search-input" onkeyup="filterOverviewTable()">
+                        <div class="overview-filters">
+                            <button class="filter-btn active" onclick="filterOverviewByAdv('all')">Todos</button>
+                            <button class="filter-btn" onclick="filterOverviewByAdv('with')">🔴 Com ADV</button>
+                            <button class="filter-btn" onclick="filterOverviewByAdv('without')">🟢 Sem ADV</button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="weekly-table" id="overviewTable">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort="passport" onclick="sortOverview('passport')">ID <span class="sort-arrow">▲</span></th>
+                                    <th class="sortable" data-sort="name" onclick="sortOverview('name')">Membro <span class="sort-arrow">▲</span></th>
+                                    <th class="sortable" data-sort="adv" onclick="sortOverview('adv')">ADVs <span class="sort-arrow">▲</span></th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overviewTableBody">
+                                <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weekly Status Tab -->
+            <div id="weekly-status-tab" class="tab-content active">
+                <div class="week-header">
+                    <div class="week-selector-inline">
+                    <div class="week-selector-inline">
+                        <button class="week-nav-btn" onclick="previousWeek()" id="btnPrevWeek"></button>
+                        <div class="week-display">
+                            <span id="selectedWeekLabel">Carregando...</span>
+                        </div>
+                        <button class="week-nav-btn" onclick="nextWeek()" id="btnNextWeek"></button>
+                    </div>
+                    <h2>📅 Status da Semana: <span id="currentWeekLabel">Carregando...</span></h2>
+                </div>
+                
+                <!-- Summary Cards - mantém os contadores -->
+                <div class="weekly-summary-cards">
+                    <div class="summary-card completed">
+                        <div class="summary-icon">✅</div>
+                        <div class="summary-number" id="completedCount">0</div>
+                        <div class="summary-label">Completo</div>
+                    </div>
+                    <div class="summary-card partial">
+                        <div class="summary-icon">⚡</div>
+                        <div class="summary-number" id="partialCount">0</div>
+                        <div class="summary-label">Em Progresso</div>
+                    </div>
+                    <div class="summary-card pending">
+                        <div class="summary-icon">⏳</div>
+                        <div class="summary-number" id="pendingApprovalCount">0</div>
+                        <div class="summary-label">Aguardando</div>
+                    </div>
+                    <div class="summary-card missing">
+                        <div class="summary-icon">❌</div>
+                        <div class="summary-number" id="notDeliveredCount">0</div>
+                        <div class="summary-label">Não Entregou</div>
+                    </div>
+                    <div class="summary-card justified">
+                        <div class="summary-icon">📋</div>
+                        <div class="summary-number" id="justifiedCount">0</div>
+                        <div class="summary-label">Justificado</div>
+                    </div>
+                </div>
+                
+                <!-- Tabela unificada de membros -->
+                <div class="card">
+                    <div class="weekly-table-header">
+                        <h3>👥 Todos os Membros</h3>
+                        <div class="weekly-table-filters">
+                            <button class="filter-btn active" data-filter="all" onclick="filterWeeklyTable('all')">Todos</button>
+                            <button class="filter-btn" data-filter="completed" onclick="filterWeeklyTable('completed')">✅ Completos</button>
+                            <button class="filter-btn" data-filter="partial" onclick="filterWeeklyTable('partial')">⚡ Em Progresso</button>
+                            <button class="filter-btn" data-filter="pending" onclick="filterWeeklyTable('pending')">⏳ Aguardando</button>
+                            <button class="filter-btn" data-filter="missing" onclick="filterWeeklyTable('missing')">❌ Não Entregou</button>
+                            <button class="filter-btn" data-filter="justified" onclick="filterWeeklyTable('justified')">📋 Justificado</button>
+                        </div>
+                    </div>
+                    
+                    <div class="weekly-table-container">
+                        <table class="weekly-table">
+                            <thead><tr><th>Passaporte</th><th>Membro</th><th>Cargo</th>
+                                    <th>Status</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weeklyTableBody">
+                                <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Tab -->
+            <div id="pending-tab" class="tab-content">
+                <div class="card">
+                    <h2>🕐 Farms Pendentes de Aprovação</h2>
+                    <div id="pendingList" class="deliveries-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Absences/Justifications Tab -->
+            <div id="absences-tab" class="tab-content">
+                <div class="card">
+                    <h2>📝 Justificativas Pendentes</h2>
+                    <p class="subtitle">Membros que justificaram a não entrega do farm</p>
+                    <div id="justificationsList" class="justifications-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Password Resets Tab -->
+            <div id="password-resets-tab" class="tab-content">
+                <iframe src="/password-resets-embed.html" style="width:100%; height:calc(100vh - 150px); border:none; border-radius:12px;"></iframe>
+            </div>
+
+            <!-- Members Tab -->
+            <div id="members-tab" class="tab-content">
+                <div class="card">
+                    <h2>👥 Lista de Membros</h2>
+                    <div id="membersList" class="members-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Members ADV Tab -->
+            <div id="members-adv-tab" class="tab-content">
+                <div class="card">
+                    <h2>⚠️ Gerenciar Advertências</h2>
+                    <p class="subtitle">Clique em um membro para aplicar ADV</p>
+                    
+                    <div class="members-adv-header">
+                        <div class="search-members">
+                            <input type="text" id="searchMemberAdv" placeholder="🔍 Buscar por nome ou passaporte..." onkeyup="filterMembersAdv(this.value)">
+                        </div>
+                        <div class="members-adv-stats"></div>
+                    </div>
+                    
+                    <div id="membersAdvGrid" class="members-adv-grid">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Editar Membro -->
+            <div id="editMemberModal" class="modal edit-member-modal" style="display: none;">
+                <div class="modal-content edit-member-content">
+                    <div class="modal-header edit-member-header">
+                        <div class="header-icon">✏️</div>
+                        <h2>Editar Membro</h2>
+                        <button class="modal-close" onclick="closeEditMemberModal()">&times;</button>
+                    </div>
+                    <div class="modal-body edit-member-body">
+                        <div class="edit-form-row">
+                            <div class="edit-form-group">
+                                <label for="editMemberPassport">
+                                    <span class="label-icon">🎫</span>
+                                    Passaporte
+                                </label>
+                                <input type="text" id="editMemberPassport" placeholder="Ex: 1234" required>
+                            </div>
+                            <div class="edit-form-group">
+                                <label for="editMemberRole">
+                                    <span class="label-icon">👔</span>
+                                    Cargo
+                                </label>
+                                <select id="editMemberRole">
+                                    <option value="member">Membro</option>
+                                    <option value="01">01 (Primeiro Líder)</option>
+                                    <option value="02">02 (Segundo Líder)</option>
+                                    <option value="gerente_farm">Gerente de Farm</option>
+                                    <option value="gerente_acao">Gerente de Ação</option>
+                                    <option value="gerente_recrutamento">Gerente de Recrutamento</option>
+                                    <option value="gerente_encomendas">Gerente de Encomendas</option>
+                                    <option value="gerente_geral">Gerente Geral</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="edit-form-group full-width">
+                            <label for="editMemberName">
+                                <span class="label-icon">👤</span>
+                                Nome Completo
+                            </label>
+                            <input type="text" id="editMemberName" placeholder="Nome do membro" required>
+                        </div>
+                        <div class="edit-form-group full-width">
+                            <label for="editMemberEmail">
+                                <span class="label-icon">📧</span>
+                                Email <span class="optional">(opcional)</span>
+                            </label>
+                            <input type="email" id="editMemberEmail" placeholder="email@exemplo.com">
+                        </div>
+                        <div class="edit-form-group full-width password-group">
+                            <label for="editMemberPassword">
+                                <span class="label-icon">🔒</span>
+                                Nova Senha <span class="optional">(deixe em branco para manter)</span>
+                            </label>
+                            <input type="password" id="editMemberPassword" placeholder="••••••••">
+                        </div>
+                        <div class="edit-modal-actions">
+                            <button class="btn-cancel-edit" onclick="closeEditMemberModal()">
+                                Cancelar
+                            </button>
+                            <button class="btn-save-edit" onclick="saveEditMember()">
+                                💾 Salvar Alterações
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal ADV -->
+            <div id="advMemberModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>⚠️ Aplicar Advertência</h2>
+                        <button class="modal-close" onclick="closeAdvModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="modal-member-info">
+                            <!-- Preenchido via JS -->
+                        </div>
+                        <div class="adv-form-group">
+                            <label for="advReason">Motivo da Advertência *</label>
+                            <textarea id="advReason" placeholder="Descreva o motivo da advertência..."></textarea>
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn-cancel-adv" onclick="closeAdvModal()">Cancelar</button>
+                            <button class="btn-confirm-adv" onclick="applyAdvFromModal()">⚠️ Aplicar ADV</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Farm Details -->
+            <div id="farmDetailsModal" class="modal overview-modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header farm-header">
+                        <h2>📦 Extrato do Farm</h2>
+                        <button class="modal-close" onclick="closeFarmDetailsModal()">&times;</button>
+                    </div>
+                    <div class="modal-body" id="farmDetailsBody">
+                        <!-- Preenchido via JS -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modal Member Warnings -->
+            <div id="memberWarningsModal" class="modal" style="display: none;">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h3>⚠️ Advertências do Membro</h3>
+                        <button class="close-btn" onclick="closeMemberWarningsModal()">×</button>
+                    </div>
+                    <div class="modal-body" id="memberWarningsBody">
+                        <!-- Preenchido via JS -->
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeMemberWarningsModal()">Fechar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ranking Tab -->
+            <div id="ranking-tab" class="tab-content">
+                <div class="card">
+                    <h2>🏆 Ranking de Farms</h2>
+                    <p class="subtitle">Membros que mais entregaram farms</p>
+                    <div id="farmsRankingList" class="ranking-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Materials Stats Tab -->
+            <div id="materials-stats-tab" class="tab-content">
+                <div class="card">
+                    <h2>📊 Estatísticas por Material</h2>
+                    <div id="materialsStatsList" class="materials-stats-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Farm Settings Tab -->
+            <div id="farm-settings-tab" class="tab-content">
+                <div class="card">
+                    <h2>🎛️ Configurações do Farm</h2>
+                    <p class="subtitle">Configure quais tipos de pagamento estão habilitados e se o membro precisa pagar um ou outro</p>
+                    
+                    <div class="settings-section">
+                        <h3>📦 Farm de Materiais</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Habilitar Farm de Materiais</span>
+                                <span class="setting-description">Permite que membros entreguem materiais (Folha, Ópio, etc.)</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="farmMaterialsEnabled" onchange="updateFarmSetting('farm_materials_enabled', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>💰 Pagamento em Dinheiro</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Habilitar Pagamento em Dinheiro</span>
+                                <span class="setting-description">Permite que membros paguem com Dinheiro Sujo, Limpo, etc.</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="farmPaymentEnabled" onchange="updateFarmSetting('farm_payment_enabled', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>⚖️ Modo de Pagamento</h3>
+                        <div class="setting-item mode-setting">
+                            <div class="setting-info">
+                                <span class="setting-label">Modo de Conclusão do Farm</span>
+                                <span class="setting-description">Define se o membro precisa completar um tipo ou ambos</span>
+                            </div>
+                            <div class="mode-options">
+                                <label class="mode-option">
+                                    <input type="radio" name="paymentMode" value="either" onchange="updateFarmSetting('farm_payment_mode', 'either')">
+                                    <span class="mode-label">
+                                        <strong>Um OU Outro</strong>
+                                        <small>Membro pode escolher pagar com materiais OU dinheiro</small>
+                                    </span>
+                                </label>
+                                <label class="mode-option">
+                                    <input type="radio" name="paymentMode" value="both" onchange="updateFarmSetting('farm_payment_mode', 'both')">
+                                    <span class="mode-label">
+                                        <strong>Ambos Obrigatórios</strong>
+                                        <small>Membro precisa pagar materiais E dinheiro</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="farmSettingsMessage" class="message"></div>
+                </div>
+            </div>
+
+            <!-- Manage Materials Tab -->
+            <div id="manage-materials-tab" class="tab-content">
+                <div class="card">
+                    <h2>⚙️ Gerenciar Materiais</h2>
+                    <form id="newMaterialForm" class="material-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="materialName">Nome *</label>
+                                <input type="text" id="materialName" required placeholder="Ex: Folha">
+                            </div>
+                            <div class="form-group">
+                                <label for="materialIcon">Ícone</label>
+                                <input type="text" id="materialIcon" placeholder="🌿" maxlength="4">
+                            </div>
+                            <div class="form-group">
+                                <label for="materialGoal">Meta Semanal</label>
+                                <input type="number" id="materialGoal" value="700" min="1" max="99999">
+                            </div>
+                            <div class="form-group btn-group">
+                                <button type="submit" class="btn btn-primary">Adicionar</button>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="materialMessage" class="message"></div>
+                    
+                    <h3>Materiais Cadastrados</h3>
+                    <div id="materialsList" class="materials-manage-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manage Payment Types Tab -->
+            <div id="manage-payment-types-tab" class="tab-content">
+                <div class="card">
+                    <h2>💰 Gerenciar Tipos de Pagamento</h2>
+                    <p class="subtitle">Configure os tipos de pagamento alternativos (Dinheiro Sujo, Dinheiro Limpo, etc.)</p>
+                    <form id="newPaymentTypeForm" class="material-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="paymentTypeName">Nome *</label>
+                                <input type="text" id="paymentTypeName" required placeholder="Ex: Dinheiro Sujo">
+                            </div>
+                            <div class="form-group">
+                                <label for="paymentTypeIcon">Ícone</label>
+                                <input type="text" id="paymentTypeIcon" placeholder="💰" maxlength="4">
+                            </div>
+                            <div class="form-group">
+                                <label for="paymentTypeGoal">Meta (R$)</label>
+                                <input type="number" id="paymentTypeGoal" value="50000" min="1" max="9999999">
+                            </div>
+                            <div class="form-group btn-group">
+                                <button type="submit" class="btn btn-primary">Adicionar</button>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="paymentTypeMessage" class="message"></div>
+                    
+                    <h3>Tipos de Pagamento Cadastrados</h3>
+                    <div id="paymentTypesList" class="materials-manage-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Deliveries Tab -->
+            <div id="all-deliveries-tab" class="tab-content">
+                <div class="card">
+                    <h2>📋 Histórico de Entregas</h2>
+                    <div id="allDeliveriesList" class="deliveries-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weekly Report Tab -->
+            <div id="weekly-report-tab" class="tab-content">
+                <div class="card">
+                    <h2>📄 Relatório Semanal</h2>
+                    <p class="subtitle">Relatório completo de quem pagou e quem não pagou o farm</p>
+                    
+                    <div class="report-header">
+                        <label for="reportWeekSelect">Semana:</label>
+                        <select id="reportWeekSelect" onchange="changeReportWeek()">
+                            <option value="0">Semana Atual</option>
+                            <option value="-1">Semana Passada</option>
+                            <option value="-2">2 Semanas Atrás</option>
+                            <option value="-3">3 Semanas Atrás</option>
+                            <option value="-4">4 Semanas Atrás</option>
+                            <option value="-5">5 Semanas Atrás</option>
+                            <option value="-6">6 Semanas Atrás</option>
+                            <option value="-7">7 Semanas Atrás</option>
+                            <option value="-8">8 Semanas Atrás</option>
+                        </select>
+                        
+                        <div class="export-buttons">
+                            <button class="btn-export pdf" onclick="generateReportPDF()">
+                                📄 Exportar PDF
+                            </button>
+                            <button class="btn-export excel" onclick="generateReportExcel()">
+                                📊 Exportar Excel
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="reportPreview">
+                        <div class="report-loading">
+                            <div class="spinner"></div>
+                            <p>Selecione uma semana para gerar o relatório</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Member Tab -->
+            <div id="new-member-tab" class="tab-content">
+                <div class="card">
+                    <h2>➕ Novo Membro</h2>
+                    <form id="newMemberForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newName">Nome *</label>
+                                <input type="text" id="newName" required placeholder="Nome completo">
+                            </div>
+                            <div class="form-group">
+                                <label for="newPassport">Passaporte *</label>
+                                <input type="text" id="newPassport" required placeholder="Passaporte">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newEmail">Email</label>
+                                <input type="email" id="newEmail" placeholder="Opcional">
+                            </div>
+                            <div class="form-group">
+                                <label for="newPassword">Senha *</label>
+                                <input type="password" id="newPassword" required placeholder="Mínimo 6 caracteres" minlength="6">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="newRole">Cargo</label>
+                            <select id="newRole">
+                                <option value="member">Membro</option>
+                                <option value="01">01</option>
+                                <option value="02">02</option>
+                                <option value="gerente_farm">Gerente de Farm</option>
+                                <option value="gerente_acao">Gerente de Ação</option>
+                                <option value="gerente_recrutamento">Gerente de Recrutamento</option>
+                                <option value="gerente_encomendas">Gerente de Encomendas</option>
+                                <option value="gerente_geral">Gerente Geral</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Criar Membro</button>
+                    </form>
+                    <div id="memberMessage" class="message"></div>
+                </div>
+            </div>
+
+            <!-- Edit Permissions Tab -->
+            <div id="edit-permissions-tab" class="tab-content">
+                <div class="card">
+                    <h2>✏️ Liberar Edição de Farm</h2>
+                    <p class="subtitle">Permite que membros editem os valores do farm (para corrigir erros de digitação)</p>
+                    
+                    <div class="edit-permissions-info">
+                        <div class="info-box">
+                            <span class="info-icon">ℹ️</span>
+                            <span>Ao liberar a edição, o membro poderá corrigir valores de farm em qualquer semana. Após corrigir, revogue a permissão.</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>👥 Membros</h2>
+                    <div id="editPermissionsList" class="edit-permissions-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Whitelist Tab -->
+            <div id="whitelist-tab" class="tab-content">
+                <div class="card">
+                    <h2>🛡️ Whitelist - Membros Isentos de Farm</h2>
+                    <p class="subtitle">Membros nesta lista não precisam pagar farm e não aparecem nas listas de pendentes</p>
+                    
+                    <div class="whitelist-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="whitelistMember">Membro</label>
+                                <select id="whitelistMember" class="form-control">
+                                    <option value="">Selecione um membro...</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 2;">
+                                <label for="whitelistReason">Motivo da Isenção</label>
+                                <input type="text" id="whitelistReason" class="form-control" placeholder="Ex: Membro da liderança, Inativo temporário">
+                            </div>
+                            <div class="form-group" style="align-self: flex-end;">
+                                <button class="btn btn-primary" onclick="addToWhitelist()">🛡️ Adicionar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>📋 Membros na Whitelist</h2>
+                    <div id="whitelistList" class="whitelist-list">
+                        <p class="loading">Carregando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Permissões de Grupos -->
+            <div id="role-permissions-tab" class="tab-content">
+                <iframe id="permissoesFrame" src="/permissoes-embed.html" style="width:100%;height:calc(100vh - 150px);border:none;border-radius:12px;"></iframe>
+            </div>
+        </main>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <img id="modalImage" class="modal-content">
+    </div>
+
+    <script src="js/admin.js?v=20251220"></script>
+</body>
+</html>

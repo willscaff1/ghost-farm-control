@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghosts Farm Control - Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260130remaining">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">👻 GHOSTS - Farm Control</div>
+        <div class="nav-user">
+            <!-- Sino de Notificações -->
+            <div class="notification-bell" id="notificationBell" onclick="toggleNotifications()">
+                🔔
+                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </div>
+            
+            <!-- User Dropdown -->
+            <div class="user-dropdown-container">
+                <div class="user-dropdown-trigger" onclick="toggleUserDropdown()">
+                    <span id="userName">Usuário</span>
+                    <span class="dropdown-arrow">▼</span>
+                </div>
+                <div class="user-dropdown" id="userDropdown">
+                    <div class="dropdown-header">
+                        <span class="dropdown-user-name" id="dropdownUserName"></span>
+                        <span class="dropdown-user-role" id="dropdownUserRole"></span>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <a href="/admin" class="dropdown-item" id="dropdownAdminBtn" style="display: none;">⚙️ Painel Admin</a>
+                    <a href="#" class="dropdown-item" onclick="showEditProfile(); closeUserDropdown();">👤 Editar Meus Dados</a>
+                    <a href="#" class="dropdown-item" onclick="showChangePassword(); closeUserDropdown();">🔑 Trocar Senha</a>
+                    <a href="#" class="dropdown-item" onclick="showMyWarnings(); closeUserDropdown();">⚠️ Minhas Advertências</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="#" class="dropdown-item dropdown-item-danger" onclick="logout()">🚪 Sair</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Dropdown de Notificações -->
+    <div class="notifications-dropdown" id="notificationsDropdown">
+        <div class="notifications-header">
+            <span>🔔 Notificações</span>
+            <button class="btn-clear-notifications" onclick="markAllAsRead()">Marcar como lidas</button>
+        </div>
+        <div class="notifications-list" id="notificationsList">
+            <div class="notification-empty">Nenhuma notificação</div>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Barra de Seleção de Semana -->
+        <div class="week-bar">
+            <button class="week-nav-btn" onclick="changeWeek(-1)" id="prevWeekBtn">◀</button>
+            <div class="week-center">
+                <span class="week-title">📅 SEMANA</span>
+                <span class="week-label" id="weekLabel">Carregando...</span>
+                <div id="weekStatus"></div>
+            </div>
+            <button class="week-nav-btn" onclick="changeWeek(1)" id="nextWeekBtn">▶</button>
+        </div>
+
+        <!-- Layout 2 Colunas -->
+        <div class="two-columns">
+            <!-- Coluna Esquerda - Progresso -->
+            <div class="column-left">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>📊 Meu Progresso</h2>
+                    </div>
+                    <div id="progressBars" class="progress-list">
+                        <div class="progress-empty">Carregando...</div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="stats-row">
+                    <div class="stat-box success">
+                        <span class="stat-number" id="farmsDelivered">0</span>
+                        <span class="stat-text">Aprovados</span>
+                    </div>
+                    <div class="stat-box danger clickable" onclick="showMyWarnings()">
+                        <span class="stat-number" id="warningsCount">0</span>
+                        <span class="stat-text">Advertências</span>
+                    </div>
+                </div>
+
+                <!-- Semanas Não Pagas -->
+                <div class="panel unpaid-weeks-panel" id="unpaidWeeksPanel" style="display: none;">
+                    <div class="panel-header">
+                        <h2>⚠️ Metas Atrasadas</h2>
+                    </div>
+                    <p class="unpaid-hint">Você tem <strong id="unpaidWeeksCount">0</strong> semana(s) não paga(s). Use o botão ◀ para navegar e pagar!</p>
+                </div>
+            </div>
+
+            <!-- Coluna Direita - Formulário -->
+            <div class="column-right">
+                <!-- Mensagem quando bloqueado -->
+                <div class="panel locked-panel" id="lockedMessage" style="display: none;">
+                    <div class="locked-icon">🔒</div>
+                    <h3>Entregas Bloqueadas</h3>
+                    <p>Não é possível fazer entregas nesta semana.</p>
+                </div>
+                
+                <div class="panel" id="deliveryPanel">
+                    <div class="panel-header">
+                        <h2 id="formTitle">📦 Registrar Farm</h2>
+                    </div>
+                    
+                    <!-- Seletor de Tipo de Pagamento -->
+                    <div class="payment-type-selector">
+                        <button type="button" class="payment-type-btn active" data-type="material" onclick="selectPaymentType('material')">
+                            <span class="payment-icon">📦</span>
+                            <span class="payment-label">Materiais</span>
+                        </button>
+                        <button type="button" class="payment-type-btn" data-type="dirty_money" onclick="selectPaymentType('dirty_money')">
+                            <span class="payment-icon">💰</span>
+                            <span class="payment-label">Dinheiro Sujo</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Form de Materiais -->
+                    <form id="deliveryForm" enctype="multipart/form-data">
+                        <input type="hidden" id="weekSelect" value="0">
+                        <input type="hidden" id="paymentType" value="material">
+                        
+                        <div class="materials-grid" id="materialsInputs"></div>
+                        
+                        <div class="form-group">
+                            <label>Observações <span class="optional">(opcional)</span></label>
+                            <input type="text" id="description" name="description" placeholder="Ex: Farm feito dia 09/12">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>📷 Prints do Farm <span class="required">*</span></label>
+                            
+                            <!-- Screenshots já enviados -->
+                            <div id="existingScreenshotsSection" class="existing-screenshots-section" style="display: none;">
+                                <div class="existing-label">📸 Prints já enviados:</div>
+                                <div id="existingScreenshots" class="screenshots-grid"></div>
+                            </div>
+                            
+                            <!-- Novos screenshots -->
+                            <div class="screenshots-area">
+                                <div id="screenshotsPreview" class="screenshots-grid"></div>
+                                <button type="button" class="btn-add-screenshot" onclick="addScreenshot()">+ Adicionar Print</button>
+                                <input type="file" id="screenshotInput" accept="image/*" style="display: none;" onchange="handleScreenshotSelect(event)">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" id="submitDeliveryBtn" class="btn-submit secondary">💾 Salvar Progresso</button>
+                    </form>
+                    
+                    <!-- Form de Dinheiro Sujo -->
+                    <form id="dirtyMoneyForm" enctype="multipart/form-data" style="display: none;">
+                        <input type="hidden" id="weekSelectDirty" value="0">
+                        
+                        <div class="dirty-money-section">
+                            <div class="dirty-money-card">
+                                <div class="dirty-money-icon">💰</div>
+                                <div class="dirty-money-info">
+                                    <div class="dirty-money-title">Adicionar Dinheiro Sujo</div>
+                                    <div class="dirty-money-hint">Meta: R$ <span id="dirtyMoneyGoal">50.000</span></div>
+                                </div>
+                                <div class="dirty-money-input-wrapper">
+                                    <span class="currency-prefix">R$</span>
+                                    <input type="number" 
+                                           id="dirtyMoneyAmount" 
+                                           class="dirty-money-input" 
+                                           min="0" 
+                                           value="0"
+                                           placeholder="0"
+                                           onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                                           oninput="validateDirtyMoneyInput(this); updateDirtyMoneyButton()">
+                                </div>
+                            </div>
+                            <p class="dirty-money-add-hint">💡 O valor informado será <strong>somado</strong> ao já entregue</p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Observações <span class="optional">(opcional)</span></label>
+                            <input type="text" id="descriptionDirty" name="description" placeholder="Ex: Farm pago com dinheiro sujo">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>📷 Print do Pagamento <span class="required">*</span></label>
+                            
+                            <!-- Screenshots já enviados -->
+                            <div id="existingScreenshotsSectionDirty" class="existing-screenshots-section" style="display: none;">
+                                <div class="existing-label">📸 Prints já enviados:</div>
+                                <div id="existingScreenshotsDirty" class="screenshots-grid"></div>
+                            </div>
+                            
+                            <!-- Novos screenshots -->
+                            <div class="screenshots-area">
+                                <div id="screenshotsPreviewDirty" class="screenshots-grid"></div>
+                                <button type="button" class="btn-add-screenshot" onclick="addScreenshotDirty()">+ Adicionar Print</button>
+                                <input type="file" id="screenshotInputDirty" accept="image/*" style="display: none;" onchange="handleScreenshotSelectDirty(event)">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" id="submitDirtyMoneyBtn" class="btn-submit secondary">💾 Adicionar</button>
+                    </form>
+                    
+                    <div id="formMessage" class="form-message"></div>
+                </div>
+
+                <!-- Farm Extra para Ranking -->
+                <div class="panel panel-ranking" id="extraFarmPanel" style="display: none;">
+                    <div class="panel-header">
+                        <h2>🏆 Farm Extra para Ranking</h2>
+                    </div>
+                    <p class="ranking-hint">✅ Sua meta semanal já foi <strong>aprovada</strong>! Adicione mais materiais para subir no ranking.</p>
+                    
+                    <form id="extraFarmForm" enctype="multipart/form-data">
+                        <div class="materials-grid" id="extraMaterialsInputs"></div>
+                        
+                        <div class="form-group">
+                            <label>📷 Print do Farm Extra</label>
+                            <div class="screenshots-area">
+                                <div id="extraScreenshotsPreview" class="screenshots-grid"></div>
+                                <button type="button" class="btn-add-screenshot" onclick="addExtraScreenshot()">+ Adicionar Print</button>
+                                <input type="file" id="extraScreenshotInput" accept="image/*" style="display: none;" onchange="handleExtraScreenshotSelect(event)">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" id="submitExtraFarmBtn" class="btn-submit ranking-btn">🏆 Adicionar ao Ranking</button>
+                    </form>
+                    <div id="extraFormMessage" class="form-message"></div>
+                </div>
+
+                <!-- Justificativa -->
+                <div class="panel panel-small" id="absenceCard" style="display: none;">
+                    <h3>📝 Não vai conseguir fazer o farm?</h3>
+                    <p class="absence-hint">Se não puder entregar o farm nesta semana, justifique para evitar advertência.</p>
+                    <form id="absenceForm" class="absence-form">
+                        <textarea id="absenceReason" placeholder="Descreva o motivo (mínimo 10 caracteres)" required></textarea>
+                        <button type="submit" class="btn-justify">📋 Enviar Justificativa</button>
+                    </form>
+                    <div id="absenceMessage" class="form-message"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Histórico -->
+        <div class="panel full-width">
+            <div class="panel-header">
+                <h2>📋 Meu Histórico</h2>
+            </div>
+            <div id="deliveriesList" class="history-list">
+                <div class="loading-text">Carregando...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="imageModal" class="modal">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <img id="modalImage" class="modal-content">
+    </div>
+
+    <div id="warningsModal" class="modal warnings-modal">
+        <div class="warnings-modal-content">
+            <div class="warnings-modal-header">
+                <h2>⚠️ Minhas Advertências</h2>
+                <button class="modal-close-btn" onclick="closeWarningsModal()">&times;</button>
+            </div>
+            <div class="warnings-modal-body" id="warningsModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Modal Trocar Senha -->
+    <div id="changePasswordModal" class="warnings-modal">
+        <div class="warnings-modal-content" style="max-width: 400px;">
+            <div class="warnings-modal-header">
+                <h2>🔑 Trocar Senha</h2>
+                <button class="modal-close-btn" onclick="closeChangePasswordModal()">&times;</button>
+            </div>
+            <div class="warnings-modal-body">
+                <form id="changePasswordForm" class="change-password-form">
+                    <div class="form-group">
+                        <label for="currentPassword">Senha Atual</label>
+                        <input type="password" id="currentPassword" placeholder="Digite sua senha atual" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Nova Senha</label>
+                        <input type="password" id="newPassword" placeholder="Digite a nova senha (mín. 6 caracteres)" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmNewPassword">Confirmar Nova Senha</label>
+                        <input type="password" id="confirmNewPassword" placeholder="Confirme a nova senha" required minlength="6">
+                    </div>
+                    <div id="changePasswordMessage" class="form-message"></div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 15px;">Alterar Senha</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Perfil -->
+    <div id="editProfileModal" class="warnings-modal">
+        <div class="warnings-modal-content" style="max-width: 500px;">
+            <div class="warnings-modal-header">
+                <h2>👤 Editar Meus Dados</h2>
+                <button class="modal-close-btn" onclick="closeEditProfileModal()">&times;</button>
+            </div>
+            <div class="warnings-modal-body">
+                <form id="editProfileForm" class="change-password-form">
+                    <div class="form-group">
+                        <label for="editName">Nome Completo</label>
+                        <input type="text" id="editName" placeholder="Seu nome completo" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editEmail">Email <span style="color: #888; font-size: 12px;">(opcional)</span></label>
+                        <input type="email" id="editEmail" placeholder="seu.email@exemplo.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="editPassport">Passaporte</label>
+                        <input type="text" id="editPassport" placeholder="Passaporte" readonly style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
+                        <small style="color: #888; font-size: 12px;">O passaporte não pode ser alterado aqui. Entre em contato com um administrador.</small>
+                    </div>
+                    <div id="editProfileMessage" class="form-message"></div>
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 15px;">💾 Salvar Alterações</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pagar Semana Anterior -->
+    <div id="payPastWeekModal" class="modal warnings-modal">
+        <div class="warnings-modal-content" style="max-width: 500px;">
+            <div class="warnings-modal-header">
+                <h2>💰 Pagar Semana Anterior</h2>
+                <button class="modal-close-btn" onclick="closePayPastWeekModal()">&times;</button>
+            </div>
+            <div class="warnings-modal-body">
+                <div class="past-week-info">
+                    <span class="past-week-label" id="pastWeekLabel">Semana: --</span>
+                </div>
+                
+                <form id="payPastWeekForm" enctype="multipart/form-data">
+                    <input type="hidden" id="pastWeekStart" name="week_start">
+                    <input type="hidden" id="pastWeekEnd" name="week_end">
+                    
+                    <!-- Seletor de tipo de pagamento -->
+                    <div class="form-group">
+                        <label>Tipo de Pagamento</label>
+                        <select id="pastPaymentType" onchange="togglePastPaymentType()">
+                            <option value="material">📦 Materiais</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Pagamento com Materiais -->
+                    <div id="pastMaterialsSection">
+                        <div class="form-group">
+                            <label>Materiais Entregues</label>
+                            <div id="pastMaterialsList" class="materials-input-list"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pagamento com Dinheiro -->
+                    <div id="pastMoneySection" style="display: none;">
+                        <div class="form-group">
+                            <label>Valor</label>
+                            <input type="number" id="pastMoneyAmount" min="0" placeholder="0">
+                        </div>
+                    </div>
+                    
+                    <!-- Screenshots -->
+                    <div class="form-group">
+                        <label>📷 Prints de Comprovação <span class="required">*</span></label>
+                        <div class="screenshots-area">
+                            <div id="pastScreenshotsPreview" class="screenshots-grid"></div>
+                            <button type="button" class="btn-add-screenshot" onclick="addPastScreenshot()">+ Adicionar Print</button>
+                            <input type="file" id="pastScreenshotInput" accept="image/*" style="display: none;" onchange="handlePastScreenshot(event)">
+                        </div>
+                    </div>
+                    
+                    <div id="pastWeekMessage" class="form-message"></div>
+                    <button type="submit" class="btn-submit" style="width: 100%;">💾 Enviar Pagamento</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/dashboard.js?v=20260130fix4"></script>
+</body>
+</html>
