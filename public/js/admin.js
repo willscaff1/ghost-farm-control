@@ -8953,9 +8953,10 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
             }).join('');
             // garantir seleção se não estava na lista gerada
             if (!weekSel.value) {
+                const fmtBR = s => { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
                 const opt = document.createElement('option');
                 opt.value = `${weekStart}|${weekEnd}`;
-                opt.textContent = `${weekStart} – ${weekEnd} (semana da entrega)`;
+                opt.textContent = `${fmtBR(weekStart)} – ${fmtBR(weekEnd)} (semana da entrega)`;
                 opt.selected = true;
                 weekSel.prepend(opt);
             }
