@@ -8967,6 +8967,12 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
         // Renderizar screenshots existentes
         renderExistingScreenshots(data.screenshots || [], currentEditDeliveryId);
         
+        // Converter status + is_partial em valor de dropdown
+        let displayStatus = data.delivery.status;
+        if (data.delivery.status === 'approved' && data.delivery.is_partial) {
+            displayStatus = 'in_progress';
+        }
+        
         // Select para editar status
         const statusOptions = [
             { value: 'approved', label: '✅ Completo', color: '#27ae60' },
@@ -8975,9 +8981,9 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
             { value: 'not_delivered', label: '🚫 Não Entregou', color: '#e74c3c' }
         ];
         
-        let statusSelectHtml = `<select id="editDeliveryStatusSelect" data-original="${data.delivery.status}" style="padding: 10px 15px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: #2d2d44; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; min-width: 180px;">`;
+        let statusSelectHtml = `<select id="editDeliveryStatusSelect" data-original="${displayStatus}" style="padding: 10px 15px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: #2d2d44; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; min-width: 180px;">`;
         for (const opt of statusOptions) {
-            statusSelectHtml += `<option value="${opt.value}" ${data.delivery.status === opt.value ? 'selected' : ''} style="background: #2d2d44; color: #fff; padding: 10px;">${opt.label}</option>`;
+            statusSelectHtml += `<option value="${opt.value}" ${displayStatus === opt.value ? 'selected' : ''} style="background: #2d2d44; color: #fff; padding: 10px;">${opt.label}</option>`;
         }
         statusSelectHtml += `</select>`;
         document.getElementById('editDeliveryStatus').innerHTML = statusSelectHtml;

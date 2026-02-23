@@ -4139,12 +4139,12 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'userId, week_start e week_end são obrigatórios' });
         }
         
-        // Buscar todas as entregas da semana do membro
+        // Buscar todas as entregas da semana do membro (exceto rejeitadas - podem ter nova submissão)
         const deliveries = await getAll(`
             SELECT d.*, u.name as member_name, u.passport
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
-            WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ? AND d.status NOT IN ('rejected', 'not_delivered')
+            WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ? AND d.status != 'rejected'
             ORDER BY d.created_at DESC
         `, [userId, week_start, week_end]);
         
@@ -4212,16 +4212,29 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
             weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal
         }));
         
-        // Determinar status agregado: se algum delivery é approved e !partial, então é completo
-        let aggregatedStatus = 'pending';
-        let aggregatedIsPartial = true;
-        for (const delivery of deliveries) {
-            if (delivery.status === 'approved' && !delivery.is_partial) {
-                aggregatedStatus = 'approved';
-                aggregatedIsPartial = false;
-                break;
-            }
+        // Determinar status agregado com prioridade correta:
+        // 1. approved + !partial = completo
+        // 2. approved + partial  = em progresso
+        // 3. pending             = aguardando
+        // 4. not_delivered       = não entregou (quando todos os deliveries têm esse status)
+        let aggregatedStatus = 'not_delivered';
+        let aggregatedIsPartial = false;
+
+        const hasApprovedComplete  = deliveries.some(d => d.status === 'approved' && !d.is_partial);
+        const hasApprovedPartial   = deliveries.some(d => d.status === 'approved' && d.is_partial);
+        const hasPending           = deliveries.some(d => d.status === 'pending');
+
+        if (hasApprovedComplete) {
+            aggregatedStatus = 'approved';
+            aggregatedIsPartial = false;
+        } else if (hasApprovedPartial) {
+            aggregatedStatus = 'approved';
+            aggregatedIsPartial = true;
+        } else if (hasPending) {
+            aggregatedStatus = 'pending';
+            aggregatedIsPartial = false;
         }
+        // else: todos são not_delivered → mantém not_delivered
         
         res.json({ 
             success: true, 
