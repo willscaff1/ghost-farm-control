@@ -77,18 +77,6 @@
                     </div>
                 </div>
 
-                <!-- Stats -->
-                <div class="stats-row">
-                    <div class="stat-box success">
-                        <span class="stat-number" id="farmsDelivered">0</span>
-                        <span class="stat-text">Aprovados</span>
-                    </div>
-                    <div class="stat-box danger clickable" onclick="showMyWarnings()">
-                        <span class="stat-number" id="warningsCount">0</span>
-                        <span class="stat-text">Advertências</span>
-                    </div>
-                </div>
-
                 <!-- Semanas Não Pagas -->
                 <div class="panel unpaid-weeks-panel" id="unpaidWeeksPanel" style="display: none;">
                     <div class="panel-header">
@@ -146,7 +134,7 @@
                             </div>
                             
                             <!-- Novos screenshots -->
-                            <div class="screenshots-area">
+                            <div id="screenshotsAddArea" class="screenshots-area">
                                 <div id="screenshotsPreview" class="screenshots-grid"></div>
                                 <button type="button" class="btn-add-screenshot" onclick="addScreenshot()">+ Adicionar Print</button>
                                 <input type="file" id="screenshotInput" accept="image/*" style="display: none;" onchange="handleScreenshotSelect(event)">
@@ -197,7 +185,7 @@
                             </div>
                             
                             <!-- Novos screenshots -->
-                            <div class="screenshots-area">
+                            <div id="screenshotsAddAreaDirty" class="screenshots-area">
                                 <div id="screenshotsPreviewDirty" class="screenshots-grid"></div>
                                 <button type="button" class="btn-add-screenshot" onclick="addScreenshotDirty()">+ Adicionar Print</button>
                                 <input type="file" id="screenshotInputDirty" accept="image/*" style="display: none;" onchange="handleScreenshotSelectDirty(event)">

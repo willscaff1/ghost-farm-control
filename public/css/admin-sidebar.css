@@ -72,6 +72,53 @@
     50% { box-shadow: 0 0 0 8px rgba(255, 215, 0, 0); }
 }
 
+/* Progresso da semana no modal de extrato */
+.extract-section.progress-week {
+    margin-bottom: 20px;
+    padding: 14px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+}
+.extract-section.progress-week.meta-batida {
+    background: rgba(39, 174, 96, 0.12);
+    border: 1px solid rgba(39, 174, 96, 0.35);
+}
+.extract-section.progress-week.meta-batida .extract-section-title {
+    color: #27ae60;
+}
+.progress-week-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.progress-week-row:last-child { margin-bottom: 0; }
+.progress-week-label {
+    flex: 0 0 140px;
+    font-size: 13px;
+}
+.progress-week-bar-wrap {
+    flex: 1;
+    height: 14px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 7px;
+    overflow: hidden;
+}
+.progress-week-bar {
+    height: 100%;
+    border-radius: 7px;
+    transition: width 0.3s ease;
+}
+.progress-week-bar.low { background: #e74c3c; }
+.progress-week-bar.partial { background: #f39c12; }
+.progress-week-bar.complete { background: #27ae60; }
+.progress-week-value {
+    flex: 0 0 90px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 600;
+}
+
 /* Modal de Farm Extra Pendente */
 .pending-extra-modal {
     padding: 10px;
@@ -4543,6 +4590,162 @@ body.admin-layout {
     gap: 8px;
 }
 
+/* ===== METAS (GOALS) TAB ===== */
+.goals-card .subtitle {
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 24px;
+}
+.goals-section {
+    margin-bottom: 32px;
+}
+.goals-section h3 {
+    margin: 0 0 12px 0;
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+.goals-add-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    margin-bottom: 12px;
+    padding: 16px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+}
+.goals-input {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.goals-input.goals-name {
+    width: 220px;
+    min-width: 160px;
+}
+.goals-input.goals-dropdown {
+    min-width: 220px;
+    max-width: 280px;
+    background-color: #2d3748;
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+}
+.goals-input.goals-dropdown:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.3);
+}
+.goals-input.goals-dropdown option {
+    background-color: #2d3748;
+    color: #e2e8f0;
+    padding: 8px 12px;
+}
+.goals-new-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.goals-new-name-wrap .goals-label { margin-right: 0; }
+.goals-input.goals-icon {
+    width: 72px;
+    min-width: 72px;
+    padding-left: 14px;
+    padding-right: 28px;
+    text-align: center;
+    font-size: 22px;
+    line-height: 1.2;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+.goals-input.goals-number {
+    width: 110px;
+}
+.goals-input::placeholder {
+    color: rgba(255,255,255,0.4);
+}
+.goals-label {
+    color: rgba(255,255,255,0.7);
+    font-size: 12px;
+    margin-right: -6px;
+}
+.goals-btn-add {
+    padding: 8px 16px;
+}
+.goals-message {
+    margin-bottom: 10px;
+    font-size: 13px;
+    min-height: 20px;
+}
+.goals-message.show.success { color: #27ae60; }
+.goals-message.show.error { color: #e74c3c; }
+.goals-table-wrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.goals-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+.goals-table th,
+.goals-table td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.goals-table th {
+    background: rgba(0,0,0,0.25);
+    color: rgba(255,255,255,0.9);
+    font-weight: 600;
+}
+.goals-table tbody tr:hover {
+    background: rgba(255,255,255,0.03);
+}
+.goals-table .goals-cell-icon {
+    font-size: 22px;
+    width: 44px;
+}
+.goals-table .goals-cell-name {
+    font-weight: 500;
+    color: #fff;
+}
+.goals-table .goals-cell-meta {
+    color: rgba(255,255,255,0.85);
+}
+.goals-table .goals-status-active {
+    color: #27ae60;
+    font-size: 12px;
+}
+.goals-table .goals-status-inactive {
+    color: rgba(255,255,255,0.45);
+    font-size: 12px;
+}
+.goals-table .goals-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.goals-table .goals-actions .btn-small {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+.goals-table .goals-actions .goals-btn-remove {
+    min-width: 32px;
+    padding: 6px 10px;
+    font-size: 14px;
+    line-height: 1;
+}
+.goals-table tr.goals-row-inactive td {
+    opacity: 0.65;
+}
+
 .setting-item {
     display: flex;
     justify-content: space-between;
@@ -5184,6 +5387,11 @@ body.admin-layout {
     transition: all 0.3s ease;
 }
 
+.justif-extract-item.status-rejected {
+    background: linear-gradient(145deg, rgba(231, 76, 60, 0.08), rgba(192, 57, 43, 0.12));
+    border-color: rgba(231, 76, 60, 0.4);
+}
+
 .justif-extract-item:hover {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.12);
@@ -5461,6 +5669,20 @@ body.admin-layout {
 .extract-section.meta {
     background: rgba(39, 174, 96, 0.08);
     border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.extract-section.meta.status-rejected {
+    background: linear-gradient(145deg, rgba(231, 76, 60, 0.2), rgba(192, 57, 43, 0.25)) !important;
+    border: 1px solid rgba(231, 76, 60, 0.6) !important;
+}
+
+.extract-section.meta.status-rejected .extract-section-header {
+    background: rgba(231, 76, 60, 0.25) !important;
+}
+
+.extract-section.meta.status-rejected .extract-section-title {
+    color: #e74c3c !important;
+    font-weight: 700;
 }
 
 .extract-section.extra {

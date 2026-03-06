@@ -66,7 +66,6 @@
                 <div class="sidebar-section-title">📊 Dashboard</div>
                 <button class="sidebar-item active" data-tab="weekly-status">📅 Status da Semana</button>
                 <button class="sidebar-item" data-tab="weekly-ranking">🏆 Ranking Semanal</button>
-                <button class="sidebar-item" data-tab="members-panel">👥 Painel de Membros</button>
             </div>
 
             <div class="sidebar-section">
@@ -149,40 +148,6 @@
                             </thead>
                             <tbody id="weeklyRankingBody">
                                 <tr><td colspan="4" style="text-align: center; padding: 40px; color: #888;">Selecione uma semana</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Members Panel Tab -->
-            <div id="members-panel-tab" class="tab-content">
-                <div class="card">
-                    <h2>👥 Extrato de Membros</h2>
-                    <p class="subtitle">Clique em um membro para ver o histórico completo</p>
-                    
-                    <div class="members-panel-header">
-                        <input type="text" id="searchMembersPanel" placeholder="🔍 Buscar membro por nome ou passaporte..." oninput="filterMembersPanel()" class="search-members-modern">
-                    </div>
-                    
-                    <div class="table-container">
-                        <table class="weekly-table" id="membersPanelTable">
-                            <thead>
-                                <tr>
-                                    <th class="sortable" data-sort="passport" onclick="sortMembersPanel('passport')">
-                                        Passaporte <span class="sort-arrow"></span>
-                                    </th>
-                                    <th class="sortable" data-sort="name" onclick="sortMembersPanel('name')">
-                                        Membro <span class="sort-arrow"></span>
-                                    </th>
-                                    <th class="sortable" data-sort="role" onclick="sortMembersPanel('role')">
-                                        Cargo <span class="sort-arrow"></span>
-                                    </th>
-                                    <th>Ação</th>
-                                </tr>
-                            </thead>
-                            <tbody id="membersExtractList">
-                                <tr><td colspan="4" class="loading">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -396,7 +361,7 @@
                         <button class="justif-tab-btn" onclick="switchFarmsTab('extract')">
                             Extrato
                         </button>
-                        <button class="justif-tab-btn" onclick="switchFarmsTab('extra-extract')">
+                        <button class="justif-tab-btn" id="farmsExtraExtractTab" onclick="switchFarmsTab('extra-extract')">
                             🏆 Extrato Extras
                         </button>
                     </div>
@@ -808,126 +773,129 @@
 
             <!-- Goals Tab (Membros e Gerentes) -->
             <div id="goals-tab" class="tab-content">
-                <div class="card">
-                    <h2>🎯 Metas (Membros e Gerentes)</h2>
-                    <p class="subtitle">Defina todas as metas em uma única tela: membros e gerentes.</p>
+                <div class="card goals-card">
+                    <h2>🎯 Metas</h2>
+                    <p class="subtitle">Materiais e tipos de pagamento do farm. Defina a meta semanal para membros e gerentes.</p>
 
-                    <div class="settings-section">
-                        <h3>📦 Metas de Materiais (Membros)</h3>
-                        <form id="newMaterialForm" class="material-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="materialSelect">Material *</label>
-                                    <select id="materialSelect" required class="material-select-input">
-                                        <option value="">Selecione um material...</option>
-                                        <option value="📄|Folha de Papel">📄 Folha de Papel</option>
-                                        <option value="🧪|Metileno">🧪 Metileno</option>
-                                        <option value="📦|Embalagem Plástica">📦 Embalagem Plástica</option>
-                                        <option value="💊|Efedrina">💊 Efedrina</option>
-                                        <option value="🌿|Folha">🌿 Folha</option>
-                                        <option value="🪵|Madeira">🪵 Madeira</option>
-                                        <option value="⛏️|Minério">⛏️ Minério</option>
-                                        <option value="💎|Diamante">💎 Diamante</option>
-                                        <option value="🔥|Fogo">🔥 Fogo</option>
-                                        <option value="💧|Água">💧 Água</option>
-                                        <option value="🌾|Trigo">🌾 Trigo</option>
-                                        <option value="🥕|Cenoura">🥕 Cenoura</option>
-                                        <option value="🍖|Carne">🍖 Carne</option>
-                                        <option value="🐟|Peixe">🐟 Peixe</option>
-                                        <option value="🧱|Tijolo">🧱 Tijolo</option>
-                                        <option value="🪨|Pedra">🪨 Pedra</option>
-                                        <option value="⚒️|Ferramenta">⚒️ Ferramenta</option>
-                                        <option value="🗡️|Espada">🗡️ Espada</option>
-                                        <option value="🏹|Arco">🏹 Arco</option>
-                                        <option value="🛡️|Escudo">🛡️ Escudo</option>
-                                        <option value="👕|Roupa">👕 Roupa</option>
-                                        <option value="🍞|Pão">🍞 Pão</option>
-                                        <option value="🍺|Poção">🍺 Poção</option>
-                                        <option value="⭐|Estrela">⭐ Estrela</option>
-                                        <option value="🎁|Presente">🎁 Presente</option>
-                                        <option value="🔮|Cristal">🔮 Cristal</option>
-                                        <option value="⚡|Raio">⚡ Raio</option>
-                                        <option value="🌟|Brilho">🌟 Brilho</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="materialGoal">Meta Semanal</label>
-                                    <input type="number" id="materialGoal" value="700" min="1" max="99999">
-                                </div>
-                                <div class="form-group btn-group">
-                                    <button type="submit" class="btn btn-primary">Adicionar</button>
-                                </div>
+                    <!-- Materiais -->
+                    <div class="goals-section">
+                        <h3>📦 Materiais</h3>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Material</label>
+                            <select id="materialSelectDropdown" class="goals-input goals-dropdown">
+                                <!-- Opções carregadas por JS: todos os materiais por nome + Adicionar novo material -->
+                            </select>
+                            <div id="newMaterialNameWrap" class="goals-new-name-wrap" style="display: none;">
+                                <label class="goals-label">Nome do novo</label>
+                                <input type="text" id="newMaterialName" placeholder="Ex: Ópio, Farinha de Trigo" class="goals-input goals-name">
                             </div>
-                        </form>
-                        <div id="materialMessage" class="message"></div>
-                        
-                        <h3>Materiais Cadastrados</h3>
-                        <div id="materialsList" class="materials-manage-list">
-                            <p class="loading">Carregando...</p>
-                        </div>
-                    </div>
-
-                    <div class="settings-section">
-                        <h3>🧑‍💼 Metas de Materiais (Gerentes)</h3>
-                        <div id="managerMaterialsList" class="materials-manage-list">
-                            <p class="loading">Carregando...</p>
-                        </div>
-                    </div>
-
-                    <div class="settings-section">
-                        <h3>💰 Metas de Pagamento (Membros)</h3>
-                        <p class="subtitle">Configure os tipos de pagamento alternativos (Dinheiro Sujo, Dinheiro Limpo, etc.)</p>
-                        <form id="newPaymentTypeForm" class="material-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="paymentTypeName">Nome *</label>
-                                    <input type="text" id="paymentTypeName" required placeholder="Ex: Dinheiro Sujo">
-                                </div>
-                                <div class="form-group">
-                                    <label for="paymentTypeIcon">Ícone</label>
-                                    <select id="paymentTypeIcon" class="icon-select">
-                                        <option value="💰">💰 Dinheiro</option>
-                                        <option value="💵">💵 Nota</option>
-                                        <option value="💸">💸 Grana</option>
-                                        <option value="🪙">🪙 Moeda</option>
-                                        <option value="💎">💎 Diamante</option>
-                                        <option value="👑">👑 Coroa</option>
-                                        <option value="🏆">🏆 Troféu</option>
-                                        <option value="⭐">⭐ Estrela</option>
-                                        <option value="💳">💳 Cartão</option>
-                                        <option value="🎯">🎯 Alvo</option>
-                                        <option value="💼">💼 Maleta</option>
-                                        <option value="🎁">🎁 Presente</option>
-                                        <option value="🔑">🔑 Chave</option>
-                                        <option value="🔥">🔥 Fogo</option>
-                                        <option value="⚡">⚡ Raio</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="paymentTypeGoal">Meta (R$)</label>
-                                    <input type="number" id="paymentTypeGoal" value="50000" min="1" max="9999999">
-                                </div>
-                                <div class="form-group btn-group">
-                                    <button type="submit" class="btn btn-primary">Adicionar</button>
-                                </div>
+                            <div id="newMaterialIconWrap" class="goals-new-name-wrap" style="display: none;">
+                                <label class="goals-label">Ícone</label>
+                                <select id="newMaterialIcon" class="goals-input goals-icon">
+                                <option value="📦">📦</option>
+                                <option value="📄">📄</option>
+                                <option value="🧪">🧪</option>
+                                <option value="💊">💊</option>
+                                <option value="🌿">🌿</option>
+                                <option value="🪵">🪵</option>
+                                <option value="⛏️">⛏️</option>
+                                <option value="💎">💎</option>
+                                <option value="🔥">🔥</option>
+                                <option value="💧">💧</option>
+                                <option value="🌾">🌾</option>
+                                <option value="🧱">🧱</option>
+                                <option value="🪨">🪨</option>
+                                <option value="⚒️">⚒️</option>
+                                <option value="🗡️">🗡️</option>
+                                <option value="👕">👕</option>
+                                <option value="🍞">🍞</option>
+                                <option value="🔮">🔮</option>
+                                <option value="⚡">⚡</option>
+                            </select>
                             </div>
-                        </form>
-                        <div id="paymentTypeMessage" class="message"></div>
-                        
-                        <h3>Tipos de Pagamento Cadastrados</h3>
-                        <div id="paymentTypesList" class="materials-manage-list">
-                            <p class="loading">Carregando...</p>
+                            <label class="goals-label">Meta (membros)</label>
+                            <input type="number" id="newMaterialGoal" value="700" min="1" max="999999" class="goals-input goals-number">
+                            <label class="goals-label">Meta (gerentes)</label>
+                            <input type="number" id="newMaterialManagerGoal" value="700" min="1" max="999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMaterial">Adicionar</button>
+                        </div>
+                        <div id="materialMessage" class="goals-message"></div>
+                        <div class="goals-table-wrap">
+                            <table class="goals-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ícone</th>
+                                        <th>Nome</th>
+                                        <th>Meta (Membros)</th>
+                                        <th>Meta (Gerentes)</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="goalsMaterialsBody">
+                                    <tr><td colspan="6" class="loading">Carregando...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
-                    <div class="settings-section">
-                        <h3>🧑‍💼 Metas de Pagamento (Gerentes)</h3>
-                        <div id="managerPaymentTypesList" class="materials-manage-list">
-                            <p class="loading">Carregando...</p>
+                    <!-- Tipos de pagamento -->
+                    <div class="goals-section">
+                        <h3>💰 Tipos de pagamento</h3>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Tipo de pagamento</label>
+                            <select id="paymentTypeSelectDropdown" class="goals-input goals-dropdown">
+                                <!-- Opções carregadas por JS -->
+                            </select>
+                            <div id="newPaymentTypeNameWrap" class="goals-new-name-wrap" style="display: none;">
+                                <label class="goals-label">Nome do novo</label>
+                                <input type="text" id="newPaymentTypeName" placeholder="Ex: Dinheiro Sujo" class="goals-input goals-name">
+                            </div>
+                            <div id="newPaymentTypeIconWrap" class="goals-new-name-wrap" style="display: none;">
+                                <label class="goals-label">Ícone</label>
+                                <select id="newPaymentTypeIcon" class="goals-input goals-icon">
+                                    <option value="💰">💰</option>
+                                    <option value="💵">💵</option>
+                                    <option value="💸">💸</option>
+                                    <option value="🪙">🪙</option>
+                                    <option value="💳">💳</option>
+                                    <option value="💼">💼</option>
+                                    <option value="💎">💎</option>
+                                    <option value="💠">💠</option>
+                                </select>
+                            </div>
+                            <div id="newPaymentTypeUnitWrap" class="goals-new-name-wrap" style="display: none;">
+                                <label class="goals-label">Tipo de meta</label>
+                                <select id="newPaymentTypeUnit" class="goals-input goals-dropdown">
+                                    <option value="R$">R$ (valor)</option>
+                                    <option value="unidade">Unidades</option>
+                                </select>
+                            </div>
+                            <label class="goals-label" id="paymentTypeGoalLabel">Meta (membros)</label>
+                            <input type="number" id="newPaymentTypeGoal" value="50000" min="1" max="999999999" class="goals-input goals-number">
+                            <label class="goals-label" id="paymentTypeManagerGoalLabel">Meta (gerentes)</label>
+                            <input type="number" id="newPaymentTypeManagerGoal" value="50000" min="1" max="999999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddPaymentType">Adicionar</button>
+                        </div>
+                        <div id="paymentTypeMessage" class="goals-message"></div>
+                        <div class="goals-table-wrap">
+                            <table class="goals-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ícone</th>
+                                        <th>Nome</th>
+                                        <th>Meta (Membros)</th>
+                                        <th>Meta (Gerentes)</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="goalsPaymentTypesBody">
+                                    <tr><td colspan="6" class="loading">Carregando...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-
-                    <div id="managerGoalsMessage" class="message"></div>
                 </div>
             </div>
 
@@ -1161,6 +1129,7 @@
                     </div>
                     <p style="margin-bottom: 0;"><strong style="color: #aaa;">Status:</strong> <span id="editDeliveryStatus">-</span></p>
                 </div>
+                <div id="editDeliveryEnvioSelector" style="margin-bottom: 16px; display: none;"></div>
                 
                 <!-- Seção de Screenshots -->
                 <div id="editDeliveryScreenshotsSection" style="margin-bottom: 20px;">

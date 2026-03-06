@@ -478,6 +478,14 @@ const initializePostgres = async () => {
             console.log('ℹ️ manager_weekly_goal (payment_types):', e.message);
         }
 
+        // Adicionar unit_type em payment_types (R$ ou unidade)
+        try {
+            await pool.query(`ALTER TABLE payment_types ADD COLUMN IF NOT EXISTS unit_type TEXT DEFAULT 'R$'`);
+            console.log('✅ Coluna unit_type (payment_types) verificada/adicionada');
+        } catch (e) {
+            console.log('ℹ️ unit_type (payment_types):', e.message);
+        }
+
         // Atualizar payment_types existentes que não tem manager_weekly_goal
         try {
             await pool.query(`UPDATE payment_types SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
@@ -497,16 +505,20 @@ const initializePostgres = async () => {
         `);
         console.log('✅ Tabela member_observations verificada/criada');
 
-        // Inserir tipos de pagamento padrão
+        // Inserir tipos de pagamento padrão (R$ = Dinheiro; unidade = Pepita, Ruby, Safira)
         const defaultPaymentTypes = [
-            ['Dinheiro Sujo', '💰', 50000],
-            ['Dinheiro Limpo', '💵', 50000]
+            ['Dinheiro Limpo', '💵', 50000, 'R$'],
+            ['Dinheiro Sujo', '💰', 50000, 'R$'],
+            ['Pepita de Ouro', '🪙', 700, 'unidade'],
+            ['Pepita de Prata', '💸', 700, 'unidade'],
+            ['Ruby', '💎', 700, 'unidade'],
+            ['Safira', '💠', 700, 'unidade']
         ];
 
-        for (const [name, icon, goal] of defaultPaymentTypes) {
+        for (const [name, icon, goal, unitType] of defaultPaymentTypes) {
             await pool.query(
-                `INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO NOTHING`,
-                [name, icon, goal, goal]
+                `INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (name) DO UPDATE SET unit_type = EXCLUDED.unit_type, weekly_goal = EXCLUDED.weekly_goal, manager_weekly_goal = EXCLUDED.manager_weekly_goal`,
+                [name, icon, goal, goal, unitType]
             );
         }
         console.log('✅ Tipos de pagamento padrão inseridos');
@@ -854,19 +866,28 @@ const initializeSQLite = () => {
             pool.run(`ALTER TABLE payment_types ADD COLUMN manager_weekly_goal INTEGER DEFAULT 50000`, (err) => {
                 if (!err) console.log('✅ Coluna manager_weekly_goal adicionada (SQLite)');
             });
+            pool.run(`ALTER TABLE payment_types ADD COLUMN unit_type TEXT DEFAULT 'R$'`, (err) => {
+                if (!err) console.log('✅ Coluna unit_type adicionada (SQLite)');
+            });
 
             // Preencher metas de gerente onde estiverem vazias
             pool.run(`UPDATE materials SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
             pool.run(`UPDATE payment_types SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
 
-            // Inserir tipos de pagamento padrão
+            // Inserir tipos de pagamento padrão (R$ = Dinheiro; unidade = Pepita, Ruby, Safira)
             const defaultPaymentTypes = [
-                ['Dinheiro Sujo', '💰', 50000],
-                ['Dinheiro Limpo', '💵', 50000]
+                ['Dinheiro Limpo', '💵', 50000, 'R$'],
+                ['Dinheiro Sujo', '💰', 50000, 'R$'],
+                ['Pepita de Ouro', '🪙', 700, 'unidade'],
+                ['Pepita de Prata', '💸', 700, 'unidade'],
+                ['Ruby', '💎', 700, 'unidade'],
+                ['Safira', '💠', 700, 'unidade']
             ];
-            defaultPaymentTypes.forEach(([name, icon, goal]) => {
-                pool.run(`INSERT OR IGNORE INTO payment_types (name, icon, weekly_goal, manager_weekly_goal) VALUES (?, ?, ?, ?)`, [name, icon, goal, goal]);
+            defaultPaymentTypes.forEach(([name, icon, goal, unitType]) => {
+                pool.run(`INSERT OR IGNORE INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type) VALUES (?, ?, ?, ?, ?)`, [name, icon, goal, goal, unitType]);
             });
+            // Corrigir tipos em unidade que estavam com 50000
+            pool.run(`UPDATE payment_types SET unit_type = 'unidade', weekly_goal = 700, manager_weekly_goal = 700 WHERE name IN ('Pepita de Ouro', 'Pepita de Prata', 'Ruby', 'Safira')`);
 
             // Inserir configurações padrão do farm
             const defaultSettings = [

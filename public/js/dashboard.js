@@ -10,6 +10,12 @@ let currentPaymentType = 'material'; // 'material' ou tipo de pagamento ID
 let currentPaymentTypeId = null; // ID do tipo de pagamento selecionado
 let paymentTypes = []; // Lista de tipos de pagamento carregados do banco
 let screenshotFilesDirty = []; // Screenshots para pagamento alternativo
+
+function formatPaymentGoal(pt, value) {
+    if (!pt) return String(value || 0);
+    const v = Number(value ?? 0);
+    return pt.unit_type === 'unidade' ? `${v.toLocaleString('pt-BR')} un.` : `R$ ${v.toLocaleString('pt-BR')}`;
+}
 let pastScreenshotFiles = []; // Screenshots para pagamento de semana passada
 let selectedPastWeek = null; // Semana passada selecionada para pagar
 let extraScreenshotFiles = []; // Screenshots para farm extra ranking
@@ -671,15 +677,26 @@ async function loadWeekData(offset = 0) {
         const farmEmProgresso = data.deliveryStatus === 'approved' && data.isPartial;
         
         if (deliveryPanel) {
-            // Farm COMPLETO - meta batida, SEMPRE mostrar painel de farm extra
-            if (farmCompleto) {
+            // Farm COMPLETO - meta batida, só mostra painel de farm extra se competição estiver ATIVA
+            if (farmCompleto && farmSettings.competition_enabled === 'true') {
                 deliveryPanel.style.display = 'none';
                 if (lockedMessage) lockedMessage.style.display = 'none';
                 
                 if (extraFarmPanel) {
-                    // Sempre mostrar painel de farm extra quando meta foi batida
                     extraFarmPanel.style.display = 'block';
                     loadExtraMaterialsInputs();
+                }
+            } else if (farmCompleto) {
+                // Meta batida, competição desligada: bloquear TUDO (Materiais, Dinheiro Limpo, Dinheiro Sujo, prints) - semana finalizada
+                deliveryPanel.style.display = 'none';
+                if (extraFarmPanel) extraFarmPanel.style.display = 'none';
+                if (lockedMessage) {
+                    lockedMessage.style.display = 'block';
+                    lockedMessage.innerHTML = `
+                        <div class="locked-icon">✅</div>
+                        <h3>Meta batida</h3>
+                        <p>Semana finalizada. Não é possível alterar ou adicionar entregas (materiais, dinheiro limpo, dinheiro sujo ou prints).</p>
+                    `;
                 }
             // Farm EM PROGRESSO - aprovado mas não bateu meta, pode continuar adicionando
             } else if (farmEmProgresso) {
@@ -750,6 +767,12 @@ async function loadWeekData(offset = 0) {
                 }
             }
         }
+        
+        // Bloquear adição de print quando a meta estiver completa (apenas nesse caso)
+        const screenshotsAddArea = document.getElementById('screenshotsAddArea');
+        const screenshotsAddAreaDirty = document.getElementById('screenshotsAddAreaDirty');
+        if (screenshotsAddArea) screenshotsAddArea.style.display = farmCompleto ? 'none' : '';
+        if (screenshotsAddAreaDirty) screenshotsAddAreaDirty.style.display = farmCompleto ? 'none' : '';
         
         // Verificar notificações após carregar dados da semana
         checkNotifications();
@@ -857,15 +880,17 @@ function updateProgressBars(progress) {
         let goal = 50000; // Fallback
         let paymentTypeName = 'Dinheiro Sujo';
         let paymentTypeIcon = '💰';
-        
+        let paymentTypeUnit = 'R$';
         if (currentWeekData.paymentTypeId && paymentTypes.length > 0) {
             const pt = paymentTypes.find(p => p.id === currentWeekData.paymentTypeId);
             if (pt) {
                 goal = pt.weekly_goal;
                 paymentTypeName = pt.name;
                 paymentTypeIcon = pt.icon;
+                paymentTypeUnit = pt.unit_type || 'R$';
             }
         }
+        const fmt = (v) => paymentTypeUnit === 'unidade' ? `${Number(v).toLocaleString('pt-BR')} un.` : `R$ ${Number(v).toLocaleString('pt-BR')}`;
         
         const percentage = Math.min(100, Math.round((amount / goal) * 100));
         const complete = amount >= goal;
@@ -876,12 +901,12 @@ function updateProgressBars(progress) {
                     <span class="progress-label">${paymentTypeIcon} ${paymentTypeName}</span>
                     <span class="progress-value ${complete ? 'complete' : 'incomplete'}">
                         ${canEdit ? `
-                            <span class="value-display editable" onclick="openEditDirtyMoneyModal(${amount}, ${goal}, '${paymentTypeName}', '${paymentTypeIcon}')">
-                                R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}
+                            <span class="value-display editable" onclick="openEditDirtyMoneyModal(${amount}, ${goal}, '${(paymentTypeName || '').replace(/'/g, "\\'")}', '${paymentTypeIcon}', '${paymentTypeUnit}')">
+                                ${fmt(amount)} / ${fmt(goal)}
                                 <span class="edit-hint">✏️</span>
                             </span>
                         ` : `
-                            <span class="value-display">R$ ${amount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</span>
+                            <span class="value-display">${fmt(amount)} / ${fmt(goal)}</span>
                         `}
                     </span>
                 </div>
@@ -962,8 +987,11 @@ function openEditValueModal(materialId, name, icon, currentValue, goal) {
     document.getElementById('editValueInput').select();
 }
 
-// Modal para editar dinheiro sujo
-function openEditDirtyMoneyModal(currentValue, goal, name, icon) {
+// Modal para editar dinheiro sujo / unidades
+function openEditDirtyMoneyModal(currentValue, goal, name, icon, unitType) {
+    const isUnidade = unitType === 'unidade';
+    const fmt = (v) => isUnidade ? `${Number(v).toLocaleString('pt-BR')} un.` : `R$ ${Number(v).toLocaleString('pt-BR')}`;
+    const label = isUnidade ? 'Novo valor total (unidades):' : 'Novo valor total (R$):';
     let modal = document.getElementById('editValueModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -980,18 +1008,18 @@ function openEditDirtyMoneyModal(currentValue, goal, name, icon) {
             </div>
             <div class="edit-value-body">
                 <div class="edit-value-current">
-                    Valor atual: <strong>R$ ${currentValue.toLocaleString('pt-BR')}</strong> / R$ ${goal.toLocaleString('pt-BR')}
+                    Valor atual: <strong>${fmt(currentValue)}</strong> / ${fmt(goal)}
                 </div>
                 <div class="edit-value-input-group">
-                    <label>Novo valor total (R$):</label>
+                    <label>${label}</label>
                     <input type="number" id="editValueInput" value="${currentValue}" min="0" max="${goal}" autofocus>
-                    <small style="color: var(--text-secondary)">Máximo: R$ ${goal.toLocaleString('pt-BR')}</small>
+                    <small style="color: var(--text-secondary)">Máximo: ${fmt(goal)}</small>
                 </div>
                 <p class="edit-value-hint">⚠️ Use apenas para corrigir erros de digitação</p>
             </div>
             <div class="edit-value-footer">
                 <button class="btn-cancel" onclick="closeEditValueModal()">Cancelar</button>
-                <button class="btn-save" onclick="saveEditedDirtyMoney(${goal})">💾 Salvar</button>
+                <button class="btn-save" onclick="saveEditedDirtyMoney(${goal}, '${unitType || 'R$'}')">💾 Salvar</button>
             </div>
         </div>
     `;
@@ -1001,13 +1029,14 @@ function openEditDirtyMoneyModal(currentValue, goal, name, icon) {
     document.getElementById('editValueInput').select();
 }
 
-async function saveEditedDirtyMoney(goal) {
+async function saveEditedDirtyMoney(goal, unitType) {
     const input = document.getElementById('editValueInput');
     const newValue = parseInt(input.value) || 0;
+    const fmt = (v) => unitType === 'unidade' ? `${Number(v).toLocaleString('pt-BR')} un.` : `R$ ${Number(v).toLocaleString('pt-BR')}`;
     
     // Validar que não ultrapasse a meta
     if (goal && newValue > goal) {
-        alert(`⚠️ Valor excede a meta!\\n\\nMáximo permitido: R$ ${goal.toLocaleString('pt-BR')}\\nVocê informou: R$ ${newValue.toLocaleString('pt-BR')}`);
+        alert(`⚠️ Valor excede a meta!\\n\\nMáximo permitido: ${fmt(goal)}\\nVocê informou: ${fmt(newValue)}`);
         return;
     }
     
@@ -1316,11 +1345,11 @@ function selectPaymentType(type, paymentTypeId = null) {
         // Encontrar o tipo de pagamento selecionado
         const selectedPaymentType = paymentTypes.find(pt => pt.id === paymentTypeId);
         if (selectedPaymentType) {
-            // Atualizar label e meta
+            const isUnidade = selectedPaymentType.unit_type === 'unidade';
             const label = document.querySelector('#dirtyMoneyForm .form-label');
-            if (label) label.textContent = `${selectedPaymentType.icon} Valor de ${selectedPaymentType.name} (R$)`;
+            if (label) label.textContent = `${selectedPaymentType.icon} Valor de ${selectedPaymentType.name}${isUnidade ? ' (unidades)' : ' (R$)'}`;
             
-            document.getElementById('dirtyMoneyGoal').textContent = selectedPaymentType.weekly_goal.toLocaleString('pt-BR');
+            document.getElementById('dirtyMoneyGoal').textContent = formatPaymentGoal(selectedPaymentType, selectedPaymentType.weekly_goal);
         }
     }
     
@@ -1349,17 +1378,18 @@ function updateProgressDisplay(type, paymentTypeId = null) {
             const percentage = Math.min(100, Math.round((deliveredAmount / goal) * 100));
             const isComplete = deliveredAmount >= goal;
             
+            const fmt = (v) => formatPaymentGoal(selectedPaymentType, v);
             // Verificar se pode editar
             const canEdit = currentWeekData && currentWeekData.canEditValues;
             
             // Criar HTML do valor - editável ou não
             let valueHtml;
             if (canEdit && deliveredAmount > 0) {
-                valueHtml = `<span class="value-display editable" onclick="openEditDirtyMoneyModal(${deliveredAmount}, ${goal})" title="Clique para editar">
-                    R$ ${deliveredAmount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')} ✏️
+                valueHtml = `<span class="value-display editable" onclick="openEditDirtyMoneyModal(${deliveredAmount}, ${goal}, '${(selectedPaymentType.name || '').replace(/'/g, "\\'")}', '${selectedPaymentType.icon || '💰'}', '${selectedPaymentType.unit_type || 'R$'}')" title="Clique para editar">
+                    ${fmt(deliveredAmount)} / ${fmt(goal)} ✏️
                 </span>`;
             } else {
-                valueHtml = `<span class="value-display">R$ ${deliveredAmount.toLocaleString('pt-BR')} / R$ ${goal.toLocaleString('pt-BR')}</span>`;
+                valueHtml = `<span class="value-display">${fmt(deliveredAmount)} / ${fmt(goal)}</span>`;
             }
             
             progressContainer.innerHTML = `
@@ -1525,17 +1555,18 @@ async function loadMyDeliveries() {
                     screenshotsHtml = `<img src="${delivery.screenshot_url}" class="delivery-screenshot" onclick="openModal('${delivery.screenshot_url}')" style="border: 2px solid #00b894;">`;
                 }
                 
-                const statusText = delivery.is_partial ? '⏳ Em Progresso' : getStatusText(normalizedStatus, delivery.is_partial);
+                const statusText = delivery.is_partial ? '✅ Aprovado' : getStatusText(normalizedStatus, delivery.is_partial);
                 const statusClass = delivery.is_partial && normalizedStatus === 'approved' ? 'partial' : normalizedStatus;
                 const rejectionReasonHtml = normalizedStatus === 'rejected' && delivery.approval_note
                     ? `<p style="margin-top: 10px; color: #ff7675;"><strong>Motivo da reprovação:</strong> ${delivery.approval_note}</p>`
                     : '';
+                // Só mostrar "Aprovado" e "Por:" quando estiver tudo completo (aprovado e não parcial)
+                const showAprovado = normalizedStatus === 'approved' && !delivery.is_partial && delivery.approved_by_name;
                 
                 return `
                 <div class="delivery-item ${delivery.is_partial ? 'partial' : ''}" style="border-left: 3px solid #00b894;">
                     <div class="delivery-info">
                         <h3>📦 Semana ${formatWeek(delivery.week_start, delivery.week_end)}</h3>
-                        ${delivery.is_partial ? '<span class="partial-badge" style="background: #3498db; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px;">⏳ Não bateu meta</span>' : ''}
                         <div class="materials-list">
                             ${delivery.items.map(item => {
                                 const itemGoal = materialsGoals[item.material_id] || weeklyGoal;
@@ -1546,8 +1577,7 @@ async function loadMyDeliveries() {
                         </div>
                         ${delivery.description ? `<p>📝 ${delivery.description}</p>` : ''}
                         <p>📅 ${formatDate(delivery.created_at)}</p>
-                        <span class="status ${statusClass}">${statusText}</span>
-                        ${delivery.approved_by_name ? `<p style="margin-top: 10px;">Por: <strong>${delivery.approved_by_name}</strong></p>` : ''}
+                        ${showAprovado ? `<span class="status ${statusClass}">${statusText}</span><p style="margin-top: 10px;">Por: <strong>${delivery.approved_by_name}</strong></p>` : ''}
                         ${rejectionReasonHtml}
                     </div>
                     <div class="delivery-actions screenshots-grid">
@@ -1557,55 +1587,57 @@ async function loadMyDeliveries() {
             `}).join('');
         }
         
-        // Carregar farms extras (sempre mostrar no histórico)
-        try {
-            const extrasResponse = await fetch('/api/delivery/my-extra-farms');
-            const extrasData = await extrasResponse.json();
-            
-            if (extrasData.extras && extrasData.extras.length > 0) {
-                html += `
-                    <div class="extra-farms-section" style="margin-top: 30px; padding-top: 20px;">
-                        <h3 style="color: #ffd700; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #ffd700;">🏆 Meus Farms Extras (Ranking)</h3>
-                        <p style="color: #888; font-size: 0.85em; margin-bottom: 15px;">Farms além da meta - contam apenas para o ranking semanal</p>
-                `;
+        // Carregar farms extras: só mostrar quando competição estiver ATIVA
+        if (farmSettings.competition_enabled === 'true') {
+            try {
+                const extrasResponse = await fetch('/api/delivery/my-extra-farms');
+                const extrasData = await extrasResponse.json();
                 
-                html += extrasData.extras.map(extra => {
-                    const statusClass = extra.status === 'approved' ? 'approved' : extra.status === 'rejected' ? 'rejected' : 'pending';
-                    const statusText = extra.status === 'approved' ? '✅ Aprovado' : extra.status === 'rejected' ? '❌ Rejeitado' : '⏳ Pendente';
-                    
-                    let screenshotsHtml = '';
-                    if (extra.screenshots && extra.screenshots.length > 0) {
-                        screenshotsHtml = extra.screenshots.map((s, idx) => `
-                            <img src="${s.screenshot_url}" class="delivery-screenshot" onclick="openModal('${s.screenshot_url}')" title="Print Extra ${idx + 1}" style="border: 2px solid #ffd700;">
-                        `).join('');
-                    }
-                    
-                    return `
-                    <div class="delivery-item extra-farm-item" style="border-left: 3px solid #ffd700; background: rgba(255, 215, 0, 0.05);">
-                        <div class="delivery-info">
-                            <h3 style="color: #ffd700;">🏆 Farm Extra - Semana ${formatWeek(extra.week_start, extra.week_end)}</h3>
-                            <div class="materials-list">
-                                ${extra.materialDetails.map(mat => `
-                                    <span class="material-tag" style="background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%); color: #000;">
-                                        ${mat.icon || '📦'} ${mat.name}: ${formatNumber(mat.amount)}
-                                    </span>
-                                `).join('')}
-                            </div>
-                            <p>📅 ${formatDate(extra.created_at)}</p>
-                            <span class="status ${statusClass}">${statusText}</span>
-                            ${extra.reviewed_by_name ? `<p style="margin-top: 10px;">Por: <strong>${extra.reviewed_by_name}</strong></p>` : ''}
-                        </div>
-                        <div class="delivery-actions screenshots-grid">
-                            ${screenshotsHtml}
-                        </div>
-                    </div>
+                if (extrasData.extras && extrasData.extras.length > 0) {
+                    html += `
+                        <div class="extra-farms-section" style="margin-top: 30px; padding-top: 20px;">
+                            <h3 style="color: #ffd700; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #ffd700;">🏆 Meus Farms Extras (Ranking)</h3>
+                            <p style="color: #888; font-size: 0.85em; margin-bottom: 15px;">Farms além da meta - contam apenas para o ranking semanal</p>
                     `;
-                }).join('');
-                
-                html += '</div>';
+                    
+                    html += extrasData.extras.map(extra => {
+                        const statusClass = extra.status === 'approved' ? 'approved' : extra.status === 'rejected' ? 'rejected' : 'pending';
+                        const statusText = extra.status === 'approved' ? '✅ Aprovado' : extra.status === 'rejected' ? '❌ Rejeitado' : '⏳ Pendente';
+                        
+                        let screenshotsHtml = '';
+                        if (extra.screenshots && extra.screenshots.length > 0) {
+                            screenshotsHtml = extra.screenshots.map((s, idx) => `
+                                <img src="${s.screenshot_url}" class="delivery-screenshot" onclick="openModal('${s.screenshot_url}')" title="Print Extra ${idx + 1}" style="border: 2px solid #ffd700;">
+                            `).join('');
+                        }
+                        
+                        return `
+                        <div class="delivery-item extra-farm-item" style="border-left: 3px solid #ffd700; background: rgba(255, 215, 0, 0.05);">
+                            <div class="delivery-info">
+                                <h3 style="color: #ffd700;">🏆 Farm Extra - Semana ${formatWeek(extra.week_start, extra.week_end)}</h3>
+                                <div class="materials-list">
+                                    ${extra.materialDetails.map(mat => `
+                                        <span class="material-tag" style="background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%); color: #000;">
+                                            ${mat.icon || '📦'} ${mat.name}: ${formatNumber(mat.amount)}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                                <p>📅 ${formatDate(extra.created_at)}</p>
+                                <span class="status ${statusClass}">${statusText}</span>
+                                ${extra.reviewed_by_name ? `<p style="margin-top: 10px;">Por: <strong>${extra.reviewed_by_name}</strong></p>` : ''}
+                            </div>
+                            <div class="delivery-actions screenshots-grid">
+                                ${screenshotsHtml}
+                            </div>
+                        </div>
+                        `;
+                    }).join('');
+                    
+                    html += '</div>';
+                }
+            } catch (e) {
+                console.log('Farms extras não disponíveis');
             }
-        } catch (e) {
-            console.log('Farms extras não disponíveis');
         }
         
         if (!html) {
@@ -2339,7 +2371,7 @@ function togglePastPaymentType() {
         const paymentType = paymentTypes.find(pt => pt.id === typeId);
         if (paymentType) {
             document.getElementById('pastMoneyAmount').max = paymentType.weekly_goal;
-            document.getElementById('pastMoneyAmount').placeholder = `Máx: ${paymentType.weekly_goal.toLocaleString('pt-BR')}`;
+            document.getElementById('pastMoneyAmount').placeholder = `Máx: ${formatPaymentGoal(paymentType, paymentType.weekly_goal)}`;
         }
     }
 }

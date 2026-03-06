@@ -560,12 +560,12 @@ router.post('/deliveries/:id/reject', requireAdmin, async (req, res) => {
         
         console.log(`🗑️ Rejeitando entrega ID ${deliveryId} do usuário ${delivery.user_id}`);
         
-        // Marcar como rejeitado (guardar quem rejeitou e a observação)
+        // Marcar como rejeitado (status = 'rejected' para aparecer "Rejeitado por" no extrato)
         await runQuery(
             'UPDATE deliveries SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP, approval_note = ? WHERE id = ?',
-            ['not_delivered', userId, rejectionReason, deliveryId]
+            ['rejected', userId, rejectionReason, deliveryId]
         );
-        console.log(`   - Entrega marcada como rejeitada`);
+        console.log(`   - Entrega marcada como rejeitada (status=rejected)`);
         
         // Remover permissão de edição (se houver) para permitir que o membro edite novamente
         try {
@@ -1103,16 +1103,34 @@ router.post('/materials', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Nome do material é obrigatório' });
         }
         
+        const trimmedName = name.trim();
         const goal = parseInt(weekly_goal) || 700;
         const managerGoal = !isNaN(parseInt(manager_weekly_goal)) ? parseInt(manager_weekly_goal) : goal;
         
+        const existing = await getOne('SELECT id, active FROM materials WHERE name = ?', [trimmedName]);
+        if (existing) {
+            const isInactive = existing.active === 0 || existing.active === '0' || existing.active === false || existing.active == null;
+            if (isInactive) {
+                await runQuery(
+                    'UPDATE materials SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ? WHERE id = ?',
+                    [icon || '📦', goal, managerGoal, existing.id]
+                );
+                return res.json({ success: true, message: 'Material reativado e meta atualizada' });
+            }
+            return res.status(400).json({ error: 'Este material já está na tabela abaixo. Use "Editar metas" ou "Excluir da meta" na linha dele.' });
+        }
+        
         await runQuery(
             'INSERT INTO materials (name, icon, weekly_goal, manager_weekly_goal) VALUES (?, ?, ?, ?)',
-            [name, icon || '📦', goal, managerGoal]
+            [trimmedName, icon || '📦', goal, managerGoal]
         );
         
         res.json({ success: true, message: 'Material adicionado' });
     } catch (error) {
+        const msg = (error && error.message) ? String(error.message) : '';
+        if (msg.includes('UNIQUE constraint failed') || (msg.includes('SQLITE_CONSTRAINT') && msg.includes('materials'))) {
+            return res.status(400).json({ error: 'Este material já está na lista. Use a tabela para editar ou remover.' });
+        }
         res.status(500).json({ error: error.message });
     }
 });
@@ -1136,9 +1154,16 @@ router.put('/materials/:id', requireAdmin, async (req, res) => {
             ? parsedManagerGoal
             : (material.manager_weekly_goal ?? material.weekly_goal);
         
+        if (newName.trim() !== (material.name || '').trim()) {
+            const existing = await getOne('SELECT id FROM materials WHERE name = ? AND id != ?', [newName.trim(), materialId]);
+            if (existing) {
+                return res.status(400).json({ error: 'Já existe outro material com esse nome. Escolha outro nome.' });
+            }
+        }
+        
         await runQuery(
             'UPDATE materials SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ? WHERE id = ?',
-            [newName, newIcon, newGoal, newManagerGoal, materialId]
+            [newName.trim(), newIcon, newGoal, newManagerGoal, materialId]
         );
         
         res.json({ success: true, message: 'Material atualizado' });
@@ -1180,22 +1205,42 @@ router.get('/payment-types', requireAdmin, async (req, res) => {
 // Adicionar novo tipo de pagamento
 router.post('/payment-types', requireAdmin, async (req, res) => {
     try {
-        const { name, icon, weekly_goal, manager_weekly_goal } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, unit_type } = req.body;
         
         if (!name) {
             return res.status(400).json({ error: 'Nome do tipo de pagamento é obrigatório' });
         }
         
-        const goal = parseInt(weekly_goal) || 50000;
+        const trimmedName = name.trim();
+        const unitType = (unit_type === 'unidade') ? 'unidade' : 'R$';
+        const defaultGoal = unitType === 'unidade' ? 700 : 50000;
+        const goal = parseInt(weekly_goal) || defaultGoal;
         const managerGoal = !isNaN(parseInt(manager_weekly_goal)) ? parseInt(manager_weekly_goal) : goal;
         
+        const existing = await getOne('SELECT id, active FROM payment_types WHERE name = ?', [trimmedName]);
+        if (existing) {
+            const isInactive = existing.active === 0 || existing.active === '0' || existing.active === false || existing.active == null;
+            if (isInactive) {
+                await runQuery(
+                    'UPDATE payment_types SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, unit_type = ? WHERE id = ?',
+                    [icon || '💰', goal, managerGoal, unitType, existing.id]
+                );
+                return res.json({ success: true, message: 'Tipo de pagamento reativado e meta atualizada' });
+            }
+            return res.status(400).json({ error: 'Este tipo já está na tabela abaixo. Use "Editar metas" ou "Excluir da meta" na linha dele.' });
+        }
+        
         await runQuery(
-            'INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal) VALUES (?, ?, ?, ?)',
-            [name, icon || '💰', goal, managerGoal]
+            'INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type) VALUES (?, ?, ?, ?, ?)',
+            [trimmedName, icon || '💰', goal, managerGoal, unitType]
         );
         
         res.json({ success: true, message: 'Tipo de pagamento adicionado' });
     } catch (error) {
+        const msg = (error && error.message) ? String(error.message) : '';
+        if (msg.includes('UNIQUE constraint failed') || (msg.includes('SQLITE_CONSTRAINT') && msg.includes('payment_types'))) {
+            return res.status(400).json({ error: 'Este tipo já está na tabela. Use a tabela para editar ou excluir da meta.' });
+        }
         res.status(500).json({ error: error.message });
     }
 });
@@ -1204,7 +1249,7 @@ router.post('/payment-types', requireAdmin, async (req, res) => {
 router.put('/payment-types/:id', requireAdmin, async (req, res) => {
     try {
         const id = req.params.id;
-        const { name, icon, weekly_goal, manager_weekly_goal } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, unit_type } = req.body;
         
         const paymentType = await getOne('SELECT * FROM payment_types WHERE id = ?', [id]);
         if (!paymentType) {
@@ -1213,6 +1258,7 @@ router.put('/payment-types/:id', requireAdmin, async (req, res) => {
         
         const newName = name || paymentType.name;
         const newIcon = icon || paymentType.icon;
+        const newUnitType = (unit_type === 'unidade') ? 'unidade' : (paymentType.unit_type || 'R$');
         const newGoal = weekly_goal !== undefined ? parseInt(weekly_goal) : paymentType.weekly_goal;
         const parsedManagerGoal = parseInt(manager_weekly_goal);
         const newManagerGoal = manager_weekly_goal !== undefined && !isNaN(parsedManagerGoal)
@@ -1220,8 +1266,8 @@ router.put('/payment-types/:id', requireAdmin, async (req, res) => {
             : (paymentType.manager_weekly_goal ?? paymentType.weekly_goal);
         
         await runQuery(
-            'UPDATE payment_types SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ? WHERE id = ?',
-            [newName, newIcon, newGoal, newManagerGoal, id]
+            'UPDATE payment_types SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, unit_type = ? WHERE id = ?',
+            [newName, newIcon, newGoal, newManagerGoal, newUnitType, id]
         );
         
         res.json({ success: true, message: 'Tipo de pagamento atualizado' });
@@ -1357,7 +1403,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         if (deliveryIds.length > 0) {
             const placeholders = deliveryIds.map(() => '?').join(',');
             allDeliveryItems = await getAll(`
-                SELECT di.delivery_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
+                SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
                 WHERE di.delivery_id IN (${placeholders})
@@ -1479,18 +1525,23 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             
             const memberDeliveries = deliveriesByUserMap.get(member.id) || [];
             memberDeliveries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            // Use priority logic (same as modal): approved-complete > approved-partial > pending > not_delivered/rejected
+            // Prioridade de status para a semana:
+            // 1) Se houver entrega pendente -> AGUARDANDO (sempre mostrar isso primeiro)
+            // 2) Senão, approved-complete -> COMPLETO
+            // 3) Senão, approved-partial  -> EM PROGRESSO
+            // 4) Senão, fallback (rejected/not_delivered/sem entrega)
             let delivery = null;
             if (memberDeliveries.length > 0) {
+                const pendingDel       = memberDeliveries.find(d => d.status === 'pending');
                 const approvedComplete = memberDeliveries.find(d => d.status === 'approved' && !d.is_partial);
                 const approvedPartial  = memberDeliveries.find(d => d.status === 'approved' &&  d.is_partial);
-                const pendingDel       = memberDeliveries.find(d => d.status === 'pending');
-                if (approvedComplete) {
+                
+                if (pendingDel) {
+                    delivery = pendingDel;
+                } else if (approvedComplete) {
                     delivery = approvedComplete;
                 } else if (approvedPartial) {
                     delivery = approvedPartial;
-                } else if (pendingDel) {
-                    delivery = pendingDel;
                 } else {
                     delivery = memberDeliveries[0]; // not_delivered / rejected / fallback
                 }
@@ -1550,29 +1601,50 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     effectivePaymentType = 'dirty_money';
                 }
 
-                // Recalcular parcialidade para aprovados com base na meta do gerente
-                if (delivery.status === 'approved' && delivery.is_partial) {
+                // Regra: 100% nos materiais entregues = Completo; senão = Em progresso (espelho do modal)
+                if (delivery.status === 'approved') {
                     if (effectivePaymentType === 'dirty_money') {
+                        let totalDirty = 0;
+                        for (const d of memberDeliveries) {
+                            if (d.status === 'approved' || d.status === 'pending') totalDirty += parseInt(d.dirty_money_amount, 10) || 0;
+                        }
                         const paymentType = paymentTypesMap.get(delivery.payment_type_id) || {};
                         const goal = isManager
                             ? (paymentType.manager_weekly_goal ?? paymentType.weekly_goal ?? 50000)
                             : (paymentType.weekly_goal ?? 50000);
-                        const amount = delivery.dirty_money_amount || 0;
-                        effectiveIsPartial = amount < goal;
+                        const numGoal = parseInt(goal, 10) || 50000;
+                        effectiveIsPartial = totalDirty < numGoal;
                     } else {
-                        let isComplete = true;
-                        for (const mat of allMaterials) {
-                            const item = deliveryItems.find(i => i.material_id === mat.id);
-                            const amount = item ? item.amount : 0;
-                            const goal = isManager
-                                ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700)
-                                : (mat.weekly_goal ?? 700);
-                            if (amount < goal) {
-                                isComplete = false;
-                                break;
+                        // Soma da semana: todos os envios (aprovados + pendentes) por material
+                        const sumByMaterial = new Map();
+                        for (const d of memberDeliveries) {
+                            if (d.status !== 'approved' && d.status !== 'pending') continue;
+                            const did = d.id != null ? Number(d.id) : d.id;
+                            const items = deliveryItemsMap.get(did) || deliveryItemsMap.get(d.id) || [];
+                            for (const it of items) {
+                                const mid = it.material_id != null ? Number(it.material_id) : it.material_id;
+                                if (mid == null || Number.isNaN(mid)) continue;
+                                const prev = sumByMaterial.get(mid) || 0;
+                                sumByMaterial.set(mid, prev + (parseInt(it.amount, 10) || 0));
                             }
                         }
-                        effectiveIsPartial = !isComplete;
+                        // Completo = TODOS os materiais ativos com total >= meta; senão = Em progresso
+                        if (allMaterials.length === 0) {
+                            effectiveIsPartial = sumByMaterial.size === 0;
+                        } else {
+                            let all100 = true;
+                            for (const mat of allMaterials) {
+                                const matId = mat.id != null ? Number(mat.id) : mat.id;
+                                const total = sumByMaterial.get(matId) || 0;
+                                const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
+                                const numGoal = parseInt(goal, 10) || 700;
+                                if (total < numGoal) {
+                                    all100 = false;
+                                    break;
+                                }
+                            }
+                            effectiveIsPartial = !all100;
+                        }
                     }
                 }
                 
@@ -4142,6 +4214,78 @@ router.post('/extra-farms/:id/reject', requireAdmin, async (req, res) => {
     }
 });
 
+// Todas as submissões da semana do membro (aprovadas + rejeitadas + pendentes) para o extrato do olho
+router.get('/week-submissions', requireAdmin, async (req, res) => {
+    try {
+        const { userId, week_start, week_end } = req.query;
+        if (!userId || !week_start || !week_end) {
+            return res.status(400).json({ error: 'userId, week_start e week_end são obrigatórios' });
+        }
+        const deliveries = await getAll(`
+            SELECT d.*, d.created_at as delivered_at, u.name as approved_by_name
+            FROM deliveries d
+            LEFT JOIN users u ON d.approved_by = u.id
+            WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
+            ORDER BY d.created_at DESC
+        `, [userId, week_start, week_end]);
+        if (!deliveries || deliveries.length === 0) {
+            return res.json({ success: true, submissions: [] });
+        }
+        const deliveryIds = deliveries.map(d => d.id);
+        const placeholders = deliveryIds.map(() => '?').join(',');
+        const allItems = await getAll(`
+            SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
+            FROM delivery_items di
+            JOIN materials m ON di.material_id = m.id
+            WHERE di.delivery_id IN (${placeholders})
+        `, deliveryIds);
+        const allScreenshots = await getAll(`
+            SELECT delivery_id, screenshot_url FROM delivery_screenshots WHERE delivery_id IN (${placeholders})
+        `, deliveryIds);
+        const deliveryGroups = await getUserGroups(userId);
+        const isManager = isManagerByGroups(deliveryGroups);
+        const itemsByDid = new Map();
+        for (const it of allItems) {
+            if (!itemsByDid.has(it.delivery_id)) itemsByDid.set(it.delivery_id, []);
+            itemsByDid.get(it.delivery_id).push({
+                ...it,
+                weekly_goal: isManager ? (it.manager_weekly_goal ?? it.weekly_goal) : it.weekly_goal
+            });
+        }
+        const screenshotsByDid = new Map();
+        for (const s of allScreenshots) {
+            if (!screenshotsByDid.has(s.delivery_id)) screenshotsByDid.set(s.delivery_id, []);
+            screenshotsByDid.get(s.delivery_id).push(s);
+        }
+        const submissions = deliveries.map(d => {
+            const submissionItems = (itemsByDid.get(d.id) || []).map(item => ({ ...item }));
+            const submissionScreenshots = screenshotsByDid.get(d.id) || [];
+            let paymentType = d.payment_type || 'material';
+            if (d.dirty_money_amount > 0 && submissionItems.length === 0) paymentType = 'dirty_money';
+            return {
+                id: d.id,
+                status: d.status,
+                is_partial: d.is_partial,
+                delivered_at: d.delivered_at,
+                created_at: d.created_at,
+                screenshot_url: d.screenshot_url,
+                screenshots: submissionScreenshots,
+                description: d.description,
+                items: submissionItems,
+                payment_type: paymentType,
+                dirty_money_amount: d.dirty_money_amount || 0,
+                approved_by_name: d.approved_by_name,
+                approved_at: d.approved_at,
+                approval_note: d.approval_note
+            };
+        });
+        return res.json({ success: true, submissions });
+    } catch (err) {
+        console.error('Erro em week-submissions:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // ========== EDIÇÃO DE ENTREGAS (ADMIN) ==========
 
 // Buscar detalhes de uma entrega específica para edição
@@ -4220,6 +4364,28 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
             `, deliveryIds);
         }
         
+        // Por entrega: itens e screenshots (para o modal mostrar farm correto, não soma)
+        const itemsByDeliveryId = new Map();
+        for (const item of allItems) {
+            const did = item.delivery_id != null ? Number(item.delivery_id) : item.delivery_id;
+            if (!itemsByDeliveryId.has(did)) itemsByDeliveryId.set(did, []);
+            itemsByDeliveryId.get(did).push({
+                ...item,
+                weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
+            });
+        }
+        const screenshotsByDeliveryId = new Map();
+        for (const ss of allScreenshots) {
+            const did = ss.delivery_id != null ? Number(ss.delivery_id) : ss.delivery_id;
+            if (!screenshotsByDeliveryId.has(did)) screenshotsByDeliveryId.set(did, []);
+            screenshotsByDeliveryId.get(did).push(ss);
+        }
+        const deliveriesWithItems = deliveries.map(d => ({
+            delivery: d,
+            items: itemsByDeliveryId.get(d.id) || [],
+            screenshots: screenshotsByDeliveryId.get(d.id) || []
+        }));
+        
         // Buscar todos os materiais para permitir adicionar novos
         let allMaterials = await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name');
         allMaterials = allMaterials.map(mat => ({
@@ -4250,7 +4416,42 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
             aggregatedIsPartial = false;
         }
         // else: todos são not_delivered → mantém not_delivered
-        
+
+        // Recalcular is_partial pela soma da semana (espelho do Status da Semana): todos os materiais ativos
+        if (aggregatedStatus === 'approved') {
+            const mainDelivery = deliveries.find(d => d.status === 'approved') || deliveries[0];
+            const hasDirtyMoneyOnly = mainDelivery.dirty_money_amount > 0 && aggregatedItems.length === 0;
+            if (hasDirtyMoneyOnly) {
+                let totalDirty = 0;
+                deliveries.forEach(d => { totalDirty += parseInt(d.dirty_money_amount, 10) || 0; });
+                const paymentTypes = await getAll('SELECT id, weekly_goal, manager_weekly_goal FROM payment_types');
+                const ptMap = new Map((paymentTypes || []).map(pt => [pt.id, pt]));
+                const pt = ptMap.get(mainDelivery.payment_type_id) || {};
+                const goal = isManager ? (pt.manager_weekly_goal ?? pt.weekly_goal ?? 50000) : (pt.weekly_goal ?? 50000);
+                const numGoal = parseInt(goal, 10) || 50000;
+                aggregatedIsPartial = totalDirty < numGoal;
+            } else {
+                const sumByMat = new Map();
+                for (const item of aggregatedItems) {
+                    const mid = item.material_id != null ? Number(item.material_id) : item.material_id;
+                    const prev = sumByMat.get(mid) || 0;
+                    sumByMat.set(mid, prev + (parseInt(item.amount, 10) || 0));
+                }
+                let all100 = true;
+                for (const mat of allMaterials) {
+                    const matId = mat.id != null ? Number(mat.id) : mat.id;
+                    const total = sumByMat.get(matId) || 0;
+                    const goal = mat.weekly_goal != null ? parseInt(mat.weekly_goal, 10) : 700;
+                    const numGoal = goal || 700;
+                    if (total < numGoal) {
+                        all100 = false;
+                        break;
+                    }
+                }
+                aggregatedIsPartial = !all100;
+            }
+        }
+
         res.json({ 
             success: true, 
             delivery: {
@@ -4268,6 +4469,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
             screenshots: allScreenshots,
             allMaterials: allMaterials,
             deliveries: deliveries, // Lista de todos os deliveries
+            deliveriesWithItems,   // Cada entrega com seus itens e screenshots (farm correto)
             isManager
         });
     } catch (error) {
@@ -4671,8 +4873,12 @@ router.post('/delivery/create-manual', requireAdmin, async (req, res) => {
         const { userId, weekStart, weekEnd, items, status } = req.body;
         const adminId = req.session.user.id;
         
-        if (!userId || !weekStart || !weekEnd || !items || items.length === 0) {
+        const isNotDelivered = status === 'not_delivered';
+        if (!userId || !weekStart || !weekEnd) {
             return res.status(400).json({ error: 'Dados incompletos' });
+        }
+        if (!isNotDelivered && (!items || items.length === 0)) {
+            return res.status(400).json({ error: 'Informe pelo menos um material' });
         }
         
         // Verificar se já existe entrega para essa semana
@@ -4691,15 +4897,26 @@ router.post('/delivery/create-manual', requireAdmin, async (req, res) => {
 
         if (existing && isSuperAdmin) {
             const deliveryId = existing.id;
+            const realStatus = status === 'in_progress' ? 'approved' : status;
+            const isPartial = status === 'in_progress' ? 1 : 0;
+            const approvedBy = (realStatus === 'approved') ? adminId : null;
+            const approvedAt = (realStatus === 'approved') ? 'CURRENT_TIMESTAMP' : null;
 
-            await runQuery(
-                'UPDATE deliveries SET description = ?, status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
-                ['Atualizado manualmente pelo super admin', status || 'approved', adminId, deliveryId]
-            );
+            if (realStatus === 'approved') {
+                await runQuery(
+                    'UPDATE deliveries SET description = ?, status = ?, is_partial = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
+                    ['Atualizado manualmente pelo super admin', realStatus, isPartial, adminId, deliveryId]
+                );
+            } else {
+                await runQuery(
+                    'UPDATE deliveries SET description = ?, status = ?, is_partial = ?, approved_by = NULL, approved_at = NULL WHERE id = ?',
+                    ['Atualizado manualmente pelo super admin', realStatus, isPartial, deliveryId]
+                );
+            }
 
             await runQuery('DELETE FROM delivery_items WHERE delivery_id = ?', [deliveryId]);
 
-            for (const item of items) {
+            for (const item of (items || [])) {
                 if (item.amount > 0) {
                     await runQuery(
                         'INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)',
@@ -4718,10 +4935,24 @@ router.post('/delivery/create-manual', requireAdmin, async (req, res) => {
         }
         
         // Criar entrega
+        const realStatus = status === 'in_progress' ? 'approved' : (status || 'approved');
+        const isPartial = status === 'in_progress' ? 1 : 0;
+        const isNotDeliveredNow = realStatus === 'not_delivered';
+        
+        if (isNotDeliveredNow) {
+            const result = await runQuery(`
+                INSERT INTO deliveries (user_id, week_start, week_end, description, status, is_partial)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [userId, weekStart, weekEnd, 'Não entregou (registrado pelo admin)', 'not_delivered', 0]);
+            const deliveryId = result.lastID;
+            console.log(`📝 Admin #${adminId} criou entrega "Não entregou" #${deliveryId} para usuário #${userId}`);
+            return res.json({ success: true, message: 'Registro de não entrega criado', deliveryId });
+        }
+        
         const result = await runQuery(`
-            INSERT INTO deliveries (user_id, week_start, week_end, description, status, approved_by, approved_at)
-            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `, [userId, weekStart, weekEnd, 'Criado manualmente pelo admin', status || 'approved', adminId]);
+            INSERT INTO deliveries (user_id, week_start, week_end, description, status, is_partial, approved_by, approved_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `, [userId, weekStart, weekEnd, 'Criado manualmente pelo admin', realStatus, isPartial, adminId]);
         
         const deliveryId = result.lastID;
         

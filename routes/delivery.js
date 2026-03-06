@@ -344,8 +344,9 @@ router.get('/current-week', requireAuth, async (req, res) => {
             }
         }
 
-        // Recalcular parcialidade para aprovados (evita mostrar "em progresso" quando meta do gerente foi batida)
-        if (existingDelivery && existingDelivery.status === 'approved' && existingDelivery.is_partial) {
+        // Recalcular parcialidade para aprovados SEMPRE com base no progresso (ignorar flag antiga do banco)
+        // Regra: se todos os materiais aprovados bateram a meta -> completo; senão -> em progresso
+        if (existingDelivery && existingDelivery.status === 'approved') {
             if (effectivePaymentType === 'dirty_money') {
                 let paymentGoal = 50000;
                 if (paymentTypeId) {
@@ -386,10 +387,10 @@ router.get('/current-week', requireAuth, async (req, res) => {
                 canDeliver = true;
                 statusMessage = '⏳ Farm em progresso - continue adicionando para bater a meta!';
             } else if (existingDelivery.status === 'pending') {
-                // PENDENTE: pode EDITAR o farm antes de ser aprovado
-                canDeliver = true;
-                isLocked = false;
-                statusMessage = '✏️ Farm aguardando aprovação - você pode editar antes da aprovação!';
+                // PENDENTE: TRAVAR o formulário até o gerente aprovar
+                canDeliver = false;
+                isLocked = true;
+                statusMessage = '⏳ Farm enviado para aprovação. Aguarde um gerente aprovar para continuar adicionando.';
             }
         }
         
@@ -579,9 +580,9 @@ router.get('/payment-types', requireAuth, async (req, res) => {
         const isManager = await isManagerUser(req.session.user.id, req.session.user);
         let paymentTypes = [];
         try {
-            paymentTypes = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal FROM payment_types WHERE active = 1 ORDER BY name');
+            paymentTypes = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, unit_type FROM payment_types WHERE active = 1 ORDER BY name');
         } catch (e) {
-            paymentTypes = await getAll('SELECT id, name, icon, weekly_goal FROM payment_types WHERE active = 1 ORDER BY name');
+            paymentTypes = await getAll('SELECT id, name, icon, weekly_goal, unit_type FROM payment_types WHERE active = 1 ORDER BY name');
         }
         paymentTypes = (paymentTypes || []).map(pt => ({
             ...pt,
@@ -867,7 +868,24 @@ router.post('/', requireAuth, (req, res) => {
                 }
             }
 
-            // Se a semana já está concluída, o novo envio vira farm extra para ranking
+            // Carregar configurações para saber se competição está ativa (controla Farm Extra)
+            const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+            const settingsObj = {};
+            (settingsRows || []).forEach(s => {
+                settingsObj[s.setting_key] = s.setting_value;
+            });
+            const competitionEnabled = (settingsObj.competition_enabled || 'false') === 'true';
+
+            // Antes de tudo: regra 1 farm pendente por vez na semana
+            const existingPending = await getOne(`
+                SELECT id FROM deliveries
+                WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'pending'
+            `, [userId, week.start, week.end]);
+            if (existingPending) {
+                return res.status(400).json({ error: 'Já existe um farm aguardando aprovação para esta semana. Aguarde o gerente aprovar ou rejeitar antes de enviar outro.' });
+            }
+
+            // Se a semana já está concluída E competição está ativa, o novo envio vira farm extra para ranking
             const latestCompleteApproved = await getOne(`
                 SELECT * FROM deliveries
                 WHERE user_id = ? AND week_start = ? AND week_end = ?
@@ -876,7 +894,7 @@ router.post('/', requireAuth, (req, res) => {
                 LIMIT 1
             `, [userId, week.start, week.end]);
 
-            if (latestCompleteApproved) {
+            if (competitionEnabled && latestCompleteApproved) {
                 const deliveryId = latestCompleteApproved.id;
                 const extraMaterials = {};
 
@@ -1152,6 +1170,16 @@ router.post('/absence', requireAuth, async (req, res) => {
         const { reason } = req.body;
         const userId = req.session.user.id;
         const week = getCurrentWeek();
+        // Verificar se competição está ativa para permitir farm extra
+        const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+        const settingsObj = {};
+        (settingsRows || []).forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
+        const competitionEnabled = (settingsObj.competition_enabled || 'false') === 'true';
+        if (!competitionEnabled) {
+            return res.status(400).json({ error: 'Competição desativada. Farm extra não está disponível.' });
+        }
         
         if (!reason || reason.trim().length < 10) {
             return res.status(400).json({ 

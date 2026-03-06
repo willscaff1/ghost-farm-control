@@ -276,7 +276,6 @@ function showTab(tabId) {
         case 'weekly-ranking': 
             loadWeeklyRankingTab(); 
             break;
-        case 'members-panel': loadMembersPanel(); break;
         case 'members-overview': loadMembersOverview(); break;
         case 'absences': loadJustifications(); break;
         case 'pending': loadPendingDeliveries(); break;
@@ -640,9 +639,6 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'weekly-ranking':
                 loadWeeklyRankingTab();
-                break;
-            case 'members-panel':
-                loadMembersPanel();
                 break;
             case 'members-overview':
                 loadMembersOverview();
@@ -1127,155 +1123,6 @@ async function saveQuickAdv() {
         console.error('Erro ao aplicar ADV:', error);
         alert('Erro ao aplicar advertência');
     }
-}
-
-// ========== PAINEL DE MEMBROS - EXTRATO ==========
-let membersPanelData = [];
-
-// Carregar painel de membros
-async function loadMembersPanel() {
-    try {
-        const response = await fetch('/api/admin/members');
-        const data = await response.json();
-        
-        // Filtrar apenas membros ativos
-        membersPanelData = (data.members || []).filter(m => m.active === 1 || m.active === true);
-        
-        // Ordenar por passaporte
-        membersPanelData.sort((a, b) => {
-            const passA = parseInt(a.passport) || 0;
-            const passB = parseInt(b.passport) || 0;
-            return passA - passB;
-        });
-        
-        renderMembersList();
-        
-    } catch (error) {
-        console.error('Erro ao carregar painel de membros:', error);
-        document.getElementById('membersExtractList').innerHTML = 
-            '<tr><td colspan="4" class="loading">Erro ao carregar dados</td></tr>';
-    }
-}
-
-// Variáveis de ordenação do painel de membros
-let membersPanelSortColumn = 'passport';
-let membersPanelSortDirection = 'asc';
-
-// Renderizar lista de membros em tabela
-function renderMembersList() {
-    const searchTerm = document.getElementById('searchMembersPanel')?.value?.toLowerCase() || '';
-    
-    // Filtrar
-    const filtered = membersPanelData.filter(m => {
-        if (!searchTerm) return true;
-        return m.name?.toLowerCase().includes(searchTerm) || 
-               m.passport?.toLowerCase().includes(searchTerm);
-    });
-    
-    // Ordenar
-    filtered.sort((a, b) => {
-        let valA, valB;
-        
-        switch (membersPanelSortColumn) {
-            case 'passport':
-                valA = parseInt(a.passport) || 0;
-                valB = parseInt(b.passport) || 0;
-                break;
-            case 'name':
-                valA = a.name.toLowerCase();
-                valB = b.name.toLowerCase();
-                break;
-            case 'role':
-                // Ordenar pelos grupos (primeiro grupo de cada usuário)
-                valA = (() => {
-                    if (a.groups && a.groups.length > 0) {
-                        const displayGroups = a.groups.filter(g => g !== 'member' || a.groups.length === 1);
-                        const firstGroup = displayGroups[0] || a.groups[0];
-                        return roleNames[firstGroup] || firstGroup;
-                    }
-                    return roleNames[a.role] || a.role;
-                })();
-                valB = (() => {
-                    if (b.groups && b.groups.length > 0) {
-                        const displayGroups = b.groups.filter(g => g !== 'member' || b.groups.length === 1);
-                        const firstGroup = displayGroups[0] || b.groups[0];
-                        return roleNames[firstGroup] || firstGroup;
-                    }
-                    return roleNames[b.role] || b.role;
-                })();
-                break;
-            default:
-                return 0;
-        }
-        
-        if (membersPanelSortDirection === 'asc') {
-            return valA > valB ? 1 : valA < valB ? -1 : 0;
-        } else {
-            return valA < valB ? 1 : valA > valB ? -1 : 0;
-        }
-    });
-    
-    // Atualizar indicadores de ordenação
-    document.querySelectorAll('#membersPanelTable th.sortable').forEach(th => {
-        const col = th.getAttribute('data-sort');
-        const arrow = th.querySelector('.sort-arrow');
-        if (arrow) {
-            if (col === membersPanelSortColumn) {
-                arrow.textContent = membersPanelSortDirection === 'asc' ? ' ▲' : ' ▼';
-            } else {
-                arrow.textContent = '';
-            }
-        }
-    });
-    
-    const list = document.getElementById('membersExtractList');
-    
-    if (filtered.length === 0) {
-        list.innerHTML = '<tr><td colspan="4" class="loading">Nenhum membro encontrado</td></tr>';
-        return;
-    }
-    
-    list.innerHTML = filtered.map(member => {
-        const initial = member.name.charAt(0).toUpperCase();
-        
-        // Exibir grupos como badges
-        let groupsDisplay = '';
-        if (member.groups && member.groups.length > 0) {
-            const displayGroups = member.groups.filter(g => g !== 'member' || member.groups.length === 1);
-            groupsDisplay = displayGroups.map(group => 
-                `<span class="role-badge badge-${group}">${roleNames[group] || group}</span>`
-            ).join(' ');
-        } else {
-            groupsDisplay = `<span class="no-role">${roleNames[member.role] || member.role}</span>`;
-        }
-        
-        return `
-            <tr class="member-row" onclick="openMemberExtract(${member.id})">
-                <td>${member.passport || '-'}</td>
-                <td><span class="member-avatar">${initial}</span><span class="member-name">${member.name}</span></td>
-                <td></td>
-                <td>
-                    <button class="btn-small-view" onclick="event.stopPropagation(); openMemberExtract(${member.id})">👁️ Ver Histórico</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-
-// Ordenar painel de membros
-function sortMembersPanel(column) {
-    if (membersPanelSortColumn === column) {
-        membersPanelSortDirection = membersPanelSortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-        membersPanelSortColumn = column;
-        membersPanelSortDirection = 'asc';
-    }
-    renderMembersList();
-}
-
-// Filtrar painel de membros
-function filterMembersPanel() {
-    renderMembersList();
 }
 
 // Abrir modal de extrato do membro
@@ -2260,12 +2107,12 @@ function renderWeeklyTable(filter) {
     // Combinar todos os membros com seus status
     let allMembers = [];
     
-    // Adicionar completos (aprovados com is_partial = false são completos, is_partial = true são em progresso)
+    // Adicionar completos (aprovados: is_partial = false = Completo, is_partial = true = Em progresso)
     data.completed.forEach(member => {
-        if (member.is_partial) {
-            // Farm aprovado mas parcial = Em Progresso
+        const isPartial = !!member.is_partial || member.is_partial === 1 || member.is_partial === '1';
+        if (isPartial) {
+            // Farm aprovado mas não completo = Em Progresso
             if (weekPassed) {
-                // Se a semana passou e está em progresso, marcar como não bateu meta
                 allMembers.push({
                     ...member,
                     status: 'partial',
@@ -2281,7 +2128,7 @@ function renderWeeklyTable(filter) {
                 });
             }
         } else {
-            // Farm aprovado completo
+            // Farm aprovado completo (bateu meta em todos os materiais)
             allMembers.push({
                 ...member,
                 status: 'completed',
@@ -2363,6 +2210,9 @@ function renderWeeklyTable(filter) {
     // Ordenar por nome
     allMembers.sort((a, b) => a.name.localeCompare(b.name));
     
+    // Guardar para o modal Editar Entrega poder usar o mesmo status da tabela
+    window.__weeklyStatusMembersFull = allMembers;
+    
     if (allMembers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="loading">😴 Nenhum membro encontrado com este filtro</td></tr>';
         return;
@@ -2392,9 +2242,9 @@ function renderWeeklyTable(filter) {
         // Botão de editar sempre primeiro (se admin)
         if (canEditDeliveries) {
             if (member.delivery_id) {
-                buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}')" style="background: #9b59b6;" title="Editar Entrega">✏️</button>`);
+                buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}', '${member.status}')" style="background: #9b59b6;" title="Editar Entrega">✏️</button>`);
             } else {
-                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${member.name.replace(/'/g, "\\'")}')" style="background: #9b59b6;" title="Criar Entrega">✏️</button>`);
+                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${member.status}')" style="background: #9b59b6;" title="Criar Entrega">✏️</button>`);
             }
         }
         
@@ -2418,7 +2268,7 @@ function renderWeeklyTable(filter) {
             case 'missing':
                 // Se foi rejeitado, mostrar botão para ver histórico da rejeição
                 if (member.was_rejected) {
-                    buttons.push(`<button class="action-btn view" onclick='showRejectedDetails(${JSON.stringify(member).replace(/'/g, "&apos;")})' style="background: #e74c3c;" title="Ver rejeição anterior">🚫</button>`);
+                    buttons.push(`<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})' title="Ver extrato">👁️</button>`);
                 }
                 break;
         }
@@ -2627,11 +2477,35 @@ async function confirmSaveEditStatus(memberId, newStatus, note) {
     }
 }
 
-// Modal: Mostrar extrato de farm aprovado
+// Modal: Mostrar extrato de farm — todos os envios da semana (aprovados e rejeitados)
 async function showDeliveryExtract(member) {
-    const submissions = (member.weekly_submissions && member.weekly_submissions.length > 0)
-        ? member.weekly_submissions
-        : [{
+    let submissions = [];
+    // Usar a semana que está na tela (selectedWeek) ou a que veio no status (weeklyStatusData.week) ou semana atual
+    const week = (selectedWeek && selectedWeek.start && selectedWeek.end)
+        ? { start: selectedWeek.start, end: selectedWeek.end }
+        : (weeklyStatusData && weeklyStatusData.week && weeklyStatusData.week.start && weeklyStatusData.week.end)
+            ? weeklyStatusData.week
+            : (typeof getCurrentWeek === 'function')
+                ? getCurrentWeek()
+                : null;
+    if (member.id && week && week.start && week.end) {
+        try {
+            const res = await fetch(`/api/admin/week-submissions?userId=${member.id}&week_start=${encodeURIComponent(week.start)}&week_end=${encodeURIComponent(week.end)}`, { credentials: 'same-origin' });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && Array.isArray(data.submissions)) {
+                    submissions = data.submissions;
+                }
+            }
+        } catch (e) {
+            console.warn('Falha ao carregar submissões da semana:', e);
+        }
+    }
+    if (submissions.length === 0 && member.weekly_submissions && member.weekly_submissions.length > 0) {
+        submissions = member.weekly_submissions;
+    }
+    if (submissions.length === 0) {
+        submissions = [{
             id: member.delivery_id,
             status: member.status,
             is_partial: member.is_partial,
@@ -2647,21 +2521,113 @@ async function showDeliveryExtract(member) {
             approved_at: member.approved_at,
             approval_note: member.approval_note
         }];
+    }
 
     const sortedSubmissions = [...submissions].sort((a, b) => new Date(b.created_at || b.delivered_at) - new Date(a.created_at || a.delivered_at));
 
-    const statusLabel = (submission) => {
-        if (submission.status === 'approved') {
-            return submission.is_partial ? { text: '⚡ Em Progresso', cls: 'pending' } : { text: '✅ Aprovado', cls: 'approved' };
+    // Barra de progresso do farm na semana (por material) — só dentro do modal
+    // 1) Buscar todos os materiais com meta ajustada para o membro (mesmo os não entregues)
+    let allMaterialsForMember = [];
+    try {
+        const matsRes = await fetch(`/api/admin/materials?memberId=${member.id}`, { credentials: 'same-origin' });
+        if (matsRes.ok) {
+            const matsData = await matsRes.json();
+            allMaterialsForMember = (matsData.materials || []).filter(m => m.active === 1 || m.active === '1' || m.active === true);
         }
-        if (submission.status === 'pending') return { text: '⏳ Aguardando Aprovação', cls: 'pending' };
-        if (submission.status === 'rejected') return { text: '❌ Rejeitado', cls: 'rejected' };
+    } catch (e) {
+        console.warn('Não foi possível carregar materiais para barra de progresso:', e);
+    }
+
+    const progressByMaterial = {};
+
+    // 2) Inicializar todos os materiais com 0 / meta
+    if (allMaterialsForMember.length > 0) {
+        allMaterialsForMember.forEach(mat => {
+            const key = String(mat.id);
+            progressByMaterial[key] = {
+                name: mat.name,
+                icon: mat.icon || '📦',
+                total: 0,
+                goal: mat.weekly_goal != null ? parseInt(mat.weekly_goal, 10) || 700 : 700
+            };
+        });
+    }
+
+    // 3) Somar apenas os envios APROVADOS da semana (não contar o que ainda está pendente)
+    const approvedSubs = submissions.filter(sub => sub.status === 'approved');
+    for (const sub of approvedSubs) {
+        if (sub.payment_type === 'dirty_money') continue;
+        (sub.items || []).forEach(item => {
+            const key = item.material_id != null ? String(item.material_id) : (item.material_name || '');
+            if (!progressByMaterial[key]) {
+                // fallback se não conseguimos carregar allMaterialsForMember
+                progressByMaterial[key] = {
+                    name: item.material_name || 'Material',
+                    icon: item.material_icon || '📦',
+                    total: 0,
+                    goal: item.weekly_goal != null ? parseInt(item.weekly_goal, 10) || 700 : 700
+                };
+            }
+            progressByMaterial[key].total += parseInt(item.amount, 10) || 0;
+        });
+    }
+
+    // Meta batida = todos os materiais com total >= meta
+    const metaBatida = Object.keys(progressByMaterial).length > 0 &&
+        Object.values(progressByMaterial).every(p => (p.total || 0) >= (p.goal || 700));
+
+    const progressBarsHtml = metaBatida
+        ? `
+        <div class="extract-section progress-week meta-batida">
+            <div class="extract-section-header">
+                <span class="extract-section-title">✅ Meta batida</span>
+            </div>
+            <div class="extract-section-body">
+                <p style="margin: 0; color: rgba(255,255,255,0.8);">Todos os materiais atingiram a meta desta semana.</p>
+            </div>
+        </div>
+        `
+        : (Object.keys(progressByMaterial).length > 0
+        ? `
+        <div class="extract-section progress-week">
+            <div class="extract-section-header">
+                <span class="extract-section-title">📊 Progresso da semana (meta)</span>
+            </div>
+            <div class="extract-section-body">
+                ${Object.values(progressByMaterial).map(p => {
+                    const goal = p.goal || 700;
+                    const pct = goal > 0 ? Math.min(100, Math.round((p.total / goal) * 100)) : 0;
+                    const cls = pct >= 100 ? 'complete' : pct >= 50 ? 'partial' : 'low';
+                    return `
+                    <div class="progress-week-row">
+                        <span class="progress-week-label">${p.icon} ${p.name}</span>
+                        <div class="progress-week-bar-wrap">
+                            <div class="progress-week-bar ${cls}" style="width: ${pct}%"></div>
+                        </div>
+                        <span class="progress-week-value">${formatNumber(p.total)} / ${formatNumber(goal)}</span>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>
+        `
+        : '');
+
+    const statusLabel = (submission) => {
+        const s = (submission.status || '').toLowerCase();
+        if (s === 'approved') {
+            return submission.is_partial ? { text: '✅ Aprovado', cls: 'approved' } : { text: '✅ Aprovado', cls: 'approved' };
+        }
+        if (s === 'pending') return { text: '⏳ Aguardando Aprovação', cls: 'pending' };
+        if (s === 'rejected') return { text: '❌ Rejeitado', cls: 'rejected' };
+        if (s === 'not_delivered' && submission.approved_by_name) return { text: '❌ Rejeitado', cls: 'rejected' };
         return { text: `📌 ${submission.status || 'Enviado'}`, cls: 'pending' };
     };
 
     const submissionsHtml = sortedSubmissions.map((submission, index) => {
         const isDirtyMoney = submission.payment_type === 'dirty_money';
         const status = statusLabel(submission);
+        const s = (submission.status || '').toLowerCase();
+        const isRejected = s === 'rejected' || (s === 'not_delivered' && submission.approved_by_name);
 
         let printsHtml = '';
         if (submission.screenshots && submission.screenshots.length > 0) {
@@ -2687,10 +2653,11 @@ async function showDeliveryExtract(member) {
         }
 
         let approvalInfoHtml = '';
-        if (submission.approved_by_name) {
+        // Só mostrar "Aprovado por" quando a meta estiver toda completa (aprovado e não parcial)
+        if (metaBatida && (submission.status || '').toLowerCase() === 'approved' && !submission.is_partial && submission.approved_by_name) {
             approvalInfoHtml = `
                 <div class="approval-info">
-                    <div class="approver">✅ Avaliado por: ${submission.approved_by_name}</div>
+                    <div class="approver">✅ Aprovado por: ${submission.approved_by_name}</div>
                     ${submission.approved_at ? `<div style="color: rgba(255,255,255,0.6); font-size: 12px;">📅 ${new Date(submission.approved_at).toLocaleDateString('pt-BR')} às ${new Date(submission.approved_at).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</div>` : ''}
                     ${submission.approval_note ? `<div class="approval-note">📝 ${submission.approval_note}</div>` : ''}
                 </div>
@@ -2698,10 +2665,9 @@ async function showDeliveryExtract(member) {
         }
 
         return `
-            <div class="extract-section meta" style="margin-bottom: 16px;">
+            <div class="extract-section meta ${isRejected ? 'status-rejected' : ''}" style="margin-bottom: 16px;">
                 <div class="extract-section-header">
                     <span class="extract-section-title">📦 Envio #${sortedSubmissions.length - index}</span>
-                    <span class="extract-status ${status.cls}">${status.text}</span>
                 </div>
                 <div class="extract-section-body">
                     ${contentHtml}
@@ -2801,9 +2767,10 @@ async function showDeliveryExtract(member) {
                 <h2>📋 Extrato do Farm</h2>
                 <div class="extract-member-info">
                     <span class="extract-member-name">👤 ${member.name}</span>
-                    <span class="extract-date">📅 ${sortedSubmissions.length} envio(s) na semana</span>
                 </div>
             </div>
+
+            ${progressBarsHtml}
 
             ${submissionsHtml}
             
@@ -3675,7 +3642,7 @@ function renderJustifExtract() {
         }[j.status] || j.status;
         
         return `
-            <div class="justif-extract-item">
+            <div class="justif-extract-item status-${statusClass}">
                 <div class="justif-extract-header">
                     <div class="justif-extract-member">
                         <strong>${j.user_name}</strong>
@@ -4274,6 +4241,14 @@ async function loadPendingDeliveries() {
 
 // Carregar farms extras pendentes
 async function loadPendingExtraFarms() {
+    // Se competição não estiver ativa, nunca mostrar farms extras
+    if (!competitionEnabled) {
+        const extraSection = document.getElementById('extraFarmsSection');
+        const extraList = document.getElementById('extraFarmsList');
+        if (extraSection) extraSection.style.display = 'none';
+        if (extraList) extraList.innerHTML = '';
+        return;
+    }
     try {
         console.log('🏆 Carregando farms extras pendentes...');
         const response = await fetch('/api/admin/extra-farms/pending');
@@ -5162,9 +5137,6 @@ async function changeMemberRole(memberId, newGroup, memberName) {
         // Recarregar ranking semanal
         if (typeof loadWeeklyRanking === 'function') loadWeeklyRanking();
         
-        // Recarregar painel de membros
-        if (typeof loadMembersPanel === 'function') loadMembersPanel();
-        
     } catch (error) {
         console.error('Erro ao trocar grupo:', error);
         alert('❌ Erro ao trocar grupo');
@@ -5292,6 +5264,7 @@ async function loadMaterials() {
         const data = await response.json();
         
         const materialsList = document.getElementById('materialsList');
+        if (!materialsList) return;
         
         if (data.materials && data.materials.length > 0) {
             materialsList.innerHTML = data.materials.map(mat => `
@@ -5400,7 +5373,9 @@ function closeEditModal() {
     const modal = document.getElementById('editMaterialModal') ||
         document.getElementById('editPaymentModal') ||
         document.getElementById('editManagerMaterialModal') ||
-        document.getElementById('editManagerPaymentModal');
+        document.getElementById('editManagerPaymentModal') ||
+        document.getElementById('editMaterialGoalsModal') ||
+        document.getElementById('editPaymentTypeGoalsModal');
     if (modal) modal.remove();
 }
 
@@ -5409,7 +5384,6 @@ async function toggleMaterial(id) {
     try {
         const response = await fetch(`/api/admin/materials/${id}/toggle`, { method: 'POST' });
         const data = await response.json();
-        
         if (data.success) {
             const goalsTab = document.getElementById('goals-tab');
             if (goalsTab && goalsTab.classList.contains('active')) {
@@ -5417,60 +5391,287 @@ async function toggleMaterial(id) {
             } else {
                 loadMaterials();
             }
+            loadMaterialsStats();
         } else {
-            alert(data.error || 'Erro ao atualizar material');
+            showNotification(data.error || 'Erro ao atualizar material', 'error');
         }
     } catch (error) {
-        alert('Erro ao atualizar material');
+        showNotification('Erro ao atualizar material', 'error');
     }
 }
 
-// Adicionar novo material
-document.getElementById('newMaterialForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const materialSelect = document.getElementById('materialSelect').value;
-    if (!materialSelect) {
-        alert('❌ Selecione um material!');
+// Adicionar novo material (aba Metas - botão)
+document.getElementById('btnAddMaterial')?.addEventListener('click', async () => {
+    const dropdown = document.getElementById('materialSelectDropdown');
+    const nameInput = document.getElementById('newMaterialName');
+    const nameWrap = document.getElementById('newMaterialNameWrap');
+    const iconWrap = document.getElementById('newMaterialIconWrap');
+    const messageEl = document.getElementById('materialMessage');
+    const val = dropdown && dropdown.value;
+    let name, icon;
+    if (val === '' || !val) {
+        if (messageEl) { messageEl.textContent = 'Selecione um material na lista ou "Adicionar novo material".'; messageEl.className = 'goals-message show error'; }
+        setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
         return;
     }
-    
-    const [icon, name] = materialSelect.split('|');
-    const weekly_goal = parseInt(document.getElementById('materialGoal').value) || 700;
-    
-    const messageEl = document.getElementById('materialMessage');
-    
-    try {
-        const response = await fetch('/api/admin/materials', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, icon, weekly_goal })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            messageEl.textContent = 'Material adicionado com sucesso!';
-            messageEl.className = 'message show success';
-            document.getElementById('newMaterialForm').reset();
-            document.getElementById('materialGoal').value = '700';
-            loadMaterials();
-            loadMaterialsStats();
-        } else {
-            messageEl.textContent = data.error || 'Erro ao adicionar material';
-            messageEl.className = 'message show error';
+    const weekly_goal = parseInt(document.getElementById('newMaterialGoal')?.value) || 700;
+    const manager_weekly_goal = parseInt(document.getElementById('newMaterialManagerGoal')?.value) || weekly_goal;
+    if (val === '__new__') {
+        name = nameInput && nameInput.value ? nameInput.value.trim() : '';
+        if (!name) {
+            if (messageEl) { messageEl.textContent = 'Digite o nome do novo material.'; messageEl.className = 'goals-message show error'; }
+            setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+            return;
         }
-    } catch (error) {
-        messageEl.textContent = 'Erro de conexão';
-        messageEl.className = 'message show error';
+        icon = (document.getElementById('newMaterialIcon') && document.getElementById('newMaterialIcon').value) || '📦';
+        try {
+            const response = await fetch('/api/admin/materials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal })
+            });
+            const data = await response.json();
+            if (data.success) {
+                messageEl.textContent = data.message || 'Material adicionado.';
+                messageEl.className = 'goals-message show success';
+                if (nameInput) nameInput.value = '';
+                dropdown.value = '';
+                if (nameWrap) nameWrap.style.display = 'none';
+                if (iconWrap) iconWrap.style.display = 'none';
+                document.getElementById('newMaterialGoal').value = '700';
+                document.getElementById('newMaterialManagerGoal').value = '700';
+                loadGoalsTab();
+            } else {
+                messageEl.textContent = data.error || 'Erro ao adicionar material.';
+                messageEl.className = 'goals-message show error';
+            }
+            setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+        } catch (err) {
+            messageEl.textContent = 'Erro de conexão.';
+            messageEl.className = 'goals-message show error';
+            setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+        }
+        return;
     }
-    
-    setTimeout(() => {
-        messageEl.className = 'message';
-    }, 5000);
+    const opt = dropdown && dropdown.options[dropdown.selectedIndex];
+    if (!opt) return;
+    name = opt.getAttribute('data-name') || '';
+    icon = opt.getAttribute('data-icon') || '📦';
+    const isInactive = opt.getAttribute('data-active') === '0';
+    try {
+        if (isInactive) {
+            const response = await fetch('/api/admin/materials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal })
+            });
+            const data = await response.json();
+            if (data.success) {
+                messageEl.textContent = data.message || 'Material reativado e metas definidas.';
+                messageEl.className = 'goals-message show success';
+                dropdown.value = '';
+                document.getElementById('newMaterialGoal').value = '700';
+                document.getElementById('newMaterialManagerGoal').value = '700';
+                loadGoalsTab();
+            } else {
+                messageEl.textContent = data.error || 'Erro ao reativar material.';
+                messageEl.className = 'goals-message show error';
+            }
+        } else {
+            const response = await fetch(`/api/admin/materials/${val}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal })
+            });
+            const data = await response.json();
+            if (data.success) {
+                messageEl.textContent = data.message || 'Metas do material atualizadas.';
+                messageEl.className = 'goals-message show success';
+                dropdown.value = '';
+                document.getElementById('newMaterialGoal').value = '700';
+                document.getElementById('newMaterialManagerGoal').value = '700';
+                loadGoalsTab();
+            } else {
+                messageEl.textContent = data.error || 'Erro ao atualizar material.';
+                messageEl.className = 'goals-message show error';
+            }
+        }
+        setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+    } catch (err) {
+        messageEl.textContent = 'Erro de conexão.';
+        messageEl.className = 'goals-message show error';
+        setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+    }
 });
 
-// ===== TIPOS DE PAGAMENTO =====
+document.getElementById('materialSelectDropdown')?.addEventListener('change', function () {
+    const wrap = document.getElementById('newMaterialNameWrap');
+    const iconWrap = document.getElementById('newMaterialIconWrap');
+    const nameInput = document.getElementById('newMaterialName');
+    if (this.value === '__new__') {
+        if (wrap) wrap.style.display = 'flex';
+        if (iconWrap) iconWrap.style.display = 'flex';
+        if (nameInput) { nameInput.value = ''; nameInput.disabled = false; nameInput.placeholder = 'Ex: Ópio, Farinha de Trigo'; }
+    } else {
+        if (wrap) wrap.style.display = 'none';
+        if (iconWrap) iconWrap.style.display = 'none';
+        if (nameInput) nameInput.value = '';
+    }
+});
+
+// Adicionar novo tipo de pagamento (aba Metas - botão)
+document.getElementById('btnAddPaymentType')?.addEventListener('click', async () => {
+    const dropdown = document.getElementById('paymentTypeSelectDropdown');
+    const nameInput = document.getElementById('newPaymentTypeName');
+    const nameWrap = document.getElementById('newPaymentTypeNameWrap');
+    const iconWrap = document.getElementById('newPaymentTypeIconWrap');
+    const unitWrap = document.getElementById('newPaymentTypeUnitWrap');
+    const messageEl = document.getElementById('paymentTypeMessage');
+    const val = dropdown && dropdown.value;
+    let name, icon;
+    if (val === '' || !val) {
+        if (messageEl) { messageEl.textContent = 'Selecione um tipo na lista ou "Adicionar novo tipo de pagamento".'; messageEl.className = 'goals-message show error'; }
+        setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+        return;
+    }
+    const weekly_goal = parseInt(document.getElementById('newPaymentTypeGoal')?.value) || 50000;
+    const manager_weekly_goal = parseInt(document.getElementById('newPaymentTypeManagerGoal')?.value) || weekly_goal;
+    if (val === '__new__') {
+        name = nameInput && nameInput.value ? nameInput.value.trim() : '';
+        if (!name) {
+            if (messageEl) { messageEl.textContent = 'Digite o nome do novo tipo de pagamento.'; messageEl.className = 'goals-message show error'; }
+            setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+            return;
+        }
+        icon = (document.getElementById('newPaymentTypeIcon') && document.getElementById('newPaymentTypeIcon').value) || '💰';
+        const unitType = (document.getElementById('newPaymentTypeUnit') && document.getElementById('newPaymentTypeUnit').value) || 'R$';
+        const defaultGoal = unitType === 'unidade' ? 700 : 50000;
+        const weekly_goal = parseInt(document.getElementById('newPaymentTypeGoal')?.value) || defaultGoal;
+        const manager_weekly_goal = parseInt(document.getElementById('newPaymentTypeManagerGoal')?.value) || weekly_goal;
+        try {
+            const response = await fetch('/api/admin/payment-types', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType })
+            });
+            const data = await response.json();
+            if (data.success) {
+                messageEl.textContent = data.message || 'Tipo de pagamento adicionado.';
+                messageEl.className = 'goals-message show success';
+                if (nameInput) nameInput.value = '';
+                dropdown.value = '';
+                if (nameWrap) nameWrap.style.display = 'none';
+                if (iconWrap) iconWrap.style.display = 'none';
+                if (unitWrap) unitWrap.style.display = 'none';
+                document.getElementById('newPaymentTypeGoal').value = '50000';
+                document.getElementById('newPaymentTypeManagerGoal').value = '50000';
+                loadGoalsTab();
+            } else {
+                messageEl.textContent = data.error || 'Erro ao adicionar.';
+                messageEl.className = 'goals-message show error';
+            }
+            setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+        } catch (err) {
+            messageEl.textContent = 'Erro de conexão.';
+            messageEl.className = 'goals-message show error';
+            setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+        }
+        return;
+    }
+    const opt = dropdown && dropdown.options[dropdown.selectedIndex];
+    if (!opt) return;
+    name = opt.getAttribute('data-name') || '';
+    icon = opt.getAttribute('data-icon') || '💰';
+    const unitType = opt.getAttribute('data-unit-type') || 'R$';
+    const isInactive = opt.getAttribute('data-active') === '0';
+    try {
+        if (isInactive) {
+            const response = await fetch('/api/admin/payment-types', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType })
+            });
+            const data = await response.json();
+            if (data.success) {
+                messageEl.textContent = data.message || 'Tipo reativado e metas definidas.';
+                messageEl.className = 'goals-message show success';
+                dropdown.value = '';
+                document.getElementById('newPaymentTypeGoal').value = '50000';
+                document.getElementById('newPaymentTypeManagerGoal').value = '50000';
+                loadGoalsTab();
+            } else {
+                messageEl.textContent = data.error || 'Erro ao reativar.';
+                messageEl.className = 'goals-message show error';
+            }
+        } else {
+            const response = await fetch(`/api/admin/payment-types/${val}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType })
+            });
+            const data = await response.json();
+            if (data.success) {
+                messageEl.textContent = data.message || 'Metas do tipo atualizadas.';
+                messageEl.className = 'goals-message show success';
+                dropdown.value = '';
+                document.getElementById('newPaymentTypeGoal').value = '50000';
+                document.getElementById('newPaymentTypeManagerGoal').value = '50000';
+                loadGoalsTab();
+            } else {
+                messageEl.textContent = data.error || 'Erro ao atualizar.';
+                messageEl.className = 'goals-message show error';
+            }
+        }
+        setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+    } catch (err) {
+        messageEl.textContent = 'Erro de conexão.';
+        messageEl.className = 'goals-message show error';
+        setTimeout(() => { if (messageEl) messageEl.className = 'goals-message'; }, 4000);
+    }
+});
+
+document.getElementById('paymentTypeSelectDropdown')?.addEventListener('change', function () {
+    const wrap = document.getElementById('newPaymentTypeNameWrap');
+    const iconWrap = document.getElementById('newPaymentTypeIconWrap');
+    const unitWrap = document.getElementById('newPaymentTypeUnitWrap');
+    const nameInput = document.getElementById('newPaymentTypeName');
+    const goalInput = document.getElementById('newPaymentTypeGoal');
+    const managerGoalInput = document.getElementById('newPaymentTypeManagerGoal');
+    const goalLabel = document.getElementById('paymentTypeGoalLabel');
+    const managerGoalLabel = document.getElementById('paymentTypeManagerGoalLabel');
+    if (this.value === '__new__') {
+        if (wrap) wrap.style.display = 'flex';
+        if (iconWrap) iconWrap.style.display = 'flex';
+        if (unitWrap) unitWrap.style.display = 'flex';
+        if (nameInput) { nameInput.value = ''; nameInput.placeholder = 'Ex: Dinheiro Sujo'; }
+        if (goalInput) { goalInput.value = '50000'; goalInput.max = '999999999'; }
+        if (managerGoalInput) managerGoalInput.value = '50000';
+        if (goalLabel) goalLabel.textContent = 'Meta (membros)';
+        if (managerGoalLabel) managerGoalLabel.textContent = 'Meta (gerentes)';
+    } else {
+        if (wrap) wrap.style.display = 'none';
+        if (iconWrap) iconWrap.style.display = 'none';
+        if (unitWrap) unitWrap.style.display = 'none';
+        if (nameInput) nameInput.value = '';
+        const opt = this.options[this.selectedIndex];
+        const unitType = opt?.getAttribute('data-unit-type') || 'R$';
+        const def = unitType === 'unidade' ? 700 : 50000;
+        const max = unitType === 'unidade' ? 999999 : 999999999;
+        if (goalInput) { goalInput.value = def; goalInput.max = max; }
+        if (managerGoalInput) managerGoalInput.value = def;
+        if (goalLabel) goalLabel.textContent = unitType === 'unidade' ? 'Meta (membros) un.' : 'Meta R$ (membros)';
+        if (managerGoalLabel) managerGoalLabel.textContent = unitType === 'unidade' ? 'Meta (gerentes) un.' : 'Meta R$ (gerentes)';
+    }
+});
+
+document.getElementById('newPaymentTypeUnit')?.addEventListener('change', function () {
+    const goalInput = document.getElementById('newPaymentTypeGoal');
+    const managerGoalInput = document.getElementById('newPaymentTypeManagerGoal');
+    const def = this.value === 'unidade' ? 700 : 50000;
+    const max = this.value === 'unidade' ? 999999 : 999999999;
+    if (goalInput) { goalInput.value = def; goalInput.max = max; }
+    if (managerGoalInput) managerGoalInput.value = def;
+});
 
 // Carregar tipos de pagamento
 async function loadPaymentTypes() {
@@ -5479,6 +5680,7 @@ async function loadPaymentTypes() {
         const data = await response.json();
         
         const list = document.getElementById('paymentTypesList');
+        if (!list) return;
         
         if (data.paymentTypes && data.paymentTypes.length > 0) {
             list.innerHTML = data.paymentTypes.map(pt => `
@@ -5632,52 +5834,10 @@ async function togglePaymentType(id) {
     }
 }
 
-// Adicionar novo tipo de pagamento
-document.getElementById('newPaymentTypeForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const name = document.getElementById('paymentTypeName').value;
-    const icon = document.getElementById('paymentTypeIcon').value || '💰';
-    const weekly_goal = parseInt(document.getElementById('paymentTypeGoal').value) || 50000;
-    
-    const messageEl = document.getElementById('paymentTypeMessage');
-    
-    try {
-        const response = await fetch('/api/admin/payment-types', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, icon, weekly_goal })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            messageEl.textContent = 'Tipo de pagamento adicionado com sucesso!';
-            messageEl.className = 'message show success';
-            document.getElementById('newPaymentTypeForm').reset();
-            document.getElementById('paymentTypeGoal').value = '50000';
-            loadPaymentTypes();
-        } else {
-            messageEl.textContent = data.error || 'Erro ao adicionar tipo de pagamento';
-            messageEl.className = 'message show error';
-        }
-    } catch (error) {
-        messageEl.textContent = 'Erro de conexão';
-        messageEl.className = 'message show error';
-    }
-    
-    setTimeout(() => {
-        messageEl.className = 'message';
-    }, 5000);
-});
-
-// ===== METAS DE GERENTES =====
+// ===== ABA METAS (GOALS) =====
 
 async function loadManagerGoals() {
-    await Promise.all([
-        loadManagerMaterialsGoals(),
-        loadManagerPaymentGoals()
-    ]);
+    await loadGoalsTab();
 }
 
 async function loadGoalsTab() {
@@ -5688,146 +5848,259 @@ async function loadGoalsTab() {
 }
 
 async function loadGoalsMaterials() {
+    const tbody = document.getElementById('goalsMaterialsBody');
+    if (!tbody) return;
     try {
         const response = await fetch('/api/admin/materials');
         const data = await response.json();
-        const materials = (data.materials || data).filter(m => m.active === 1 || m.active === true || m.active === '1');
-
-        const membersList = document.getElementById('materialsList');
-        const managersList = document.getElementById('managerMaterialsList');
-
-        if (membersList) {
-            if (materials.length > 0) {
-                membersList.innerHTML = materials.map(mat => `
-                    <div class="material-manage-item">
-                        <div class="material-info">
-                            <span class="material-icon">${mat.icon}</span>
-                            <span class="material-name">${mat.name}</span>
-                            <span class="material-goal-display">Meta Membros: <strong>${mat.weekly_goal || 700}</strong></span>
-                        </div>
-                        <div class="material-actions">
-                            <button class="btn btn-secondary btn-small" onclick="editMaterial(${mat.id}, '${mat.name}', '${mat.icon}', ${mat.weekly_goal || 700})">
-                                ✏️ Editar Meta
-                            </button>
-                            <button class="btn btn-danger btn-small" onclick="toggleMaterial(${mat.id})">
-                                ❌ Ocultar
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                membersList.innerHTML = `
-                    <div class="empty-state">
-                        <span>📦</span>
-                        <p>Nenhum material ativo.</p>
-                    </div>
-                `;
-            }
+        const all = data.materials || data || [];
+        populateMaterialSelectDropdown(all);
+        const inGoals = all.filter(m => m.active === 1 || m.active === true || m.active === '1');
+        if (inGoals.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum material nas metas. Adicione pelo dropdown acima.</td></tr>';
+            return;
         }
-
-        if (managersList) {
-            if (materials.length > 0) {
-                managersList.innerHTML = materials.map(mat => `
-                    <div class="material-manage-item">
-                        <div class="material-info">
-                            <span class="material-icon">${mat.icon}</span>
-                            <span class="material-name">${mat.name}</span>
-                            <span class="material-goal-display">Meta Gerentes: <strong>${mat.manager_weekly_goal ?? mat.weekly_goal ?? 700}</strong></span>
-                        </div>
-                        <div class="material-actions">
-                            <button class="btn btn-secondary btn-small" onclick="editManagerMaterialGoal(${mat.id}, '${mat.name}', '${mat.icon}', ${mat.manager_weekly_goal ?? mat.weekly_goal ?? 700})">
-                                🎯 Editar Meta
-                            </button>
-                            <button class="btn btn-danger btn-small" onclick="toggleMaterial(${mat.id})">
-                                ❌ Ocultar
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                managersList.innerHTML = `
-                    <div class="empty-state">
-                        <span>📦</span>
-                        <p>Nenhum material ativo.</p>
-                    </div>
-                `;
-            }
-        }
-    } catch (error) {
-        console.error('Erro ao carregar metas (materiais):', error);
+        tbody.innerHTML = inGoals.map(m => {
+            const nameEsc = (m.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const iconEsc = (m.icon || '📦').replace(/'/g, "\\'");
+            const goalM = m.weekly_goal ?? 700;
+            const goalG = m.manager_weekly_goal ?? m.weekly_goal ?? 700;
+            return `<tr>
+                <td class="goals-cell-icon">${m.icon || '📦'}</td>
+                <td class="goals-cell-name">${m.name || '-'}</td>
+                <td class="goals-cell-meta">${Number(goalM).toLocaleString('pt-BR')}</td>
+                <td class="goals-cell-meta">${Number(goalG).toLocaleString('pt-BR')}</td>
+                <td><span class="goals-status-active">Ativo</span></td>
+                <td class="goals-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditMaterialGoalsModal(${m.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG})">✏️ Editar metas</button>
+                    <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removeMaterialFromGoals(${m.id})" title="Excluir este material da meta">Excluir da meta</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
     }
+}
+
+function populateMaterialSelectDropdown(allMaterials) {
+    const sel = document.getElementById('materialSelectDropdown');
+    if (!sel) return;
+    const list = Array.isArray(allMaterials) ? allMaterials : [];
+    sel.innerHTML = '';
+    const opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = 'Selecione um material...';
+    sel.appendChild(opt0);
+    list.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.setAttribute('data-name', m.name || '');
+        opt.setAttribute('data-icon', m.icon || '📦');
+        opt.setAttribute('data-active', (m.active === 1 || m.active === true || m.active === '1') ? '1' : '0');
+        opt.textContent = m.name || '';
+        sel.appendChild(opt);
+    });
+    const optNew = document.createElement('option');
+    optNew.value = '__new__';
+    optNew.textContent = '➕ Adicionar novo material';
+    sel.appendChild(optNew);
 }
 
 async function loadGoalsPaymentTypes() {
+    const tbody = document.getElementById('goalsPaymentTypesBody');
+    if (!tbody) return;
     try {
         const response = await fetch('/api/admin/payment-types');
         const data = await response.json();
-        const paymentTypes = (data.paymentTypes || []).filter(pt => pt.active === 1 || pt.active === true || pt.active === '1');
-
-        const membersList = document.getElementById('paymentTypesList');
-        const managersList = document.getElementById('managerPaymentTypesList');
-
-        if (membersList) {
-            if (paymentTypes.length > 0) {
-                membersList.innerHTML = paymentTypes.map(pt => `
-                    <div class="material-manage-item">
-                        <div class="material-info">
-                            <span class="material-icon">${pt.icon}</span>
-                            <span class="material-name">${pt.name}</span>
-                            <span class="material-goal-display">Meta Membros: <strong>R$ ${pt.weekly_goal.toLocaleString('pt-BR')}</strong></span>
-                        </div>
-                        <div class="material-actions">
-                            <button class="btn btn-secondary btn-small" onclick="editPaymentType(${pt.id}, '${pt.name.replace(/'/g, "\\'")}', '${pt.icon}', ${pt.weekly_goal})">
-                                ✏️ Editar
-                            </button>
-                            <button class="btn btn-danger btn-small" onclick="togglePaymentType(${pt.id})">
-                                ❌ Ocultar
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                membersList.innerHTML = `
-                    <div class="empty-state">
-                        <span>💰</span>
-                        <p>Nenhum tipo de pagamento ativo.</p>
-                    </div>
-                `;
-            }
+        const all = data.paymentTypes || data || [];
+        populatePaymentTypeSelectDropdown(all);
+        const inGoals = all.filter(pt => pt.active === 1 || pt.active === true || pt.active === '1');
+        if (inGoals.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum tipo de pagamento nas metas. Adicione pelo dropdown acima.</td></tr>';
+            return;
         }
-
-        if (managersList) {
-            if (paymentTypes.length > 0) {
-                managersList.innerHTML = paymentTypes.map(pt => `
-                    <div class="material-manage-item">
-                        <div class="material-info">
-                            <span class="material-icon">${pt.icon}</span>
-                            <span class="material-name">${pt.name}</span>
-                            <span class="material-goal-display">Meta Gerentes: <strong>R$ ${(pt.manager_weekly_goal ?? pt.weekly_goal).toLocaleString('pt-BR')}</strong></span>
-                        </div>
-                        <div class="material-actions">
-                            <button class="btn btn-secondary btn-small" onclick="editManagerPaymentGoal(${pt.id}, '${pt.name.replace(/'/g, "\\'")}', '${pt.icon}', ${pt.manager_weekly_goal ?? pt.weekly_goal})">
-                                🎯 Editar Meta
-                            </button>
-                            <button class="btn btn-danger btn-small" onclick="togglePaymentType(${pt.id})">
-                                ❌ Ocultar
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                managersList.innerHTML = `
-                    <div class="empty-state">
-                        <span>💰</span>
-                        <p>Nenhum tipo de pagamento ativo.</p>
-                    </div>
-                `;
-            }
-        }
-    } catch (error) {
-        console.error('Erro ao carregar metas (pagamentos):', error);
+        tbody.innerHTML = inGoals.map(pt => {
+            const nameEsc = (pt.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const iconEsc = (pt.icon || '💰').replace(/'/g, "\\'");
+            const goalM = pt.weekly_goal ?? (pt.unit_type === 'unidade' ? 700 : 50000);
+            const goalG = pt.manager_weekly_goal ?? pt.weekly_goal ?? goalM;
+            const fmt = (v) => pt.unit_type === 'unidade' ? `${Number(v).toLocaleString('pt-BR')} un.` : `R$ ${Number(v).toLocaleString('pt-BR')}`;
+            return `<tr>
+                <td class="goals-cell-icon">${pt.icon || '💰'}</td>
+                <td class="goals-cell-name">${pt.name || '-'}</td>
+                <td class="goals-cell-meta">${fmt(goalM)}</td>
+                <td class="goals-cell-meta">${fmt(goalG)}</td>
+                <td><span class="goals-status-active">Ativo</span></td>
+                <td class="goals-actions">
+                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditPaymentTypeGoalsModal(${pt.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG}, '${(pt.unit_type || 'R$').replace(/'/g, "\\'")}')">✏️ Editar metas</button>
+                    <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removePaymentTypeFromGoals(${pt.id})" title="Excluir da meta">Excluir da meta</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
     }
 }
+
+function populatePaymentTypeSelectDropdown(allPaymentTypes) {
+    const sel = document.getElementById('paymentTypeSelectDropdown');
+    if (!sel) return;
+    const list = Array.isArray(allPaymentTypes) ? allPaymentTypes : [];
+    sel.innerHTML = '';
+    const opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = 'Selecione um tipo de pagamento...';
+    sel.appendChild(opt0);
+    list.forEach(pt => {
+        const opt = document.createElement('option');
+        opt.value = pt.id;
+        opt.setAttribute('data-name', pt.name || '');
+        opt.setAttribute('data-icon', pt.icon || '💰');
+        opt.setAttribute('data-unit-type', (pt.unit_type === 'unidade') ? 'unidade' : 'R$');
+        opt.setAttribute('data-active', (pt.active === 1 || pt.active === true || pt.active === '1') ? '1' : '0');
+        opt.textContent = pt.name || '';
+        sel.appendChild(opt);
+    });
+    const optNew = document.createElement('option');
+    optNew.value = '__new__';
+    optNew.textContent = '➕ Adicionar novo tipo de pagamento';
+    sel.appendChild(optNew);
+}
+
+function removeMaterialFromGoals(id) {
+    if (!confirm('Excluir este material da meta? O membro não precisará mais pagar essa meta. Você pode incluí-lo de novo pelo botão "Incluir nas metas" quando quiser.')) return;
+    toggleMaterial(id);
+}
+
+function addMaterialToGoals(id) {
+    toggleMaterial(id);
+}
+
+function removePaymentTypeFromGoals(id) {
+    if (!confirm('Excluir este tipo de pagamento da meta? O membro não precisará mais pagar essa meta. Você pode incluí-lo de novo pelo dropdown quando quiser.')) return;
+    togglePaymentType(id);
+}
+
+function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes) {
+    const modalHtml = `
+        <div class="edit-modal-overlay" id="editMaterialGoalsModal">
+            <div class="edit-modal-content">
+                <h3>✏️ Editar metas do material</h3>
+                <div class="edit-form">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label>Material</label>
+                        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                            <span style="font-size:28px;">${icon}</span>
+                            <span style="font-weight:600;">${name}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Meta (membros)</label>
+                        <input type="number" id="editMatGoalMembros" value="${goalMembros}" min="1" class="edit-input" style="width:120px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Meta (gerentes)</label>
+                        <input type="number" id="editMatGoalGerentes" value="${goalGerentes}" min="1" class="edit-input" style="width:120px;">
+                    </div>
+                    <div class="modal-buttons" style="margin-top:16px;">
+                        <button class="btn btn-primary" onclick="saveMaterialGoals(${id})">💾 Salvar</button>
+                        <button class="btn btn-secondary" onclick="closeEditModal()">❌ Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function saveMaterialGoals(id) {
+    const goalM = parseInt(document.getElementById('editMatGoalMembros')?.value);
+    const goalG = parseInt(document.getElementById('editMatGoalGerentes')?.value);
+    if (isNaN(goalM) || goalM < 1 || isNaN(goalG) || goalG < 1) {
+        showNotification('Metas inválidas.', 'error');
+        return;
+    }
+    try {
+        const res = await fetch(`/api/admin/materials/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ weekly_goal: goalM, manager_weekly_goal: goalG })
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeEditModal();
+            showNotification('Metas atualizadas.', 'success');
+            loadGoalsTab();
+        } else {
+            showNotification(data.error || 'Erro ao salvar', 'error');
+        }
+    } catch (e) {
+        showNotification('Erro ao salvar.', 'error');
+    }
+}
+
+function openEditPaymentTypeGoalsModal(id, name, icon, goalMembros, goalGerentes, unitType) {
+    const isUnidade = unitType === 'unidade';
+    const labelM = isUnidade ? 'Meta (membros) un.' : 'Meta R$ (membros)';
+    const labelG = isUnidade ? 'Meta (gerentes) un.' : 'Meta R$ (gerentes)';
+    const modalHtml = `
+        <div class="edit-modal-overlay" id="editPaymentTypeGoalsModal">
+            <div class="edit-modal-content">
+                <h3>✏️ Editar metas do tipo de pagamento</h3>
+                <div class="edit-form">
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label>Tipo</label>
+                        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                            <span style="font-size:28px;">${icon}</span>
+                            <span style="font-weight:600;">${name}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>${labelM}</label>
+                        <input type="number" id="editPayGoalMembros" value="${goalMembros}" min="1" class="edit-input" style="width:140px;">
+                    </div>
+                    <div class="form-group">
+                        <label>${labelG}</label>
+                        <input type="number" id="editPayGoalGerentes" value="${goalGerentes}" min="1" class="edit-input" style="width:140px;">
+                    </div>
+                    <div class="modal-buttons" style="margin-top:16px;">
+                        <button class="btn btn-primary" onclick="savePaymentTypeGoals(${id})">💾 Salvar</button>
+                        <button class="btn btn-secondary" onclick="closeEditModal()">❌ Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function savePaymentTypeGoals(id) {
+    const goalM = parseInt(document.getElementById('editPayGoalMembros')?.value);
+    const goalG = parseInt(document.getElementById('editPayGoalGerentes')?.value);
+    if (isNaN(goalM) || goalM < 1 || isNaN(goalG) || goalG < 1) {
+        showNotification('Metas inválidas.', 'error');
+        return;
+    }
+    try {
+        const res = await fetch(`/api/admin/payment-types/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ weekly_goal: goalM, manager_weekly_goal: goalG })
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeEditModal();
+            showNotification('Metas atualizadas.', 'success');
+            loadGoalsTab();
+        } else {
+            showNotification(data.error || 'Erro ao salvar', 'error');
+        }
+    } catch (e) {
+        showNotification('Erro ao salvar.', 'error');
+    }
+}
+
+// ===== METAS DE GERENTES (compatibilidade - redireciona para goals) =====
 
 async function loadManagerMaterialsGoals() {
     try {
@@ -6096,6 +6369,19 @@ function updateCompetitionVisibility() {
     const rankingTab = document.querySelector('[data-tab="weekly-ranking"]');
     if (rankingTab) {
         rankingTab.style.display = competitionEnabled ? 'block' : 'none';
+    }
+    
+    // Ocultar sub-abas e seções relacionadas a farms extras quando competição estiver desabilitada
+    const farmsExtraTab = document.getElementById('farmsExtraExtractTab');
+    const farmsExtraContent = document.getElementById('farms-extra-extract-content');
+    const extraFarmsSection = document.getElementById('extraFarmsSection');
+    if (!competitionEnabled) {
+        if (farmsExtraTab) farmsExtraTab.style.display = 'none';
+        if (farmsExtraContent) farmsExtraContent.style.display = 'none';
+        if (extraFarmsSection) extraFarmsSection.style.display = 'none';
+    } else {
+        if (farmsExtraTab) farmsExtraTab.style.display = 'inline-block';
+        // Conteúdo só aparece quando a aba é clicada (switchFarmsTab), então não ativamos aqui
     }
     
     // Se a aba de ranking está ativa e competição desabilitada, voltar para status da semana
@@ -7650,7 +7936,7 @@ function populateReportWeekSelect() {
     console.log('✅ Select populado com', select.options.length, 'opções');
 }
 
-// Carregar relatório semanal
+// Carregar relatório semanal (alinhado ao Status da Semana: só COMPLETO = pagou; Em Progresso/Pendente/etc = não pagou)
 async function loadWeeklyReport() {
     const container = document.getElementById('reportPreview');
     if (!container) return;
@@ -7663,61 +7949,111 @@ async function loadWeeklyReport() {
     `;
     
     try {
-        // Primeiro, pegar informações da semana
+        // Pegar informações da semana
         const weekResponse = await fetch(`/api/admin/week/${reportWeekOffset}`);
         const weekData = await weekResponse.json();
         
-        // Buscar dados dos membros para a semana
+        // Usar a MESMA API do Status da Semana para ficar tudo alinhado
         const params = `?week_start=${weekData.week.start}&week_end=${weekData.week.end}`;
-        const response = await fetch(`/api/admin/members-overview${params}`);
+        const response = await fetch(`/api/admin/weekly-status${params}`);
         const data = await response.json();
         
         if (!response.ok) throw new Error(data.error || 'Erro ao carregar relatório');
         
-        // Separar quem pagou e quem não pagou
+        const completed = data.completed || [];
+        const pendingApproval = data.pendingApproval || [];
+        const notDelivered = data.notDelivered || [];
+        const justified = data.justified || [];
+        
+        // Pagaram = APENAS status COMPLETO (aprovado e não parcial) + Justificados
         const paid = [];
         const notPaid = [];
         
-        data.members.forEach(member => {
-            // Determinar texto do tipo de pagamento
-            let paymentTypeText = '';
-            if (member.paymentType === 'dirty_money' || member.paymentType?.startsWith('payment_')) {
-                const typeName = member.paymentTypeName || 'Dinheiro Sujo';
-                paymentTypeText = `${typeName} (R$ ${formatNumber(member.dirtyMoneyAmount || 0)})`;
-            } else if (member.farmStatus === 'approved') {
-                paymentTypeText = 'Materiais';
+        // Completo (meta batida) -> Pagaram
+        completed.filter(m => !m.is_partial).forEach(member => {
+            let paymentTypeText = 'Materiais';
+            if (member.payment_type === 'dirty_money' || (member.dirty_money_amount && member.dirty_money_amount > 0 && (!member.items || member.items.length === 0))) {
+                paymentTypeText = `Dinheiro Sujo (R$ ${formatNumber(member.dirty_money_amount || 0)})`;
             }
-            
-            const memberData = {
+            const role = (member.groups && member.groups.length > 0) ? (roleNames[member.groups[0]] || member.role) : (roleNames[member.role] || member.role);
+            paid.push({
                 id: member.id,
                 name: member.name,
                 passport: member.passport,
-                role: roleNames[member.role] || member.role,
-                farmStatus: member.farmStatus,
-                paymentType: member.paymentType,
+                role: role,
+                farmStatus: 'approved',
+                paymentType: member.payment_type || 'material',
                 paymentTypeText: paymentTypeText,
-                dirtyMoneyAmount: member.dirtyMoneyAmount || 0,
-                isLatePayment: member.isLatePayment || false
-            };
-            
-            // Considera "pagou" se tem farm aprovado ou justificativa aprovada
-            if (member.farmStatus === 'approved' || member.farmStatus === 'justified') {
-                paid.push(memberData);
-            } else {
-                notPaid.push(memberData);
-            }
+                dirtyMoneyAmount: member.dirty_money_amount || 0,
+                isLatePayment: member.is_late_payment || false
+            });
         });
         
-        // Salvar dados para exportação
+        // Justificados -> Pagaram
+        justified.forEach(member => {
+            const role = (member.groups && member.groups.length > 0) ? (roleNames[member.groups[0]] || member.role) : (roleNames[member.role] || member.role);
+            paid.push({
+                id: member.id,
+                name: member.name,
+                passport: member.passport,
+                role: role,
+                farmStatus: 'justified',
+                paymentType: null,
+                paymentTypeText: '-',
+                dirtyMoneyAmount: 0,
+                isLatePayment: false
+            });
+        });
+        
+        // Em Progresso (aprovado mas parcial) -> Não Pagaram
+        completed.filter(m => m.is_partial).forEach(member => {
+            const role = (member.groups && member.groups.length > 0) ? (roleNames[member.groups[0]] || member.role) : (roleNames[member.role] || member.role);
+            notPaid.push({
+                id: member.id,
+                name: member.name,
+                passport: member.passport,
+                role: role,
+                farmStatus: 'partial',
+                statusLabel: 'Em Progresso'
+            });
+        });
+        
+        // Aguardando aprovação -> Não Pagaram
+        pendingApproval.forEach(member => {
+            const role = (member.groups && member.groups.length > 0) ? (roleNames[member.groups[0]] || member.role) : (roleNames[member.role] || member.role);
+            notPaid.push({
+                id: member.id,
+                name: member.name,
+                passport: member.passport,
+                role: role,
+                farmStatus: member.has_justification_pending ? 'justification_pending' : 'pending',
+                statusLabel: member.has_justification_pending ? 'Justificativa Pendente' : 'Aguardando Aprovação'
+            });
+        });
+        
+        // Não entregou / Rejeitado -> Não Pagaram
+        notDelivered.forEach(member => {
+            const role = (member.groups && member.groups.length > 0) ? (roleNames[member.groups[0]] || member.role) : (roleNames[member.role] || member.role);
+            notPaid.push({
+                id: member.id,
+                name: member.name,
+                passport: member.passport,
+                role: role,
+                farmStatus: member.was_rejected ? 'rejected' : 'not_delivered',
+                statusLabel: member.was_rejected ? 'Rejeitado' : 'Sem Entrega'
+            });
+        });
+        
+        const total = paid.length + notPaid.length;
+        
         reportData = {
             week: weekData.week,
             paid,
             notPaid,
-            total: data.members.length,
-            rate: data.members.length > 0 ? Math.round((paid.length / data.members.length) * 100) : 0
+            total,
+            rate: total > 0 ? Math.round((paid.length / total) * 100) : 0
         };
         
-        // Renderizar tabelas
         renderReport(reportData);
         
     } catch (error) {
@@ -7791,10 +8127,13 @@ function renderReport(data) {
                         </thead>
                         <tbody>
                             ${data.notPaid.length > 0 ? data.notPaid.map(m => {
-                                let statusText = 'Sem Entrega';
-                                if (m.farmStatus === 'pending') statusText = 'Aguardando Aprovação';
-                                else if (m.farmStatus === 'rejected') statusText = 'Rejeitado';
-                                else if (m.farmStatus === 'justification_pending') statusText = 'Justificativa Pendente';
+                                let statusText = m.statusLabel || 'Sem Entrega';
+                                if (!m.statusLabel) {
+                                    if (m.farmStatus === 'pending') statusText = 'Aguardando Aprovação';
+                                    else if (m.farmStatus === 'rejected') statusText = 'Rejeitado';
+                                    else if (m.farmStatus === 'justification_pending') statusText = 'Justificativa Pendente';
+                                    else if (m.farmStatus === 'partial') statusText = 'Em Progresso';
+                                }
                                 return `
                                     <tr>
                                         <td>${m.passport}</td>
@@ -7932,10 +8271,13 @@ async function generateReportPDF() {
                 </thead>
                 <tbody>
                     ${reportData.notPaid.map(m => {
-                        let statusText = 'Sem Entrega';
-                        if (m.farmStatus === 'pending') statusText = 'Aguardando Aprovação';
-                        else if (m.farmStatus === 'rejected') statusText = 'Rejeitado';
-                        else if (m.farmStatus === 'justification_pending') statusText = 'Justificativa Pendente';
+                        let statusText = m.statusLabel || 'Sem Entrega';
+                        if (!m.statusLabel) {
+                            if (m.farmStatus === 'pending') statusText = 'Aguardando Aprovação';
+                            else if (m.farmStatus === 'rejected') statusText = 'Rejeitado';
+                            else if (m.farmStatus === 'justification_pending') statusText = 'Justificativa Pendente';
+                            else if (m.farmStatus === 'partial') statusText = 'Em Progresso';
+                        }
                         return `
                             <tr>
                                 <td>${m.passport}</td>
@@ -8903,7 +9245,8 @@ function onEditWeekChange() {
 }
 
 // Abrir modal para editar entrega existente
-async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
+// Mostra o farm correto (uma entrega por vez, não soma) e status = espelho do Status da Semana
+async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) {
     // Qualquer admin pode editar entregas
     if (!currentUser) {
         showNotification('Você precisa estar logado para editar entregas', 'error');
@@ -8919,9 +9262,10 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
     document.getElementById('editDeliveryExistingScreenshots').innerHTML = '';
     document.getElementById('editDeliveryNewScreenshotsPreview').innerHTML = '';
     document.getElementById('editDeliveryScreenshotInput').value = '';
+    const envioSelEl = document.getElementById('editDeliveryEnvioSelector');
+    if (envioSelEl) { envioSelEl.style.display = 'none'; envioSelEl.innerHTML = ''; }
     
     try {
-        // Buscar dados agregados da semana (todos os deliveries + itens somados)
         const response = await fetch(`/api/admin/week-delivery-details?userId=${memberId}&week_start=${weekStart}&week_end=${weekEnd}`, {
             credentials: 'same-origin'
         });
@@ -8931,19 +9275,48 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
             throw new Error(data.error || 'Erro ao carregar detalhes');
         }
         
-        // Guardar ID do primeiro delivery para edições
-        currentEditDeliveryId = data.delivery.id;
+        // Usar entregas por envio (farm correto); fallback para formato antigo
+        const deliveriesWithItems = data.deliveriesWithItems || [{
+            delivery: data.delivery,
+            items: data.items || [],
+            screenshots: (data.screenshots || []).filter(s => !s.delivery_id || s.delivery_id === data.delivery.id)
+        }];
+        
+        const allMaterials = data.allMaterials || [];
         currentEditUserId = memberId;
         currentEditWeekStart = weekStart;
         currentEditWeekEnd = weekEnd;
         
-        // Preencher informações com status agregado e contagem de envios
+        // Status = espelho do Status da Semana (prioridade: status passado pelo botão > membro da tabela > backend)
+        const memberFromTable = window.__weeklyStatusMembersFull && window.__weeklyStatusMembersFull.find(m => m.id == memberId);
+        let displayStatus = data.delivery.status;
+        if (data.delivery.status === 'approved' && data.delivery.is_partial) displayStatus = 'in_progress';
+        if (tableStatus) {
+            if (tableStatus === 'completed') displayStatus = 'approved';
+            else if (tableStatus === 'partial') displayStatus = 'in_progress';
+            else if (tableStatus === 'pending') displayStatus = 'pending';
+            else if (tableStatus === 'missing') displayStatus = 'not_delivered';
+        } else if (memberFromTable) {
+            if (memberFromTable.status === 'completed') displayStatus = 'approved';
+            else if (memberFromTable.status === 'partial') displayStatus = 'in_progress';
+            else if (memberFromTable.status === 'pending') displayStatus = 'pending';
+            else if (memberFromTable.status === 'missing') displayStatus = 'not_delivered';
+        }
+        
+        // Guardar dados para troca de envio e para save
+        window.__currentEditDeliveryDetailsData = {
+            deliveriesWithItems,
+            allMaterials,
+            delivery_count: data.delivery.delivery_count || deliveriesWithItems.length
+        };
+        
+        // Primeira entrega (índice 0) = mais recente
+        currentEditDeliveryId = deliveriesWithItems[0].delivery.id;
+        
         document.getElementById('editDeliveryMemberName').textContent = data.delivery.member_name;
         const weekLabel = formatWeekLabel(data.delivery.week_start, data.delivery.week_end);
-        const deliveryCountBadge = data.delivery.delivery_count > 1 ? ` <span style="background: #3498db; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px;">${data.delivery.delivery_count} envios</span>` : '';
-        document.getElementById('editDeliveryWeek').innerHTML = weekLabel + deliveryCountBadge;
+        document.getElementById('editDeliveryWeek').textContent = weekLabel;
         
-        // Preencher dropdown de semanas
         const weekSel = document.getElementById('editWeekSelect');
         if (weekSel) {
             const weeks = generateWeekOptions(weekStart, weekEnd);
@@ -8951,7 +9324,6 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
                 const selected = (w.ws === weekStart && w.we === weekEnd) ? 'selected' : '';
                 return `<option value="${w.ws}|${w.we}" ${selected}>${w.label}</option>`;
             }).join('');
-            // garantir seleção se não estava na lista gerada
             if (!weekSel.value) {
                 const fmtBR = s => { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
                 const opt = document.createElement('option');
@@ -8964,23 +9336,24 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
             if (badge) badge.style.display = 'none';
         }
         
-        // Renderizar screenshots existentes
-        renderExistingScreenshots(data.screenshots || [], currentEditDeliveryId);
-        
-        // Converter status + is_partial em valor de dropdown
-        let displayStatus = data.delivery.status;
-        if (data.delivery.status === 'approved' && data.delivery.is_partial) {
-            displayStatus = 'in_progress';
+        // Seletor de envio quando há mais de um
+        if (deliveriesWithItems.length > 1 && envioSelEl) {
+            envioSelEl.style.display = 'block';
+            envioSelEl.innerHTML = `
+                <label style="color: #aaa; margin-right: 8px;">Envio:</label>
+                <select id="editEnvioSelect" onchange="switchEditDeliveryEnvio(this.selectedIndex)" style="background: #2d2d44; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 14px; min-width: 120px;">
+                    ${deliveriesWithItems.map((_, i) => `<option value="${i}">Envio #${i + 1}</option>`).join('')}
+                </select>
+            `;
         }
         
-        // Select para editar status
+        // Status (espelho da tabela)
         const statusOptions = [
             { value: 'approved', label: '✅ Completo', color: '#27ae60' },
             { value: 'in_progress', label: '⚡ Em Progresso', color: '#3498db' },
             { value: 'pending', label: '⏳ Aguardando', color: '#f39c12' },
             { value: 'not_delivered', label: '🚫 Não Entregou', color: '#e74c3c' }
         ];
-        
         let statusSelectHtml = `<select id="editDeliveryStatusSelect" data-original="${displayStatus}" style="padding: 10px 15px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: #2d2d44; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; min-width: 180px;">`;
         for (const opt of statusOptions) {
             statusSelectHtml += `<option value="${opt.value}" ${displayStatus === opt.value ? 'selected' : ''} style="background: #2d2d44; color: #fff; padding: 10px;">${opt.label}</option>`;
@@ -8988,45 +9361,68 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd) {
         statusSelectHtml += `</select>`;
         document.getElementById('editDeliveryStatus').innerHTML = statusSelectHtml;
         
-        // Renderizar itens para edição
-        let itemsHtml = '';
-        
-        for (const mat of data.allMaterials) {
-            const existingItem = data.items.find(i => i.material_id === mat.id);
-            const currentAmount = existingItem ? existingItem.amount : 0;
-            
-            itemsHtml += `
-                <div class="edit-delivery-item" style="display: flex; align-items: center; gap: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
-                    <span style="font-size: 24px;">${mat.icon || '📦'}</span>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600; color: #fff;">${mat.name}</div>
-                        <div style="font-size: 12px; color: #888;">Meta: ${mat.weekly_goal}</div>
-                    </div>
-                    <input type="number" 
-                           id="editItem_${mat.id}" 
-                           value="${currentAmount}" 
-                           min="0" 
-                           style="width: 100px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; text-align: center; font-size: 16px;"
-                           data-material-id="${mat.id}"
-                           data-original="${currentAmount}"
-                           data-name="${mat.name}">
-                </div>
-            `;
-        }
-        
-        itemsHtml += `
-            <button onclick="saveAllDeliveryItems()" 
-                    style="width: 100%; margin-top: 15px; background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
-                💾 Salvar Alterações
-            </button>
-        `;
-        
-        document.getElementById('editDeliveryItems').innerHTML = itemsHtml;
+        renderEditDeliveryFormForEnvio(0);
         
     } catch (error) {
         console.error('Erro ao carregar detalhes da entrega:', error);
         document.getElementById('editDeliveryItems').innerHTML = `<p style="color: #ff7675;">❌ ${error.message}</p>`;
     }
+}
+
+// Trocar qual envio está sendo editado (farm correto, não soma)
+function switchEditDeliveryEnvio(envioIndex) {
+    renderEditDeliveryFormForEnvio(envioIndex);
+}
+
+// Renderizar itens e screenshots da entrega selecionada (uma entrega por vez)
+// Quantidades = apenas o que foi aprovado (entrega pendente mostra 0)
+function renderEditDeliveryFormForEnvio(envioIndex) {
+    const data = window.__currentEditDeliveryDetailsData;
+    if (!data || !data.deliveriesWithItems || !data.deliveriesWithItems[envioIndex]) return;
+    
+    const { delivery, items: deliveryItems, screenshots } = data.deliveriesWithItems[envioIndex];
+    const allMaterials = data.allMaterials || [];
+    
+    currentEditDeliveryId = delivery.id;
+    
+    renderExistingScreenshots(screenshots || [], currentEditDeliveryId);
+    
+    // Só considerar quantidades de entrega aprovada; pendente = 0
+    const isApproved = (delivery.status || '').toLowerCase() === 'approved';
+    const itemsToShow = isApproved ? deliveryItems : [];
+    
+    let itemsHtml = '';
+    for (const mat of allMaterials) {
+        const existingItem = itemsToShow.find(i => i.material_id === mat.id || i.material_id == mat.id);
+        const currentAmount = existingItem ? (existingItem.amount || 0) : 0;
+        
+        itemsHtml += `
+            <div class="edit-delivery-item" style="display: flex; align-items: center; gap: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
+                <span style="font-size: 24px;">${mat.icon || '📦'}</span>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; color: #fff;">${mat.name}</div>
+                    <div style="font-size: 12px; color: #888;">Meta: ${mat.weekly_goal}</div>
+                </div>
+                <input type="number" 
+                       id="editItem_${mat.id}" 
+                       value="${currentAmount}" 
+                       min="0" 
+                       style="width: 100px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; text-align: center; font-size: 16px;"
+                       data-material-id="${mat.id}"
+                       data-original="${currentAmount}"
+                       data-name="${mat.name}">
+            </div>
+        `;
+    }
+    
+    itemsHtml += `
+        <button onclick="saveAllDeliveryItems()" 
+                style="width: 100%; margin-top: 15px; background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
+            💾 Salvar Alterações
+        </button>
+    `;
+    
+    document.getElementById('editDeliveryItems').innerHTML = itemsHtml;
 }
 
 // Salvar todas as alterações da entrega
@@ -9327,6 +9723,7 @@ async function removeScreenshot(deliveryId, screenshotId) {
 function closeEditDeliveryModal() {
     document.getElementById('editDeliveryModal').style.display = 'none';
     currentEditDeliveryId = null;
+    window.__currentEditDeliveryDetailsData = null;
     currentEditUserId = null;
     currentEditWeekStart = null;
     currentEditWeekEnd = null;
@@ -9337,24 +9734,20 @@ function closeEditDeliveryModal() {
 }
 
 // Abrir modal para criar entrega a partir do Status da Semana (usa semana selecionada)
-async function openCreateDeliveryFromStatus(memberId, memberName) {
-    // Qualquer admin pode criar entregas
+async function openCreateDeliveryFromStatus(memberId, memberName, tableStatus) {
     if (!currentUser) {
         showNotification('Você precisa estar logado para criar entregas', 'error');
         return;
     }
-    
-    // Usar a semana selecionada no Status da Semana
     if (!selectedWeek || !selectedWeek.start || !selectedWeek.end) {
         showNotification('Erro: Semana não selecionada', 'error');
         return;
     }
-    
-    openCreateDeliveryModal(memberId, selectedWeek.start, selectedWeek.end);
+    openCreateDeliveryModal(memberId, selectedWeek.start, selectedWeek.end, tableStatus);
 }
 
 // Abrir modal para criar entrega manual
-async function openCreateDeliveryModal(memberId, weekStart, weekEnd) {
+async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus) {
     // Qualquer admin pode criar entregas
     if (!currentUser) {
         showNotification('Você precisa estar logado para criar entregas', 'error');
@@ -9388,17 +9781,18 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd) {
         document.getElementById('createDeliveryMemberName').textContent = memberData.member.name;
         document.getElementById('createDeliveryWeek').textContent = formatWeekLabel(weekStart, weekEnd);
         
-        // Select para status (igual ao modal de editar)
+        // Select para status (espelho da tabela: se veio "Não Entregou", já deixa selecionado)
         const statusOptions = [
             { value: 'approved', label: '✅ Completo', color: '#27ae60' },
             { value: 'in_progress', label: '⚡ Em Progresso', color: '#3498db' },
             { value: 'pending', label: '⏳ Aguardando', color: '#f39c12' },
             { value: 'not_delivered', label: '🚫 Não Entregou', color: '#e74c3c' }
         ];
-        
+        const defaultStatus = (tableStatus === 'missing') ? 'not_delivered' : 'approved';
         let statusSelectHtml = `<select id="createDeliveryStatus" style="padding: 10px 15px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: #2d2d44; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; min-width: 180px;">`;
         for (const opt of statusOptions) {
-            statusSelectHtml += `<option value="${opt.value}" style="background: #2d2d44; color: #fff; padding: 10px;">${opt.label}</option>`;
+            const selected = (opt.value === defaultStatus) ? ' selected' : '';
+            statusSelectHtml += `<option value="${opt.value}"${selected} style="background: #2d2d44; color: #fff; padding: 10px;">${opt.label}</option>`;
         }
         statusSelectHtml += `</select>`;
         document.getElementById('createDeliveryStatusContainer').innerHTML = statusSelectHtml;
@@ -9487,12 +9881,11 @@ async function submitCreateDelivery() {
         }
     });
     
-    if (items.length === 0) {
+    const status = document.getElementById('createDeliveryStatus').value;
+    if (status !== 'not_delivered' && items.length === 0) {
         showNotification('Adicione pelo menos um material', 'warning');
         return;
     }
-    
-    const status = document.getElementById('createDeliveryStatus').value;
     const screenshotInput = document.getElementById('createDeliveryScreenshotInput');
     
     try {
