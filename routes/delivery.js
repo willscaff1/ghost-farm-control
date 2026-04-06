@@ -4,7 +4,39 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
 
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
+
 const router = express.Router();
+
+// Middleware simples de proteção CSRF por mesma origem para rotas de entrega (produção)
+const requireSameOrigin = (req, res, next) => {
+    if (!isProduction) return next();
+
+    const method = req.method.toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+        return next();
+    }
+
+    const origin = req.headers.origin || '';
+    const host = req.headers.host || '';
+
+    if (!origin) {
+        return res.status(400).json({ error: 'Origem da requisição não informada' });
+    }
+
+    try {
+        const originUrl = new URL(origin);
+        if (originUrl.host !== host) {
+            return res.status(403).json({ error: 'Requisição bloqueada por política de mesma origem' });
+        }
+    } catch {
+        return res.status(400).json({ error: 'Origem inválida' });
+    }
+
+    next();
+};
+
+router.use(requireSameOrigin);
 
 // Meta semanal padrão (fallback)
 const DEFAULT_WEEKLY_GOAL = 700;

@@ -5,6 +5,8 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
 
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
+
 const router = express.Router();
 
 // Configuração do multer para upload de imagens (admin)
@@ -41,6 +43,55 @@ const managerGroups = new Set([
 ]);
 
 const isManagerByGroups = (groups = []) => groups.some(g => managerGroups.has(g));
+
+// Helper centralizado de super admin (RBAC baseado em role/grupos)
+const isSuperAdminUser = (user) => {
+    if (!user) return false;
+    const groups = user.groups || [];
+
+    // Novo modelo: baseado em role/grupos
+    if (user.role === 'super_admin' || groups.includes('super_admin')) {
+        return true;
+    }
+
+    // Fallback de compatibilidade: passaporte 6999 ainda tratado como super admin
+    if (user.passport === '6999') {
+        return true;
+    }
+
+    return false;
+};
+
+// Middleware simples de proteção CSRF por mesma origem para rotas sensíveis (produção)
+const requireSameOrigin = (req, res, next) => {
+    if (!isProduction) return next();
+
+    const method = req.method.toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+        return next();
+    }
+
+    const origin = req.headers.origin || '';
+    const host = req.headers.host || '';
+
+    if (!origin) {
+        return res.status(400).json({ error: 'Origem da requisição não informada' });
+    }
+
+    try {
+        const originUrl = new URL(origin);
+        if (originUrl.host !== host) {
+            return res.status(403).json({ error: 'Requisição bloqueada por política de mesma origem' });
+        }
+    } catch {
+        return res.status(400).json({ error: 'Origem inválida' });
+    }
+
+    next();
+};
+
+// Aplicar proteção de mesma origem em todo o /api/admin para métodos que alteram estado
+router.use(requireSameOrigin);
 
 const getUserGroups = async (userId) => {
     const userGroupsData = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [userId]);
@@ -213,20 +264,30 @@ const requireAdmin = async (req, res, next) => {
     }
 };
 
-// Middleware para verificar se é super admin (6999)
+// Middleware para verificar se é super admin (RBAC)
 const requireSuperAdmin = (req, res, next) => {
     if (!req.session.user) {
         return res.status(401).json({ error: 'Não autenticado' });
     }
-    if (req.session.user.passport !== '6999') {
+    if (!isSuperAdminUser(req.session.user)) {
         return res.status(403).json({ error: 'Apenas o super admin pode fazer isso' });
     }
     next();
 };
 
 // ENDPOINT TEMPORÁRIO - Limpar todos os dados exceto usuários
+// Em produção, exige variável de ambiente explícita e confirmação forte no corpo
 router.post('/reset-all-data', requireSuperAdmin, async (req, res) => {
     try {
+        if (isProduction && process.env.ENABLE_RESET_ALL_DATA !== 'true') {
+            return res.status(403).json({ error: 'Endpoint desabilitado em produção. Defina ENABLE_RESET_ALL_DATA=true para habilitar temporariamente.' });
+        }
+
+        const { confirmation } = req.body || {};
+        if (confirmation !== 'RESET_ALL_DATA') {
+            return res.status(400).json({ error: 'Confirmação inválida. Use confirmation = "RESET_ALL_DATA".' });
+        }
+
         console.log('🗑️ Iniciando limpeza de dados...');
         
         // Deletar na ordem correta por causa das foreign keys
@@ -296,26 +357,52 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
         
         const deliveries = await getAll(query, params);
         
-        // Para cada entrega, buscar os itens, screenshots e nome do tipo de pagamento
-        for (let delivery of deliveries) {
-            delivery.items = await getAll(`
-                SELECT di.*, m.name as material_name, m.icon as material_icon
-                FROM delivery_items di
-                JOIN materials m ON di.material_id = m.id
-                WHERE di.delivery_id = ?
-            `, [delivery.id]);
+        if (deliveries.length > 0) {
+            const deliveryIds = deliveries.map(d => d.id);
+            const placeholders = deliveryIds.map(() => '?').join(',');
             
-            // Buscar screenshots da tabela delivery_screenshots
-            delivery.screenshots = await getAll(`
-                SELECT screenshot_url FROM delivery_screenshots WHERE delivery_id = ?
-            `, [delivery.id]);
+            const [allItems, allScreenshots] = await Promise.all([
+                getAll(`
+                    SELECT di.*, m.name as material_name, m.icon as material_icon
+                    FROM delivery_items di
+                    JOIN materials m ON di.material_id = m.id
+                    WHERE di.delivery_id IN (${placeholders})
+                `, deliveryIds),
+                getAll(`
+                    SELECT delivery_id, screenshot_url
+                    FROM delivery_screenshots
+                    WHERE delivery_id IN (${placeholders})
+                `, deliveryIds)
+            ]);
             
-            // Buscar nome do tipo de pagamento se existir
-            if (delivery.payment_type_id) {
-                const paymentType = await getOne(`SELECT name, icon FROM payment_types WHERE id = ?`, [delivery.payment_type_id]);
-                if (paymentType) {
-                    delivery.payment_type_name = paymentType.name;
-                    delivery.payment_type_icon = paymentType.icon;
+            const paymentTypeIds = [...new Set(deliveries.map(d => d.payment_type_id).filter(Boolean))];
+            let paymentTypesMap = {};
+            if (paymentTypeIds.length > 0) {
+                const ptPlaceholders = paymentTypeIds.map(() => '?').join(',');
+                const paymentTypes = await getAll(`SELECT id, name, icon FROM payment_types WHERE id IN (${ptPlaceholders})`, paymentTypeIds);
+                for (const pt of paymentTypes) {
+                    paymentTypesMap[pt.id] = pt;
+                }
+            }
+            
+            const itemsByDelivery = {};
+            for (const item of allItems) {
+                if (!itemsByDelivery[item.delivery_id]) itemsByDelivery[item.delivery_id] = [];
+                itemsByDelivery[item.delivery_id].push(item);
+            }
+            
+            const screenshotsByDelivery = {};
+            for (const ss of allScreenshots) {
+                if (!screenshotsByDelivery[ss.delivery_id]) screenshotsByDelivery[ss.delivery_id] = [];
+                screenshotsByDelivery[ss.delivery_id].push({ screenshot_url: ss.screenshot_url });
+            }
+            
+            for (let delivery of deliveries) {
+                delivery.items = itemsByDelivery[delivery.id] || [];
+                delivery.screenshots = screenshotsByDelivery[delivery.id] || [];
+                if (delivery.payment_type_id && paymentTypesMap[delivery.payment_type_id]) {
+                    delivery.payment_type_name = paymentTypesMap[delivery.payment_type_id].name;
+                    delivery.payment_type_icon = paymentTypesMap[delivery.payment_type_id].icon;
                 }
             }
         }
@@ -351,14 +438,26 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
             `);
         }
         
-        // Para cada entrega, buscar os itens
-        for (let delivery of deliveries) {
-            delivery.items = await getAll(`
+        if (deliveries.length > 0) {
+            const deliveryIds = deliveries.map(d => d.id);
+            const placeholders = deliveryIds.map(() => '?').join(',');
+            
+            const allItems = await getAll(`
                 SELECT di.*, m.name as material_name, m.icon as material_icon
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
-                WHERE di.delivery_id = ?
-            `, [delivery.id]);
+                WHERE di.delivery_id IN (${placeholders})
+            `, deliveryIds);
+            
+            const itemsByDelivery = {};
+            for (const item of allItems) {
+                if (!itemsByDelivery[item.delivery_id]) itemsByDelivery[item.delivery_id] = [];
+                itemsByDelivery[item.delivery_id].push(item);
+            }
+            
+            for (let delivery of deliveries) {
+                delivery.items = itemsByDelivery[delivery.id] || [];
+            }
         }
         
         res.json({ deliveries });
@@ -646,12 +745,12 @@ router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
     }
 });
 
-// Alterar cargo do membro (somente passaporte 6999)
+// Alterar cargo do membro (somente super admin)
 router.post('/members/:id/role', requireAdmin, async (req, res) => {
     try {
-        // Só passaporte 6999 pode alterar cargos
-        if (req.session.user.passport !== '6999') {
-            return res.status(403).json({ error: 'Apenas o administrador principal pode alterar cargos' });
+        // Apenas super admin (RBAC) pode alterar cargos
+        if (!isSuperAdminUser(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas o super admin pode alterar cargos' });
         }
         
         const memberId = req.params.id;
@@ -671,8 +770,8 @@ router.post('/members/:id/role', requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
         
-        // Não pode alterar o passaporte 6999
-        if (member.passport === '6999') {
+        // Não pode alterar usuários de super admin
+        if (member.role === 'super_admin' || member.passport === '6999') {
             return res.status(400).json({ error: 'Não é possível alterar este usuário' });
         }
         
@@ -685,11 +784,11 @@ router.post('/members/:id/role', requireAdmin, async (req, res) => {
     }
 });
 
-// Editar informações do membro (somente passaporte 6999)
+// Editar informações do membro (somente super admin)
 router.put('/members/:id', requireAdmin, async (req, res) => {
     try {
-        if (req.session.user.passport !== '6999') {
-            return res.status(403).json({ error: 'Apenas o administrador principal pode editar membros' });
+        if (!isSuperAdminUser(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas o super admin pode editar membros' });
         }
         
         const memberId = req.params.id;
@@ -700,8 +799,8 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
         
-        // Não pode editar o passaporte 6999
-        if (member.passport === '6999') {
+        // Não pode editar usuários de super admin
+        if (member.role === 'super_admin' || member.passport === '6999') {
             return res.status(400).json({ error: 'Não é possível editar este usuário' });
         }
         
@@ -748,11 +847,11 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
     }
 });
 
-// Deletar membro (somente passaporte 6999)
+// Deletar membro (somente super admin)
 router.delete('/members/:id', requireAdmin, async (req, res) => {
     try {
-        if (req.session.user.passport !== '6999') {
-            return res.status(403).json({ error: 'Apenas o administrador principal pode deletar membros' });
+        if (!isSuperAdminUser(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas o super admin pode deletar membros' });
         }
         
         const memberId = req.params.id;
@@ -762,25 +861,27 @@ router.delete('/members/:id', requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
         
-        // Não pode deletar o usuário Admin (passaporte 0)
-        if (member.passport === '0') {
-            return res.status(400).json({ error: 'Não é possível deletar o usuário Admin do sistema' });
+        // Não pode deletar o usuário Admin (passaporte 0) nem super admins
+        if (member.passport === '0' || member.role === 'super_admin' || member.passport === '6999') {
+            return res.status(400).json({ error: 'Não é possível deletar este usuário protegido' });
         }
         
-        // Deletar entregas e itens relacionados
-        const deliveries = await getAll('SELECT id FROM deliveries WHERE user_id = ?', [memberId]);
-        for (const delivery of deliveries) {
-            // Deletar farms extras
-            try {
-                const extraFarms = await getAll('SELECT id FROM extra_farm_requests WHERE delivery_id = ?', [delivery.id]);
-                for (const ef of extraFarms) {
-                    await runQuery('DELETE FROM extra_farm_screenshots WHERE extra_farm_id = ?', [ef.id]);
-                }
-                await runQuery('DELETE FROM extra_farm_requests WHERE delivery_id = ?', [delivery.id]);
-            } catch(e) {}
-            await runQuery('DELETE FROM delivery_screenshots WHERE delivery_id = ?', [delivery.id]);
-            await runQuery('DELETE FROM delivery_items WHERE delivery_id = ?', [delivery.id]);
-        }
+        // Deletar entregas e itens relacionados usando subqueries
+        try {
+            await runQuery(`DELETE FROM extra_farm_screenshots WHERE extra_farm_id IN (
+                SELECT ef.id FROM extra_farm_requests ef
+                WHERE ef.delivery_id IN (SELECT id FROM deliveries WHERE user_id = ?)
+            )`, [memberId]);
+            await runQuery(`DELETE FROM extra_farm_requests WHERE delivery_id IN (
+                SELECT id FROM deliveries WHERE user_id = ?
+            )`, [memberId]);
+        } catch(e) {}
+        await runQuery(`DELETE FROM delivery_screenshots WHERE delivery_id IN (
+            SELECT id FROM deliveries WHERE user_id = ?
+        )`, [memberId]);
+        await runQuery(`DELETE FROM delivery_items WHERE delivery_id IN (
+            SELECT id FROM deliveries WHERE user_id = ?
+        )`, [memberId]);
         await runQuery('DELETE FROM deliveries WHERE user_id = ?', [memberId]);
         await runQuery('DELETE FROM justifications WHERE user_id = ?', [memberId]);
         await runQuery('DELETE FROM warnings WHERE user_id = ?', [memberId]);
@@ -2304,9 +2405,9 @@ router.post('/edit-member-status', requireAdmin, async (req, res) => {
         const adminId = req.session.user.id;
         const adminUser = req.session.user;
         
-        // Roles permitidos para editar status
+        // Roles/grupos permitidos para editar status
         const allowedRoles = ['gerente_geral', 'gerente_farm', '01', '02', 'super_admin'];
-        const isSuperAdmin = adminUser.passport === '6999' || adminUser.role === 'super_admin';
+        const isSuperAdmin = isSuperAdminUser(adminUser);
         if (!allowedRoles.includes(adminUser.role) && !isSuperAdmin) {
             return res.status(403).json({ error: 'Você não tem permissão para editar status de pagamento' });
         }
@@ -2517,9 +2618,9 @@ router.post('/members/:id/warnings', requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
         
-        // Não pode dar ADV no passaporte 6999
-        if (member.passport === '6999') {
-            return res.status(400).json({ error: 'Não é possível advertir este usuário' });
+        // Não pode dar ADV em usuários de super admin
+        if (member.role === 'super_admin' || member.passport === '6999') {
+            return res.status(400).json({ error: 'Não é possível advertir este usuário protegido' });
         }
         
         // Verificar se já existe ADV para essa semana (impedir duplicada)
@@ -4887,9 +4988,7 @@ router.post('/delivery/create-manual', requireAdmin, async (req, res) => {
             [userId, weekStart, weekEnd]
         );
 
-        const isSuperAdmin = req.session.user?.passport === '6999' ||
-            req.session.user?.role === 'super_admin' ||
-            (req.session.user?.groups || []).includes('super_admin');
+        const isSuperAdmin = isSuperAdminUser(req.session.user);
 
         if (existing && !isSuperAdmin) {
             return res.status(400).json({ error: 'Já existe uma entrega para essa semana. Use a edição.' });

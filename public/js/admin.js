@@ -4,6 +4,18 @@ let selectedWeekOffset = 0; // 0 = semana atual, +1 = próxima, +2 = próxima+1,
 let selectedWeek = null;
 let adminNotifications = [];
 let currentUserPermissions = null; // Permissões carregadas do banco
+
+// Helper para escapar HTML e evitar XSS quando usamos innerHTML
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+let currentUserPermissions = null; // Permissões carregadas do banco
 const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
 // Nomes de exibição dos grupos (carregados dinamicamente do banco)
@@ -23,7 +35,7 @@ function showNotification(message, type = 'success') {
     
     toast.innerHTML = `
         <span class="toast-icon">${icon}</span>
-        <span class="toast-message">${message}</span>
+        <span class="toast-message">${escapeHtml(message)}</span>
     `;
     
     document.body.appendChild(toast);
@@ -798,7 +810,9 @@ function renderOverviewTable() {
     }
     
     tbody.innerHTML = filtered.map(member => {
-        const initial = member.name.charAt(0).toUpperCase();
+        const safeName = escapeHtml(member.name);
+        const safePassport = escapeHtml(member.passport || '');
+        const initial = safeName.charAt(0).toUpperCase();
         
         // Classe baseada no número de ADVs
         let advClass = '';
@@ -817,13 +831,13 @@ function renderOverviewTable() {
         }
         
         return `
-            <tr class="${advClass}" data-name="${member.name.toLowerCase()}" data-passport="${member.passport || ''}">
-                <td>${member.passport || '-'}</td>
-                <td><span class="member-avatar">${initial}</span><span class="member-name">${member.name}</span></td>
+            <tr class="${advClass}" data-name="${safeName.toLowerCase()}" data-passport="${safePassport}">
+                <td>${safePassport || '-'}</td>
+                <td><span class="member-avatar">${initial}</span><span class="member-name">${safeName}</span></td>
                 <td>${advBadge} ${member.warningsCount}</td>
                 <td>
-                    <button class="action-btn add-adv" onclick="showAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', ${member.warningsCount})">➕ ADV</button>
-                    ${member.warningsCount > 0 ? `<button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${member.name.replace(/'/g, "\\'")}')">👁️ Ver</button>` : ''}
+                    <button class="action-btn add-adv" onclick="showAdvModal(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', ${member.warningsCount})">➕ ADV</button>
+                    ${member.warningsCount > 0 ? `<button class="action-btn view-adv" onclick="showMemberWarningsModal(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}')">👁️ Ver</button>` : ''}
                 </td>
             </tr>
         `;
@@ -1392,9 +1406,9 @@ async function openMemberExtract(memberId) {
                 <div class="extract-warning-item">
                     <span class="extract-warning-icon">⚠️</span>
                     <div class="extract-warning-info">
-                        <div class="extract-warning-reason">${warning.reason || 'Sem motivo informado'}</div>
+                        <div class="extract-warning-reason">${escapeHtml(warning.reason || 'Sem motivo informado')}</div>
                         <div class="extract-warning-meta">
-                            Por ${warning.given_by_name} em ${new Date(warning.created_at).toLocaleDateString('pt-BR')}
+                            Por ${escapeHtml(warning.given_by_name)} em ${new Date(warning.created_at).toLocaleDateString('pt-BR')}
                             ${warning.week_start ? ` | Semana: ${formatWeekLabel(warning.week_start, warning.week_end)}` : ''}
                         </div>
                     </div>
@@ -1647,9 +1661,9 @@ async function openPaymentHistory(memberId) {
                 <div class="extract-warning-item">
                     <span class="extract-warning-icon">⚠️</span>
                     <div class="extract-warning-info">
-                        <div class="extract-warning-reason">${warning.reason || 'Sem motivo informado'}</div>
+                        <div class="extract-warning-reason">${escapeHtml(warning.reason || 'Sem motivo informado')}</div>
                         <div class="extract-warning-meta">
-                            Por ${warning.given_by_name} em ${new Date(warning.created_at).toLocaleDateString('pt-BR')}
+                            Por ${escapeHtml(warning.given_by_name)} em ${new Date(warning.created_at).toLocaleDateString('pt-BR')}
                             ${warning.week_start ? ` | Semana: ${formatWeekLabel(warning.week_start, warning.week_end)}` : ''}
                         </div>
                     </div>
@@ -2244,7 +2258,7 @@ function renderWeeklyTable(filter) {
             if (member.delivery_id) {
                 buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}', '${member.status}')" style="background: #9b59b6;" title="Editar Entrega">✏️</button>`);
             } else {
-                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${member.status}')" style="background: #9b59b6;" title="Criar Entrega">✏️</button>`);
+                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', '${member.status}')" style="background: #9b59b6;" title="Criar Entrega">✏️</button>`);
             }
         }
         
@@ -2278,13 +2292,13 @@ function renderWeeklyTable(filter) {
         // Badge de farm extra pendente
         let pendingExtraBadge = '';
         if (member.pending_extra && member.pending_extra.id) {
-            pendingExtraBadge = `<span class="pending-extra-badge" onclick="showPendingExtraModal(${member.pending_extra.id}, '${member.name.replace(/'/g, "\\'")}')">🏆 Extra Pendente</span>`;
+            pendingExtraBadge = `<span class="pending-extra-badge" onclick="showPendingExtraModal(${member.pending_extra.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}')">🏆 Extra Pendente</span>`;
         }
         
         return `
             <tr class="status-${member.status}">
-                <td class="passport-cell">${member.passport || '-'}</td>
-                <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${member.name}${member.is_late_payment ? ' ⏰' : ''}</span>${pendingExtraBadge}</td>
+                <td class="passport-cell">${escapeHtml(member.passport || '-')}</td>
+                <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${escapeHtml(member.name)}${member.is_late_payment ? ' ⏰' : ''}</span>${pendingExtraBadge}</td>
                 <td class="role-cell">${groupsDisplay}</td>
                 <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
                 <td style="white-space: nowrap;">${actionHtml}</td>
@@ -2728,7 +2742,7 @@ async function showDeliveryExtract(member) {
                     
                     // Materiais do extra
                     const extraMaterials = extra.materialDetails?.map(m => `
-                        <span class="extract-mat-tag extra">${m.icon || '📦'} ${m.name}: ${formatNumber(m.amount)}</span>
+                        <span class="extract-mat-tag extra">${m.icon || '📦'} ${escapeHtml(m.name)}: ${formatNumber(m.amount)}</span>
                     `).join('') || '';
                     
                     // Screenshots do extra
@@ -2766,7 +2780,7 @@ async function showDeliveryExtract(member) {
             <div class="extract-modal-header">
                 <h2>📋 Extrato do Farm</h2>
                 <div class="extract-member-info">
-                    <span class="extract-member-name">👤 ${member.name}</span>
+                    <span class="extract-member-name">👤 ${escapeHtml(member.name)}</span>
                 </div>
             </div>
 
@@ -2881,11 +2895,11 @@ function showApprovalModal(member) {
         <div class="approval-modal">
             <div class="extract-header">
                 <h2>${isDirtyMoney ? '💰 Aprovar Dinheiro Sujo' : '⏳ Aprovar Farm'}</h2>
-                <span class="extract-member">👤 ${member.name}</span>
+                <span class="extract-member">👤 ${escapeHtml(member.name)}</span>
             </div>
             <div class="extract-info">
                 <p>📅 Enviado em: ${new Date(member.delivered_at).toLocaleDateString('pt-BR')}</p>
-                ${member.description ? `<p>📝 ${member.description}</p>` : ''}
+                ${member.description ? `<p>📝 ${escapeHtml(member.description)}</p>` : ''}
                 ${isDirtyMoney ? '<span class="payment-type-badge dirty-money">💰 Dinheiro Sujo</span>' : '<span class="payment-type-badge material">📦 Materiais</span>'}
             </div>
             <div class="extract-items">
@@ -3006,12 +3020,12 @@ function showJustificationModal(member) {
         <div class="justification-modal">
             <div class="extract-header">
                 <h2>📝 Avaliar Justificativa</h2>
-                <span class="extract-member">👤 ${member.name}</span>
+                <span class="extract-member">👤 ${escapeHtml(member.name)}</span>
             </div>
             <div class="justification-content">
                 <h3>Motivo da Ausência:</h3>
                 <div class="justification-reason-box">
-                    ${member.justification_reason}
+                    ${escapeHtml(member.justification_reason)}
                 </div>
                 <p class="justification-date">📅 Enviada em: ${new Date(member.justification_created_at).toLocaleDateString('pt-BR')}</p>
             </div>
@@ -3034,12 +3048,12 @@ function showJustifiedDetails(member) {
         <div class="justified-modal">
             <div class="extract-header">
                 <h2>📋 Justificativa Aprovada</h2>
-                <span class="extract-member">👤 ${member.name}</span>
+                <span class="extract-member">👤 ${escapeHtml(member.name)}</span>
             </div>
             <div class="justification-content">
                 <h3>Motivo da Ausência:</h3>
                 <div class="justification-reason-box">
-                    ${member.justification_reason}
+                    ${escapeHtml(member.justification_reason)}
                 </div>
             </div>
             <div class="modal-actions">
@@ -3076,7 +3090,7 @@ function showRejectedDetails(member) {
             <div class="extract-modal-header" style="border-left: 4px solid #e74c3c;">
                 <h2>🚫 Farm Rejeitado</h2>
                 <div class="extract-member-info">
-                    <span class="extract-member-name">👤 ${member.name}</span>
+                    <span class="extract-member-name">👤 ${escapeHtml(member.name)}</span>
                 </div>
             </div>
             
@@ -3211,11 +3225,11 @@ async function loadObservations() {
             container.innerHTML = data.observations.map(obs => `
                 <div class="observation-item">
                     <div class="observation-header">
-                        <span class="observation-author">👤 ${obs.created_by_name}</span>
+                        <span class="observation-author">👤 ${escapeHtml(obs.created_by_name)}</span>
                         <span class="observation-date">${new Date(obs.created_at).toLocaleDateString('pt-BR')} ${new Date(obs.created_at).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</span>
                         <button class="btn-delete-obs" onclick="deleteObservation(${obs.id})" title="Remover">🗑️</button>
                     </div>
-                    <div class="observation-text">${obs.observation}</div>
+                    <div class="observation-text">${escapeHtml(obs.observation)}</div>
                 </div>
             `).join('');
         } else {
@@ -3466,7 +3480,7 @@ async function loadJustifications() {
             <div class="justification-card">
                 <div class="justification-header">
                     <div class="justification-user">
-                        <span class="user-name">👤 ${j.user_name || j.name}</span>
+                        <span class="user-name">👤 ${escapeHtml(j.user_name || j.name)}</span>
                         <span class="user-role">${groupsDisplay}</span>
                     </div>
                     <div class="justification-date">
@@ -3476,7 +3490,7 @@ async function loadJustifications() {
                 <div class="justification-content">
                     <div class="justification-reason">
                         <strong>📝 Motivo:</strong>
-                        <p>${j.reason}</p>
+                        <p>${escapeHtml(j.reason)}</p>
                     </div>
                     <div class="justification-submitted">
                         Enviada em ${new Date(j.created_at).toLocaleDateString('pt-BR')} às ${new Date(j.created_at).toLocaleTimeString('pt-BR')}
@@ -3645,15 +3659,15 @@ function renderJustifExtract() {
             <div class="justif-extract-item status-${statusClass}">
                 <div class="justif-extract-header">
                     <div class="justif-extract-member">
-                        <strong>${j.user_name}</strong>
-                        <span class="passport">#${j.passport || 'N/A'}</span>
+                        <strong>${escapeHtml(j.user_name)}</strong>
+                        <span class="passport">#${escapeHtml(j.passport || 'N/A')}</span>
                     </div>
                     <span class="justif-extract-status ${statusClass}">${statusText}</span>
                 </div>
                 
                 <div class="justif-extract-body">
                     <div class="justif-extract-reason">
-                        ${j.reason}
+                        ${escapeHtml(j.reason)}
                     </div>
                 </div>
                 
@@ -4500,7 +4514,7 @@ async function loadFarmStatus() {
             pendingMembersList.innerHTML = data.pendingMembers.map(member => `
                 <div class="member-farm-card pending">
                     <div class="member-header">
-                        <span class="member-name">👤 ${member.name}</span>
+                        <span class="member-name">👤 ${escapeHtml(member.name)}</span>
                         <span class="pending-badge">${member.pending_count} pendente(s)</span>
                     </div>
                     <div class="member-deliveries">
@@ -4534,7 +4548,7 @@ async function loadFarmStatus() {
             completedMembersList.innerHTML = data.completedMembers.map(member => `
                 <div class="member-farm-card completed">
                     <div class="member-header">
-                        <span class="member-name">👤 ${member.name}</span>
+                        <span class="member-name">👤 ${escapeHtml(member.name)}</span>
                         <span class="approved-badge">${member.approved_count} aprovado(s)</span>
                     </div>
                     <div class="member-stats">
@@ -4764,20 +4778,20 @@ function renderMembersTable() {
 
         
         return `
-            <tr class="${statusClass}" data-name="${member.name.toLowerCase()}" data-passport="${member.passport || ''}" data-member-id="${member.id}">
-                <td><input type="checkbox" class="member-checkbox" ${member.passport === '6999' ? 'disabled' : ''} data-member-id="${member.id}" data-member-name="${member.name}" onchange="updateBulkActions()"></td>
-                <td>${member.passport || '-'}</td>
-                <td><span class="member-avatar">${initial}</span><span class="member-name">${statusIcon}${member.name}</span></td>
+            <tr class="${statusClass}" data-name="${escapeHtml(member.name.toLowerCase())}" data-passport="${escapeHtml(member.passport || '')}" data-member-id="${member.id}">
+                <td><input type="checkbox" class="member-checkbox" ${member.passport === '6999' ? 'disabled' : ''} data-member-id="${member.id}" data-member-name="${escapeHtml(member.name)}" onchange="updateBulkActions()"></td>
+                <td>${escapeHtml(member.passport || '-')}</td>
+                <td><span class="member-avatar">${initial}</span><span class="member-name">${statusIcon}${escapeHtml(member.name)}</span></td>
                 <td>
                     ${groupsDisplay}
                 </td>
                 <td>
                     ${isManager && member.passport !== '6999' ? `
-                        <button class="action-btn-small edit" onclick="openEditMemberModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', '${member.passport}', '${member.email || ''}')">✏️ Editar</button>
+                        <button class="action-btn-small edit" onclick="openEditMemberModal(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', '${escapeHtml(member.passport)}', '${escapeHtml(member.email || '')}')">✏️ Editar</button>
                         <button class="action-btn-small ${member.active ? 'toggle' : 'activate'}" onclick="toggleMember(${member.id})">
                             ${member.active ? '🚫 Desativar' : '✅ Ativar'}
                         </button>
-                        <button class="action-btn-small delete" onclick="deleteMember(${member.id}, '${member.name.replace(/'/g, "\\'")}'  )">🗑️</button>
+                        <button class="action-btn-small delete" onclick="deleteMember(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}'  )">🗑️</button>
                     ` : (!member.active && isManager ? `<button class="action-btn-small activate" onclick="toggleMember(${member.id})">✅ Ativar</button>` : '<span class="no-actions">-</span>')}
                 </td>
             </tr>
@@ -5867,7 +5881,7 @@ async function loadGoalsMaterials() {
             const goalG = m.manager_weekly_goal ?? m.weekly_goal ?? 700;
             return `<tr>
                 <td class="goals-cell-icon">${m.icon || '📦'}</td>
-                <td class="goals-cell-name">${m.name || '-'}</td>
+                <td class="goals-cell-name">${escapeHtml(m.name || '-')}</td>
                 <td class="goals-cell-meta">${Number(goalM).toLocaleString('pt-BR')}</td>
                 <td class="goals-cell-meta">${Number(goalG).toLocaleString('pt-BR')}</td>
                 <td><span class="goals-status-active">Ativo</span></td>
@@ -6662,7 +6676,7 @@ async function loadMembersForWarning() {
             data.members
                 .filter(m => m.passport !== '6999' && m.active)
                 .forEach(member => {
-                    select.innerHTML += `<option value="${member.id}">${member.name} (${member.passport})</option>`;
+                    select.innerHTML += `<option value="${member.id}">${escapeHtml(member.name)} (${escapeHtml(member.passport)})</option>`;
                 });
         }
     } catch (error) {
@@ -6683,9 +6697,9 @@ async function loadWarnings() {
             warningsList.innerHTML = data.warnings.map(w => `
                 <div class="warning-item">
                     <div class="warning-info">
-                        <strong>⚠️ ${w.member_name}</strong> <small>(${w.member_passport})</small>
-                        <p class="warning-reason">${w.reason}</p>
-                        <small>Por: ${w.given_by_name} em ${formatDate(w.created_at)}</small>
+                        <strong>⚠️ ${escapeHtml(w.member_name)}</strong> <small>(${escapeHtml(w.member_passport)})</small>
+                        <p class="warning-reason">${escapeHtml(w.reason)}</p>
+                        <small>Por: ${escapeHtml(w.given_by_name)} em ${formatDate(w.created_at)}</small>
                     </div>
                     ${isSuperAdmin ? `
                         <button class="btn btn-danger btn-small" onclick="removeWarning(${w.id})">🗑️ Remover</button>
@@ -6866,7 +6880,7 @@ async function loadMembersForWhitelist() {
         const availableMembers = membersData.members.filter(m => !whitelistIds.includes(m.id));
         
         select.innerHTML = '<option value="">Selecione um membro...</option>' +
-            availableMembers.map(m => `<option value="${m.id}">${m.name} (${m.passport})</option>`).join('');
+            availableMembers.map(m => `<option value="${m.id}">${escapeHtml(m.name)} (${escapeHtml(m.passport)})</option>`).join('');
     } catch (error) {
         console.error('Erro ao carregar membros para whitelist:', error);
     }
@@ -7126,15 +7140,15 @@ function renderMembersAdvGrid(members) {
             <div class="member-adv-card">
                 <div class="member-adv-info">
                     <div class="member-adv-details">
-                        <h4>${member.name}</h4>
-                        <span class="passport">📋 Passaporte: ${member.passport}</span>
+                        <h4>${escapeHtml(member.name)}</h4>
+                        <span class="passport">📋 Passaporte: ${escapeHtml(member.passport)}</span>
                         <span class="role">👤 ${formatRole(member.role)}</span>
                     </div>
                     <div class="adv-count-badge ${advCountClass}">
                         ${advCount} ADV${advCount !== 1 ? 's' : ''}
                     </div>
                 </div>
-                <button class="btn-apply-adv" onclick="showAdvModal(${member.id}, '${member.name.replace(/'/g, "\\'")}', ${advCount})">
+                <button class="btn-apply-adv" onclick="showAdvModal(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', ${advCount})">
                     ⚠️ Aplicar ADV
                 </button>
             </div>
@@ -7442,9 +7456,9 @@ async function showMemberWarningsModal(memberId, memberName) {
                             <span class="adv-number">#${data.warnings.length - index}</span>
                             <span class="adv-date">📅 ${date}</span>
                         </div>
-                        <div class="adv-reason">📝 ${warning.reason}</div>
+                        <div class="adv-reason">📝 ${escapeHtml(warning.reason)}</div>
                         <div class="adv-footer">
-                            <span class="adv-by">Aplicada por: <strong>${warning.given_by_name || 'Sistema'}</strong></span>
+                            <span class="adv-by">Aplicada por: <strong>${escapeHtml(warning.given_by_name || 'Sistema')}</strong></span>
                             ${canRemoveAdv ? `<button class="btn-remove-adv" onclick="removeWarning(${warning.id}, '${memberName.replace(/'/g, "\\'")}')">🗑️ Remover</button>` : ''}
                         </div>
                     </div>
@@ -7581,7 +7595,7 @@ function processNotificationsWithData(pendingData, justData, passwordData, statu
                 type: 'info',
                 icon: '📝',
                 title: 'Justificativa Pendente',
-                message: `${j.user_name} enviou justificativa de ausência`,
+                message: `${escapeHtml(j.user_name)} enviou justificativa de ausência`,
                 time: formatTimeAgo(j.created_at),
                 action: 'absences',
                 userId: j.user_id
@@ -7625,7 +7639,7 @@ function processNotificationsWithData(pendingData, justData, passwordData, statu
                     type: 'warning',
                     icon: '❌',
                     title: 'Farm Pendente',
-                    message: `${m.name} (${m.passport}) não entregou farm`,
+                    message: `${escapeHtml(m.name)} (${escapeHtml(m.passport)}) não entregou farm`,
                     time: 'Esta semana',
                     action: 'adv',
                     userId: m.id,
@@ -7684,7 +7698,7 @@ async function loadAdminNotifications() {
                     type: 'info',
                     icon: '📝',
                     title: 'Justificativa Pendente',
-                    message: `${j.user_name} enviou justificativa de ausência`,
+                    message: `${escapeHtml(j.user_name)} enviou justificativa de ausência`,
                     time: formatTimeAgo(j.created_at),
                     action: 'absences',
                     userId: j.user_id
@@ -7734,7 +7748,7 @@ async function loadAdminNotifications() {
                                 type: 'warning',
                                 icon: '❌',
                                 title: 'Farm Pendente',
-                                message: `${m.name} (${m.passport}) não entregou farm`,
+                                message: `${escapeHtml(m.name)} (${escapeHtml(m.passport)}) não entregou farm`,
                                 time: 'Esta semana',
                                 action: 'adv',
                                 userId: m.id,
@@ -7799,7 +7813,7 @@ function renderAdminNotifications() {
         let actionBtn = '';
         
         if (n.action === 'adv' && n.userId) {
-            actionBtn = `<div class="notification-action"><button class="btn btn-small btn-danger" onclick="openAdvModalFromNotification(${n.userId}, '${n.userName}')">Aplicar ADV</button></div>`;
+            actionBtn = `<div class="notification-action"><button class="btn btn-small btn-danger" onclick="openAdvModalFromNotification(${n.userId}, '${escapeHtml((n.userName || '').replace(/'/g, "\\'"))}')">Aplicar ADV</button></div>`;
         } else if (n.action === 'pending') {
             actionBtn = `<div class="notification-action"><button class="btn btn-small btn-primary" onclick="goToTabFromNotification('pending')">Ver Farm</button></div>`;
         } else if (n.action === 'absences') {
@@ -8096,8 +8110,8 @@ function renderReport(data) {
                                 const statusText = m.farmStatus === 'justified' ? 'Justificado' : (m.isLatePayment ? 'Pago (Atrasado)' : 'Pago');
                                 return `
                                     <tr class="${m.isLatePayment ? 'late-payment-row' : ''}">
-                                        <td>${m.passport}</td>
-                                        <td>${m.name} ${lateTag}</td>
+                                        <td>${escapeHtml(m.passport)}</td>
+                                        <td>${escapeHtml(m.name)} ${lateTag}</td>
                                         <td>${m.role}</td>
                                         <td>${m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais')}</td>
                                         <td>${statusText}</td>
@@ -8136,8 +8150,8 @@ function renderReport(data) {
                                 }
                                 return `
                                     <tr>
-                                        <td>${m.passport}</td>
-                                        <td>${m.name}</td>
+                                        <td>${escapeHtml(m.passport)}</td>
+                                        <td>${escapeHtml(m.name)}</td>
                                         <td>${m.role}</td>
                                         <td>${statusText}</td>
                                     </tr>
@@ -8249,8 +8263,8 @@ async function generateReportPDF() {
                 <tbody>
                     ${reportData.paid.map(m => `
                         <tr>
-                            <td>${m.passport}</td>
-                            <td>${m.name}${m.isLatePayment ? ' ⏰' : ''}</td>
+                            <td>${escapeHtml(m.passport)}</td>
+                            <td>${escapeHtml(m.name)}${m.isLatePayment ? ' ⏰' : ''}</td>
                             <td>${m.role}</td>
                             <td>${m.farmStatus === 'justified' ? '-' : (m.paymentTypeText || 'Materiais')}</td>
                             <td>${m.farmStatus === 'justified' ? 'Justificado' : (m.isLatePayment ? 'Pago (Atrasado)' : 'Pago')}</td>
@@ -8280,8 +8294,8 @@ async function generateReportPDF() {
                         }
                         return `
                             <tr>
-                                <td>${m.passport}</td>
-                                <td>${m.name}</td>
+                                <td>${escapeHtml(m.passport)}</td>
+                                <td>${escapeHtml(m.name)}</td>
                                 <td>${m.role}</td>
                                 <td>${statusText}</td>
                             </tr>
@@ -8353,8 +8367,8 @@ async function loadEditPermissions() {
                         <tr class="${member.hasPermission ? 'has-permission' : ''}">
                             <td>
                                 <div class="member-info-cell">
-                                    <strong>${member.name}</strong>
-                                    <span class="member-passport">ID: ${member.passport}</span>
+                                    <strong>${escapeHtml(member.name)}</strong>
+                                    <span class="member-passport">ID: ${escapeHtml(member.passport)}</span>
                                 </div>
                             </td>
                             <td>${roleNames[member.role] || member.role}</td>
@@ -8369,11 +8383,11 @@ async function loadEditPermissions() {
                             </td>
                             <td>
                                 ${member.hasPermission ? `
-                                    <button class="btn btn-small btn-danger" onclick="revokeEditPermission(${member.id}, '${member.name.replace(/'/g, "\\'")}')">
+                                    <button class="btn btn-small btn-danger" onclick="revokeEditPermission(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}')">
                                         🔒 Bloquear
                                     </button>
                                 ` : `
-                                    <button class="btn btn-small btn-success" onclick="grantEditPermission(${member.id}, '${member.name.replace(/'/g, "\\'")}')">
+                                    <button class="btn btn-small btn-success" onclick="grantEditPermission(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}')">
                                         ✏️ Liberar
                                     </button>
                                 `}
@@ -8570,12 +8584,12 @@ async function loadCompetitionRanking() {
                                 ${data.ranking.map((member, index) => {
                                     const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
                                     return `
-                                        <tr style="cursor: pointer;" onclick="showMemberCompetitionDetails(${data.competition.id}, ${member.id}, '${member.name}')" 
+                                        <tr style="cursor: pointer;" onclick="showMemberCompetitionDetails(${data.competition.id}, ${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}')" 
                                             onmouseover="this.style.backgroundColor='#2a2a3e'" 
                                             onmouseout="this.style.backgroundColor=''">
                                             <td><strong>${medal} ${index + 1}º</strong></td>
-                                            <td>${member.name}</td>
-                                            <td>${member.passport}</td>
+                                            <td>${escapeHtml(member.name)}</td>
+                                            <td>${escapeHtml(member.passport)}</td>
                                             <td><strong style="color: #4CAF50; font-size: 18px;">${member.total_farms}</strong></td>
                                             <td>${member.total_materials.toLocaleString('pt-BR')}</td>
                                         </tr>
@@ -9533,7 +9547,7 @@ async function saveAllDeliveryItems() {
                 if (badge) badge.style.display = 'none';
                 successCount++;
             } else {
-                showNotification(`❌ Erro ao alterar semana: ${data.error}`, 'error');
+                showNotification(`❌ Erro ao alterar semana: ${escapeHtml(data.error)}`, 'error');
                 errorCount++;
             }
         } catch (error) {
@@ -9563,7 +9577,7 @@ async function saveAllDeliveryItems() {
                 statusSelect.dataset.original = newStatus;
                 successCount++;
             } else {
-                showNotification(`❌ Erro ao salvar status: ${data.error}`, 'error');
+                showNotification(`❌ Erro ao salvar status: ${escapeHtml(data.error)}`, 'error');
                 errorCount++;
             }
         } catch (error) {

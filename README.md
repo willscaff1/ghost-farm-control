@@ -48,16 +48,13 @@ c:\farm-control\
 
 ---
 
-## 👤 Usuário Master
+## 👤 Usuário com acesso total (Super Admin)
 
-| Campo | Valor |
-|-------|-------|
-| **Nome** | Willian Scaff |
-| **Passaporte** | 6999 |
-| **Senha** | 6999 |
-| **Permissões** | FULL (todas) |
+O sistema utiliza um grupo/cargo `super_admin` para acesso total.  
+Em produção, recomenda-se criar esse usuário via variáveis de ambiente e scripts de migração, **sem senhas padrão em código**.
 
-> ⚠️ O passaporte `6999` tem permissões especiais vinculadas diretamente ao código, independente do cargo.
+- Configure `SUPERADMIN_BOOTSTRAP_PASSWORD` no ambiente antes do primeiro deploy para criar um usuário inicial com passaporte `6999` e permissão `super_admin` (apenas se ainda não existir).
+- Opcionalmente, você pode usar o script `create-root-user.js` com a variável `ROOT_BOOTSTRAP_PASSWORD` para criar um usuário administrativo com passaporte `0` que não aparece em listas operacionais.
 
 ---
 
@@ -73,19 +70,10 @@ c:\farm-control\
 
 ---
 
-## 🔐 Permissões Especiais (Passaporte 6999)
+## 🔐 Permissões Especiais (Super Admin)
 
-| Ação | 6999 | Outros Admins |
-|------|------|---------------|
-| Alterar cargos | ✅ | ❌ |
-| Editar membros | ✅ | ❌ |
-| Deletar membros | ✅ | ❌ |
-| Ativar/Desativar membros | ✅ | ❌ |
-| Remover advertências | ✅ | ❌ |
-| Aplicar advertências | ✅ | ✅ |
-| Aprovar/Rejeitar farms | ✅ | ✅ |
-| Ver status semanal | ✅ | ✅ |
-| Gerenciar materiais | ✅ | ✅ |
+As permissões especiais agora são baseadas principalmente no grupo/cargo `super_admin` (RBAC).  
+O passaporte `6999` continua sendo tratado como super admin por compatibilidade, mas o controle real de acesso é feito via grupos/permissões em `role_permissions` e `user_groups`.
 
 ---
 

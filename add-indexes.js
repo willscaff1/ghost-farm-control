@@ -23,22 +23,20 @@ async function createClient() {
     return client;
 }
 
-async function runQuery(sql) {
-    const client = await createClient();
-    try {
-        await client.query(sql);
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
-    } finally {
-        await client.end();
-    }
-}
-
 async function addIndexes() {
     console.log('🚀 Adicionando índices para melhorar performance...\n');
-    console.log('⏳ Cada índice será criado com uma nova conexão...\n');
+    console.log('⏳ Usando uma única conexão para todos os índices...\n');
     
+    const client = await createClient();
+    const runQuery = async (sql) => {
+        try {
+            await client.query(sql);
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
     const indexes = [
         // Tabela users
         { name: 'idx_users_passport', table: 'users', columns: 'passport' },
@@ -92,43 +90,47 @@ async function addIndexes() {
     let skipped = 0;
     let errors = 0;
     
-    for (const idx of indexes) {
-        const sql = `CREATE INDEX IF NOT EXISTS ${idx.name} ON ${idx.table} (${idx.columns})`;
-        const result = await runQuery(sql);
-        
-        if (result.success) {
-            console.log(`✅ ${idx.name}`);
-            created++;
-        } else if (result.error.includes('already exists')) {
-            console.log(`⏭️  ${idx.name} (já existe)`);
-            skipped++;
-        } else if (result.error.includes('does not exist')) {
-            console.log(`⚠️  ${idx.name} (tabela não existe)`);
-            skipped++;
-        } else {
-            console.log(`❌ ${idx.name}: ${result.error}`);
-            errors++;
+    try {
+        for (const idx of indexes) {
+            const sql = `CREATE INDEX IF NOT EXISTS ${idx.name} ON ${idx.table} (${idx.columns})`;
+            const result = await runQuery(sql);
+            
+            if (result.success) {
+                console.log(`✅ ${idx.name}`);
+                created++;
+            } else if (result.error.includes('already exists')) {
+                console.log(`⏭️  ${idx.name} (já existe)`);
+                skipped++;
+            } else if (result.error.includes('does not exist')) {
+                console.log(`⚠️  ${idx.name} (tabela não existe)`);
+                skipped++;
+            } else {
+                console.log(`❌ ${idx.name}: ${result.error}`);
+                errors++;
+            }
+            
+            // Pequena pausa entre queries para não sobrecarregar
+            await new Promise(r => setTimeout(r, 200));
         }
         
-        // Pequena pausa entre queries para não sobrecarregar
-        await new Promise(r => setTimeout(r, 500));
+        console.log(`\n📊 Resultado:`);
+        console.log(`   ✅ Criados: ${created}`);
+        console.log(`   ⏭️  Já existiam/pulados: ${skipped}`);
+        console.log(`   ❌ Erros: ${errors}`);
+        
+        // Executar ANALYZE para atualizar estatísticas
+        console.log('\n🔄 Executando ANALYZE para atualizar estatísticas...');
+        const analyzeResult = await runQuery('ANALYZE');
+        if (analyzeResult.success) {
+            console.log('✅ ANALYZE concluído!');
+        } else {
+            console.log('⚠️ ANALYZE falhou:', analyzeResult.error);
+        }
+        
+        console.log('\n🎉 Pronto! O banco de dados deve estar mais rápido agora.');
+    } finally {
+        await client.end();
     }
-    
-    console.log(`\n📊 Resultado:`);
-    console.log(`   ✅ Criados: ${created}`);
-    console.log(`   ⏭️  Já existiam/pulados: ${skipped}`);
-    console.log(`   ❌ Erros: ${errors}`);
-    
-    // Executar ANALYZE para atualizar estatísticas
-    console.log('\n🔄 Executando ANALYZE para atualizar estatísticas...');
-    const analyzeResult = await runQuery('ANALYZE');
-    if (analyzeResult.success) {
-        console.log('✅ ANALYZE concluído!');
-    } else {
-        console.log('⚠️ ANALYZE falhou:', analyzeResult.error);
-    }
-    
-    console.log('\n🎉 Pronto! O banco de dados deve estar mais rápido agora.');
 }
 
 addIndexes().catch(console.error);

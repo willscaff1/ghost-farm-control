@@ -20,6 +20,18 @@ let pastScreenshotFiles = []; // Screenshots para pagamento de semana passada
 let selectedPastWeek = null; // Semana passada selecionada para pagar
 let extraScreenshotFiles = []; // Screenshots para farm extra ranking
 let myDeliveriesCache = [];
+
+// Helper para escapar HTML ao usar innerHTML
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+let myDeliveriesCache = [];
 const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 
 // Nomes de exibição dos grupos (carregados dinamicamente do banco)
@@ -1671,10 +1683,10 @@ async function loadMyAbsences() {
                 <div class="delivery-item absence-item">
                     <div class="delivery-info">
                         <h3>📝 Semana ${formatWeek(j.week_start, j.week_end)}</h3>
-                        <p><strong>Motivo:</strong> ${j.reason}</p>
+                        <p><strong>Motivo:</strong> ${escapeHtml(j.reason)}</p>
                         <p>📅 Enviado: ${formatDate(j.created_at)}</p>
                         <span class="status ${j.status}">${getAbsenceStatusText(j.status)}</span>
-                        ${j.approved_by_name ? `<p style="margin-top: 10px;">Por: <strong>${j.approved_by_name}</strong></p>` : ''}
+                        ${j.approved_by_name ? `<p style="margin-top: 10px;">Por: <strong>${escapeHtml(j.approved_by_name)}</strong></p>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -2238,10 +2250,10 @@ async function showMyWarnings() {
             modalBody.innerHTML = data.warnings.map(warning => `
                 <div class="warning-item">
                     <div class="warning-reason">
-                        📝 ${warning.reason}
+                        📝 ${escapeHtml(warning.reason)}
                     </div>
                     <div class="warning-meta">
-                        <span>👤 Aplicada por: <strong>${warning.given_by_name}</strong></span>
+                        <span>👤 Aplicada por: <strong>${escapeHtml(warning.given_by_name)}</strong></span>
                         <span>📅 ${formatDate(warning.created_at)}</span>
                     </div>
                 </div>
@@ -2311,7 +2323,7 @@ async function openPayPastWeekModal(weekStart, weekEnd, weekLabel) {
     // Adicionar tipos de pagamento alternativos
     if (paymentTypes && paymentTypes.length > 0) {
         paymentTypes.forEach(pt => {
-            paymentSelect.innerHTML += `<option value="payment_${pt.id}">${pt.icon} ${pt.name}</option>`;
+            paymentSelect.innerHTML += `<option value="payment_${pt.id}">${pt.icon} ${escapeHtml(pt.name)}</option>`;
         });
     }
     

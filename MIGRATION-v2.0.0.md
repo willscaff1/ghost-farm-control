@@ -57,7 +57,7 @@ exit
 ## Credenciais do usuário root criado:
 
 - **Usuário:** admin
-- **Senha:** P@ssw0rd123
+- **Senha:** definida em `ROOT_BOOTSTRAP_PASSWORD` no ambiente
 - **Passaporte:** 0
 
 ## Verificação pós-migração:
@@ -66,7 +66,7 @@ exit
 2. Vá em **Permissões de Grupos**
 3. Verifique se os grupos aparecem corretamente
 4. Verifique se os membros estão nos grupos certos
-5. Faça login com `admin` / `P@ssw0rd123` para testar o root
+5. Faça login com `admin` / senha definida em `ROOT_BOOTSTRAP_PASSWORD` para testar o root
 
 ## Em caso de problemas:
 

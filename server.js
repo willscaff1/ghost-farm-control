@@ -41,7 +41,8 @@ app.use(session({
     cookie: { 
         secure: isProduction, // HTTPS em produção
         httpOnly: true,
-        sameSite: isProduction ? 'none' : 'lax',
+        // LAX reduz bastante risco de CSRF sem quebrar navegação direta
+        sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 horas
     }
 }));
@@ -404,21 +405,6 @@ db.initialize().then(async () => {
                     VALUES (?, ?, ?, ?)
                 `, ['member', 'Membro', JSON.stringify([]), 0]);
                 console.log('✅ Grupo member criado');
-            }
-            
-            // Criar usuário root se não existir
-            const rootUser = await getOne('SELECT id FROM users WHERE passport = ?', ['0']);
-            if (!rootUser) {
-                const passwordHash = await bcrypt.hash('P@ssw0rd123', 10);
-                const result = await runQuery(`
-                    INSERT INTO users (name, passport, password, role, active)
-                    VALUES (?, ?, ?, ?, ?)
-                `, ['Admin', '0', passwordHash, 'super_admin', 1]);
-                
-                await runQuery('INSERT INTO user_groups (user_id, group_name) VALUES (?, ?)', 
-                    [result.lastID, 'super_admin']);
-                
-                console.log('✅ Usuário root criado (admin/P@ssw0rd123)');
             }
             
             console.log('✅ Migração v2.0.0 concluída!');

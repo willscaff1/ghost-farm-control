@@ -2,7 +2,8 @@ const bcrypt = require('bcryptjs');
 
 // Detectar se está em produção (Railway) ou local
 const isProduction = process.env.DATABASE_URL ? true : false;
-const superAdminBootstrapPassword = process.env.SUPERADMIN_BOOTSTRAP_PASSWORD || (!isProduction ? '6999' : null);
+// Senha de bootstrap para super admin: deve ser sempre definida explicitamente via ambiente
+const superAdminBootstrapPassword = process.env.SUPERADMIN_BOOTSTRAP_PASSWORD || null;
 
 let pool;
 let dbType;
@@ -369,7 +370,7 @@ const initializePostgres = async () => {
             );
         }
 
-        // Criar super admin (somente com senha de bootstrap configurada em produção)
+        // Criar super admin (somente com senha de bootstrap configurada)
         const existing = await pool.query(`SELECT id FROM users WHERE passport = '6999'`);
         if (existing.rows.length === 0 && superAdminBootstrapPassword) {
             const superAdminPassword = bcrypt.hashSync(superAdminBootstrapPassword, 10);
