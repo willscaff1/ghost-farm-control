@@ -98,21 +98,24 @@ body {
 
 /* Recovery Modal Styles */
 .recovery-modal {
-    max-width: 420px;
+    max-width: 440px;
     padding: 0;
     overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid rgba(108, 92, 231, 0.25);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(108, 92, 231, 0.08);
 }
 
 .modal-close-btn {
     position: absolute;
     top: 15px;
     right: 15px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
     border: none;
-    color: var(--light);
-    font-size: 1.5rem;
-    width: 35px;
-    height: 35px;
+    color: var(--white);
+    font-size: 1.4rem;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -120,39 +123,100 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 10;
+    backdrop-filter: blur(4px);
 }
 
 .modal-close-btn:hover {
-    background: rgba(231, 76, 60, 0.3);
+    background: rgba(231, 76, 60, 0.4);
     color: var(--danger);
+    transform: rotate(90deg);
 }
 
 .recovery-header {
-    background: linear-gradient(135deg, var(--primary) 0%, #5a4fcf 100%);
-    padding: 30px;
+    background: linear-gradient(135deg, var(--primary) 0%, #4834d4 50%, #5a4fcf 100%);
+    padding: 32px 30px 28px;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.recovery-header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--success), var(--primary), var(--secondary));
 }
 
 .recovery-icon {
-    font-size: 3rem;
-    margin-bottom: 10px;
+    font-size: 2.8rem;
+    margin-bottom: 8px;
+    display: inline-block;
+    animation: recoveryPulse 2s ease-in-out infinite;
+}
+
+@keyframes recoveryPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
 }
 
 .recovery-header h2 {
     color: var(--white);
-    margin: 0 0 10px 0;
-    font-size: 1.5rem;
+    margin: 0 0 8px 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
 }
 
 .recovery-header p {
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 255, 255, 0.85);
     margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.5;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+.recovery-steps {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.recovery-step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.recovery-step-dot.active {
+    background: var(--white);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    width: 24px;
+    border-radius: 4px;
 }
 
 .recovery-modal form {
-    padding: 25px;
+    padding: 28px 28px 20px;
+}
+
+.recovery-modal .form-group {
+    margin-bottom: 18px;
+}
+
+.recovery-modal .form-group label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--secondary);
+    margin-bottom: 6px;
+    display: block;
 }
 
 .recovery-modal .btn {
@@ -161,7 +225,52 @@ body {
     justify-content: center;
     gap: 8px;
     font-size: 1rem;
+    font-weight: 600;
     padding: 14px;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.recovery-modal .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+}
+
+.recovery-code-input {
+    letter-spacing: 6px !important;
+    text-align: center !important;
+    font-size: 1.5em !important;
+    font-weight: 700 !important;
+    font-family: 'Courier New', monospace !important;
+    background: rgba(108, 92, 231, 0.08) !important;
+    border: 2px solid rgba(108, 92, 231, 0.3) !important;
+    border-radius: 12px !important;
+    padding: 14px !important;
+    transition: border-color 0.3s ease !important;
+}
+
+.recovery-code-input:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15) !important;
+}
+
+.recovery-back-link {
+    display: block;
+    margin-top: 4px;
+    padding: 10px 0 8px;
+    text-align: center;
+    color: var(--secondary);
+    font-size: 0.85em;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    border-top: 1px solid var(--border);
+    margin-left: 28px;
+    margin-right: 28px;
+    padding-bottom: 20px;
+}
+
+.recovery-back-link:hover {
+    color: var(--primary);
 }
 
 .logo {

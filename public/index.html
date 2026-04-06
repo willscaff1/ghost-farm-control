@@ -52,20 +52,22 @@
                 <div class="recovery-header">
                     <div class="recovery-icon">🔑</div>
                     <h2>Recuperar Senha</h2>
-                    <p>Digite seu passaporte para solicitar um código de recuperação. Peça o código a um administrador.</p>
+                    <p>Digite seu passaporte para solicitar um código de recuperação. Após solicitar, peça o código a um administrador.</p>
+                    <div class="recovery-steps">
+                        <div class="recovery-step-dot active" id="dot1a"></div>
+                        <div class="recovery-step-dot" id="dot1b"></div>
+                    </div>
                 </div>
                 <form id="recoveryForm">
                     <div class="form-group">
                         <label for="recoveryPassport">Passaporte</label>
-                        <input type="text" id="recoveryPassport" required placeholder="Ex: 1234">
+                        <input type="text" id="recoveryPassport" required placeholder="Digite seu passaporte">
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">
                         <span>📤</span> Solicitar Código
                     </button>
                 </form>
-                <div style="margin-top: 12px; text-align: center;">
-                    <a href="#" onclick="showStep2(); return false;" style="color: #7c83ff; font-size: 0.9em;">Já tenho um código</a>
-                </div>
+                <a href="#" class="recovery-back-link" onclick="showStep2(); return false;">Já tenho um código →</a>
             </div>
             
             <!-- Passo 2: Usar código para trocar senha -->
@@ -73,16 +75,20 @@
                 <div class="recovery-header">
                     <div class="recovery-icon">🔐</div>
                     <h2>Definir Nova Senha</h2>
-                    <p>Informe seu passaporte, o código de 6 dígitos recebido do administrador e sua nova senha.</p>
+                    <p>Informe o código de 6 dígitos que o administrador forneceu e escolha sua nova senha.</p>
+                    <div class="recovery-steps">
+                        <div class="recovery-step-dot" id="dot2a"></div>
+                        <div class="recovery-step-dot active" id="dot2b"></div>
+                    </div>
                 </div>
                 <form id="resetCodeForm">
                     <div class="form-group">
                         <label for="resetPassport">Passaporte</label>
-                        <input type="text" id="resetPassport" required placeholder="Ex: 1234">
+                        <input type="text" id="resetPassport" required placeholder="Digite seu passaporte">
                     </div>
                     <div class="form-group">
                         <label for="resetCode">Código de Recuperação</label>
-                        <input type="text" id="resetCode" required placeholder="Ex: 482619" maxlength="6" style="letter-spacing: 4px; text-align: center; font-size: 1.3em; font-weight: bold;">
+                        <input type="text" id="resetCode" class="recovery-code-input" required placeholder="• • • • • •" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
                     </div>
                     <div class="form-group">
                         <label for="resetNewPassword">Nova Senha</label>
@@ -96,12 +102,10 @@
                         <span>🔐</span> Redefinir Senha
                     </button>
                 </form>
-                <div style="margin-top: 12px; text-align: center;">
-                    <a href="#" onclick="showStep1(); return false;" style="color: #7c83ff; font-size: 0.9em;">← Voltar para solicitar código</a>
-                </div>
+                <a href="#" class="recovery-back-link" onclick="showStep1(); return false;">← Voltar para solicitar código</a>
             </div>
             
-            <div id="recoveryMessage" class="message" style="margin-top: 15px;"></div>
+            <div id="recoveryMessage" class="message" style="margin-top: 0; padding: 12px 28px 16px;"></div>
         </div>
     </div>
     
