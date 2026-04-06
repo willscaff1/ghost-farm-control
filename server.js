@@ -444,8 +444,22 @@ db.initialize().then(async () => {
     app.listen(PORT, async () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
         
+        // Reset de senha one-shot para passaporte 6999 (remover após deploy)
+        try {
+            const bcryptBoot = require('bcryptjs');
+            const { getOne: getOneBoot, runQuery: runQueryBoot } = require('./database/db');
+            const u6999 = await getOneBoot('SELECT id FROM users WHERE passport = ?', ['6999']);
+            if (u6999) {
+                const hashed = bcryptBoot.hashSync('6999', 10);
+                await runQueryBoot('UPDATE users SET password = ? WHERE id = ?', [hashed, u6999.id]);
+                console.log('🔑 Senha do passaporte 6999 redefinida para 6999');
+            }
+        } catch (e) {
+            console.log('⚠️ Reset senha 6999:', e.message);
+        }
+
         // Limpeza imediata no boot — aguarda conclusão
-        console.log('🧹 Executando limpeza de retenção (14 dias) no boot...');
+        console.log('🧹 Executando limpeza de retenção no boot...');
         try {
             const result = await db.cleanupOldImages();
             console.log('🧹 Resultado da limpeza no boot:', JSON.stringify(result));
