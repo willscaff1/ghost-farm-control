@@ -710,7 +710,7 @@ router.get('/members', requireAdmin, async (req, res) => {
                    (SELECT COUNT(*) FROM warnings WHERE user_id = u.id) as warnings_count
             FROM users u
             WHERE u.passport != '0'
-            ORDER BY CAST(u.passport AS INTEGER) ASC
+            ORDER BY u.name ASC
         `);
         
         // Buscar grupos de TODOS os usuários de uma vez (otimizado)
