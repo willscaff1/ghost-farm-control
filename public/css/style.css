@@ -96,181 +96,231 @@ body {
     background: rgba(108, 92, 231, 0.1);
 }
 
-/* Recovery Modal Styles */
+/* ── Recovery Modal ── */
 .recovery-modal {
-    max-width: 440px;
+    width: 420px;
+    max-width: 94vw;
     padding: 0;
     overflow: hidden;
-    border-radius: 20px;
-    border: 1px solid rgba(108, 92, 231, 0.25);
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(108, 92, 231, 0.08);
+    border-radius: 16px;
+    border: 1px solid rgba(108, 92, 231, 0.2);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.55);
+    animation: modalIn .25s ease;
+}
+@keyframes modalIn {
+    from { opacity: 0; transform: scale(.95) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.modal-close-btn {
+.recovery-modal .modal-close-btn {
     position: absolute;
-    top: 15px;
-    right: 15px;
-    background: rgba(255, 255, 255, 0.15);
+    top: 12px;
+    right: 12px;
+    background: rgba(255,255,255,0.15);
     border: none;
-    color: var(--white);
-    font-size: 1.4rem;
-    width: 34px;
-    height: 34px;
+    color: #fff;
+    font-size: 1.3rem;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     cursor: pointer;
-    transition: all 0.3s ease;
+    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10;
-    backdrop-filter: blur(4px);
+    transition: background .2s, transform .2s;
 }
-
-.modal-close-btn:hover {
-    background: rgba(231, 76, 60, 0.4);
-    color: var(--danger);
+.recovery-modal .modal-close-btn:hover {
+    background: rgba(231,76,60,0.5);
     transform: rotate(90deg);
 }
 
+/* Header */
 .recovery-header {
-    background: linear-gradient(135deg, var(--primary) 0%, #4834d4 50%, #5a4fcf 100%);
-    padding: 32px 30px 28px;
+    background: linear-gradient(135deg, var(--primary), #4834d4);
+    padding: 24px 28px 20px;
     text-align: center;
     position: relative;
-    overflow: hidden;
 }
-
-.recovery-header::after {
-    content: '';
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--success), var(--primary), var(--secondary));
-}
-
-.recovery-icon {
-    font-size: 2.8rem;
-    margin-bottom: 8px;
-    display: inline-block;
-    animation: recoveryPulse 2s ease-in-out infinite;
-}
-
-@keyframes recoveryPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
-}
-
 .recovery-header h2 {
-    color: var(--white);
-    margin: 0 0 8px 0;
-    font-size: 1.4rem;
+    color: #fff;
+    margin: 0 0 6px;
+    font-size: 1.25rem;
     font-weight: 700;
-    letter-spacing: -0.3px;
 }
-
 .recovery-header p {
-    color: rgba(255, 255, 255, 0.85);
-    margin: 0;
-    font-size: 0.85rem;
-    line-height: 1.6;
-    max-width: 320px;
+    color: rgba(255,255,255,0.8);
     margin: 0 auto;
-}
-
-.recovery-steps {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 16px;
-}
-
-.recovery-step-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
-    transition: all 0.3s ease;
-}
-
-.recovery-step-dot.active {
-    background: var(--white);
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-    width: 24px;
-    border-radius: 4px;
-}
-
-.recovery-modal form {
-    padding: 28px 28px 20px;
-}
-
-.recovery-modal .form-group {
-    margin-bottom: 18px;
-}
-
-.recovery-modal .form-group label {
     font-size: 0.82rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--secondary);
-    margin-bottom: 6px;
-    display: block;
+    line-height: 1.5;
+    max-width: 300px;
 }
 
-.recovery-modal .btn {
+/* Step indicator (1 ── 2) */
+.recovery-step-indicator {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    font-size: 1rem;
+    gap: 0;
+    margin-bottom: 14px;
+}
+.step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5);
+    transition: all .3s;
+}
+.step-num.active {
+    background: #fff;
+    color: var(--primary);
+    box-shadow: 0 0 12px rgba(255,255,255,0.35);
+}
+.step-num.done {
+    background: var(--success);
+    color: #fff;
+}
+.step-line {
+    width: 40px;
+    height: 2px;
+    background: rgba(255,255,255,0.2);
+    margin: 0 6px;
+    border-radius: 2px;
+    transition: background .3s;
+}
+.step-line.filled {
+    background: var(--success);
+}
+
+/* Body */
+.recovery-body {
+    padding: 24px 28px 16px;
+}
+.recovery-modal .form-group {
+    margin-bottom: 16px;
+}
+.recovery-modal .form-group label {
+    font-size: 0.78rem;
     font-weight: 600;
-    padding: 14px;
-    border-radius: 12px;
-    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--light);
+    margin-bottom: 5px;
+    display: block;
 }
 
-.recovery-modal .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
-}
-
+/* Code input */
 .recovery-code-input {
-    letter-spacing: 6px !important;
+    letter-spacing: 8px !important;
     text-align: center !important;
-    font-size: 1.5em !important;
+    font-size: 1.6rem !important;
     font-weight: 700 !important;
     font-family: 'Courier New', monospace !important;
-    background: rgba(108, 92, 231, 0.08) !important;
-    border: 2px solid rgba(108, 92, 231, 0.3) !important;
-    border-radius: 12px !important;
-    padding: 14px !important;
-    transition: border-color 0.3s ease !important;
+    background: rgba(108,92,231,0.06) !important;
+    border: 2px solid rgba(108,92,231,0.25) !important;
+    border-radius: 10px !important;
+    padding: 12px 16px !important;
+    transition: border-color .2s !important;
 }
-
 .recovery-code-input:focus {
     border-color: var(--primary) !important;
-    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(108,92,231,0.12) !important;
+}
+.recovery-code-input::placeholder {
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.2);
 }
 
-.recovery-back-link {
-    display: block;
+/* Password side-by-side */
+.recovery-password-row {
+    display: flex;
+    gap: 12px;
+}
+.recovery-password-row .form-group {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Button */
+.recovery-modal .btn {
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 13px;
+    border-radius: 10px;
+    transition: all .2s;
     margin-top: 4px;
-    padding: 10px 0 8px;
-    text-align: center;
-    color: var(--secondary);
-    font-size: 0.85em;
-    text-decoration: none;
-    transition: color 0.2s ease;
-    border-top: 1px solid var(--border);
-    margin-left: 28px;
-    margin-right: 28px;
-    padding-bottom: 20px;
+}
+.recovery-modal .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(108,92,231,0.35);
+}
+.recovery-modal .btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
 }
 
-.recovery-back-link:hover {
+/* Message inline */
+.recovery-msg {
+    margin-top: 12px;
+    padding: 0;
+    font-size: 0.84rem;
+    text-align: center;
+    min-height: 20px;
+    border-radius: 8px;
+    transition: all .2s;
+}
+.recovery-msg.success {
+    background: rgba(0,184,148,0.12);
+    color: var(--success);
+    padding: 10px 14px;
+    border: 1px solid rgba(0,184,148,0.3);
+}
+.recovery-msg.error {
+    background: rgba(214,48,49,0.12);
+    color: var(--danger);
+    padding: 10px 14px;
+    border: 1px solid rgba(214,48,49,0.3);
+}
+
+/* Footer link */
+.recovery-footer {
+    padding: 0 28px 20px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    margin: 0 0 0;
+    padding-top: 14px;
+}
+.recovery-footer a {
+    color: var(--secondary);
+    font-size: 0.84rem;
+    text-decoration: none;
+    transition: color .2s;
+}
+.recovery-footer a:hover {
     color: var(--primary);
+}
+.recovery-footer a span {
+    display: inline-block;
+    transition: transform .2s;
+}
+.recovery-footer a:hover span {
+    transform: translateX(3px);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .recovery-modal { width: 100%; border-radius: 12px; }
+    .recovery-body { padding: 20px 20px 14px; }
+    .recovery-header { padding: 20px 20px 16px; }
+    .recovery-password-row { flex-direction: column; gap: 0; }
+    .recovery-footer { padding: 12px 20px 16px; }
 }
 
 .logo {

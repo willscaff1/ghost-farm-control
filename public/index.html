@@ -46,174 +46,176 @@
     <div id="recoveryModal" class="modal" style="display:none;">
         <div class="modal-content recovery-modal">
             <button class="modal-close-btn" onclick="closeRecoveryModal()">&times;</button>
-            
+
             <!-- Passo 1: Solicitar código -->
             <div id="recoveryStep1">
                 <div class="recovery-header">
-                    <div class="recovery-icon">🔑</div>
-                    <h2>Recuperar Senha</h2>
-                    <p>Digite seu passaporte para solicitar um código de recuperação. Após solicitar, peça o código a um administrador.</p>
-                    <div class="recovery-steps">
-                        <div class="recovery-step-dot active" id="dot1a"></div>
-                        <div class="recovery-step-dot" id="dot1b"></div>
+                    <div class="recovery-step-indicator">
+                        <span class="step-num active">1</span>
+                        <span class="step-line"></span>
+                        <span class="step-num">2</span>
                     </div>
+                    <h2>Recuperar Senha</h2>
+                    <p>Digite seu passaporte abaixo. Depois, peça o código de recuperação a um administrador.</p>
                 </div>
-                <form id="recoveryForm">
+                <form id="recoveryForm" class="recovery-body">
                     <div class="form-group">
                         <label for="recoveryPassport">Passaporte</label>
-                        <input type="text" id="recoveryPassport" required placeholder="Digite seu passaporte">
+                        <input type="text" id="recoveryPassport" required placeholder="Ex: ABC123">
                     </div>
-                    <button type="submit" class="btn btn-primary btn-block">
-                        <span>📤</span> Solicitar Código
-                    </button>
+                    <button type="submit" class="btn btn-primary btn-block">Solicitar Código</button>
+                    <div id="recoveryMessage1" class="recovery-msg"></div>
                 </form>
-                <a href="#" class="recovery-back-link" onclick="showStep2(); return false;">Já tenho um código →</a>
+                <div class="recovery-footer">
+                    <a href="#" onclick="showStep2(); return false;">Já tenho um código <span>&rarr;</span></a>
+                </div>
             </div>
-            
+
             <!-- Passo 2: Usar código para trocar senha -->
             <div id="recoveryStep2" style="display:none;">
                 <div class="recovery-header">
-                    <div class="recovery-icon">🔐</div>
+                    <div class="recovery-step-indicator">
+                        <span class="step-num done">&#10003;</span>
+                        <span class="step-line filled"></span>
+                        <span class="step-num active">2</span>
+                    </div>
                     <h2>Definir Nova Senha</h2>
                     <p>Informe o código de 6 dígitos que o administrador forneceu e escolha sua nova senha.</p>
-                    <div class="recovery-steps">
-                        <div class="recovery-step-dot" id="dot2a"></div>
-                        <div class="recovery-step-dot active" id="dot2b"></div>
-                    </div>
                 </div>
-                <form id="resetCodeForm">
+                <form id="resetCodeForm" class="recovery-body">
                     <div class="form-group">
                         <label for="resetPassport">Passaporte</label>
-                        <input type="text" id="resetPassport" required placeholder="Digite seu passaporte">
+                        <input type="text" id="resetPassport" required placeholder="Ex: ABC123">
                     </div>
                     <div class="form-group">
-                        <label for="resetCode">Código de Recuperação</label>
-                        <input type="text" id="resetCode" class="recovery-code-input" required placeholder="• • • • • •" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+                        <label for="resetCode">Código de 6 Dígitos</label>
+                        <input type="text" id="resetCode" class="recovery-code-input" required placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
                     </div>
-                    <div class="form-group">
-                        <label for="resetNewPassword">Nova Senha</label>
-                        <input type="password" id="resetNewPassword" required placeholder="Mínimo 6 caracteres" minlength="6">
+                    <div class="recovery-password-row">
+                        <div class="form-group">
+                            <label for="resetNewPassword">Nova Senha</label>
+                            <input type="password" id="resetNewPassword" required placeholder="Mínimo 6 caracteres" minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label for="resetConfirmPassword">Confirmar</label>
+                            <input type="password" id="resetConfirmPassword" required placeholder="Repita a senha" minlength="6">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="resetConfirmPassword">Confirmar Nova Senha</label>
-                        <input type="password" id="resetConfirmPassword" required placeholder="Repita a nova senha" minlength="6">
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">
-                        <span>🔐</span> Redefinir Senha
-                    </button>
+                    <button type="submit" class="btn btn-primary btn-block">Redefinir Senha</button>
+                    <div id="recoveryMessage2" class="recovery-msg"></div>
                 </form>
-                <a href="#" class="recovery-back-link" onclick="showStep1(); return false;">← Voltar para solicitar código</a>
+                <div class="recovery-footer">
+                    <a href="#" onclick="showStep1(); return false;"><span>&larr;</span> Voltar</a>
+                </div>
             </div>
-            
-            <div id="recoveryMessage" class="message" style="margin-top: 0; padding: 12px 28px 16px;"></div>
         </div>
     </div>
     
     <script src="js/login.js"></script>
     <script>
+        function showMsg(el, text, type) {
+            el.textContent = text;
+            el.className = 'recovery-msg ' + type;
+        }
+        function clearMsgs() {
+            document.querySelectorAll('.recovery-msg').forEach(m => { m.textContent = ''; m.className = 'recovery-msg'; });
+        }
+
         function showRecoveryModal() {
             document.getElementById('recoveryModal').style.display = 'flex';
             showStep1();
         }
-        
+
         function closeRecoveryModal() {
             document.getElementById('recoveryModal').style.display = 'none';
-            document.getElementById('recoveryMessage').className = 'message';
-            document.getElementById('recoveryMessage').textContent = '';
+            clearMsgs();
             document.getElementById('recoveryForm').reset();
             document.getElementById('resetCodeForm').reset();
         }
-        
+
         function showStep1() {
             document.getElementById('recoveryStep1').style.display = 'block';
             document.getElementById('recoveryStep2').style.display = 'none';
-            document.getElementById('recoveryMessage').className = 'message';
-            document.getElementById('recoveryMessage').textContent = '';
+            clearMsgs();
         }
-        
+
         function showStep2() {
             document.getElementById('recoveryStep1').style.display = 'none';
             document.getElementById('recoveryStep2').style.display = 'block';
-            document.getElementById('recoveryMessage').className = 'message';
-            document.getElementById('recoveryMessage').textContent = '';
+            clearMsgs();
         }
-        
-        // Passo 1: Solicitar código
+
+        // Passo 1
         document.getElementById('recoveryForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const passport = document.getElementById('recoveryPassport').value;
-            const msgEl = document.getElementById('recoveryMessage');
-            
+            const msgEl = document.getElementById('recoveryMessage1');
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = 'Solicitando...';
+
             try {
-                const response = await fetch('/api/auth/request-password-reset', {
+                const res = await fetch('/api/auth/request-password-reset', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ passport })
                 });
-                const data = await response.json();
-                
+                const data = await res.json();
+
                 if (data.success) {
-                    msgEl.textContent = data.message;
-                    msgEl.className = 'message show success';
-                    document.getElementById('recoveryForm').reset();
-                    // Preencher o passaporte no passo 2 automaticamente
+                    showMsg(msgEl, 'Código gerado! Peça a um administrador.', 'success');
                     document.getElementById('resetPassport').value = passport;
-                    setTimeout(() => showStep2(), 2000);
+                    setTimeout(() => showStep2(), 1500);
                 } else {
-                    msgEl.textContent = data.error || 'Erro ao solicitar recuperação';
-                    msgEl.className = 'message show error';
+                    showMsg(msgEl, data.error || 'Erro ao solicitar', 'error');
                 }
-            } catch (error) {
-                msgEl.textContent = 'Erro de conexão';
-                msgEl.className = 'message show error';
+            } catch {
+                showMsg(msgEl, 'Erro de conexão com o servidor', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Solicitar Código';
             }
         });
-        
-        // Passo 2: Usar código para redefinir senha
+
+        // Passo 2
         document.getElementById('resetCodeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const passport = document.getElementById('resetPassport').value;
             const code = document.getElementById('resetCode').value;
             const newPassword = document.getElementById('resetNewPassword').value;
             const confirmPassword = document.getElementById('resetConfirmPassword').value;
-            const msgEl = document.getElementById('recoveryMessage');
-            
-            if (newPassword.length < 6) {
-                msgEl.textContent = 'A senha deve ter pelo menos 6 caracteres';
-                msgEl.className = 'message show error';
-                return;
-            }
-            
-            if (newPassword !== confirmPassword) {
-                msgEl.textContent = 'As senhas não coincidem';
-                msgEl.className = 'message show error';
-                return;
-            }
-            
+            const msgEl = document.getElementById('recoveryMessage2');
+            const btn = e.target.querySelector('button');
+
+            if (newPassword.length < 6) { showMsg(msgEl, 'A senha deve ter pelo menos 6 caracteres', 'error'); return; }
+            if (newPassword !== confirmPassword) { showMsg(msgEl, 'As senhas não coincidem', 'error'); return; }
+
+            btn.disabled = true;
+            btn.textContent = 'Redefinindo...';
+
             try {
-                const response = await fetch('/api/auth/reset-password-with-code', {
+                const res = await fetch('/api/auth/reset-password-with-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ passport, code, newPassword })
                 });
-                const data = await response.json();
-                
+                const data = await res.json();
+
                 if (data.success) {
-                    msgEl.textContent = data.message;
-                    msgEl.className = 'message show success';
+                    showMsg(msgEl, 'Senha redefinida! Redirecionando...', 'success');
                     document.getElementById('resetCodeForm').reset();
-                    setTimeout(() => closeRecoveryModal(), 3000);
+                    setTimeout(() => closeRecoveryModal(), 2000);
                 } else {
-                    msgEl.textContent = data.error || 'Erro ao redefinir senha';
-                    msgEl.className = 'message show error';
+                    showMsg(msgEl, data.error || 'Erro ao redefinir senha', 'error');
                 }
-            } catch (error) {
-                msgEl.textContent = 'Erro de conexão';
-                msgEl.className = 'message show error';
+            } catch {
+                showMsg(msgEl, 'Erro de conexão com o servidor', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Redefinir Senha';
             }
         });
-        
-        // Fechar modal ao clicar fora
+
         document.getElementById('recoveryModal').addEventListener('click', (e) => {
             if (e.target.id === 'recoveryModal') closeRecoveryModal();
         });
