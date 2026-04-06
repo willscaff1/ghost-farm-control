@@ -922,61 +922,37 @@ const initializeSQLite = () => {
     });
 };
 
-// Limpeza agressiva de imagens: deleta screenshots de tudo que já foi processado
-// + retenção por data para o restante (IMAGE_RETENTION_DAYS, padrão 7)
+// Limpeza de screenshots ANTIGOS — NUNCA toca na semana atual ou anterior
+// Só remove imagens de entregas cujo week_end já passou do período de retenção
 const cleanupOldImages = async () => {
     try {
-        const retentionDays = parseInt(process.env.IMAGE_RETENTION_DAYS, 10) || 7;
+        const retentionDays = parseInt(process.env.IMAGE_RETENTION_DAYS, 10) || 14;
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - retentionDays);
         const cutoffDate = cutoff.toISOString().split('T')[0];
         let totalRemoved = 0;
 
-        console.log(`🧹 === LIMPEZA DE STORAGE INICIADA ===`);
-        console.log(`🧹 Retenção: ${retentionDays} dias (corte: ${cutoffDate})`);
+        console.log(`🧹 === LIMPEZA DE STORAGE ===`);
+        console.log(`🧹 Corte: ${cutoffDate} (entregas com week_end anterior a esta data)`);
 
-        // ── FASE 1: Entregas já processadas (approved/rejected) — não precisam mais de imagem ──
-        const phase1a = await runQuery(`
-            UPDATE deliveries SET screenshot_url = NULL
-            WHERE status IN ('approved', 'rejected') AND screenshot_url IS NOT NULL
-        `);
-        console.log(`🧹 [1a] screenshot_url inline limpos de entregas processadas: ${phase1a?.changes || 0}`);
-
-        const phase1b = await runQuery(`
-            DELETE FROM delivery_screenshots
-            WHERE delivery_id IN (SELECT id FROM deliveries WHERE status IN ('approved', 'rejected'))
-        `);
-        totalRemoved += phase1b?.changes || 0;
-        console.log(`🧹 [1b] delivery_screenshots de entregas processadas: ${phase1b?.changes || 0} removidos`);
-
-        // ── FASE 2: Extra farms já processados ──
-        try {
-            const phase2 = await runQuery(`
-                DELETE FROM extra_farm_screenshots
-                WHERE extra_farm_id IN (SELECT id FROM extra_farm_requests WHERE status IN ('approved', 'rejected'))
-            `);
-            totalRemoved += phase2?.changes || 0;
-            console.log(`🧹 [2] extra_farm_screenshots processados: ${phase2?.changes || 0} removidos`);
-        } catch (e) {
-            console.log('⚠️ extra_farm_screenshots:', e.message);
-        }
-
-        // ── FASE 3: Tudo mais antigo que o corte (pega pendentes antigos também) ──
-        const phase3a = await runQuery(`
+        // 1) screenshot_url inline em entregas antigas
+        const r1 = await runQuery(`
             UPDATE deliveries SET screenshot_url = NULL
             WHERE week_end < ? AND screenshot_url IS NOT NULL
         `, [cutoffDate]);
-        console.log(`🧹 [3a] screenshot_url antigos (>${retentionDays}d): ${phase3a?.changes || 0}`);
+        console.log(`🧹 [1] screenshot_url inline limpos: ${r1?.changes || 0}`);
 
-        const phase3b = await runQuery(`
+        // 2) delivery_screenshots de entregas antigas
+        const r2 = await runQuery(`
             DELETE FROM delivery_screenshots
             WHERE delivery_id IN (SELECT id FROM deliveries WHERE week_end < ?)
         `, [cutoffDate]);
-        totalRemoved += phase3b?.changes || 0;
-        console.log(`🧹 [3b] delivery_screenshots antigos: ${phase3b?.changes || 0} removidos`);
+        totalRemoved += r2?.changes || 0;
+        console.log(`🧹 [2] delivery_screenshots removidos: ${r2?.changes || 0}`);
 
+        // 3) extra_farm_screenshots de entregas antigas
         try {
-            const phase3c = await runQuery(`
+            const r3 = await runQuery(`
                 DELETE FROM extra_farm_screenshots
                 WHERE extra_farm_id IN (
                     SELECT ef.id FROM extra_farm_requests ef
@@ -984,26 +960,24 @@ const cleanupOldImages = async () => {
                     WHERE d.week_end < ?
                 )
             `, [cutoffDate]);
-            totalRemoved += phase3c?.changes || 0;
-            console.log(`🧹 [3c] extra_farm_screenshots antigos: ${phase3c?.changes || 0} removidos`);
-        } catch (e) { /* ok */ }
+            totalRemoved += r3?.changes || 0;
+            console.log(`🧹 [3] extra_farm_screenshots removidos: ${r3?.changes || 0}`);
+        } catch (e) {
+            console.log('⚠️ extra_farm_screenshots:', e.message);
+        }
 
-        // ── FASE 4: Limpeza de dados auxiliares ──
+        // 4) password_resets já usados
         try {
             await runQuery(`DELETE FROM password_resets WHERE status != 'pending'`);
         } catch (e) { /* ok */ }
 
-        // ── FASE 5: VACUUM FULL para realmente devolver espaço ao disco ──
+        // 5) VACUUM para liberar espaço em disco
         if (dbType === 'postgres') {
-            console.log('🧹 Executando VACUUM FULL nas tabelas pesadas (libera espaço real em disco)...');
-            const heavyTables = ['delivery_screenshots', 'extra_farm_screenshots', 'deliveries'];
-            for (const table of heavyTables) {
-                try {
-                    await pool.query(`VACUUM FULL ${table}`);
-                    console.log(`🧹 VACUUM FULL ${table} ✅`);
-                } catch (e) {
-                    console.log(`⚠️ VACUUM FULL ${table}: ${e.message}`);
-                }
+            try {
+                await pool.query('VACUUM delivery_screenshots, extra_farm_screenshots, deliveries');
+                console.log('🧹 VACUUM executado');
+            } catch (e) {
+                try { await pool.query('VACUUM'); } catch (e2) { /* ok */ }
             }
         }
 
