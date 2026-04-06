@@ -1332,6 +1332,7 @@
 #membersTable {
     width: 100%;
     border-collapse: collapse;
+    table-layout: auto;
 }
 
 #membersTable thead {
@@ -1365,21 +1366,56 @@
 }
 
 #membersTable td {
-    padding: 12px 14px;
+    padding: 10px 12px;
     color: #ffffff;
     font-size: 15px;
     vertical-align: middle;
-    white-space: nowrap;
 }
 
-#membersTable th:nth-child(1) { width: 120px; text-align: center; }
-#membersTable td:nth-child(1) { width: 120px; text-align: center; font-weight: 700; color: #d4dbff; font-size: 16px; }
-#membersTable th:nth-child(2) { width: auto; min-width: 250px; text-align: left; }
-#membersTable td:nth-child(2) { text-align: left; }
-#membersTable th:nth-child(3) { width: 250px; text-align: left; }
-#membersTable td:nth-child(3) { width: 250px; text-align: left; }
-#membersTable th:nth-child(4) { width: 300px; text-align: center; }
-#membersTable td:nth-child(4) { width: 300px; text-align: center; }
+#membersTable .member-avatar {
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    text-align: center;
+    font-size: 15px;
+    font-weight: 900;
+    color: #fff;
+    margin-right: 10px;
+    vertical-align: middle;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+    flex-shrink: 0;
+}
+
+#membersTable .member-name {
+    display: inline;
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 15px;
+    vertical-align: middle;
+}
+
+/* Coluna 1: Checkbox */
+#membersTable th:nth-child(1) { width: 50px; text-align: center; }
+#membersTable td:nth-child(1) { width: 50px; text-align: center; }
+
+/* Coluna 2: Passaporte */
+#membersTable th:nth-child(2) { width: 100px; text-align: center; }
+#membersTable td:nth-child(2) { width: 100px; text-align: center; font-weight: 700; color: #d4dbff; font-size: 15px; }
+
+/* Coluna 3: Nome */
+#membersTable th:nth-child(3) { width: auto; min-width: 200px; text-align: left; }
+#membersTable td:nth-child(3) { text-align: left; }
+
+/* Coluna 4: Grupo/Cargo */
+#membersTable th:nth-child(4) { width: 180px; text-align: left; }
+#membersTable td:nth-child(4) { width: 180px; text-align: left; }
+
+/* Coluna 5: Ações */
+#membersTable th:nth-child(5) { min-width: 280px; text-align: center; }
+#membersTable td:nth-child(5) { min-width: 280px; text-align: center; white-space: nowrap; }
 
 .role-select-inline {
     padding: 8px 12px;
@@ -1533,16 +1569,20 @@
 }
 
 .action-btn-small {
-    padding: 10px 16px;
-    margin: 0 5px;
+    padding: 7px 12px;
+    margin: 2px 3px;
     border: none;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    vertical-align: middle;
 }
 
 .action-btn-small.edit {
