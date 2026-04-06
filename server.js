@@ -58,6 +58,18 @@ app.use('/api/auth', authRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Health check — usado pelo smoke test e monitoramento
+app.get('/health', async (req, res) => {
+    const start = Date.now();
+    try {
+        const { getOne } = require('./database/db');
+        await getOne('SELECT 1 AS ok');
+        res.json({ status: 'ok', db: 'ok', uptime: process.uptime(), latency_ms: Date.now() - start });
+    } catch (err) {
+        res.status(503).json({ status: 'error', db: 'down', error: err.message, latency_ms: Date.now() - start });
+    }
+});
+
 // Serve frontend
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -429,35 +441,31 @@ db.initialize().then(async () => {
         console.error('⚠️ Erro na auto-migração (sistema continuará funcionando):', migrationError.message);
     }
     
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
         
-        // Executar limpeza de imagens antigas uma vez ao iniciar
-        db.cleanupOldImages();
-        
+        // Limpeza imediata no boot — aguarda conclusão
+        console.log('🧹 Executando limpeza de retenção (14 dias) no boot...');
+        try {
+            const result = await db.cleanupOldImages();
+            console.log('🧹 Resultado da limpeza no boot:', JSON.stringify(result));
+        } catch (e) {
+            console.error('⚠️ Erro na limpeza de boot:', e.message);
+        }
+
         // Agendar limpeza diária às 3h da manhã
-        const scheduleCleanup = () => {
-            const now = new Date();
-            const nextRun = new Date();
-            nextRun.setHours(3, 0, 0, 0);
-            
-            // Se já passou das 3h hoje, agendar para amanhã
-            if (now > nextRun) {
-                nextRun.setDate(nextRun.getDate() + 1);
-            }
-            
-            const msUntilNextRun = nextRun.getTime() - now.getTime();
-            
-            setTimeout(() => {
-                db.cleanupOldImages();
-                // Reagendar para o próximo dia
-                setInterval(() => db.cleanupOldImages(), 24 * 60 * 60 * 1000);
-            }, msUntilNextRun);
-            
-            console.log(`🕐 Limpeza de imagens agendada para ${nextRun.toLocaleString('pt-BR')}`);
-        };
-        
-        scheduleCleanup();
+        const now = new Date();
+        const nextRun = new Date();
+        nextRun.setHours(3, 0, 0, 0);
+        if (now > nextRun) nextRun.setDate(nextRun.getDate() + 1);
+
+        const msUntilNextRun = nextRun.getTime() - now.getTime();
+        setTimeout(() => {
+            db.cleanupOldImages();
+            setInterval(() => db.cleanupOldImages(), 24 * 60 * 60 * 1000);
+        }, msUntilNextRun);
+
+        console.log(`🕐 Próxima limpeza agendada para ${nextRun.toLocaleString('pt-BR')}`);
     });
 }).catch(err => {
     console.error('Erro ao inicializar banco de dados:', err);
