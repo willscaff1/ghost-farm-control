@@ -8,7 +8,7 @@ const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DATA
 
 const router = express.Router();
 
-// Middleware simples de proteção CSRF por mesma origem para rotas de entrega (produção)
+// Middleware de proteção CSRF por mesma origem para rotas de entrega (produção)
 const requireSameOrigin = (req, res, next) => {
     if (!isProduction) return next();
 
@@ -17,20 +17,18 @@ const requireSameOrigin = (req, res, next) => {
         return next();
     }
 
-    const origin = req.headers.origin || '';
+    const origin = req.headers.origin;
+    if (!origin) return next();
+
     const host = req.headers.host || '';
-
-    if (!origin) {
-        return res.status(400).json({ error: 'Origem da requisição não informada' });
-    }
-
     try {
         const originUrl = new URL(origin);
         if (originUrl.host !== host) {
+            console.warn(`⚠️ CSRF bloqueado: origin=${origin} host=${host} path=${req.path}`);
             return res.status(403).json({ error: 'Requisição bloqueada por política de mesma origem' });
         }
     } catch {
-        return res.status(400).json({ error: 'Origem inválida' });
+        return next();
     }
 
     next();

@@ -52,29 +52,22 @@ router.post('/logout', (req, res) => {
 // Get current user
 router.get('/me', async (req, res) => {
     if (req.session.user) {
-        // Buscar grupos do usuário SEMPRE do banco para pegar dados atualizados
         try {
-            // Verificar se o usuário ainda está ativo
-            const userCheck = await getOne('SELECT active, role FROM users WHERE id = ?', [req.session.user.id]);
+            const [userCheck, userGroups] = await Promise.all([
+                getOne('SELECT active, role FROM users WHERE id = ?', [req.session.user.id]),
+                getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [req.session.user.id])
+            ]);
             
             if (!userCheck || userCheck.active === 0 || userCheck.active === false) {
                 req.session.destroy();
                 return res.status(403).json({ error: 'Usuário desativado' });
             }
             
-            const userGroups = await getAll(
-                'SELECT group_name FROM user_groups WHERE user_id = ?',
-                [req.session.user.id]
-            );
             let groups = userGroups.map(g => g.group_name);
             
-            // Se não tiver grupos na nova tabela, usar role legado como fallback
             if (groups.length === 0 && userCheck.role) {
                 groups = [userCheck.role];
-                console.log(`⚠️  Usuário ${req.session.user.name} usando role legado: ${userCheck.role}`);
             }
-            
-            console.log(`👤 Usuário ${req.session.user.name} (ID: ${req.session.user.id}) tem grupos:`, groups);
             
             // Atualizar a sessão com os grupos mais recentes
             req.session.user.groups = groups;

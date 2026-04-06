@@ -62,7 +62,8 @@ const isSuperAdminUser = (user) => {
     return false;
 };
 
-// Middleware simples de proteção CSRF por mesma origem para rotas sensíveis (produção)
+// Middleware de proteção CSRF por mesma origem para rotas sensíveis (produção)
+// Permite requests sem Origin (same-origin do browser não envia); bloqueia só quando Origin existe e não bate
 const requireSameOrigin = (req, res, next) => {
     if (!isProduction) return next();
 
@@ -71,20 +72,18 @@ const requireSameOrigin = (req, res, next) => {
         return next();
     }
 
-    const origin = req.headers.origin || '';
+    const origin = req.headers.origin;
+    if (!origin) return next();
+
     const host = req.headers.host || '';
-
-    if (!origin) {
-        return res.status(400).json({ error: 'Origem da requisição não informada' });
-    }
-
     try {
         const originUrl = new URL(origin);
         if (originUrl.host !== host) {
+            console.warn(`⚠️ CSRF bloqueado: origin=${origin} host=${host} path=${req.path}`);
             return res.status(403).json({ error: 'Requisição bloqueada por política de mesma origem' });
         }
     } catch {
-        return res.status(400).json({ error: 'Origem inválida' });
+        return next();
     }
 
     next();
