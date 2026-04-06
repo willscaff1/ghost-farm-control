@@ -491,6 +491,14 @@ const initializePostgres = async () => {
             console.log('ℹ️ unit_type (payment_types):', e.message);
         }
 
+        // Adicionar reset_code em password_resets
+        try {
+            await pool.query(`ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS reset_code TEXT`);
+            console.log('✅ Coluna reset_code verificada/adicionada');
+        } catch (e) {
+            console.log('ℹ️ reset_code:', e.message);
+        }
+
         // Atualizar payment_types existentes que não tem manager_weekly_goal
         try {
             await pool.query(`UPDATE payment_types SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
@@ -873,6 +881,10 @@ const initializeSQLite = () => {
             });
             pool.run(`ALTER TABLE payment_types ADD COLUMN unit_type TEXT DEFAULT 'R$'`, (err) => {
                 if (!err) console.log('✅ Coluna unit_type adicionada (SQLite)');
+            });
+
+            pool.run(`ALTER TABLE password_resets ADD COLUMN reset_code TEXT`, (err) => {
+                if (!err) console.log('✅ Coluna reset_code adicionada (SQLite)');
             });
 
             // Preencher metas de gerente onde estiverem vazias

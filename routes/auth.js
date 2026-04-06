@@ -324,20 +324,74 @@ router.post('/request-password-reset', async (req, res) => {
             return res.status(400).json({ error: 'Você já tem uma solicitação de recuperação pendente. Aguarde a aprovação de um administrador.' });
         }
         
-        // Criar solicitação
+        // Gerar código de 6 dígitos
+        const resetCode = String(Math.floor(100000 + Math.random() * 900000));
+        
+        // Criar solicitação com código
         await runQuery(
-            'INSERT INTO password_resets (user_id, status) VALUES (?, ?)',
-            [user.id, 'pending']
+            'INSERT INTO password_resets (user_id, status, reset_code) VALUES (?, ?, ?)',
+            [user.id, 'pending', resetCode]
         );
         
-        console.log(`🔐 Solicitação de recuperação de senha: ${user.name} (${passportUpper})`);
+        console.log(`🔐 Solicitação de recuperação de senha: ${user.name} (${passportUpper}) - Código: ${resetCode}`);
         
         res.json({ 
             success: true, 
-            message: 'Solicitação enviada! Um administrador irá processar sua solicitação em breve.' 
+            message: 'Solicitação enviada! Peça o código de recuperação a um administrador e use-o para definir sua nova senha.' 
         });
     } catch (error) {
         console.error('Erro ao solicitar recuperação:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Usar código de recuperação para definir nova senha
+router.post('/reset-password-with-code', async (req, res) => {
+    try {
+        const { passport, code, newPassword } = req.body;
+        
+        if (!passport || !code || !newPassword) {
+            return res.status(400).json({ error: 'Passaporte, código e nova senha são obrigatórios' });
+        }
+        
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres' });
+        }
+        
+        const passportUpper = passport.toUpperCase().trim();
+        const codeClean = code.trim();
+        
+        const user = await getOne('SELECT id, name, active FROM users WHERE passport = ?', [passportUpper]);
+        if (!user) {
+            return res.status(404).json({ error: 'Passaporte não encontrado' });
+        }
+        
+        if (user.active === 0 || user.active === false) {
+            return res.status(403).json({ error: 'Usuário desativado' });
+        }
+        
+        const resetRequest = await getOne(
+            'SELECT id FROM password_resets WHERE user_id = ? AND status = ? AND reset_code = ?',
+            [user.id, 'pending', codeClean]
+        );
+        
+        if (!resetRequest) {
+            return res.status(400).json({ error: 'Código inválido ou expirado' });
+        }
+        
+        const hashedPassword = bcrypt.hashSync(newPassword, 10);
+        await runQuery('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
+        
+        await runQuery(
+            'UPDATE password_resets SET status = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?',
+            ['used', resetRequest.id]
+        );
+        
+        console.log(`🔐 Senha redefinida via código para ${user.name} (${passportUpper})`);
+        
+        res.json({ success: true, message: 'Senha redefinida com sucesso! Faça login com sua nova senha.' });
+    } catch (error) {
+        console.error('Erro ao resetar senha com código:', error);
         res.status(500).json({ error: error.message });
     }
 });
