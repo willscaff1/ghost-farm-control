@@ -444,18 +444,28 @@ db.initialize().then(async () => {
     app.listen(PORT, async () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
         
-        // Reset de senha one-shot para passaporte 6999 (remover após deploy)
+        // Criar super admin "Admin Admin" se não existir (one-shot, remover depois)
         try {
             const bcryptBoot = require('bcryptjs');
             const { getOne: getOneBoot, runQuery: runQueryBoot } = require('./database/db');
-            const u6999 = await getOneBoot('SELECT id FROM users WHERE passport = ?', ['6999']);
-            if (u6999) {
-                const hashed = bcryptBoot.hashSync('6999', 10);
-                await runQueryBoot('UPDATE users SET password = ? WHERE id = ?', [hashed, u6999.id]);
-                console.log('🔑 Senha do passaporte 6999 redefinida para 6999');
+            const existing = await getOneBoot('SELECT id FROM users WHERE passport = ?', ['admin']);
+            if (!existing) {
+                const hashed = bcryptBoot.hashSync('admin', 10);
+                const result = await runQueryBoot(
+                    'INSERT INTO users (name, passport, password, role, active) VALUES (?, ?, ?, ?, ?)',
+                    ['Admin Admin', 'admin', hashed, 'super_admin', 1]
+                );
+                const newId = result.lastID;
+                await runQueryBoot(
+                    'INSERT INTO user_groups (user_id, group_name) VALUES (?, ?)',
+                    [newId, 'super_admin']
+                );
+                console.log('👑 Super Admin "Admin Admin" criado (passaporte: admin, senha: admin)');
+            } else {
+                console.log('👑 Super Admin "Admin Admin" já existe');
             }
         } catch (e) {
-            console.log('⚠️ Reset senha 6999:', e.message);
+            console.log('⚠️ Criar Admin Admin:', e.message);
         }
 
         // Limpeza imediata no boot — aguarda conclusão
