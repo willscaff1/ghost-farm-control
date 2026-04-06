@@ -4803,7 +4803,7 @@ function renderMembersTable() {
     // Contagem discreta no rodapé (apenas ativos)
     const footerEl = document.getElementById('membersFooterStats');
     if (footerEl) {
-        const managerRoles = ['super_admin','01','02','gerente_farm','gerente_acao','gerente_recrutamento','gerente_encomendas','gerente_geral','gerente_de_fabricacao'];
+        const managerRoles = ['gerente_farm','gerente_acao','gerente_recrutamento','gerente_encomendas','gerente_de_fabricacao'];
         const activeMembers = membersTableData.filter(m => m.active);
         const activeManagers = activeMembers.filter(m => {
             const g = m.groups || (m.role ? [m.role] : []);
