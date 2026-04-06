@@ -5256,4 +5256,54 @@ router.delete('/observations/:id', requireAdmin, async (req, res) => {
     }
 });
 
+// ===== STORAGE: diagnóstico de espaço e limpeza manual =====
+
+router.get('/storage/stats', requireSuperAdmin, async (req, res) => {
+    try {
+        const isPostgres = process.env.DATABASE_URL ? true : false;
+        const stats = {};
+
+        if (isPostgres) {
+            const dbSize = await getOne("SELECT pg_size_pretty(pg_database_size(current_database())) AS size");
+            stats.database_size = dbSize?.size || 'N/A';
+
+            const tables = await getAll(`
+                SELECT relname AS table_name,
+                       pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size,
+                       pg_total_relation_size(c.oid) AS size_bytes
+                FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relkind = 'r'
+                ORDER BY pg_total_relation_size(c.oid) DESC LIMIT 15
+            `);
+            stats.tables = tables || [];
+        } else {
+            stats.database_size = 'SQLite (local)';
+            stats.tables = [];
+        }
+
+        const counts = await Promise.all([
+            getOne('SELECT COUNT(*) AS n FROM delivery_screenshots'),
+            getOne('SELECT COUNT(*) AS n FROM deliveries WHERE screenshot_url IS NOT NULL'),
+            getOne('SELECT COUNT(*) AS n FROM extra_farm_screenshots').catch(() => ({ n: 0 })),
+        ]);
+        stats.delivery_screenshots_rows = counts[0]?.n || 0;
+        stats.deliveries_with_inline_screenshot = counts[1]?.n || 0;
+        stats.extra_farm_screenshots_rows = counts[2]?.n || 0;
+
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/storage/cleanup', requireSuperAdmin, async (req, res) => {
+    try {
+        const db = require('../database/db');
+        const result = await db.cleanupOldImages();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

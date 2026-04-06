@@ -922,32 +922,62 @@ const initializeSQLite = () => {
     });
 };
 
-// Função para limpar imagens antigas (mais de 30 dias)
+// Limpar imagens antigas do banco para liberar espaço no volume
+// Retenção configurável via IMAGE_RETENTION_DAYS (padrão: 14 dias)
 const cleanupOldImages = async () => {
     try {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const cutoffDate = thirtyDaysAgo.toISOString().split('T')[0];
-        
-        console.log(`🧹 Iniciando limpeza de imagens anteriores a ${cutoffDate}...`);
-        
-        // Limpar screenshot_url das entregas antigas (liberar espaço)
-        const updateResult = await runQuery(`
-            UPDATE deliveries 
-            SET screenshot_url = NULL 
+        const retentionDays = parseInt(process.env.IMAGE_RETENTION_DAYS, 10) || 14;
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - retentionDays);
+        const cutoffDate = cutoff.toISOString().split('T')[0];
+
+        console.log(`🧹 Limpeza de imagens: removendo anteriores a ${cutoffDate} (${retentionDays} dias de retenção)...`);
+
+        // 1) screenshot_url inline nas entregas
+        await runQuery(`
+            UPDATE deliveries SET screenshot_url = NULL
             WHERE week_end < ? AND screenshot_url IS NOT NULL
         `, [cutoffDate]);
-        
-        // Limpar tabela delivery_screenshots das entregas antigas
-        const deleteResult = await runQuery(`
-            DELETE FROM delivery_screenshots 
-            WHERE delivery_id IN (
-                SELECT id FROM deliveries WHERE week_end < ?
-            )
+
+        // 2) delivery_screenshots (tabela dedicada)
+        const delScreenshots = await runQuery(`
+            DELETE FROM delivery_screenshots
+            WHERE delivery_id IN (SELECT id FROM deliveries WHERE week_end < ?)
         `, [cutoffDate]);
-        
-        console.log(`🧹 Limpeza concluída! Imagens de farms anteriores a ${cutoffDate} removidas.`);
-        return { success: true, cutoffDate };
+
+        // 3) extra_farm_screenshots (farm extra — antes não era limpo)
+        let delExtra = { changes: 0 };
+        try {
+            delExtra = await runQuery(`
+                DELETE FROM extra_farm_screenshots
+                WHERE extra_farm_id IN (
+                    SELECT ef.id FROM extra_farm_requests ef
+                    JOIN deliveries d ON ef.delivery_id = d.id
+                    WHERE d.week_end < ?
+                )
+            `, [cutoffDate]);
+        } catch (e) {
+            console.log('⚠️ extra_farm_screenshots cleanup:', e.message);
+        }
+
+        // 4) password_resets antigos (dados sensíveis, limpar também)
+        try {
+            await runQuery(`DELETE FROM password_resets WHERE status != 'pending' AND requested_at < ?`, [cutoffDate]);
+        } catch (e) { /* tabela pode não existir */ }
+
+        // 5) VACUUM para o PostgreSQL realmente liberar espaço em disco
+        if (dbType === 'postgres') {
+            try {
+                await pool.query('VACUUM (VERBOSE)');
+                console.log('🧹 VACUUM executado no PostgreSQL');
+            } catch (e) {
+                console.log('⚠️ VACUUM:', e.message);
+            }
+        }
+
+        const total = (delScreenshots?.changes || 0) + (delExtra?.changes || 0);
+        console.log(`🧹 Limpeza concluída! ${total} registros de screenshots removidos (corte: ${cutoffDate})`);
+        return { success: true, cutoffDate, removedScreenshots: total };
     } catch (error) {
         console.error('❌ Erro na limpeza de imagens:', error);
         return { success: false, error: error.message };
