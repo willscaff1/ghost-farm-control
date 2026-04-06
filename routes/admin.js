@@ -478,18 +478,28 @@ router.get('/deliveries/all-farms', requireAdmin, async (req, res) => {
             LIMIT 500
         `);
         
-        // Para cada entrega, buscar os itens e screenshots
-        for (let delivery of deliveries) {
-            delivery.items = await getAll(`
-                SELECT di.*, m.name as material_name, m.icon as material_icon
-                FROM delivery_items di
-                JOIN materials m ON di.material_id = m.id
-                WHERE di.delivery_id = ?
-            `, [delivery.id]);
-            
-            delivery.screenshots = await getAll(`
-                SELECT screenshot_url FROM delivery_screenshots WHERE delivery_id = ?
-            `, [delivery.id]);
+        // Batch: buscar itens e screenshots de todas as entregas de uma vez
+        const dIds = deliveries.map(d => d.id);
+        if (dIds.length > 0) {
+            const ph = dIds.map(() => '?').join(',');
+            const [allItems, allScreenshots] = await Promise.all([
+                getAll(`SELECT di.*, m.name as material_name, m.icon as material_icon FROM delivery_items di JOIN materials m ON di.material_id = m.id WHERE di.delivery_id IN (${ph})`, dIds),
+                getAll(`SELECT delivery_id, screenshot_url FROM delivery_screenshots WHERE delivery_id IN (${ph})`, dIds)
+            ]);
+            const itemsByD = new Map();
+            for (const item of allItems) {
+                if (!itemsByD.has(item.delivery_id)) itemsByD.set(item.delivery_id, []);
+                itemsByD.get(item.delivery_id).push(item);
+            }
+            const ssByD = new Map();
+            for (const s of allScreenshots) {
+                if (!ssByD.has(s.delivery_id)) ssByD.set(s.delivery_id, []);
+                ssByD.get(s.delivery_id).push(s);
+            }
+            for (const delivery of deliveries) {
+                delivery.items = itemsByD.get(delivery.id) || [];
+                delivery.screenshots = ssByD.get(delivery.id) || [];
+            }
         }
         
         res.json({ deliveries });
@@ -917,9 +927,11 @@ router.get('/stats', requireAdmin, async (req, res) => {
         }
         
         // Contar TODOS os membros ativos (incluindo admin)
-        const totalMembers = await getOne('SELECT COUNT(*) as count FROM users WHERE active = 1');
-        const pendingDeliveries = await getOne(pendingQuery, week_start ? [week_start, week_end] : []);
-        const approvedDeliveries = await getOne(approvedQuery, week_start ? [week_start, week_end] : []);
+        const [totalMembers, pendingDeliveries, approvedDeliveries] = await Promise.all([
+            getOne('SELECT COUNT(*) as count FROM users WHERE active = 1'),
+            getOne(pendingQuery, week_start ? [week_start, week_end] : []),
+            getOne(approvedQuery, week_start ? [week_start, week_end] : [])
+        ]);
         
         res.json({ 
             stats: {
@@ -963,19 +975,19 @@ router.get('/weekly-ranking-fast', requireAdmin, async (req, res) => {
         const deliveryIds = deliveries.map(d => d.delivery_id);
         const placeholders = deliveryIds.map(() => '?').join(',');
         
-        const items = await getAll(`
-            SELECT di.delivery_id, di.amount, m.name as material_name, m.icon as material_icon
-            FROM delivery_items di
-            JOIN materials m ON di.material_id = m.id
-            WHERE di.delivery_id IN (${placeholders})
-        `, deliveryIds);
-        
-        // Buscar farm extras aprovados
-        const extras = await getAll(`
-            SELECT delivery_id, materials
-            FROM extra_farm_requests
-            WHERE delivery_id IN (${placeholders}) AND status = 'approved'
-        `, deliveryIds);
+        const [items, extras] = await Promise.all([
+            getAll(`
+                SELECT di.delivery_id, di.amount, m.name as material_name, m.icon as material_icon
+                FROM delivery_items di
+                JOIN materials m ON di.material_id = m.id
+                WHERE di.delivery_id IN (${placeholders})
+            `, deliveryIds),
+            getAll(`
+                SELECT delivery_id, materials
+                FROM extra_farm_requests
+                WHERE delivery_id IN (${placeholders}) AND status = 'approved'
+            `, deliveryIds)
+        ]);
         
         // Agrupar itens por delivery
         const itemsByDelivery = new Map();
@@ -1126,7 +1138,6 @@ router.get('/materials', requireAdmin, async (req, res) => {
 // Lista de membros com status de farm
 router.get('/members-farm-status', requireAdmin, async (req, res) => {
     try {
-        // Membros com farm pendente
         const pendingMembers = await getAll(`
             SELECT DISTINCT u.id, u.name, u.passport, u.role,
                    (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'pending') as pending_count,
@@ -1136,36 +1147,64 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
             WHERE d.status = 'pending' AND u.active = 1
             ORDER BY last_pending ASC
         `);
-        
-        // Para cada membro pendente, buscar detalhes dos farms e grupos
-        for (let member of pendingMembers) {
-            // Buscar grupos do usuário
-            const userGroupsData = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [member.id]);
-            member.groups = userGroupsData.map(g => g.group_name);
-            // Se não tiver grupos, usar role legado como fallback
-            if (member.groups.length === 0 && member.role) {
-                member.groups = [member.role];
+
+        const pendingIds = pendingMembers.map(m => m.id);
+
+        if (pendingIds.length > 0) {
+            const placeholders = pendingIds.map(() => '?').join(',');
+
+            const [allPendingGroups, allPendingDeliveries] = await Promise.all([
+                getAll(`SELECT user_id, group_name FROM user_groups WHERE user_id IN (${placeholders})`, pendingIds),
+                getAll(`SELECT d.id, d.user_id, d.created_at, d.screenshot_url
+                        FROM deliveries d
+                        WHERE d.user_id IN (${placeholders}) AND d.status = 'pending'
+                        ORDER BY d.created_at ASC`, pendingIds)
+            ]);
+
+            const pendingGroupsMap = new Map();
+            for (const g of allPendingGroups) {
+                if (!pendingGroupsMap.has(g.user_id)) pendingGroupsMap.set(g.user_id, []);
+                pendingGroupsMap.get(g.user_id).push(g.group_name);
             }
-            
-            member.pending_deliveries = await getAll(`
-                SELECT d.id, d.created_at, d.screenshot_url
-                FROM deliveries d
-                WHERE d.user_id = ? AND d.status = 'pending'
-                ORDER BY d.created_at ASC
-            `, [member.id]);
-            
-            // Buscar itens de cada entrega pendente
-            for (let delivery of member.pending_deliveries) {
-                delivery.items = await getAll(`
-                    SELECT di.amount, m.name, m.icon
+
+            const deliveryIds = allPendingDeliveries.map(d => d.id);
+            let itemsMap = new Map();
+
+            if (deliveryIds.length > 0) {
+                const itemPlaceholders = deliveryIds.map(() => '?').join(',');
+                const allItems = await getAll(`
+                    SELECT di.delivery_id, di.amount, m.name, m.icon
                     FROM delivery_items di
                     JOIN materials m ON di.material_id = m.id
-                    WHERE di.delivery_id = ?
-                `, [delivery.id]);
+                    WHERE di.delivery_id IN (${itemPlaceholders})
+                `, deliveryIds);
+
+                for (const item of allItems) {
+                    if (!itemsMap.has(item.delivery_id)) itemsMap.set(item.delivery_id, []);
+                    itemsMap.get(item.delivery_id).push({ amount: item.amount, name: item.name, icon: item.icon });
+                }
+            }
+
+            const deliveriesMap = new Map();
+            for (const d of allPendingDeliveries) {
+                if (!deliveriesMap.has(d.user_id)) deliveriesMap.set(d.user_id, []);
+                deliveriesMap.get(d.user_id).push({
+                    id: d.id,
+                    created_at: d.created_at,
+                    screenshot_url: d.screenshot_url,
+                    items: itemsMap.get(d.id) || []
+                });
+            }
+
+            for (const member of pendingMembers) {
+                member.groups = pendingGroupsMap.get(member.id) || [];
+                if (member.groups.length === 0 && member.role) {
+                    member.groups = [member.role];
+                }
+                member.pending_deliveries = deliveriesMap.get(member.id) || [];
             }
         }
-        
-        // Membros com farm completo (aprovado)
+
         const completedMembers = await getAll(`
             SELECT u.id, u.name, u.passport, u.role,
                    (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as approved_count,
@@ -1180,16 +1219,29 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
             AND EXISTS (SELECT 1 FROM deliveries WHERE user_id = u.id AND status = 'approved')
             ORDER BY total_materials DESC
         `);
-        
-        // Buscar grupos para membros completos também
-        for (let member of completedMembers) {
-            const userGroupsData = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [member.id]);
-            member.groups = userGroupsData.map(g => g.group_name);
-            if (member.groups.length === 0 && member.role) {
-                member.groups = [member.role];
+
+        const completedIds = completedMembers.map(m => m.id);
+
+        if (completedIds.length > 0) {
+            const placeholders = completedIds.map(() => '?').join(',');
+            const allCompletedGroups = await getAll(
+                `SELECT user_id, group_name FROM user_groups WHERE user_id IN (${placeholders})`, completedIds
+            );
+
+            const completedGroupsMap = new Map();
+            for (const g of allCompletedGroups) {
+                if (!completedGroupsMap.has(g.user_id)) completedGroupsMap.set(g.user_id, []);
+                completedGroupsMap.get(g.user_id).push(g.group_name);
+            }
+
+            for (const member of completedMembers) {
+                member.groups = completedGroupsMap.get(member.id) || [];
+                if (member.groups.length === 0 && member.role) {
+                    member.groups = [member.role];
+                }
             }
         }
-        
+
         res.json({ pendingMembers, completedMembers, roleNames });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -2311,10 +2363,19 @@ router.get('/justifications/pending', requireAdmin, async (req, res) => {
         
         const justifications = await getAll(query, params);
         
-        // Buscar grupos de cada usuário
+        // Batch: buscar grupos de todos os usuários de uma vez
+        const justUserIds = [...new Set(justifications.map(j => j.user_id))];
+        let justGroupsMap = new Map();
+        if (justUserIds.length > 0) {
+            const ph = justUserIds.map(() => '?').join(',');
+            const allGroups = await getAll(`SELECT user_id, group_name FROM user_groups WHERE user_id IN (${ph})`, justUserIds);
+            for (const g of allGroups) {
+                if (!justGroupsMap.has(g.user_id)) justGroupsMap.set(g.user_id, []);
+                justGroupsMap.get(g.user_id).push(g.group_name);
+            }
+        }
         for (const justification of justifications) {
-            const userGroupsData = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [justification.user_id]);
-            justification.user_groups = userGroupsData.map(g => g.group_name);
+            justification.user_groups = justGroupsMap.get(justification.user_id) || [];
         }
         
         res.json({ justifications });
@@ -2336,10 +2397,19 @@ router.get('/justifications/all', requireAdmin, async (req, res) => {
         
         const justifications = await getAll(query);
         
-        // Buscar grupos de cada usuário
+        // Batch: buscar grupos de todos os usuários de uma vez
+        const allJustUserIds = [...new Set(justifications.map(j => j.user_id))];
+        let allJustGroupsMap = new Map();
+        if (allJustUserIds.length > 0) {
+            const ph = allJustUserIds.map(() => '?').join(',');
+            const allGroups = await getAll(`SELECT user_id, group_name FROM user_groups WHERE user_id IN (${ph})`, allJustUserIds);
+            for (const g of allGroups) {
+                if (!allJustGroupsMap.has(g.user_id)) allJustGroupsMap.set(g.user_id, []);
+                allJustGroupsMap.get(g.user_id).push(g.group_name);
+            }
+        }
         for (const justification of justifications) {
-            const userGroupsData = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [justification.user_id]);
-            justification.user_groups = userGroupsData.map(g => g.group_name);
+            justification.user_groups = allJustGroupsMap.get(justification.user_id) || [];
             if (justification.user_groups.length === 0 && justification.user_role) {
                 justification.user_groups = [justification.user_role];
             }
@@ -3997,28 +4067,33 @@ router.get('/extra-farms/by-delivery/:deliveryId', requireAdmin, async (req, res
             ORDER BY ef.created_at DESC
         `, [deliveryId]);
         
-        // Buscar screenshots e nomes dos materiais para cada extra
-        for (const extra of extras) {
-            // Screenshots
+        // Batch: carregar todos os materiais e screenshots de uma vez
+        const allMaterials = await getAll('SELECT id, name, icon FROM materials');
+        const materialsMap = new Map(allMaterials.map(m => [String(m.id), m]));
+        
+        const extraIds = extras.map(e => e.id);
+        let allScreenshots = [];
+        if (extraIds.length > 0) {
+            const ph = extraIds.map(() => '?').join(',');
             try {
-                const screenshots = await getAll(
-                    'SELECT id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id = ?',
-                    [extra.id]
-                );
-                extra.screenshots = screenshots || [];
-            } catch (e) {
-                extra.screenshots = [];
-            }
-            
-            // Parsear materiais e buscar nomes
+                allScreenshots = await getAll(`SELECT id, extra_farm_id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id IN (${ph})`, extraIds);
+            } catch (e) {}
+        }
+        const screenshotsByExtra = new Map();
+        for (const s of allScreenshots) {
+            if (!screenshotsByExtra.has(s.extra_farm_id)) screenshotsByExtra.set(s.extra_farm_id, []);
+            screenshotsByExtra.get(s.extra_farm_id).push(s);
+        }
+        
+        for (const extra of extras) {
+            extra.screenshots = screenshotsByExtra.get(extra.id) || [];
             const materials = JSON.parse(extra.materials || '{}');
             const materialDetails = [];
-            
             for (const [matId, amount] of Object.entries(materials)) {
                 if (matId === 'dirty_money') {
                     materialDetails.push({ name: 'Dinheiro Sujo', icon: '💰', amount: `$${parseInt(amount).toLocaleString()}` });
                 } else {
-                    const mat = await getOne('SELECT name, icon FROM materials WHERE id = ?', [matId]);
+                    const mat = materialsMap.get(matId);
                     if (mat) {
                         materialDetails.push({ name: mat.name, icon: mat.icon || '📦', amount: amount });
                     }
@@ -4059,30 +4134,35 @@ router.get('/extra-farms/pending', requireAdmin, async (req, res) => {
         
         console.log('🏆 Farms extras encontrados:', extras.length);
         
-        // Buscar screenshots e nomes dos materiais para cada extra
-        for (const extra of extras) {
-            // Screenshots
+        // Batch: carregar todos os materiais e screenshots de uma vez
+        const allMaterials = await getAll('SELECT id, name, icon FROM materials');
+        const materialsMap = new Map(allMaterials.map(m => [String(m.id), m]));
+        
+        const extraIds = extras.map(e => e.id);
+        let allScreenshots = [];
+        if (extraIds.length > 0) {
+            const ph = extraIds.map(() => '?').join(',');
             try {
-                const screenshots = await getAll(
-                    'SELECT id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id = ?',
-                    [extra.id]
-                );
-                extra.screenshots = screenshots || [];
-            } catch (e) {
-                extra.screenshots = [];
-            }
-            
-            // Parsear materiais e buscar nomes
+                allScreenshots = await getAll(`SELECT id, extra_farm_id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id IN (${ph})`, extraIds);
+            } catch (e) {}
+        }
+        const screenshotsByExtra = new Map();
+        for (const s of allScreenshots) {
+            if (!screenshotsByExtra.has(s.extra_farm_id)) screenshotsByExtra.set(s.extra_farm_id, []);
+            screenshotsByExtra.get(s.extra_farm_id).push(s);
+        }
+        
+        for (const extra of extras) {
+            extra.screenshots = screenshotsByExtra.get(extra.id) || [];
             const materials = JSON.parse(extra.materials || '{}');
             const materialDetails = [];
-            
             for (const [matId, amount] of Object.entries(materials)) {
                 if (matId === 'dirty_money') {
                     materialDetails.push({ name: 'Dinheiro Sujo', icon: '💰', amount: `$${parseInt(amount).toLocaleString()}` });
                 } else {
-                    const mat = await getOne('SELECT name, icon FROM materials WHERE id = ?', [matId]);
+                    const mat = materialsMap.get(matId);
                     if (mat) {
-                        materialDetails.push({ name: mat.name, icon: mat.icon, amount: amount });
+                        materialDetails.push({ name: mat.name, icon: mat.icon || '📦', amount: amount });
                     }
                 }
             }
@@ -4121,29 +4201,34 @@ router.get('/extra-farms/extract', requireAdmin, async (req, res) => {
             ORDER BY ef.created_at DESC
         `);
         
-        // Buscar screenshots e nomes dos materiais para cada extra
-        for (const extra of extras) {
-            // Screenshots
+        // Batch: carregar todos os materiais e screenshots de uma vez
+        const allMaterials = await getAll('SELECT id, name, icon FROM materials');
+        const materialsMap = new Map(allMaterials.map(m => [String(m.id), m]));
+        
+        const extraIds = extras.map(e => e.id);
+        let allScreenshots = [];
+        if (extraIds.length > 0) {
+            const ph = extraIds.map(() => '?').join(',');
             try {
-                const screenshots = await getAll(
-                    'SELECT id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id = ?',
-                    [extra.id]
-                );
-                extra.screenshots = screenshots || [];
-            } catch (e) {
-                extra.screenshots = [];
-            }
-            
-            // Parsear materiais e buscar nomes
+                allScreenshots = await getAll(`SELECT id, extra_farm_id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id IN (${ph})`, extraIds);
+            } catch (e) {}
+        }
+        const screenshotsByExtra = new Map();
+        for (const s of allScreenshots) {
+            if (!screenshotsByExtra.has(s.extra_farm_id)) screenshotsByExtra.set(s.extra_farm_id, []);
+            screenshotsByExtra.get(s.extra_farm_id).push(s);
+        }
+        
+        for (const extra of extras) {
+            extra.screenshots = screenshotsByExtra.get(extra.id) || [];
             const materials = JSON.parse(extra.materials || '{}');
             const materialDetails = [];
             let totalMaterials = 0;
-            
             for (const [matId, amount] of Object.entries(materials)) {
                 if (matId === 'dirty_money') {
                     materialDetails.push({ name: 'Dinheiro Sujo', amount: `$${parseInt(amount).toLocaleString()}`, rawAmount: parseInt(amount) });
                 } else {
-                    const mat = await getOne('SELECT name, icon FROM materials WHERE id = ?', [matId]);
+                    const mat = materialsMap.get(matId);
                     if (mat) {
                         materialDetails.push({ name: mat.name, icon: mat.icon, amount: amount, rawAmount: parseInt(amount) });
                         totalMaterials += parseInt(amount);
