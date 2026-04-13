@@ -4031,6 +4031,15 @@ async function loadPasswordResets() {
                         📅 Solicitado em ${new Date(r.requested_at).toLocaleDateString('pt-BR')} às ${new Date(r.requested_at).toLocaleTimeString('pt-BR')}
                     </div>
                 </div>
+                ${r.reset_code ? `
+                <div class="reset-code-display" style="background: #0f0f1a; border: 1px solid #6c5ce7; border-radius: 8px; padding: 12px 16px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <div>
+                        <span style="color: #a29bfe; font-size: 0.85rem;">🔑 Código de Recuperação:</span>
+                        <span style="font-size: 1.4rem; font-weight: bold; font-family: monospace; letter-spacing: 3px; color: #fff; margin-left: 8px;">${r.reset_code}</span>
+                    </div>
+                    <button class="btn" style="background: #6c5ce7; color: white; font-size: 0.8rem; padding: 6px 12px;" onclick="navigator.clipboard.writeText('${r.reset_code}').then(() => this.textContent = '✅ Copiado!').catch(() => prompt('Copie o código:', '${r.reset_code}'))">📋 Copiar</button>
+                </div>
+                ` : ''}
                 <div class="password-reset-actions">
                     <button class="btn btn-approve" onclick="approvePasswordReset(${r.id})">
                         ✅ Gerar Nova Senha

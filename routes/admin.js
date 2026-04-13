@@ -833,8 +833,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         // Se tem nova senha, fazer hash
         let hashedPassword = null;
         if (newPassword && newPassword.length >= 6) {
-            const bcrypt = require('bcrypt');
-            hashedPassword = await bcrypt.hash(newPassword, 10);
+            hashedPassword = bcrypt.hashSync(newPassword, 10);
         }
         
         // Atualizar membro
@@ -3590,6 +3589,17 @@ async function ensurePasswordResetsTable() {
                 )
             `);
         }
+        // Garantir que a coluna reset_code existe
+        if (isPostgres) {
+            try {
+                await runQuery(`ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS reset_code TEXT`);
+            } catch (e) { /* coluna já existe */ }
+        } else {
+            try {
+                await runQuery(`ALTER TABLE password_resets ADD COLUMN reset_code TEXT`);
+            } catch (e) { /* coluna já existe */ }
+        }
+
         console.log('✅ Tabela password_resets verificada/criada');
         return true;
     } catch (error) {

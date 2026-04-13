@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "migrate": "node migrate-production.js"
+    "migrate": "node migrate-production.js",
+    "test": "node test-smoke.js",
+    "precommit": "node test-smoke.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
