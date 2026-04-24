@@ -1516,21 +1516,53 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         const weekEndDate = new Date(weekEnd);
         const weekPassed = today > weekEndDate;
         
-        // ===== BUSCAR TODOS OS DADOS DE UMA VEZ (OTIMIZADO) =====
+        // ===== BUSCAR TODOS OS DADOS DE UMA VEZ (OTIMIZADO - PARALELO) =====
         
-        // 1. Buscar whitelist
-        const whitelist = await getAll(`SELECT user_id FROM farm_whitelist`);
+        // FASE 1: queries independentes em paralelo
+        const [
+            whitelist,
+            allMembers,
+            allUserGroups,
+            allDeliveries,
+            allJustifications,
+            allWarnings,
+            allMaterials,
+            paymentTypes
+        ] = await Promise.all([
+            getAll(`SELECT user_id FROM farm_whitelist`),
+            getAll(`
+                SELECT id, name, passport, role, created_at FROM users 
+                WHERE active = 1 AND passport != '0'
+                ORDER BY name
+            `),
+            getAll(`
+                SELECT ug.user_id, ug.group_name 
+                FROM user_groups ug
+                INNER JOIN users u ON u.id = ug.user_id
+                WHERE u.active = 1 AND u.passport != '0'
+            `),
+            getAll(`
+                SELECT d.*, d.created_at as delivered_at, u.name as approved_by_name
+                FROM deliveries d
+                LEFT JOIN users u ON d.approved_by = u.id
+                WHERE d.week_start = ? AND d.week_end = ?
+            `, [weekStart, weekEnd]),
+            getAll(`
+                SELECT * FROM justifications 
+                WHERE week_start = ? AND week_end = ?
+            `, [weekStart, weekEnd]),
+            getAll(`
+                SELECT user_id FROM warnings 
+                WHERE week_start = ? AND week_end = ?
+            `, [weekStart, weekEnd]),
+            getAll(`SELECT id, name, icon, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1`)
+                .catch(() => getAll(`SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1`)),
+            getAll('SELECT id, weekly_goal, manager_weekly_goal FROM payment_types')
+                .catch(() => getAll('SELECT id, weekly_goal FROM payment_types'))
+        ]);
+
         const whitelistIds = new Set(whitelist.map(w => w.user_id));
-        
-        // 2. Todos os membros ativos
-        const allMembers = await getAll(`
-            SELECT id, name, passport, role, created_at FROM users 
-            WHERE active = 1 AND passport != '0'
-            ORDER BY name
-        `);
-        
-        // 3. Buscar TODOS os grupos de TODOS os membros de uma vez
-        const allUserGroups = await getAll(`SELECT user_id, group_name FROM user_groups`);
+
         const userGroupsMap = new Map();
         for (const ug of allUserGroups) {
             if (!userGroupsMap.has(ug.user_id)) {
@@ -1538,14 +1570,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             }
             userGroupsMap.get(ug.user_id).push(ug.group_name);
         }
-        
-        // 4. Buscar TODAS as entregas da semana de uma vez
-        const allDeliveries = await getAll(`
-            SELECT d.*, d.created_at as delivered_at, u.name as approved_by_name
-            FROM deliveries d
-            LEFT JOIN users u ON d.approved_by = u.id
-            WHERE d.week_start = ? AND d.week_end = ?
-        `, [weekStart, weekEnd]);
+
         const deliveriesByUserMap = new Map();
         for (const d of allDeliveries) {
             if (!deliveriesByUserMap.has(d.user_id)) {
@@ -1553,26 +1578,48 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             }
             deliveriesByUserMap.get(d.user_id).push(d);
         }
-        
-        // 5. Buscar TODOS os itens de entrega da semana de uma vez
+
+        const justificationsMap = new Map();
+        for (const j of allJustifications) {
+            justificationsMap.set(j.user_id, j);
+        }
+
+        const warningsSet = new Set(allWarnings.map(w => w.user_id));
+
+        const materialsMap = new Map();
+        for (const m of allMaterials) {
+            materialsMap.set(m.id.toString(), m);
+        }
+
+        const paymentTypesMap = new Map((paymentTypes || []).map(pt => [pt.id, pt]));
+
+        // FASE 2: queries dependentes de deliveryIds em paralelo
         const deliveryIds = allDeliveries.map(d => d.id);
         let allDeliveryItems = [];
         let allDeliveryScreenshots = [];
+        let allExtraFarms = [];
+
         if (deliveryIds.length > 0) {
             const placeholders = deliveryIds.map(() => '?').join(',');
-            allDeliveryItems = await getAll(`
-                SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
-                FROM delivery_items di
-                JOIN materials m ON di.material_id = m.id
-                WHERE di.delivery_id IN (${placeholders})
-            `, deliveryIds);
-            
-            allDeliveryScreenshots = await getAll(`
-                SELECT delivery_id, screenshot_url FROM delivery_screenshots WHERE delivery_id IN (${placeholders})
-            `, deliveryIds);
+            [allDeliveryItems, allDeliveryScreenshots, allExtraFarms] = await Promise.all([
+                getAll(`
+                    SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
+                    FROM delivery_items di
+                    JOIN materials m ON di.material_id = m.id
+                    WHERE di.delivery_id IN (${placeholders})
+                `, deliveryIds),
+                getAll(`
+                    SELECT delivery_id, screenshot_url FROM delivery_screenshots WHERE delivery_id IN (${placeholders})
+                `, deliveryIds),
+                getAll(`
+                    SELECT efr.*, efr.reviewed_at as approved_at 
+                    FROM extra_farm_requests efr
+                    WHERE efr.delivery_id IN (${placeholders})
+                    ORDER BY efr.created_at
+                `, deliveryIds)
+            ]);
         }
-        
-        // Agrupar itens e screenshots por delivery
+
         const deliveryItemsMap = new Map();
         for (const item of allDeliveryItems) {
             if (!deliveryItemsMap.has(item.delivery_id)) {
@@ -1580,7 +1627,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             }
             deliveryItemsMap.get(item.delivery_id).push(item);
         }
-        
+
         const deliveryScreenshotsMap = new Map();
         for (const ss of allDeliveryScreenshots) {
             if (!deliveryScreenshotsMap.has(ss.delivery_id)) {
@@ -1588,30 +1635,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             }
             deliveryScreenshotsMap.get(ss.delivery_id).push(ss);
         }
-        
-        // 6. Buscar TODOS os farm extras da semana de uma vez
-        let allExtraFarms = [];
-        let allExtraScreenshots = [];
-        if (deliveryIds.length > 0) {
-            const placeholders = deliveryIds.map(() => '?').join(',');
-            allExtraFarms = await getAll(`
-                SELECT efr.*, efr.reviewed_at as approved_at 
-                FROM extra_farm_requests efr
-                WHERE efr.delivery_id IN (${placeholders})
-                ORDER BY efr.created_at
-            `, deliveryIds);
-            
-            // Buscar screenshots de extras
-            const extraIds = allExtraFarms.map(e => e.id);
-            if (extraIds.length > 0) {
-                const extraPlaceholders = extraIds.map(() => '?').join(',');
-                allExtraScreenshots = await getAll(`
-                    SELECT extra_farm_id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id IN (${extraPlaceholders})
-                `, extraIds);
-            }
-        }
-        
-        // Agrupar extras por delivery
+
         const extraFarmsMap = new Map();
         for (const ef of allExtraFarms) {
             if (!extraFarmsMap.has(ef.delivery_id)) {
@@ -1619,7 +1643,17 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             }
             extraFarmsMap.get(ef.delivery_id).push(ef);
         }
-        
+
+        // FASE 3: extras screenshots só depois de ter extraIds
+        let allExtraScreenshots = [];
+        const extraIds = allExtraFarms.map(e => e.id);
+        if (extraIds.length > 0) {
+            const extraPlaceholders = extraIds.map(() => '?').join(',');
+            allExtraScreenshots = await getAll(`
+                SELECT extra_farm_id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id IN (${extraPlaceholders})
+            `, extraIds);
+        }
+
         const extraScreenshotsMap = new Map();
         for (const ss of allExtraScreenshots) {
             if (!extraScreenshotsMap.has(ss.extra_farm_id)) {
@@ -1627,44 +1661,6 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             }
             extraScreenshotsMap.get(ss.extra_farm_id).push(ss);
         }
-        
-        // 7. Buscar TODAS as justificativas da semana de uma vez
-        const allJustifications = await getAll(`
-            SELECT * FROM justifications 
-            WHERE week_start = ? AND week_end = ?
-        `, [weekStart, weekEnd]);
-        const justificationsMap = new Map();
-        for (const j of allJustifications) {
-            justificationsMap.set(j.user_id, j);
-        }
-        
-        // 8. Buscar TODAS as warnings da semana de uma vez
-        const allWarnings = await getAll(`
-            SELECT user_id FROM warnings 
-            WHERE week_start = ? AND week_end = ?
-        `, [weekStart, weekEnd]);
-        const warningsSet = new Set(allWarnings.map(w => w.user_id));
-        
-        // 9. Buscar TODOS os materiais ATIVOS de uma vez (para processar extras e meta)
-        let allMaterials = [];
-        try {
-            allMaterials = await getAll(`SELECT id, name, icon, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1`);
-        } catch (e) {
-            allMaterials = await getAll(`SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1`);
-        }
-        const materialsMap = new Map();
-        for (const m of allMaterials) {
-            materialsMap.set(m.id.toString(), m);
-        }
-
-        // 10. Buscar TODOS os tipos de pagamento para meta
-        let paymentTypes = [];
-        try {
-            paymentTypes = await getAll('SELECT id, weekly_goal, manager_weekly_goal FROM payment_types');
-        } catch (e) {
-            paymentTypes = await getAll('SELECT id, weekly_goal FROM payment_types');
-        }
-        const paymentTypesMap = new Map((paymentTypes || []).map(pt => [pt.id, pt]));
         
         // ===== PROCESSAR MEMBROS =====
         const completed = [];

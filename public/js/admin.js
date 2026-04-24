@@ -378,11 +378,11 @@ async function loadWeekData() {
     isLoadingWeek = true;
     
     try {
-        // Verificar se já temos no cache (válido por 30 segundos)
+        // Verificar se já temos no cache (válido por 2 minutos)
         const cacheKey = `week_${selectedWeekOffset}`;
         const cached = weekDataCache.get(cacheKey);
         
-        if (cached && (Date.now() - cached.timestamp < 30000)) {
+        if (cached && (Date.now() - cached.timestamp < 120000)) {
             // Usar dados do cache
             selectedWeek = cached.weekData.week;
             weeklyStatusData = cached.statusData;
@@ -489,11 +489,11 @@ async function loadWeekData() {
             timestamp: Date.now()
         });
         
-        // Limpar cache antigo
+        // Limpar cache antigo (entradas com mais de 2 minutos)
         setTimeout(() => {
             const now = Date.now();
             for (const [key, value] of weekDataCache.entries()) {
-                if (now - value.timestamp > 30000) {
+                if (now - value.timestamp > 120000) {
                     weekDataCache.delete(key);
                 }
             }
@@ -2069,11 +2069,10 @@ let currentFilter = 'all';
 
 // Carregar status semanal (da semana selecionada)
 async function loadWeeklyStatus() {
-    // Se já temos dados em cache válidos, apenas renderizar
+    // Se já temos dados em cache válidos, apenas renderizar (cache estendido para 2min)
     const cacheKey = `week_${selectedWeekOffset}`;
     const cached = weekDataCache.get(cacheKey);
-    if (cached && weeklyStatusData && (Date.now() - cached.timestamp < 30000)) {
-        // Dados ainda válidos, apenas re-renderizar
+    if (cached && weeklyStatusData && (Date.now() - cached.timestamp < 120000)) {
         renderWeeklyTable(currentFilter);
         return;
     }
