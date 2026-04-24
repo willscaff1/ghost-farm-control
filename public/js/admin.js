@@ -5058,6 +5058,7 @@ async function saveEditMember() {
         }
 
         // Atualizar grupo se mudou e se tiver permissão
+        let roleChanged = false;
         if (canChangeRoles()) {
             const newRole = document.getElementById('editMemberRole').value;
             let currentGroups = member.groups || [];
@@ -5067,12 +5068,17 @@ async function saveEditMember() {
             const currentPrimaryGroup = currentGroups.length > 0 ? currentGroups[0] : 'member';
             
             if (currentPrimaryGroup !== newRole) {
-                await changeMemberRole(editingMemberId, newRole, name);
+                const ok = await changeMemberRole(editingMemberId, newRole, name, { silent: true, reload: false });
+                if (!ok) {
+                    alert('❌ Não foi possível trocar o cargo. Dados básicos podem ter sido atualizados.');
+                }
+                roleChanged = ok;
             }
         }
         
         alert('✅ Membro atualizado com sucesso!');
         closeEditMemberModal();
+        if (typeof weekDataCache !== 'undefined' && roleChanged) weekDataCache.clear();
         await loadMembers();
         
         // Se editou o próprio usuário, recarregar a página para atualizar sessão
@@ -5120,83 +5126,84 @@ async function toggleMember(id) {
 }
 
 // Trocar grupo/cargo do membro
-async function changeMemberRole(memberId, newGroup, memberName) {
+// Retorna true/false para quem chama decidir se recarrega a UI.
+async function changeMemberRole(memberId, newGroup, memberName, { silent = false, reload = true } = {}) {
     try {
-        // Buscar os grupos atuais do membro
         const member = membersTableData.find(m => m.id === memberId);
         if (!member) {
-            alert('Erro: Membro não encontrado');
-            return;
+            if (!silent) alert('Erro: Membro não encontrado');
+            return false;
         }
         
-        const currentGroups = member.groups || [];
+        let currentGroups = (member.groups || []).slice();
+        if (currentGroups.length > 1 && currentGroups.includes('member')) {
+            currentGroups = currentGroups.filter(g => g !== 'member');
+        }
+        const currentPrimaryGroup = currentGroups.length > 0 ? currentGroups[0] : 'member';
         
-        // Se já está no grupo selecionado (é o principal), não fazer nada
-        if (currentGroups.length > 0 && currentGroups[0] === newGroup) {
-            return;
+        if (currentPrimaryGroup === newGroup) {
+            return true;
         }
         
-        // Remover de todos os grupos atuais (exceto 'member' padrão)
+        // Remover dos grupos atuais (exceto 'member' padrão)
         for (const group of currentGroups) {
             if (group !== 'member') {
                 const removeResponse = await fetch(`/api/admin/role-permissions/${group}/members/${memberId}`, {
                     method: 'DELETE'
                 });
-                if (!removeResponse.ok) {
+                if (!removeResponse.ok && removeResponse.status !== 404) {
                     const removeData = await removeResponse.json().catch(() => ({}));
                     throw new Error(removeData.error || `Falha ao remover do grupo ${group}`);
                 }
             }
         }
         
-        // TAMBÉM atualizar a coluna 'role' na tabela users para manter compatibilidade
-        const roleResponse = await fetch(`/api/admin/members/${memberId}/role`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: newGroup })
-        });
-        if (!roleResponse.ok) {
-            const roleData = await roleResponse.json().catch(() => ({}));
-            throw new Error(roleData.error || 'Falha ao atualizar cargo principal');
+        // Atualizar coluna role (compatibilidade). Falha silenciosa se sem permissão.
+        try {
+            const roleResponse = await fetch(`/api/admin/members/${memberId}/role`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: newGroup })
+            });
+            if (!roleResponse.ok && roleResponse.status !== 403) {
+                const roleData = await roleResponse.json().catch(() => ({}));
+                console.warn('Falha ao atualizar users.role:', roleData.error || roleResponse.status);
+            }
+        } catch (e) {
+            console.warn('Erro ao atualizar users.role:', e);
         }
         
-        // Adicionar ao novo grupo (se não for apenas 'member')
-        let success = true;
+        // Adicionar ao novo grupo (se não for 'member')
         if (newGroup !== 'member') {
             const response = await fetch(`/api/admin/role-permissions/${newGroup}/members`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: memberId })
             });
-            
-            const data = await response.json();
-            success = data.success;
-            
-            if (!success) {
-                alert(`❌ Erro: ${data.error || 'Falha ao trocar grupo'}`);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Falha ao trocar grupo');
             }
         }
         
-        if (success) {
+        if (!silent) {
             alert(`✅ ${memberName} agora é ${roleNames[newGroup] || newGroup}`);
         }
         
-        // ATUALIZAR TUDO - limpar caches e recarregar todas as views relacionadas
-        if (typeof weekDataCache !== 'undefined') weekDataCache.clear();
-        
-        // Recarregar lista de membros
-        if (typeof loadMembers === 'function') await loadMembers();
-        
-        // Recarregar status da semana
-        if (typeof loadWeeklyStatus === 'function') await loadWeeklyStatus();
-        
-        // Recarregar ranking semanal
-        if (typeof loadWeeklyRanking === 'function') await loadWeeklyRanking();
-        
+        if (reload) {
+            if (typeof weekDataCache !== 'undefined') weekDataCache.clear();
+            if (typeof loadMembers === 'function') await loadMembers();
+        }
+        return true;
     } catch (error) {
         console.error('Erro ao trocar grupo:', error);
-        alert(`❌ Erro ao trocar grupo: ${error.message || 'falha desconhecida'}`);
-        await loadMembers(); // Recarregar para resetar o dropdown
+        if (!silent) {
+            alert(`❌ Erro ao trocar grupo: ${error.message || 'falha desconhecida'}`);
+        }
+        if (reload && typeof loadMembers === 'function') {
+            await loadMembers();
+        }
+        return false;
     }
 }
 

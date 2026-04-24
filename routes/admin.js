@@ -754,12 +754,19 @@ router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
     }
 });
 
-// Alterar cargo do membro (somente super admin)
+// Alterar cargo do membro (super admin, gerente_geral e 01 podem alterar)
 router.post('/members/:id/role', requireAdmin, async (req, res) => {
     try {
-        // Apenas super admin (RBAC) pode alterar cargos
-        if (!isSuperAdminUser(req.session.user)) {
-            return res.status(403).json({ error: 'Apenas o super admin pode alterar cargos' });
+        // Permitir super admin, gerente_geral e 01 (mesmo conjunto que gerencia grupos)
+        const sessionUser = req.session.user || {};
+        const sessionGroups = sessionUser.groups || [];
+        const canChangeRole = isSuperAdminUser(sessionUser)
+            || sessionUser.role === 'gerente_geral'
+            || sessionUser.role === '01'
+            || sessionGroups.includes('gerente_geral')
+            || sessionGroups.includes('01');
+        if (!canChangeRole) {
+            return res.status(403).json({ error: 'Sem permissão para alterar cargos' });
         }
         
         const memberId = req.params.id;
