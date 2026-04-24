@@ -5027,40 +5027,53 @@ async function saveEditMember() {
     }
     
     try {
-        // Atualizar dados básicos do membro
-        const response = await fetch(`/api/admin/members/${editingMemberId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, passport, email, newPassword: newPassword || undefined })
-        });
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-            alert(data.error || 'Erro ao editar membro');
+        const member = membersTableData.find(m => m.id === editingMemberId);
+        if (!member) {
+            alert('Erro: Membro não encontrado');
             return;
         }
-        
-        // Atualizar grupo se mudou E se tiver permissão
+
+        const currentName = (member.name || '').trim();
+        const currentPassport = (member.passport || '').trim();
+        const currentEmail = (member.email || '').trim();
+        const hasProfileChanges =
+            name !== currentName ||
+            passport !== currentPassport ||
+            email !== currentEmail ||
+            !!newPassword;
+
+        // Atualizar dados básicos apenas quando houve alteração
+        if (hasProfileChanges) {
+            const response = await fetch(`/api/admin/members/${editingMemberId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, passport, email, newPassword: newPassword || undefined })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                alert(data.error || 'Erro ao editar membro');
+                return;
+            }
+        }
+
+        // Atualizar grupo se mudou e se tiver permissão
         if (canChangeRoles()) {
             const newRole = document.getElementById('editMemberRole').value;
-            const member = membersTableData.find(m => m.id === editingMemberId);
-            if (member) {
-                let currentGroups = member.groups || [];
-                if (currentGroups.length > 1 && currentGroups.includes('member')) {
-                    currentGroups = currentGroups.filter(g => g !== 'member');
-                }
-                const currentPrimaryGroup = currentGroups.length > 0 ? currentGroups[0] : 'member';
-                
-                if (currentPrimaryGroup !== newRole) {
-                    await changeMemberRole(editingMemberId, newRole, name);
-                }
+            let currentGroups = member.groups || [];
+            if (currentGroups.length > 1 && currentGroups.includes('member')) {
+                currentGroups = currentGroups.filter(g => g !== 'member');
+            }
+            const currentPrimaryGroup = currentGroups.length > 0 ? currentGroups[0] : 'member';
+            
+            if (currentPrimaryGroup !== newRole) {
+                await changeMemberRole(editingMemberId, newRole, name);
             }
         }
         
         alert('✅ Membro atualizado com sucesso!');
         closeEditMemberModal();
-        loadMembers();
+        await loadMembers();
         
         // Se editou o próprio usuário, recarregar a página para atualizar sessão
         if (editingMemberId === currentUser?.id) {
@@ -5126,18 +5139,26 @@ async function changeMemberRole(memberId, newGroup, memberName) {
         // Remover de todos os grupos atuais (exceto 'member' padrão)
         for (const group of currentGroups) {
             if (group !== 'member') {
-                await fetch(`/api/admin/role-permissions/${group}/members/${memberId}`, {
+                const removeResponse = await fetch(`/api/admin/role-permissions/${group}/members/${memberId}`, {
                     method: 'DELETE'
                 });
+                if (!removeResponse.ok) {
+                    const removeData = await removeResponse.json().catch(() => ({}));
+                    throw new Error(removeData.error || `Falha ao remover do grupo ${group}`);
+                }
             }
         }
         
         // TAMBÉM atualizar a coluna 'role' na tabela users para manter compatibilidade
-        await fetch(`/api/admin/members/${memberId}/role`, {
+        const roleResponse = await fetch(`/api/admin/members/${memberId}/role`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: newGroup })
         });
+        if (!roleResponse.ok) {
+            const roleData = await roleResponse.json().catch(() => ({}));
+            throw new Error(roleData.error || 'Falha ao atualizar cargo principal');
+        }
         
         // Adicionar ao novo grupo (se não for apenas 'member')
         let success = true;
@@ -5164,18 +5185,18 @@ async function changeMemberRole(memberId, newGroup, memberName) {
         if (typeof weekDataCache !== 'undefined') weekDataCache.clear();
         
         // Recarregar lista de membros
-        if (typeof loadMembers === 'function') loadMembers();
+        if (typeof loadMembers === 'function') await loadMembers();
         
         // Recarregar status da semana
-        if (typeof loadWeeklyStatus === 'function') loadWeeklyStatus();
+        if (typeof loadWeeklyStatus === 'function') await loadWeeklyStatus();
         
         // Recarregar ranking semanal
-        if (typeof loadWeeklyRanking === 'function') loadWeeklyRanking();
+        if (typeof loadWeeklyRanking === 'function') await loadWeeklyRanking();
         
     } catch (error) {
         console.error('Erro ao trocar grupo:', error);
-        alert('❌ Erro ao trocar grupo');
-        loadMembers(); // Recarregar para resetar o dropdown
+        alert(`❌ Erro ao trocar grupo: ${error.message || 'falha desconhecida'}`);
+        await loadMembers(); // Recarregar para resetar o dropdown
     }
 }
 
