@@ -355,6 +355,60 @@ async function loadSelectedWeek() {
 // Cache para dados das semanas
 const weekDataCache = new Map();
 let isLoadingWeek = false;
+let isPrefetchingWeeks = false;
+const WEEK_CACHE_TTL_MS = 120000;
+const PREFETCH_MIN_WEEK_OFFSET = -8;
+const PREFETCH_MAX_WEEK_OFFSET = 8;
+
+function isWeekCacheFresh(cacheKey) {
+    const cached = weekDataCache.get(cacheKey);
+    return !!(cached && (Date.now() - cached.timestamp < WEEK_CACHE_TTL_MS));
+}
+
+async function fetchWeekDataForOffset(offset) {
+    const cacheKey = `week_${offset}`;
+    if (isWeekCacheFresh(cacheKey)) {
+        return weekDataCache.get(cacheKey);
+    }
+
+    const weekResponse = await fetch(`/api/admin/week/${offset}`);
+    if (!weekResponse.ok) throw new Error(`Semana ${offset}: HTTP ${weekResponse.status}`);
+    const weekData = await weekResponse.json();
+
+    const statusParams = `?week_start=${encodeURIComponent(weekData.week.start)}&week_end=${encodeURIComponent(weekData.week.end)}`;
+    const statusResponse = await fetch(`/api/admin/weekly-status${statusParams}`);
+    if (!statusResponse.ok) throw new Error(`Status ${offset}: HTTP ${statusResponse.status}`);
+    const statusData = await statusResponse.json();
+
+    const cacheEntry = { weekData, statusData, timestamp: Date.now() };
+    weekDataCache.set(cacheKey, cacheEntry);
+    return cacheEntry;
+}
+
+function scheduleWeekPrefetch(centerOffset = selectedWeekOffset) {
+    if (isPrefetchingWeeks) return;
+
+    const offsets = [];
+    for (let i = PREFETCH_MIN_WEEK_OFFSET; i <= PREFETCH_MAX_WEEK_OFFSET; i++) {
+        offsets.push(i);
+    }
+    offsets.sort((a, b) => Math.abs(a - centerOffset) - Math.abs(b - centerOffset));
+
+    isPrefetchingWeeks = true;
+    setTimeout(async () => {
+        try {
+            for (const offset of offsets) {
+                if (isWeekCacheFresh(`week_${offset}`)) continue;
+                await fetchWeekDataForOffset(offset);
+                await new Promise(resolve => setTimeout(resolve, 60));
+            }
+        } catch (error) {
+            console.warn('Prefetch de semanas interrompido:', error);
+        } finally {
+            isPrefetchingWeeks = false;
+        }
+    }, 300);
+}
 
 // Navegar entre semanas
 function previousWeek() {
@@ -382,7 +436,7 @@ async function loadWeekData() {
         const cacheKey = `week_${selectedWeekOffset}`;
         const cached = weekDataCache.get(cacheKey);
         
-        if (cached && (Date.now() - cached.timestamp < 120000)) {
+        if (isWeekCacheFresh(cacheKey)) {
             // Usar dados do cache
             selectedWeek = cached.weekData.week;
             weeklyStatusData = cached.statusData;
@@ -419,6 +473,7 @@ async function loadWeekData() {
             
             // Renderizar tabela
             renderWeeklyTable(currentFilter);
+            scheduleWeekPrefetch(selectedWeekOffset);
             isLoadingWeek = false;
             return;
         }
@@ -488,12 +543,13 @@ async function loadWeekData() {
             statusData,
             timestamp: Date.now()
         });
+        scheduleWeekPrefetch(selectedWeekOffset);
         
         // Limpar cache antigo (entradas com mais de 2 minutos)
         setTimeout(() => {
             const now = Date.now();
             for (const [key, value] of weekDataCache.entries()) {
-                if (now - value.timestamp > 120000) {
+                if (now - value.timestamp > WEEK_CACHE_TTL_MS) {
                     weekDataCache.delete(key);
                 }
             }
@@ -607,6 +663,7 @@ async function loadInitialData() {
             statusData: weeklyStatusData,
             timestamp: Date.now()
         });
+        scheduleWeekPrefetch(selectedWeekOffset);
         
     } catch (error) {
         console.error('Erro ao carregar dados iniciais:', error);
@@ -2072,7 +2129,8 @@ async function loadWeeklyStatus() {
     // Se já temos dados em cache válidos, apenas renderizar (cache estendido para 2min)
     const cacheKey = `week_${selectedWeekOffset}`;
     const cached = weekDataCache.get(cacheKey);
-    if (cached && weeklyStatusData && (Date.now() - cached.timestamp < 120000)) {
+    if (isWeekCacheFresh(cacheKey)) {
+        weeklyStatusData = cached.statusData;
         renderWeeklyTable(currentFilter);
         return;
     }
@@ -2826,8 +2884,37 @@ async function saveDirtyMoneyEdit(deliveryId) {
     }
 }
 
+async function hydrateWeeklyMemberDetails(member) {
+    if (!member || !member.delivery_id || member._detailsLoaded) return member;
+
+    try {
+        const response = await fetch(`/api/admin/delivery/${member.delivery_id}/details`, {
+            credentials: 'same-origin'
+        });
+        if (!response.ok) return member;
+
+        const data = await response.json();
+        member.items = data.items || member.items || [];
+        member.screenshots = data.screenshots || member.screenshots || [];
+        member.description = data.delivery?.description ?? member.description;
+        member.screenshot_url = data.delivery?.screenshot_url ?? member.screenshot_url;
+        member.payment_type = data.delivery?.payment_type || member.payment_type;
+        member.payment_type_id = data.delivery?.payment_type_id || member.payment_type_id;
+        member.dirty_money_amount = data.delivery?.dirty_money_amount ?? member.dirty_money_amount;
+        member.approved_by_name = data.delivery?.approved_by_name || member.approved_by_name;
+        member.approved_at = data.delivery?.approved_at || member.approved_at;
+        member.approval_note = data.delivery?.approval_note || member.approval_note;
+        member._detailsLoaded = true;
+    } catch (error) {
+        console.warn('Falha ao carregar detalhes da entrega:', error);
+    }
+
+    return member;
+}
+
 // Modal: Aprovar/Rejeitar farm pendente
-function showApprovalModal(member) {
+async function showApprovalModal(member) {
+    member = await hydrateWeeklyMemberDetails(member);
     const isDirtyMoney = member.payment_type === 'dirty_money';
     
     let contentHtml = '';

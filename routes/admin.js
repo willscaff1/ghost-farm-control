@@ -44,6 +44,27 @@ const managerGroups = new Set([
 
 const isManagerByGroups = (groups = []) => groups.some(g => managerGroups.has(g));
 
+const weeklyStatusCache = new Map();
+const WEEKLY_STATUS_CACHE_TTL_MS = parseInt(process.env.WEEKLY_STATUS_CACHE_TTL_MS, 10) || 60000;
+
+const getWeeklyStatusCacheKey = (weekStart, weekEnd) => `${weekStart}:${weekEnd}`;
+
+const getCachedWeeklyStatus = (weekStart, weekEnd) => {
+    const cached = weeklyStatusCache.get(getWeeklyStatusCacheKey(weekStart, weekEnd));
+    if (!cached || Date.now() - cached.timestamp > WEEKLY_STATUS_CACHE_TTL_MS) {
+        weeklyStatusCache.delete(getWeeklyStatusCacheKey(weekStart, weekEnd));
+        return null;
+    }
+    return cached.data;
+};
+
+const setCachedWeeklyStatus = (weekStart, weekEnd, data) => {
+    weeklyStatusCache.set(getWeeklyStatusCacheKey(weekStart, weekEnd), {
+        data,
+        timestamp: Date.now()
+    });
+};
+
 // Helper centralizado de super admin (RBAC baseado em role/grupos)
 const isSuperAdminUser = (user) => {
     if (!user) return false;
@@ -91,6 +112,12 @@ const requireSameOrigin = (req, res, next) => {
 
 // Aplicar proteção de mesma origem em todo o /api/admin para métodos que alteram estado
 router.use(requireSameOrigin);
+router.use((req, res, next) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase())) {
+        weeklyStatusCache.clear();
+    }
+    next();
+});
 
 const getUserGroups = async (userId) => {
     const userGroupsData = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [userId]);
@@ -1509,6 +1536,11 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             weekStart = week.start;
             weekEnd = week.end;
         }
+
+        const cachedStatus = getCachedWeeklyStatus(weekStart, weekEnd);
+        if (cachedStatus) {
+            return res.json(cachedStatus);
+        }
         
         // Verificar se a semana já passou
         const today = new Date();
@@ -1596,20 +1628,16 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         // FASE 2: queries dependentes de deliveryIds em paralelo
         const deliveryIds = allDeliveries.map(d => d.id);
         let allDeliveryItems = [];
-        let allDeliveryScreenshots = [];
         let allExtraFarms = [];
 
         if (deliveryIds.length > 0) {
             const placeholders = deliveryIds.map(() => '?').join(',');
-            [allDeliveryItems, allDeliveryScreenshots, allExtraFarms] = await Promise.all([
+            [allDeliveryItems, allExtraFarms] = await Promise.all([
                 getAll(`
                     SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
                     FROM delivery_items di
                     JOIN materials m ON di.material_id = m.id
                     WHERE di.delivery_id IN (${placeholders})
-                `, deliveryIds),
-                getAll(`
-                    SELECT delivery_id, screenshot_url FROM delivery_screenshots WHERE delivery_id IN (${placeholders})
                 `, deliveryIds),
                 getAll(`
                     SELECT efr.*, efr.reviewed_at as approved_at 
@@ -1628,14 +1656,6 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             deliveryItemsMap.get(item.delivery_id).push(item);
         }
 
-        const deliveryScreenshotsMap = new Map();
-        for (const ss of allDeliveryScreenshots) {
-            if (!deliveryScreenshotsMap.has(ss.delivery_id)) {
-                deliveryScreenshotsMap.set(ss.delivery_id, []);
-            }
-            deliveryScreenshotsMap.get(ss.delivery_id).push(ss);
-        }
-
         const extraFarmsMap = new Map();
         for (const ef of allExtraFarms) {
             if (!extraFarmsMap.has(ef.delivery_id)) {
@@ -1644,24 +1664,6 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             extraFarmsMap.get(ef.delivery_id).push(ef);
         }
 
-        // FASE 3: extras screenshots só depois de ter extraIds
-        let allExtraScreenshots = [];
-        const extraIds = allExtraFarms.map(e => e.id);
-        if (extraIds.length > 0) {
-            const extraPlaceholders = extraIds.map(() => '?').join(',');
-            allExtraScreenshots = await getAll(`
-                SELECT extra_farm_id, screenshot_url FROM extra_farm_screenshots WHERE extra_farm_id IN (${extraPlaceholders})
-            `, extraIds);
-        }
-
-        const extraScreenshotsMap = new Map();
-        for (const ss of allExtraScreenshots) {
-            if (!extraScreenshotsMap.has(ss.extra_farm_id)) {
-                extraScreenshotsMap.set(ss.extra_farm_id, []);
-            }
-            extraScreenshotsMap.get(ss.extra_farm_id).push(ss);
-        }
-        
         // ===== PROCESSAR MEMBROS =====
         const completed = [];
         const partial = [];
@@ -1702,41 +1704,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             }
             const justification = justificationsMap.get(member.id);
 
-            const weeklySubmissions = memberDeliveries.map(submission => {
-                const submissionItems = (deliveryItemsMap.get(submission.id) || []).map(item => ({
-                    ...item,
-                    weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
-                }));
-                const submissionScreenshots = deliveryScreenshotsMap.get(submission.id) || [];
-
-                let submissionPaymentType = submission.payment_type || 'material';
-                if (submission.dirty_money_amount > 0 && submissionItems.length === 0) {
-                    submissionPaymentType = 'dirty_money';
-                }
-
-                return {
-                    id: submission.id,
-                    status: submission.status,
-                    is_partial: submission.is_partial,
-                    delivered_at: submission.delivered_at,
-                    created_at: submission.created_at,
-                    screenshot_url: submission.screenshot_url,
-                    screenshots: submissionScreenshots,
-                    description: submission.description,
-                    items: submissionItems,
-                    payment_type: submissionPaymentType,
-                    dirty_money_amount: submission.dirty_money_amount || 0,
-                    approved_by_name: submission.approved_by_name,
-                    approved_at: submission.approved_at,
-                    approval_note: submission.approval_note
-                };
-            });
-            
             // Dados da entrega
             let deliveryItems = [];
-            let deliveryScreenshots = [];
             let extraFarmItems = [];
-            let extraFarmScreenshots = [];
             let totalExtraMaterials = 0;
             let pendingExtraInfo = null;
             
@@ -1748,7 +1718,6 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     ...item,
                     weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
                 }));
-                deliveryScreenshots = deliveryScreenshotsMap.get(delivery.id) || [];
 
                 // Se não há itens de materiais e tem dinheiro, tratar como pagamento em dinheiro
                 if (delivery.dirty_money_amount > 0 && deliveryItems.length === 0) {
@@ -1811,8 +1780,6 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 const extraMaterialsMap2 = new Map();
                 for (const extra of approvedExtras) {
                     // Screenshots do extra
-                    const extraSS = extraScreenshotsMap.get(extra.id) || [];
-                    extraFarmScreenshots.push(...extraSS);
                     
                     // Materiais do extra
                     try {
@@ -1893,7 +1860,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
                     screenshot_url: delivery.screenshot_url,
-                    screenshots: deliveryScreenshots,
+                    screenshots: [],
                     description: delivery.description,
                     items: deliveryItems,
                     is_partial: effectiveIsPartial,
@@ -1901,13 +1868,13 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     dirty_money_amount: delivery.dirty_money_amount || 0,
                     is_late_payment: isLatePayment,
                     extra_items: extraFarmItems,
-                    extra_screenshots: extraFarmScreenshots,
+                    extra_screenshots: [],
                     total_extra_materials: totalExtraMaterials,
                     pending_extra: pendingExtraInfo,
                     approved_by_name: delivery.approved_by_name,
                     approved_at: delivery.approved_at,
                     approval_note: delivery.approval_note,
-                    weekly_submissions: weeklySubmissions
+                    weekly_submissions: []
                 });
             } else if (delivery && delivery.status === 'pending') {
                 const isLatePayment = delivery.description && delivery.description.includes('[META ATRASADA]');
@@ -1916,14 +1883,14 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
                     screenshot_url: delivery.screenshot_url,
-                    screenshots: deliveryScreenshots,
+                    screenshots: [],
                     description: delivery.description,
                     items: deliveryItems,
                     payment_type: delivery.payment_type || 'material',
                     dirty_money_amount: delivery.dirty_money_amount || 0,
                     is_late_payment: isLatePayment,
                     is_partial: delivery.is_partial,
-                    weekly_submissions: weeklySubmissions
+                    weekly_submissions: []
                 });
             } else if (delivery && (delivery.status === 'rejected' || delivery.status === 'not_delivered')) {
                 // Farm foi rejeitado - mas se está na whitelist, ignorar
@@ -1936,8 +1903,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                         rejected_at: delivery.approved_at,
                         rejection_note: delivery.approval_note,
                         rejected_items: deliveryItems,
-                        rejected_screenshots: deliveryScreenshots,
-                        weekly_submissions: weeklySubmissions
+                        rejected_screenshots: [],
+                        weekly_submissions: []
                     });
                 }
                 // Se está na whitelist, simplesmente não aparece
@@ -1967,7 +1934,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             }
         }
         
-        res.json({ 
+        const responseData = { 
             completed, 
             partial,
             pendingApproval, 
@@ -1975,7 +1942,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             justified, 
             week: { start: weekStart, end: weekEnd },
             weekPassed
-        });
+        };
+        setCachedWeeklyStatus(weekStart, weekEnd, responseData);
+        res.json(responseData);
     } catch (error) {
         console.error('Erro em weekly-status:', error);
         res.status(500).json({ error: error.message });
