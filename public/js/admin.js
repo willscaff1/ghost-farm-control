@@ -609,7 +609,7 @@ async function loadInitialData() {
         const [statsRes, statusRes, pendingRes, justRes, passwordRes] = await Promise.all([
             fetch(`/api/admin/stats${statusParams}`),
             fetch(`/api/admin/weekly-status${statusParams}`),
-            fetch(`/api/admin/deliveries/pending${statusParams}`),
+            fetch(`/api/admin/deliveries/pending${statusParams}&summary=1`),
             fetch('/api/admin/justifications/pending'),
             fetch('/api/admin/password-resets/pending').catch(() => ({ ok: false }))
         ]);
@@ -2320,23 +2320,23 @@ function renderWeeklyTable(filter) {
         switch (member.status) {
             case 'completed':
             case 'partial':
-                buttons.push(`<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️</button>`);
+                buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})">👁️</button>`);
                 break;
             case 'pending':
                 if (member.has_justification_pending) {
-                    buttons.push(`<button class="action-btn approve" onclick='showJustificationModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📝</button>`);
+                    buttons.push(`<button class="action-btn approve" onclick="showJustificationModalById(${member.id})">📝</button>`);
                 } else {
-                    buttons.push(`<button class="action-btn approve" onclick='showApprovalModal(${JSON.stringify(member).replace(/'/g, "&apos;")})'>✔️</button>`);
-                    buttons.push(`<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})'>👁️</button>`);
+                    buttons.push(`<button class="action-btn approve" onclick="showApprovalModalById(${member.id})">✔️</button>`);
+                    buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})">👁️</button>`);
                 }
                 break;
             case 'justified':
-                buttons.push(`<button class="action-btn view" onclick='showJustifiedDetails(${JSON.stringify(member).replace(/'/g, "&apos;")})'>📋</button>`);
+                buttons.push(`<button class="action-btn view" onclick="showJustifiedDetailsById(${member.id})">📋</button>`);
                 break;
             case 'missing':
                 // Se foi rejeitado, mostrar botão para ver histórico da rejeição
                 if (member.was_rejected) {
-                    buttons.push(`<button class="action-btn view" onclick='showDeliveryExtract(${JSON.stringify(member).replace(/'/g, "&apos;")})' title="Ver extrato">👁️</button>`);
+                    buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})" title="Ver extrato">👁️</button>`);
                 }
                 break;
         }
@@ -2546,6 +2546,30 @@ async function confirmSaveEditStatus(memberId, newStatus, note) {
 }
 
 // Modal: Mostrar extrato de farm — todos os envios da semana (aprovados e rejeitados)
+function getWeeklyMemberById(memberId) {
+    return window.__weeklyStatusMembersById?.get(String(memberId)) || null;
+}
+
+function showDeliveryExtractById(memberId) {
+    const member = getWeeklyMemberById(memberId);
+    if (member) showDeliveryExtract(member);
+}
+
+function showApprovalModalById(memberId) {
+    const member = getWeeklyMemberById(memberId);
+    if (member) showApprovalModal(member);
+}
+
+function showJustificationModalById(memberId) {
+    const member = getWeeklyMemberById(memberId);
+    if (member) showJustificationModal(member);
+}
+
+function showJustifiedDetailsById(memberId) {
+    const member = getWeeklyMemberById(memberId);
+    if (member) showJustifiedDetails(member);
+}
+
 async function showDeliveryExtract(member) {
     let submissions = [];
     // Usar a semana que está na tela (selectedWeek) ou a que veio no status (weeklyStatusData.week) ou semana atual
@@ -7791,7 +7815,7 @@ async function loadAdminNotifications() {
     
     try {
         // Buscar farms pendentes
-        const weekParams = selectedWeek ? `?week_start=${encodeURIComponent(selectedWeek.start)}&week_end=${encodeURIComponent(selectedWeek.end)}` : '';
+        const weekParams = selectedWeek ? `?week_start=${encodeURIComponent(selectedWeek.start)}&week_end=${encodeURIComponent(selectedWeek.end)}&summary=1` : '?summary=1';
         const pendingRes = await fetch(`/api/admin/deliveries/pending${weekParams}`);
         if (!pendingRes.ok) throw new Error('Erro ao buscar pendentes');
         const pendingData = await pendingRes.json();

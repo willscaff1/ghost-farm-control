@@ -363,10 +363,13 @@ router.get('/current-week', requireAdmin, async (req, res) => {
 // Listar todas as entregas pendentes (da semana selecionada)
 router.get('/deliveries/pending', requireAdmin, async (req, res) => {
     try {
-        const { week_start, week_end } = req.query;
+        const { week_start, week_end, summary } = req.query;
+        const isSummary = summary === '1' || summary === 'true';
         
         let query = `
-            SELECT d.*, d.payment_type, d.payment_type_id, d.dirty_money_amount, 
+            SELECT ${isSummary
+                ? 'd.id, d.user_id, d.week_start, d.week_end, d.status, d.created_at, d.payment_type, d.payment_type_id, d.dirty_money_amount'
+                : 'd.*, d.payment_type, d.payment_type_id, d.dirty_money_amount'}, 
                    u.name as user_name, u.passport as user_passport
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
@@ -382,6 +385,10 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
         query += ` ORDER BY d.week_start DESC, d.created_at ASC`;
         
         const deliveries = await getAll(query, params);
+
+        if (isSummary) {
+            return res.json({ deliveries });
+        }
         
         if (deliveries.length > 0) {
             const deliveryIds = deliveries.map(d => d.id);
