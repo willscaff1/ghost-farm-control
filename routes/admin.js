@@ -1640,7 +1640,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     WHERE di.delivery_id IN (${placeholders})
                 `, deliveryIds),
                 getAll(`
-                    SELECT efr.*, efr.reviewed_at as approved_at 
+                    SELECT efr.id, efr.delivery_id, efr.status, efr.materials, efr.created_at
                     FROM extra_farm_requests efr
                     WHERE efr.delivery_id IN (${placeholders})
                     ORDER BY efr.created_at
@@ -1773,7 +1773,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 
                 // Processar farm extras
                 const extras = extraFarmsMap.get(delivery.id) || [];
-                const approvedExtras = extras.filter(e => e.status === 'approved');
+                const approvedExtras = [];
                 const pendingExtras = extras.filter(e => e.status === 'pending');
                 
                 // Consolidar materiais extras aprovados
@@ -1862,14 +1862,14 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     screenshot_url: delivery.screenshot_url,
                     screenshots: [],
                     description: delivery.description,
-                    items: deliveryItems,
+                    items: [],
                     is_partial: effectiveIsPartial,
                     payment_type: effectivePaymentType,
                     dirty_money_amount: delivery.dirty_money_amount || 0,
                     is_late_payment: isLatePayment,
-                    extra_items: extraFarmItems,
+                    extra_items: [],
                     extra_screenshots: [],
-                    total_extra_materials: totalExtraMaterials,
+                    total_extra_materials: 0,
                     pending_extra: pendingExtraInfo,
                     approved_by_name: delivery.approved_by_name,
                     approved_at: delivery.approved_at,
@@ -1885,7 +1885,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     screenshot_url: delivery.screenshot_url,
                     screenshots: [],
                     description: delivery.description,
-                    items: deliveryItems,
+                    items: [],
                     payment_type: delivery.payment_type || 'material',
                     dirty_money_amount: delivery.dirty_money_amount || 0,
                     is_late_payment: isLatePayment,
@@ -1902,7 +1902,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                         rejected_by_name: delivery.approved_by_name,
                         rejected_at: delivery.approved_at,
                         rejection_note: delivery.approval_note,
-                        rejected_items: deliveryItems,
+                        rejected_items: [],
                         rejected_screenshots: [],
                         weekly_submissions: []
                     });

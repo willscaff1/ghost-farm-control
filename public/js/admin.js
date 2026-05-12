@@ -388,11 +388,8 @@ async function fetchWeekDataForOffset(offset) {
 function scheduleWeekPrefetch(centerOffset = selectedWeekOffset) {
     if (isPrefetchingWeeks) return;
 
-    const offsets = [];
-    for (let i = PREFETCH_MIN_WEEK_OFFSET; i <= PREFETCH_MAX_WEEK_OFFSET; i++) {
-        offsets.push(i);
-    }
-    offsets.sort((a, b) => Math.abs(a - centerOffset) - Math.abs(b - centerOffset));
+    const offsets = [centerOffset - 1, centerOffset + 1]
+        .filter(offset => offset >= PREFETCH_MIN_WEEK_OFFSET && offset <= PREFETCH_MAX_WEEK_OFFSET);
 
     isPrefetchingWeeks = true;
     setTimeout(async () => {
@@ -400,14 +397,14 @@ function scheduleWeekPrefetch(centerOffset = selectedWeekOffset) {
             for (const offset of offsets) {
                 if (isWeekCacheFresh(`week_${offset}`)) continue;
                 await fetchWeekDataForOffset(offset);
-                await new Promise(resolve => setTimeout(resolve, 60));
+                await new Promise(resolve => setTimeout(resolve, 250));
             }
         } catch (error) {
             console.warn('Prefetch de semanas interrompido:', error);
         } finally {
             isPrefetchingWeeks = false;
         }
-    }, 300);
+    }, 1200);
 }
 
 // Navegar entre semanas
@@ -612,7 +609,7 @@ async function loadInitialData() {
         const [statsRes, statusRes, pendingRes, justRes, passwordRes] = await Promise.all([
             fetch(`/api/admin/stats${statusParams}`),
             fetch(`/api/admin/weekly-status${statusParams}`),
-            fetch('/api/admin/deliveries/pending'),
+            fetch(`/api/admin/deliveries/pending${statusParams}`),
             fetch('/api/admin/justifications/pending'),
             fetch('/api/admin/password-resets/pending').catch(() => ({ ok: false }))
         ]);
@@ -2282,6 +2279,7 @@ function renderWeeklyTable(filter) {
     
     // Guardar para o modal Editar Entrega poder usar o mesmo status da tabela
     window.__weeklyStatusMembersFull = allMembers;
+    window.__weeklyStatusMembersById = new Map(allMembers.map(member => [String(member.id), member]));
     
     if (allMembers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="loading">😴 Nenhum membro encontrado com este filtro</td></tr>';
@@ -7793,7 +7791,8 @@ async function loadAdminNotifications() {
     
     try {
         // Buscar farms pendentes
-        const pendingRes = await fetch('/api/admin/deliveries/pending');
+        const weekParams = selectedWeek ? `?week_start=${encodeURIComponent(selectedWeek.start)}&week_end=${encodeURIComponent(selectedWeek.end)}` : '';
+        const pendingRes = await fetch(`/api/admin/deliveries/pending${weekParams}`);
         if (!pendingRes.ok) throw new Error('Erro ao buscar pendentes');
         const pendingData = await pendingRes.json();
         

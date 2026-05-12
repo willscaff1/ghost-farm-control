@@ -567,6 +567,7 @@ const initializePostgres = async () => {
             'CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries (status)',
             'CREATE INDEX IF NOT EXISTS idx_deliveries_week ON deliveries (week_start, week_end)',
             'CREATE INDEX IF NOT EXISTS idx_deliveries_user_week ON deliveries (user_id, week_start, week_end)',
+            'CREATE INDEX IF NOT EXISTS idx_deliveries_week_status_user ON deliveries (week_start, week_end, status, user_id)',
             'CREATE INDEX IF NOT EXISTS idx_deliveries_created ON deliveries (created_at DESC)',
             
             // Tabela delivery_items
@@ -580,14 +581,17 @@ const initializePostgres = async () => {
             'CREATE INDEX IF NOT EXISTS idx_justifications_user ON justifications (user_id)',
             'CREATE INDEX IF NOT EXISTS idx_justifications_status ON justifications (status)',
             'CREATE INDEX IF NOT EXISTS idx_justifications_week ON justifications (week_start, week_end)',
+            'CREATE INDEX IF NOT EXISTS idx_justifications_week_user ON justifications (week_start, week_end, user_id)',
             
             // Tabela warnings
             'CREATE INDEX IF NOT EXISTS idx_warnings_user ON warnings (user_id)',
+            'CREATE INDEX IF NOT EXISTS idx_warnings_week_user ON warnings (week_start, week_end, user_id)',
             
             // Tabela extra_farm_requests (se existir)
             'CREATE INDEX IF NOT EXISTS idx_extra_farm_delivery ON extra_farm_requests (delivery_id)',
             'CREATE INDEX IF NOT EXISTS idx_extra_farm_user ON extra_farm_requests (user_id)',
             'CREATE INDEX IF NOT EXISTS idx_extra_farm_status ON extra_farm_requests (status)',
+            'CREATE INDEX IF NOT EXISTS idx_extra_farm_delivery_status ON extra_farm_requests (delivery_id, status)',
             
             // Tabela materials
             'CREATE INDEX IF NOT EXISTS idx_materials_active ON materials (active)',
