@@ -364,12 +364,18 @@ const initializePostgres = async () => {
             ['Folha', '🍃'],
             ['Ópio', '💊'],
             ['Embalagem Plástica', '📦'],
-            ['Farinha de Trigo', '🌾']
+            ['Farinha de Trigo', '🌾'],
+            ['Clip', '\u{1F4CE}'],
+            ['Cabo', '\u{1F50C}'],
+            ['Slide', '\u2699\uFE0F'],
+            ['Ferrolho', '\u{1F527}'],
+            ['Culatra', '\u{1F529}'],
+            ['Titanio', '\u{1F48E}']
         ];
 
         for (const [name, icon] of defaultMaterials) {
             await pool.query(
-                `INSERT INTO materials (name, icon) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING`,
+                `INSERT INTO materials (name, icon, active) VALUES ($1, $2, 1) ON CONFLICT (name) DO UPDATE SET icon = EXCLUDED.icon, active = 1`,
                 [name, icon]
             );
         }
@@ -838,11 +844,20 @@ const initializeSQLite = () => {
                 ['Folha', '🍃'],
                 ['Ópio', '💊'],
                 ['Embalagem Plástica', '📦'],
-                ['Farinha de Trigo', '🌾']
+                ['Farinha de Trigo', '🌾'],
+                ['Clip', '\u{1F4CE}'],
+                ['Cabo', '\u{1F50C}'],
+                ['Slide', '\u2699\uFE0F'],
+                ['Ferrolho', '\u{1F527}'],
+                ['Culatra', '\u{1F529}'],
+                ['Titanio', '\u{1F48E}']
             ];
 
             defaultMaterials.forEach(([name, icon]) => {
-                pool.run(`INSERT OR IGNORE INTO materials (name, icon) VALUES (?, ?)`, [name, icon]);
+                pool.run(`
+                    INSERT INTO materials (name, icon, active) VALUES (?, ?, 1)
+                    ON CONFLICT(name) DO UPDATE SET icon = excluded.icon, active = 1
+                `, [name, icon]);
             });
 
             // Criar super admin (somente com senha de bootstrap configurada em produção)
