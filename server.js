@@ -297,6 +297,92 @@ db.initialize().then(async () => {
             console.error('⚠️ Erro ao migrar farms:', error.message);
         }
     }
+
+    // Limpeza one-shot para novo ciclo de metas iniciado em 18/05/2026.
+    async function cleanupGoalHistoryBefore2026_05_18() {
+        const markerKey = 'cleanup_goal_history_before_2026_05_18_done';
+        const cutoffDate = '2026-05-18';
+
+        try {
+            const { runQuery, getOne } = require('./database/db');
+            const alreadyDone = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [markerKey]);
+            if (alreadyDone?.setting_value === 'true') {
+                console.log('✅ Limpeza de histórico anterior a 18/05/2026 já executada');
+                return;
+            }
+
+            console.log('🧹 Limpando histórico de metas/entregas anterior a 18/05/2026...');
+
+            try {
+                await runQuery(`
+                    DELETE FROM extra_farm_screenshots
+                    WHERE extra_farm_id IN (
+                        SELECT ef.id
+                        FROM extra_farm_requests ef
+                        JOIN deliveries d ON ef.delivery_id = d.id
+                        WHERE d.week_start < ?
+                    )
+                `, [cutoffDate]);
+            } catch (e) {
+                console.log('ℹ️ extra_farm_screenshots:', e.message);
+            }
+
+            try {
+                await runQuery(`
+                    DELETE FROM extra_farm_requests
+                    WHERE delivery_id IN (
+                        SELECT id FROM deliveries WHERE week_start < ?
+                    )
+                `, [cutoffDate]);
+            } catch (e) {
+                console.log('ℹ️ extra_farm_requests:', e.message);
+            }
+
+            try {
+                await runQuery(`
+                    DELETE FROM competition_entries
+                    WHERE delivery_id IN (
+                        SELECT id FROM deliveries WHERE week_start < ?
+                    )
+                `, [cutoffDate]);
+            } catch (e) {
+                console.log('ℹ️ competition_entries:', e.message);
+            }
+
+            await runQuery(`
+                DELETE FROM delivery_screenshots
+                WHERE delivery_id IN (
+                    SELECT id FROM deliveries WHERE week_start < ?
+                )
+            `, [cutoffDate]);
+
+            await runQuery(`
+                DELETE FROM delivery_items
+                WHERE delivery_id IN (
+                    SELECT id FROM deliveries WHERE week_start < ?
+                )
+            `, [cutoffDate]);
+
+            await runQuery('DELETE FROM deliveries WHERE week_start < ?', [cutoffDate]);
+            await runQuery('DELETE FROM justifications WHERE week_start < ?', [cutoffDate]);
+            await runQuery('DELETE FROM warnings WHERE week_start IS NOT NULL AND week_start < ?', [cutoffDate]);
+
+            try {
+                await runQuery('DELETE FROM member_observations WHERE week_start < ?', [cutoffDate]);
+            } catch (e) {
+                console.log('ℹ️ member_observations:', e.message);
+            }
+
+            await runQuery(
+                'INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)',
+                [markerKey, 'true']
+            );
+
+            console.log('✅ Histórico anterior a 18/05/2026 limpo com sucesso');
+        } catch (error) {
+            console.error('⚠️ Erro na limpeza de histórico anterior a 18/05/2026:', error.message);
+        }
+    }
     
     // Função para criar índices de performance (CRÍTICO para velocidade)
     async function createPerformanceIndexes() {
@@ -440,6 +526,9 @@ db.initialize().then(async () => {
         
         // Criar índices para performance (muito importante!)
         await createPerformanceIndexes();
+
+        // Apagar histórico antigo para início das novas metas em 18/05/2026
+        await cleanupGoalHistoryBefore2026_05_18();
         
     } catch (migrationError) {
         console.error('⚠️ Erro na auto-migração (sistema continuará funcionando):', migrationError.message);
