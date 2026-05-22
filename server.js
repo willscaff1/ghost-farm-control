@@ -384,6 +384,46 @@ db.initialize().then(async () => {
         }
     }
     
+    async function deactivateLegacyDefaultMaterials() {
+        const markerKey = 'deactivate_legacy_default_materials_done';
+        const defaultMaterialNames = [
+            'Folha',
+            'Ópio',
+            'Embalagem Plástica',
+            'Farinha de Trigo',
+            'Clip',
+            'Cabo',
+            'Slide',
+            'Ferrolho',
+            'Culatra',
+            'Titanio'
+        ];
+
+        try {
+            const { runQuery, getOne } = require('./database/db');
+            const alreadyDone = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [markerKey]);
+            if (alreadyDone?.setting_value === 'true') {
+                console.log('✅ Materiais padrão antigos já foram desativados');
+                return;
+            }
+
+            const placeholders = defaultMaterialNames.map(() => '?').join(',');
+            const result = await runQuery(
+                `UPDATE materials SET active = 0 WHERE name IN (${placeholders})`,
+                defaultMaterialNames
+            );
+
+            await runQuery(
+                'INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)',
+                [markerKey, 'true']
+            );
+
+            console.log(`✅ Materiais padrão antigos desativados: ${result?.changes || 0}`);
+        } catch (error) {
+            console.error('⚠️ Erro ao desativar materiais padrão antigos:', error.message);
+        }
+    }
+
     // Função para criar índices de performance (CRÍTICO para velocidade)
     async function createPerformanceIndexes() {
         if (!process.env.DATABASE_URL) return; // Só em produção (PostgreSQL)
@@ -523,6 +563,9 @@ db.initialize().then(async () => {
         
         // Migrar farms in_progress para pending (novo fluxo de aprovação)
         await migrateInProgressToPending();
+
+        // Esconder materiais padrão antigos e impedir que voltem após reinício
+        await deactivateLegacyDefaultMaterials();
         
         // Criar índices para performance (muito importante!)
         await createPerformanceIndexes();
