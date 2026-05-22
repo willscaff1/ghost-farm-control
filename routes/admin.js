@@ -170,6 +170,48 @@ const requireWeaponSalesAccess = async (req, res, next) => {
     }
 };
 
+async function ensureWeaponSalesTable() {
+    const isPostgres = process.env.DATABASE_URL ? true : false;
+
+    if (isPostgres) {
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_sales (
+                id SERIAL PRIMARY KEY,
+                weapon_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                sale_value NUMERIC(12,2) NOT NULL DEFAULT 0,
+                buyer_name TEXT,
+                seller_name TEXT,
+                proof_url TEXT,
+                notes TEXT,
+                sale_date DATE NOT NULL,
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    } else {
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_sales (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                weapon_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                sale_value REAL NOT NULL DEFAULT 0,
+                buyer_name TEXT,
+                seller_name TEXT,
+                proof_url TEXT,
+                notes TEXT,
+                sale_date DATE NOT NULL,
+                created_by INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        `);
+    }
+
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_date ON weapon_sales (sale_date)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_created_by ON weapon_sales (created_by)');
+}
+
 // ===== HELPER: Buscar grupos de todos usuários de uma vez (otimização) =====
 async function getUserGroupsMap(userIds = null) {
     let allGroups;
@@ -5362,6 +5404,8 @@ router.post('/storage/cleanup', requireSuperAdmin, async (req, res) => {
 
 router.get('/weapon-sales', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
     try {
+        await ensureWeaponSalesTable();
+
         const { start, end } = req.query;
         const where = [];
         const params = [];
@@ -5406,6 +5450,8 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
         }
 
         try {
+            await ensureWeaponSalesTable();
+
             const {
                 weapon_name,
                 quantity,
@@ -5489,6 +5535,8 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
 
 router.delete('/weapon-sales/:id', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
     try {
+        await ensureWeaponSalesTable();
+
         const saleId = req.params.id;
         const sale = await getOne('SELECT * FROM weapon_sales WHERE id = ?', [saleId]);
         if (!sale) {
