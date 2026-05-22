@@ -1,3 +1,19 @@
+function normalizeRoleName(role) {
+    return String(role || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+function isAdminRole(role) {
+    const normalizedRole = normalizeRoleName(role);
+    const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
+    return adminRoles.includes(normalizedRole) || normalizedRole.includes('gerente') || normalizedRole.includes('admin');
+}
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -19,9 +35,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             messageEl.className = 'message show success';
             
             // Redireciona baseado no tipo de usuário
-            const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
             setTimeout(() => {
-                if (adminRoles.includes(data.user.role)) {
+                if (isAdminRole(data.user.role)) {
                     window.location.href = '/admin';
                 } else {
                     window.location.href = '/dashboard';
@@ -38,12 +53,11 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 });
 
 // Verifica se já está logado
-const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
 fetch('/api/auth/me')
     .then(res => res.json())
     .then(data => {
         if (data.user) {
-            if (adminRoles.includes(data.user.role)) {
+            if (isAdminRole(data.user.role)) {
                 window.location.href = '/admin';
             } else {
                 window.location.href = '/dashboard';

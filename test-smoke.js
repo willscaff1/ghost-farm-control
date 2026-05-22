@@ -9,7 +9,7 @@
  */
 
 const http = require('http');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 
 const TEST_PORT = 19876 + Math.floor(Math.random() * 1000);
@@ -157,7 +157,7 @@ async function testProtectedRoutes() {
     const protectedPaths = [
         '/api/admin/stats',
         '/api/admin/members',
-        '/api/delivery/my-deliveries',
+        '/api/delivery/my',
     ];
     for (const p of protectedPaths) {
         try {
@@ -230,7 +230,11 @@ function startLocalServer() {
 
 function stopLocalServer() {
     if (serverProcess) {
-        serverProcess.kill('SIGTERM');
+        if (process.platform === 'win32') {
+            spawnSync('taskkill', ['/pid', String(serverProcess.pid), '/t', '/f'], { stdio: 'ignore' });
+        } else {
+            serverProcess.kill('SIGTERM');
+        }
         serverProcess = null;
     }
 }

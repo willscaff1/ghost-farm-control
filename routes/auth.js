@@ -91,7 +91,7 @@ router.get('/me', async (req, res) => {
 });
 
 // Cargos que podem gerenciar membros
-const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
 // Cadastro público (membros se cadastram)
 router.post('/register-public', async (req, res) => {
@@ -156,7 +156,7 @@ router.post('/register', async (req, res) => {
             }
         } catch (err) {
             console.log('Usando validRoles padrão:', err.message);
-            validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+            validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
         }
         
         const userRole = validRoles.includes(role) ? role : 'member';

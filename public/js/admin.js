@@ -15,7 +15,18 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+
+function roleBadgeClass(group) {
+    return String(group || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
 // Nomes de exibição dos grupos (carregados dinamicamente do banco)
 let roleNames = {};
@@ -76,6 +87,8 @@ async function loadRoleNames() {
         roleNames = {
             'member': 'Membro',
             'super_admin': 'Super Admin',
+            'gerente_vendas': 'Gerente de Vendas',
+            'gerente_de_vendas': 'Gerente de Vendas',
             'gerente_geral': 'Gerente Geral'
         };
     }
@@ -2295,7 +2308,7 @@ function renderWeeklyTable(filter) {
         if (member.groups && member.groups.length > 0) {
             const displayGroups = member.groups.filter(g => g !== 'member' || member.groups.length === 1);
             groupsDisplay = displayGroups.map(group => 
-                `<span class="role-badge badge-${group}">${roleNames[group] || group}</span>`
+                `<span class="role-badge badge-${roleBadgeClass(group)}">${roleNames[group] || group}</span>`
             ).join(' ');
         } else {
             groupsDisplay = `<span class="no-role">${roleNames[member.role] || member.role || '-'}</span>`;
@@ -4814,14 +4827,16 @@ function renderMembersTable() {
     const isManager = currentUser && (
         isSuperAdmin ||
         currentUser.groups?.some(g => 
-            g === 'gerente_geral' || 
-            g === 'gerente_farm' ||
-            g === 'gerente_acao' ||
-            g === 'gerente_recrutamento' ||
-            g === 'gerente_encomendas' ||
-            g === 'gerente_de_fabricacao' ||
-            g === '01' ||
-            g === '02'
+            roleBadgeClass(g) === 'gerente_geral' ||
+            roleBadgeClass(g) === 'gerente_farm' ||
+            roleBadgeClass(g) === 'gerente_acao' ||
+            roleBadgeClass(g) === 'gerente_recrutamento' ||
+            roleBadgeClass(g) === 'gerente_encomendas' ||
+            roleBadgeClass(g) === 'gerente_vendas' ||
+            roleBadgeClass(g) === 'gerente_de_vendas' ||
+            roleBadgeClass(g) === 'gerente_de_fabricacao' ||
+            roleBadgeClass(g) === '01' ||
+            roleBadgeClass(g) === '02'
         )
     );
     
@@ -4889,7 +4904,7 @@ function renderMembersTable() {
         }
         
         const groupsDisplay = groups.length > 0 
-            ? groups.map(g => `<span class="role-badge badge-${g}">${roleNames[g] || g}</span>`).join(' ')
+            ? groups.map(g => `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`).join(' ')
             : '<span class="no-role">Sem grupo</span>';
 
         
@@ -4920,11 +4935,11 @@ function renderMembersTable() {
     // Contagem discreta no rodapé (apenas ativos)
     const footerEl = document.getElementById('membersFooterStats');
     if (footerEl) {
-        const managerRoles = ['gerente_farm','gerente_acao','gerente_recrutamento','gerente_encomendas','gerente_de_fabricacao'];
+        const managerRoles = ['gerente_farm','gerente_acao','gerente_recrutamento','gerente_encomendas','gerente_vendas','gerente_de_vendas','gerente_de_fabricacao'];
         const activeMembers = membersTableData.filter(m => m.active);
         const activeManagers = activeMembers.filter(m => {
             const g = m.groups || (m.role ? [m.role] : []);
-            return g.some(r => managerRoles.includes(r));
+            return g.some(r => managerRoles.includes(roleBadgeClass(r)));
         });
         const regularCount = activeMembers.length - activeManagers.length;
         footerEl.innerHTML = `<span>👥 ${regularCount} membros</span><span>🛡️ ${activeManagers.length} gerentes</span><span>Total: ${activeMembers.length} ativos</span>`;
@@ -7126,7 +7141,7 @@ async function loadRolePermissions() {
     window.permRoles = data.roles;
     window.permTabs = data.availableTabs || [];
     
-    var icons = {'gerente_geral':'👑','01':'🥇','02':'🥈','gerente_farm':'🌾','gerente_acao':'⚡','gerente_recrutamento':'📋','gerente_encomendas':'📦'};
+    var icons = {'gerente_geral':'👑','01':'🥇','02':'🥈','gerente_farm':'🌾','gerente_acao':'⚡','gerente_recrutamento':'📋','gerente_encomendas':'📦','gerente_vendas':'💼','gerente_de_vendas':'💼'};
     var h = '';
     
     for (var i = 0; i < data.roles.length; i++) {
@@ -7424,6 +7439,8 @@ function formatRole(role) {
         'gerente_acao': 'Gerente de Ação',
         'gerente_recrutamento': 'Gerente de Recrutamento',
         'gerente_encomendas': 'Gerente de Encomendas',
+        'gerente_vendas': 'Gerente de Vendas',
+        'gerente_de_vendas': 'Gerente de Vendas',
         'gerente_geral': 'Gerente Geral'
     };
     return roles[role] || role;

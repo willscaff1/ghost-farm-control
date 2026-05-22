@@ -27,7 +27,7 @@ const upload = multer({
 }).array('screenshots', 10); // Até 10 imagens
 
 // Cargos administrativos (qualquer um pode aprovar)
-const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
 // Cargos considerados gerência (para metas específicas)
 const managerGroups = new Set([
@@ -38,11 +38,21 @@ const managerGroups = new Set([
     'gerente_acao',
     'gerente_recrutamento',
     'gerente_encomendas',
+    'gerente_vendas',
+    'gerente_de_vendas',
     'gerente_geral',
     'gerente_de_fabricacao'
 ]);
 
-const isManagerByGroups = (groups = []) => groups.some(g => managerGroups.has(g));
+const normalizeGroupName = (groupName = '') => String(groupName)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+const isManagerByGroups = (groups = []) => groups.some(g => managerGroups.has(normalizeGroupName(g)));
 
 const weeklyStatusCache = new Map();
 const WEEKLY_STATUS_CACHE_TTL_MS = parseInt(process.env.WEEKLY_STATUS_CACHE_TTL_MS, 10) || 60000;
@@ -160,6 +170,7 @@ async function getAllRoles() {
             { role_name: '01', display_name: '01' },
             { role_name: '02', display_name: '02' },
             { role_name: 'gerente_farm', display_name: 'Gerente de Farm' },
+            { role_name: 'gerente_vendas', display_name: 'Gerente de Vendas' },
             { role_name: 'gerente_geral', display_name: 'Gerente Geral' }
         ];
     }
@@ -184,6 +195,8 @@ async function getRoleNames() {
             'gerente_acao': 'Gerente de Ação',
             'gerente_recrutamento': 'Gerente de Recrutamento',
             'gerente_encomendas': 'Gerente de Encomendas',
+            'gerente_vendas': 'Gerente de Vendas',
+            'gerente_de_vendas': 'Gerente de Vendas',
             'gerente_geral': 'Gerente Geral'
         };
     }
@@ -198,6 +211,8 @@ const roleNames = {
     'gerente_acao': 'Gerente de Ação',
     'gerente_recrutamento': 'Gerente de Recrutamento',
     'gerente_encomendas': 'Gerente de Encomendas',
+    'gerente_vendas': 'Gerente de Vendas',
+    'gerente_de_vendas': 'Gerente de Vendas',
     'gerente_geral': 'Gerente Geral'
 };
 
@@ -3140,6 +3155,16 @@ const defaultRolePermissions = [
         permissions: JSON.stringify([
             'weekly-status', 'members-panel', 'members-overview', 
             'members', 'members-adv', 
+            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals'
+        ]),
+        can_config: 0
+    },
+    {
+        role_name: 'gerente_vendas',
+        display_name: 'Gerente de Vendas',
+        permissions: JSON.stringify([
+            'weekly-status', 'members-panel', 'members-overview',
+            'members', 'members-adv',
             'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals'
         ]),
         can_config: 0

@@ -31,7 +31,18 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_geral'];
+
+function normalizeRoleName(role) {
+    return String(role || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
 // Nomes de exibição dos grupos (carregados dinamicamente do banco)
 let roleNames = {};
@@ -53,6 +64,8 @@ async function loadRoleNames() {
         roleNames = {
             'member': 'Membro',
             'super_admin': 'Super Admin',
+            'gerente_vendas': 'Gerente de Vendas',
+            'gerente_de_vendas': 'Gerente de Vendas',
             'gerente_geral': 'Gerente Geral'
         };
     }
@@ -93,11 +106,11 @@ async function checkAuth() {
             const nonMemberGroups = userGroups.filter(g => g !== 'member');
             const hasAdminGroups = nonMemberGroups.length > 0;
             const hasAdminRole = userGroups.some(group => 
-                group.includes('gerente') || 
-                group.includes('admin') ||
-                group === '01' || 
-                group === '02' ||
-                group === 'super_admin'
+                normalizeRoleName(group).includes('gerente') ||
+                normalizeRoleName(group).includes('admin') ||
+                normalizeRoleName(group) === '01' ||
+                normalizeRoleName(group) === '02' ||
+                normalizeRoleName(group) === 'super_admin'
             );
             
             const hasAdminAccess = hasAdminGroups || hasAdminRole;

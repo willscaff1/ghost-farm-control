@@ -48,9 +48,19 @@ const MANAGER_GROUPS = new Set([
     'gerente_acao',
     'gerente_recrutamento',
     'gerente_encomendas',
+    'gerente_vendas',
+    'gerente_de_vendas',
     'gerente_geral',
     'gerente_de_fabricacao'
 ]);
+
+const normalizeGroupName = (groupName = '') => String(groupName)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 
 const getUserGroups = async (userId) => {
     try {
@@ -67,10 +77,10 @@ const getUserGroups = async (userId) => {
 
 const isManagerUser = async (userId, sessionUser) => {
     if (sessionUser && sessionUser.id === userId && Array.isArray(sessionUser.groups)) {
-        return sessionUser.groups.some(g => MANAGER_GROUPS.has(g));
+        return sessionUser.groups.some(g => MANAGER_GROUPS.has(normalizeGroupName(g)));
     }
     const groups = await getUserGroups(userId);
-    return groups.some(g => MANAGER_GROUPS.has(g));
+    return groups.some(g => MANAGER_GROUPS.has(normalizeGroupName(g)));
 };
 
 const resolveMaterialGoal = (material, isManager) => {
