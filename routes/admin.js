@@ -44,6 +44,15 @@ const managerGroups = new Set([
     'gerente_de_fabricacao'
 ]);
 
+const weaponSalesGroups = new Set([
+    'super_admin',
+    '01',
+    '02',
+    'gerente_geral',
+    'gerente_vendas',
+    'gerente_de_vendas'
+]);
+
 const normalizeGroupName = (groupName = '') => String(groupName)
     .trim()
     .toLowerCase()
@@ -137,6 +146,28 @@ const getUserGroups = async (userId) => {
         if (user?.role) groups = [user.role];
     }
     return groups;
+};
+
+const requireWeaponSalesAccess = async (req, res, next) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Não autenticado' });
+    }
+
+    try {
+        const sessionGroups = Array.isArray(req.session.user.groups) ? req.session.user.groups : [];
+        const dbGroups = await getUserGroups(req.session.user.id).catch(() => []);
+        const groups = [...sessionGroups, ...dbGroups, req.session.user.role].map(normalizeGroupName);
+        const allowed = isSuperAdminUser(req.session.user) || groups.some(g => weaponSalesGroups.has(g));
+
+        if (!allowed) {
+            return res.status(403).json({ error: 'Sem permissão para acessar o extrato de vendas' });
+        }
+
+        next();
+    } catch (error) {
+        console.error('Erro ao verificar permissão de vendas:', error);
+        res.status(500).json({ error: 'Erro ao verificar permissão' });
+    }
 };
 
 // ===== HELPER: Buscar grupos de todos usuários de uma vez (otimização) =====
@@ -3033,6 +3064,7 @@ router.post('/edit-permissions/revoke', requireAdmin, async (req, res) => {
 
 // Lista de todas as tabs disponíveis
 const availableTabs = [
+    { id: 'weapon-sales', name: 'Extrato de Vendas', section: 'Estatísticas', icon: '🔫' },
     { id: 'weekly-status', name: 'Status da Semana', section: 'Dashboard', icon: '📅' },
     { id: 'weekly-ranking', name: 'Ranking Semanal', section: 'Dashboard', icon: '🏆' },
     { id: 'members-panel', name: 'Painel de Membros', section: 'Dashboard', icon: '👥' },
@@ -3109,7 +3141,7 @@ const defaultRolePermissions = [
             'weekly-status', 'weekly-ranking', 'members-panel', 'members-overview', 
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales',
             'farm-settings', 'edit-permissions', 'goals', 'manage-materials', 'manage-payment-types', 'manager-goals', 'whitelist'
         ]),
         can_config: 1
@@ -3121,7 +3153,7 @@ const defaultRolePermissions = [
             'weekly-status', 'weekly-ranking', 'members-panel', 'members-overview', 
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales',
             'edit-permissions', 'goals', 'manager-goals'
         ]),
         can_config: 1
@@ -3173,7 +3205,7 @@ const defaultRolePermissions = [
         permissions: JSON.stringify([
             'weekly-status', 'members-panel', 'members-overview',
             'members', 'members-adv',
-            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals'
+            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals', 'weapon-sales'
         ]),
         can_config: 0
     }
@@ -5324,6 +5356,160 @@ router.post('/storage/cleanup', requireSuperAdmin, async (req, res) => {
         const result = await db.cleanupOldImages();
         res.json(result);
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/weapon-sales', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        const { start, end } = req.query;
+        const where = [];
+        const params = [];
+
+        if (start) {
+            where.push('ws.sale_date >= ?');
+            params.push(start);
+        }
+
+        if (end) {
+            where.push('ws.sale_date <= ?');
+            params.push(end);
+        }
+
+        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+        const sales = await getAll(`
+            SELECT ws.*, u.name as created_by_name
+            FROM weapon_sales ws
+            LEFT JOIN users u ON ws.created_by = u.id
+            ${whereSql}
+            ORDER BY ws.sale_date DESC, ws.created_at DESC, ws.id DESC
+        `, params);
+
+        const stats = (sales || []).reduce((acc, sale) => {
+            acc.total_quantity += Number(sale.quantity || 0);
+            acc.total_value += Number(sale.sale_value || 0);
+            acc.total_sales += 1;
+            return acc;
+        }, { total_sales: 0, total_quantity: 0, total_value: 0 });
+
+        res.json({ success: true, sales: sales || [], stats });
+    } catch (error) {
+        console.error('Erro ao buscar vendas de armas:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) => {
+    upload(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+
+        try {
+            const {
+                weapon_name,
+                quantity,
+                sale_value,
+                buyer_name,
+                seller_name,
+                notes,
+                sale_date
+            } = req.body;
+
+            const weaponName = String(weapon_name || '').trim();
+            const qty = parseInt(quantity, 10);
+            const rawSaleValue = String(sale_value || '').trim();
+            const saleValue = Number(rawSaleValue.includes(',')
+                ? rawSaleValue.replace(/\./g, '').replace(',', '.')
+                : rawSaleValue
+            );
+            const saleDate = String(sale_date || '').trim();
+
+            if (!weaponName) {
+                return res.status(400).json({ error: 'Informe o nome da arma' });
+            }
+
+            if (!Number.isInteger(qty) || qty <= 0) {
+                return res.status(400).json({ error: 'Informe uma quantidade válida' });
+            }
+
+            if (!Number.isFinite(saleValue) || saleValue < 0) {
+                return res.status(400).json({ error: 'Informe um valor de venda válido' });
+            }
+
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(saleDate)) {
+                return res.status(400).json({ error: 'Informe uma data de venda válida' });
+            }
+
+            if (!req.files || req.files.length === 0) {
+                return res.status(400).json({ error: 'Envie um print de comprovação' });
+            }
+
+            const fs = require('fs');
+            const uploadDir = path.join(__dirname, '..', 'uploads');
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const file = req.files[0];
+            const filename = `${uuidv4()}${path.extname(file.originalname)}`;
+            const filepath = path.join(uploadDir, filename);
+            fs.writeFileSync(filepath, file.buffer);
+            const proofUrl = '/uploads/' + filename;
+
+            const result = await runQuery(`
+                INSERT INTO weapon_sales (
+                    weapon_name, quantity, sale_value, buyer_name, seller_name,
+                    proof_url, notes, sale_date, created_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                weaponName,
+                qty,
+                saleValue,
+                buyer_name?.trim() || null,
+                seller_name?.trim() || null,
+                proofUrl,
+                notes?.trim() || null,
+                saleDate,
+                req.session.user.id
+            ]);
+
+            res.json({
+                success: true,
+                message: 'Venda registrada com sucesso',
+                saleId: result.lastID,
+                proof_url: proofUrl
+            });
+        } catch (error) {
+            console.error('Erro ao registrar venda de arma:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+});
+
+router.delete('/weapon-sales/:id', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        const saleId = req.params.id;
+        const sale = await getOne('SELECT * FROM weapon_sales WHERE id = ?', [saleId]);
+        if (!sale) {
+            return res.status(404).json({ error: 'Venda não encontrada' });
+        }
+
+        await runQuery('DELETE FROM weapon_sales WHERE id = ?', [saleId]);
+
+        if (sale.proof_url && sale.proof_url.startsWith('/uploads/')) {
+            try {
+                const fs = require('fs');
+                const filepath = path.join(__dirname, '..', sale.proof_url);
+                if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+            } catch (fileError) {
+                console.log('⚠️ Não foi possível remover print da venda:', fileError.message);
+            }
+        }
+
+        res.json({ success: true, message: 'Venda removida com sucesso' });
+    } catch (error) {
+        console.error('Erro ao remover venda de arma:', error);
         res.status(500).json({ error: error.message });
     }
 });

@@ -240,6 +240,62 @@ db.initialize().then(async () => {
             console.error('⚠️ Erro ao criar tabela competitions:', error.message);
         }
     }
+
+    async function createWeaponSalesTable() {
+        try {
+            const { runQuery, getAll } = require('./database/db');
+            const isPostgres = process.env.DATABASE_URL ? true : false;
+
+            try {
+                await getAll('SELECT id FROM weapon_sales LIMIT 1');
+                console.log('✅ Tabela weapon_sales já existe');
+                return;
+            } catch (e) {
+                console.log('🔫 Criando tabela weapon_sales...');
+            }
+
+            if (isPostgres) {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS weapon_sales (
+                        id SERIAL PRIMARY KEY,
+                        weapon_name TEXT NOT NULL,
+                        quantity INTEGER NOT NULL DEFAULT 1,
+                        sale_value NUMERIC(12,2) NOT NULL DEFAULT 0,
+                        buyer_name TEXT,
+                        seller_name TEXT,
+                        proof_url TEXT,
+                        notes TEXT,
+                        sale_date DATE NOT NULL,
+                        created_by INTEGER REFERENCES users(id),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+            } else {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS weapon_sales (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        weapon_name TEXT NOT NULL,
+                        quantity INTEGER NOT NULL DEFAULT 1,
+                        sale_value REAL NOT NULL DEFAULT 0,
+                        buyer_name TEXT,
+                        seller_name TEXT,
+                        proof_url TEXT,
+                        notes TEXT,
+                        sale_date DATE NOT NULL,
+                        created_by INTEGER,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (created_by) REFERENCES users(id)
+                    )
+                `);
+            }
+
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_date ON weapon_sales (sale_date)');
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_created_by ON weapon_sales (created_by)');
+            console.log('✅ Tabela weapon_sales criada/verificada');
+        } catch (error) {
+            console.error('⚠️ Erro ao criar tabela weapon_sales:', error.message);
+        }
+    }
     
     // Função para atualizar permissões do ranking
     async function updateRankingPermissions() {
@@ -279,6 +335,35 @@ db.initialize().then(async () => {
             }
         } catch (error) {
             console.error('⚠️ Erro ao atualizar permissões do ranking:', error.message);
+        }
+    }
+
+    async function updateWeaponSalesPermissions() {
+        try {
+            const { runQuery, getAll } = require('./database/db');
+            const groupsWithAccess = ['super_admin', 'gerente_geral', '01', '02', 'gerente_vendas', 'gerente_de_vendas'];
+            const roles = await getAll('SELECT * FROM role_permissions');
+            let updated = 0;
+
+            for (const role of roles) {
+                if (!groupsWithAccess.includes(role.role_name)) continue;
+
+                const permissions = JSON.parse(role.permissions || '[]');
+                if (!permissions.includes('weapon-sales') && !permissions.includes('all')) {
+                    permissions.push('weapon-sales');
+                    await runQuery(
+                        'UPDATE role_permissions SET permissions = ? WHERE role_name = ?',
+                        [JSON.stringify(permissions), role.role_name]
+                    );
+                    updated++;
+                }
+            }
+
+            if (updated > 0) {
+                console.log(`🔫 Permissão de extrato de vendas atualizada (${updated} grupos)`);
+            }
+        } catch (error) {
+            console.error('⚠️ Erro ao atualizar permissões de vendas:', error.message);
         }
     }
     
@@ -557,9 +642,15 @@ db.initialize().then(async () => {
         
         // Criar tabela de competições se não existir
         await createCompetitionsTable();
+
+        // Criar tabela de extrato de vendas de armas
+        await createWeaponSalesTable();
         
         // Atualizar permissões do ranking semanal
         await updateRankingPermissions();
+
+        // Atualizar permissões do extrato de vendas
+        await updateWeaponSalesPermissions();
         
         // Migrar farms in_progress para pending (novo fluxo de aprovação)
         await migrateInProgressToPending();

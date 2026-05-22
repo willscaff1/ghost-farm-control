@@ -61,6 +61,11 @@
         <!-- Sidebar -->
         <aside class="sidebar">
 
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Vendas</div>
+                <button class="sidebar-item" data-tab="weapon-sales">🔫 Extrato de Vendas</button>
+            </div>
+
             <!-- Menu Categories -->
             <div class="sidebar-section">
                 <div class="sidebar-section-title">📊 Dashboard</div>
@@ -932,6 +937,93 @@
                             <div class="spinner"></div>
                             <p>Selecione uma semana para gerar o relatório</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weapon Sales Extract Tab -->
+            <div id="weapon-sales-tab" class="tab-content">
+                <div class="card">
+                    <h2>🔫 Extrato de Vendas de Armas</h2>
+                    <p class="subtitle">Registro de vendas da família com quantidade, valor e print de comprovação.</p>
+
+                    <form id="weaponSaleForm" class="weapon-sales-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weaponSaleName">Arma</label>
+                                <input type="text" id="weaponSaleName" required placeholder="Ex: Pistola .50">
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponSaleQuantity">Quantidade</label>
+                                <input type="number" id="weaponSaleQuantity" min="1" step="1" value="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponSaleValue">Valor da venda</label>
+                                <input type="number" id="weaponSaleValue" min="0" step="0.01" required placeholder="0,00">
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponSaleDate">Data</label>
+                                <input type="date" id="weaponSaleDate" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weaponSaleBuyer">Comprador</label>
+                                <input type="text" id="weaponSaleBuyer" placeholder="Nome/passaporte">
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponSaleSeller">Vendedor</label>
+                                <input type="text" id="weaponSaleSeller" placeholder="Responsável pela venda">
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponSaleProof">Print de comprovação</label>
+                                <input type="file" id="weaponSaleProof" accept="image/*" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weaponSaleNotes">Observações</label>
+                            <textarea id="weaponSaleNotes" rows="2" placeholder="Detalhes extras da venda"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Registrar venda</button>
+                        <div id="weaponSaleMessage" class="message"></div>
+                    </form>
+
+                    <div class="stats-grid" style="margin-top: 24px;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="weaponSalesCount">0</div>
+                            <div class="stat-label">Vendas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="weaponSalesQuantity">0</div>
+                            <div class="stat-label">Armas vendidas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="weaponSalesTotal">R$ 0</div>
+                            <div class="stat-label">Valor total</div>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="margin-top: 20px;">
+                        <table class="weekly-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Arma</th>
+                                    <th>Qtd.</th>
+                                    <th>Valor</th>
+                                    <th>Comprador</th>
+                                    <th>Vendedor</th>
+                                    <th>Print</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weaponSalesBody">
+                                <tr><td colspan="8" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

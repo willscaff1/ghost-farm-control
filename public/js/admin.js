@@ -349,6 +349,7 @@ function showTab(tabId) {
         case 'ranking': loadRanking(); break;
         case 'all-deliveries': loadAllDeliveries(); break;
         case 'weekly-report': populateReportWeekSelect(); loadWeeklyReport(); break;
+        case 'weapon-sales': loadWeaponSales(); break;
         case 'role-permissions': 
             // Recarregar iframe para pegar dados atualizados
             const iframe = document.querySelector('#role-permissions-tab iframe');
@@ -792,6 +793,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'weekly-report':
                 loadWeeklyReport();
+                break;
+            case 'weapon-sales':
+                loadWeaponSales();
                 break;
             case 'whitelist':
                 loadWhitelist();
@@ -10168,6 +10172,144 @@ function closeCreateDeliveryModal() {
 }
 
 // ==================== FIM EDIÇÃO DE ENTREGAS ====================
+
+function formatWeaponSaleMoney(value) {
+    return Number(value || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    });
+}
+
+function formatWeaponSaleDate(value) {
+    if (!value) return '-';
+    return new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR');
+}
+
+async function loadWeaponSales() {
+    const tbody = document.getElementById('weaponSalesBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="8" class="loading">Carregando...</td></tr>';
+
+    try {
+        const response = await fetch('/api/admin/weapon-sales');
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao carregar vendas');
+        }
+
+        const stats = data.stats || {};
+        const countEl = document.getElementById('weaponSalesCount');
+        const quantityEl = document.getElementById('weaponSalesQuantity');
+        const totalEl = document.getElementById('weaponSalesTotal');
+        if (countEl) countEl.textContent = Number(stats.total_sales || 0).toLocaleString('pt-BR');
+        if (quantityEl) quantityEl.textContent = Number(stats.total_quantity || 0).toLocaleString('pt-BR');
+        if (totalEl) totalEl.textContent = formatWeaponSaleMoney(stats.total_value || 0);
+
+        const sales = data.sales || [];
+        if (sales.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="loading">Nenhuma venda registrada</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = sales.map(sale => `
+            <tr>
+                <td>${formatWeaponSaleDate(sale.sale_date)}</td>
+                <td><strong>${escapeHtml(sale.weapon_name)}</strong>${sale.notes ? `<br><small>${escapeHtml(sale.notes)}</small>` : ''}</td>
+                <td>${Number(sale.quantity || 0).toLocaleString('pt-BR')}</td>
+                <td>${formatWeaponSaleMoney(sale.sale_value)}</td>
+                <td>${escapeHtml(sale.buyer_name || '-')}</td>
+                <td>${escapeHtml(sale.seller_name || sale.created_by_name || '-')}</td>
+                <td>
+                    ${sale.proof_url ? `<img src="${sale.proof_url}" class="delivery-screenshot" style="width:72px;height:54px;object-fit:cover;cursor:pointer;border-radius:6px;" onclick="openModal('${sale.proof_url}')">` : '<span class="no-prints">Sem print</span>'}
+                </td>
+                <td>
+                    <button class="btn btn-danger btn-small" onclick="deleteWeaponSale(${sale.id})">Remover</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Erro ao carregar vendas de armas:', error);
+        tbody.innerHTML = `<tr><td colspan="8" class="loading">Erro: ${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
+async function submitWeaponSale(event) {
+    event.preventDefault();
+
+    const messageEl = document.getElementById('weaponSaleMessage');
+    const form = document.getElementById('weaponSaleForm');
+    const proofInput = document.getElementById('weaponSaleProof');
+
+    try {
+        const formData = new FormData();
+        formData.append('weapon_name', document.getElementById('weaponSaleName').value.trim());
+        formData.append('quantity', document.getElementById('weaponSaleQuantity').value);
+        formData.append('sale_value', document.getElementById('weaponSaleValue').value);
+        formData.append('sale_date', document.getElementById('weaponSaleDate').value);
+        formData.append('buyer_name', document.getElementById('weaponSaleBuyer').value.trim());
+        formData.append('seller_name', document.getElementById('weaponSaleSeller').value.trim());
+        formData.append('notes', document.getElementById('weaponSaleNotes').value.trim());
+
+        if (proofInput.files && proofInput.files[0]) {
+            formData.append('screenshots', proofInput.files[0]);
+        }
+
+        const response = await fetch('/api/admin/weapon-sales', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao registrar venda');
+        }
+
+        if (messageEl) {
+            messageEl.textContent = data.message || 'Venda registrada com sucesso';
+            messageEl.className = 'message show success';
+        }
+        form.reset();
+        setDefaultWeaponSaleDate();
+        await loadWeaponSales();
+    } catch (error) {
+        if (messageEl) {
+            messageEl.textContent = error.message;
+            messageEl.className = 'message show error';
+        } else {
+            alert(error.message);
+        }
+    }
+}
+
+async function deleteWeaponSale(saleId) {
+    if (!confirm('Remover esta venda do extrato?')) return;
+
+    try {
+        const response = await fetch(`/api/admin/weapon-sales/${saleId}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao remover venda');
+        }
+        await loadWeaponSales();
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+function setDefaultWeaponSaleDate() {
+    const dateInput = document.getElementById('weaponSaleDate');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
+}
+
+const weaponSaleForm = document.getElementById('weaponSaleForm');
+if (weaponSaleForm) {
+    weaponSaleForm.addEventListener('submit', submitWeaponSale);
+    setDefaultWeaponSaleDate();
+}
 
 // Inicializa
 (async function() {
