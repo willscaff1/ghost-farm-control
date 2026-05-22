@@ -1672,7 +1672,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         ] = await Promise.all([
             getAll(`SELECT user_id FROM farm_whitelist`),
             getAll(`
-                SELECT id, name, passport, role, created_at FROM users 
+                SELECT id, name, passport, role, member_slot, manager_slot, created_at FROM users
                 WHERE active = 1 AND passport != '0'
                 ORDER BY name
             `),
@@ -1787,6 +1787,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 member.groups = [member.role];
             }
             const isManager = isManagerByGroups(member.groups);
+            member.storage_slot = isManager ? member.manager_slot : member.member_slot;
+            member.storage_slot_type = isManager ? 'manager' : 'member';
+            member.storage_slot_label = isManager ? 'Bau da Gerencia' : 'Bau dos Membros';
             
             const memberDeliveries = deliveriesByUserMap.get(member.id) || [];
             memberDeliveries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));

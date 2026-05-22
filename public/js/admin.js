@@ -2165,6 +2165,35 @@ document.addEventListener('click', (e) => {
 let weeklyStatusData = null;
 let currentFilter = 'all';
 
+function getWeeklyStatusSlotInfo(member) {
+    const groups = Array.isArray(member.groups) && member.groups.length > 0
+        ? member.groups
+        : (member.role ? [member.role] : []);
+    const managerRoles = ['super_admin', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
+    const isManager = member.storage_slot_type
+        ? member.storage_slot_type === 'manager'
+        : groups.some(group => managerRoles.includes(roleBadgeClass(group)) || roleBadgeClass(group).startsWith('gerente_'));
+    const slot = member.storage_slot !== undefined && member.storage_slot !== null
+        ? member.storage_slot
+        : (isManager ? member.manager_slot : member.member_slot);
+
+    return {
+        slot: slot ? String(slot) : '-',
+        label: member.storage_slot_label || (isManager ? 'Bau da Gerencia' : 'Bau dos Membros'),
+        type: isManager ? 'manager' : 'member'
+    };
+}
+
+function renderWeeklyStatusSlotCell(member) {
+    const slotInfo = getWeeklyStatusSlotInfo(member);
+    return `
+        <div class="weekly-slot-cell weekly-slot-${slotInfo.type}">
+            <span class="weekly-slot-label">${escapeHtml(slotInfo.label)}</span>
+            <strong>${escapeHtml(slotInfo.slot)}</strong>
+        </div>
+    `;
+}
+
 // Carregar status semanal (da semana selecionada)
 async function loadWeeklyStatus() {
     // Se já temos dados em cache válidos, apenas renderizar (cache estendido para 2min)
@@ -2201,7 +2230,7 @@ async function loadWeeklyStatus() {
         console.error('Erro ao carregar status semanal:', error);
         const tbody = document.getElementById('weeklyTableBody');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading">❌ Erro ao carregar dados</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">❌ Erro ao carregar dados</td></tr>';
         }
     }
 }
@@ -2326,7 +2355,7 @@ function renderWeeklyTable(filter) {
     window.__weeklyStatusMembersById = new Map(allMembers.map(member => [String(member.id), member]));
     
     if (allMembers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading">😴 Nenhum membro encontrado com este filtro</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">😴 Nenhum membro encontrado com este filtro</td></tr>';
         return;
     }
     
@@ -2396,6 +2425,7 @@ function renderWeeklyTable(filter) {
         return `
             <tr class="status-${member.status}">
                 <td class="passport-cell">${escapeHtml(member.passport || '-')}</td>
+                <td class="slot-cell">${renderWeeklyStatusSlotCell(member)}</td>
                 <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${escapeHtml(member.name)}${member.is_late_payment ? ' ⏰' : ''}</span>${pendingExtraBadge}</td>
                 <td class="role-cell">${groupsDisplay}</td>
                 <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
@@ -4831,21 +4861,24 @@ let membersTableData = [];
 let membersSortColumn = 'passport';
 let membersSortDirection = 'asc';
 let membersStatusFilter = 'all';
-const memberManagerSlotRoles = ['gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
+const memberManagerSlotRoles = ['super_admin', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
 
-function memberHasManagerSlot(member) {
-    const groups = (member.groups && member.groups.length > 0) ? member.groups : (member.role ? [member.role] : []);
-    return groups.some(group => memberManagerSlotRoles.includes(roleBadgeClass(group)));
+function memberUsesManagerSlot(member = {}, roleOverride = null) {
+    const groups = roleOverride
+        ? [roleOverride]
+        : ((member.groups && member.groups.length > 0) ? member.groups : (member.role ? [member.role] : []));
+    return groups.some(group => {
+        const normalized = roleBadgeClass(group);
+        return memberManagerSlotRoles.includes(normalized) || normalized.startsWith('gerente_');
+    });
 }
 
 function renderMemberSlotCell(member) {
-    const memberSlot = member.member_slot ? escapeHtml(String(member.member_slot)) : '-';
-    const managerSlot = member.manager_slot ? escapeHtml(String(member.manager_slot)) : '-';
-    const managerSlotLine = memberHasManagerSlot(member)
-        ? `<div class="slot-line"><strong>Gerencia:</strong> ${managerSlot}</div>`
-        : '';
+    const isManagerSlot = memberUsesManagerSlot(member);
+    const slot = isManagerSlot ? member.manager_slot : member.member_slot;
+    const label = isManagerSlot ? 'Gerencia' : 'Membros';
 
-    return `<div class="member-slot-cell"><div class="slot-line"><strong>Membros:</strong> ${memberSlot}</div>${managerSlotLine}</div>`;
+    return `<div class="member-slot-cell"><div class="slot-line"><strong>${label}:</strong> ${slot ? escapeHtml(String(slot)) : '-'}</div></div>`;
 }
 
 async function loadMembers() {
@@ -5140,6 +5173,21 @@ async function deleteSelectedMembers() {
 // Abrir modal de edição de membro
 let editingMemberId = null;
 
+function updateEditMemberSlotVisibility(member) {
+    const memberSlotGroup = document.getElementById('editMemberSlot')?.closest('.edit-form-group');
+    const managerSlotGroup = document.getElementById('editManagerSlot')?.closest('.edit-form-group');
+    if (!memberSlotGroup || !managerSlotGroup) return;
+
+    const roleSelect = document.getElementById('editMemberRole');
+    const roleOverride = roleSelect && roleSelect.closest('.edit-form-group')?.style.display !== 'none'
+        ? roleSelect.value
+        : null;
+    const isManagerSlot = memberUsesManagerSlot(member, roleOverride);
+
+    memberSlotGroup.style.display = isManagerSlot ? 'none' : 'block';
+    managerSlotGroup.style.display = isManagerSlot ? 'block' : 'none';
+}
+
 function openEditMemberModal(id, name, passport, email) {
     editingMemberId = id;
     const selectedMember = membersTableData.find(m => m.id === id);
@@ -5173,11 +5221,13 @@ function openEditMemberModal(id, name, passport, email) {
             const primaryGroup = groups.length > 0 ? groups[0] : 'member';
             roleSelect.value = primaryGroup;
         }
+        roleSelect.onchange = () => updateEditMemberSlotVisibility(selectedMember);
     } else {
         // Ocultar campo de cargo se não tiver permissão
         roleContainer.style.display = 'none';
     }
     
+    updateEditMemberSlotVisibility(selectedMember);
     document.getElementById('editMemberModal').style.display = 'flex';
 }
 
@@ -5209,17 +5259,19 @@ async function saveEditMember() {
             return;
         }
 
+        const selectedRole = canChangeRoles() ? document.getElementById('editMemberRole').value : null;
+        const usesManagerSlot = memberUsesManagerSlot(member, selectedRole);
+        const relevantSlot = usesManagerSlot ? managerSlot : memberSlot;
+        const currentRelevantSlot = ((usesManagerSlot ? member.manager_slot : member.member_slot) || '').trim();
+
         const currentName = (member.name || '').trim();
         const currentPassport = (member.passport || '').trim();
         const currentEmail = (member.email || '').trim();
-        const currentMemberSlot = (member.member_slot || '').trim();
-        const currentManagerSlot = (member.manager_slot || '').trim();
         const hasProfileChanges =
             name !== currentName ||
             passport !== currentPassport ||
             email !== currentEmail ||
-            memberSlot !== currentMemberSlot ||
-            managerSlot !== currentManagerSlot ||
+            relevantSlot !== currentRelevantSlot ||
             !!newPassword;
 
         // Atualizar dados básicos apenas quando houve alteração
@@ -5231,8 +5283,8 @@ async function saveEditMember() {
                     name,
                     passport,
                     email,
-                    member_slot: memberSlot,
-                    manager_slot: managerSlot,
+                    member_slot: usesManagerSlot ? undefined : memberSlot,
+                    manager_slot: usesManagerSlot ? managerSlot : undefined,
                     newPassword: newPassword || undefined
                 })
             });
@@ -5247,7 +5299,7 @@ async function saveEditMember() {
         // Atualizar grupo se mudou e se tiver permissão
         let roleChanged = false;
         if (canChangeRoles()) {
-            const newRole = document.getElementById('editMemberRole').value;
+            const newRole = selectedRole;
             let currentGroups = member.groups || [];
             if (currentGroups.length > 1 && currentGroups.includes('member')) {
                 currentGroups = currentGroups.filter(g => g !== 'member');
@@ -6681,6 +6733,17 @@ async function updateFarmSetting(key, value) {
 }
 
 // Criar novo membro
+function updateNewMemberSlotVisibility() {
+    const role = document.getElementById('newRole')?.value || 'member';
+    const memberSlotGroup = document.getElementById('newMemberSlot')?.closest('.form-group');
+    const managerSlotGroup = document.getElementById('newManagerSlot')?.closest('.form-group');
+    if (!memberSlotGroup || !managerSlotGroup) return;
+
+    const isManagerSlot = memberUsesManagerSlot({}, role);
+    memberSlotGroup.style.display = isManagerSlot ? 'none' : 'block';
+    managerSlotGroup.style.display = isManagerSlot ? 'block' : 'none';
+}
+
 document.getElementById('newMemberForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -6691,6 +6754,7 @@ document.getElementById('newMemberForm').addEventListener('submit', async (e) =>
     const role = document.getElementById('newRole').value;
     const member_slot = document.getElementById('newMemberSlot').value.trim();
     const manager_slot = document.getElementById('newManagerSlot').value.trim();
+    const isManagerSlot = memberUsesManagerSlot({}, role);
     
     const messageEl = document.getElementById('memberMessage');
     
@@ -6704,7 +6768,15 @@ document.getElementById('newMemberForm').addEventListener('submit', async (e) =>
         const response = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, passport, email, password, role, member_slot, manager_slot })
+            body: JSON.stringify({
+                name,
+                passport,
+                email,
+                password,
+                role,
+                member_slot: isManagerSlot ? undefined : member_slot,
+                manager_slot: isManagerSlot ? manager_slot : undefined
+            })
         });
         
         const data = await response.json();
@@ -6713,6 +6785,7 @@ document.getElementById('newMemberForm').addEventListener('submit', async (e) =>
             messageEl.textContent = 'Membro cadastrado com sucesso!';
             messageEl.className = 'message show success';
             document.getElementById('newMemberForm').reset();
+            updateNewMemberSlotVisibility();
             loadAdminStats();
             loadMembers();
         } else {
@@ -6728,6 +6801,8 @@ document.getElementById('newMemberForm').addEventListener('submit', async (e) =>
         messageEl.className = 'message';
     }, 5000);
 });
+
+updateNewMemberSlotVisibility();
 
 // Modal de imagem
 function openModal(src) {

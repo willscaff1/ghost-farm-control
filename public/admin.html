@@ -339,14 +339,14 @@
                     </div>
                     
                     <div class="weekly-table-container">
-                        <table class="weekly-table">
-                            <thead><tr><th>Passaporte</th><th>Membro</th><th>Cargo</th>
+                        <table class="weekly-table weekly-status-table">
+                            <thead><tr><th>Passaporte</th><th>Slot</th><th>Membro</th><th>Cargo</th>
                                     <th>Status</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="weeklyTableBody">
-                                <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                                <tr><td colspan="6" class="loading">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1080,7 +1080,7 @@
                         </div>
                         <div class="form-group">
                             <label for="newRole">Cargo</label>
-                            <select id="newRole">
+                            <select id="newRole" onchange="updateNewMemberSlotVisibility()">
                                 <option value="member">Membro</option>
                                 <option value="01">01</option>
                                 <option value="02">02</option>
