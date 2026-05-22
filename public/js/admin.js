@@ -27,6 +27,33 @@ function roleBadgeClass(group) {
 }
 
 const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
+const advRemovalRoles = new Set([
+    'super_admin',
+    '01',
+    '02',
+    'gerente_geral',
+    'gerente_farm',
+    'gerente_acao',
+    'gerente_recrutamento',
+    'gerente_encomendas',
+    'gerente_vendas',
+    'gerente_de_vendas',
+    'gerente_de_fabricacao'
+]);
+
+function canRemoveAdvWarnings() {
+    if (!currentUser) return false;
+    if (currentUser.passport === '6999') return true;
+
+    const groups = Array.isArray(currentUser.groups) && currentUser.groups.length > 0
+        ? currentUser.groups
+        : [currentUser.role];
+
+    return groups.some(group => {
+        const normalizedGroup = roleBadgeClass(group);
+        return advRemovalRoles.has(normalizedGroup) || normalizedGroup.startsWith('gerente_');
+    });
+}
 
 // Nomes de exibição dos grupos (carregados dinamicamente do banco)
 let roleNames = {};
@@ -6863,7 +6890,7 @@ async function loadWarnings() {
         const data = await response.json();
         
         const warningsList = document.getElementById('warningsList');
-        const isSuperAdmin = currentUser && currentUser.passport === '6999';
+        const canRemoveAdv = canRemoveAdvWarnings();
         
         if (data.warnings && data.warnings.length > 0) {
             warningsList.innerHTML = data.warnings.map(w => `
@@ -6873,7 +6900,7 @@ async function loadWarnings() {
                         <p class="warning-reason">${escapeHtml(w.reason)}</p>
                         <small>Por: ${escapeHtml(w.given_by_name)} em ${formatDate(w.created_at)}</small>
                     </div>
-                    ${isSuperAdmin ? `
+                    ${canRemoveAdv ? `
                         <button class="btn btn-danger btn-small" onclick="removeWarning(${w.id})">🗑️ Remover</button>
                     ` : ''}
                 </div>
@@ -6964,7 +6991,7 @@ async function applyWeeklyAdv(memberId, memberName, weekStart, weekEnd) {
     }
 }
 
-// Remover advertência (super_admin, 01, 02)
+// Remover advertência (qualquer gerente)
 async function removeWarning(warningId) {
     if (!confirm('Tem certeza que deseja remover esta advertência?')) {
         return;
@@ -7597,12 +7624,7 @@ async function showMemberWarningsModal(memberId, memberName) {
         modal.dataset.memberId = memberId;
         modal.dataset.memberName = memberName;
         
-        // Permitir remover ADV para super_admin, 01, 02, gerente_geral
-        const userGroups = currentUser && currentUser.groups ? currentUser.groups : [currentUser?.role];
-        const canRemoveAdv = currentUser && (
-            currentUser.passport === '6999' || 
-            userGroups.some(g => ['super_admin', '01', '02', 'gerente_geral'].includes(g))
-        );
+        const canRemoveAdv = canRemoveAdvWarnings();
         
         let content = `
             <div class="adv-modal-header-info">

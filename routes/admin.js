@@ -2721,12 +2721,20 @@ router.post('/members/:id/warnings', requireAdmin, async (req, res) => {
     }
 });
 
-// Remover advertência (qualquer admin)
+// Remover advertência (qualquer gerente)
 router.delete('/warnings/:id', requireAdmin, async (req, res) => {
     try {
         const warningId = req.params.id;
         const { removal_reason } = req.body;
         const adminId = req.session.user.id;
+        const sessionGroups = Array.isArray(req.session.user.groups) ? req.session.user.groups : [];
+        const userGroups = await getUserGroups(adminId).catch(() => []);
+        const canRemoveWarning = isSuperAdminUser(req.session.user)
+            || isManagerByGroups([...sessionGroups, ...userGroups, req.session.user.role]);
+
+        if (!canRemoveWarning) {
+            return res.status(403).json({ error: 'Apenas gerentes podem remover ADV' });
+        }
         
         if (!removal_reason || removal_reason.trim() === '') {
             return res.status(400).json({ error: 'Informe o motivo da remoção' });
