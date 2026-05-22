@@ -1409,17 +1409,34 @@
 #membersTable th:nth-child(2) { width: 100px; text-align: center; }
 #membersTable td:nth-child(2) { width: 100px; text-align: center; font-weight: 700; color: #d4dbff; font-size: 15px; }
 
-/* Coluna 3: Nome */
-#membersTable th:nth-child(3) { width: auto; min-width: 200px; text-align: left; }
-#membersTable td:nth-child(3) { text-align: left; }
+/* Coluna 3: SLOT */
+#membersTable th:nth-child(3) { width: 150px; text-align: left; }
+#membersTable td:nth-child(3) { width: 150px; text-align: left; }
 
-/* Coluna 4: Grupo/Cargo */
-#membersTable th:nth-child(4) { width: 180px; text-align: left; }
-#membersTable td:nth-child(4) { width: 180px; text-align: left; }
+/* Coluna 4: Nome */
+#membersTable th:nth-child(4) { width: auto; min-width: 200px; text-align: left; }
+#membersTable td:nth-child(4) { text-align: left; }
 
-/* Coluna 5: Ações */
-#membersTable th:nth-child(5) { min-width: 280px; text-align: center; }
-#membersTable td:nth-child(5) { min-width: 280px; text-align: center; white-space: nowrap; }
+/* Coluna 5: Grupo/Cargo */
+#membersTable th:nth-child(5) { width: 180px; text-align: left; }
+#membersTable td:nth-child(5) { width: 180px; text-align: left; }
+
+/* Coluna 6: Ações */
+#membersTable th:nth-child(6) { min-width: 280px; text-align: center; }
+#membersTable td:nth-child(6) { min-width: 280px; text-align: center; white-space: nowrap; }
+
+#membersTable .member-slot-cell {
+    display: grid;
+    gap: 3px;
+    color: #dbe4ff;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+#membersTable .slot-line strong {
+    color: #9fb3ff;
+    font-weight: 800;
+}
 
 .role-select-inline {
     padding: 8px 12px;

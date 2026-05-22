@@ -194,6 +194,8 @@ const initializePostgres = async () => {
                 email TEXT,
                 password TEXT NOT NULL,
                 role TEXT DEFAULT 'member',
+                member_slot TEXT,
+                manager_slot TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 active INTEGER DEFAULT 1
             )
@@ -375,6 +377,15 @@ const initializePostgres = async () => {
         // ===== MIGRAÇÕES - Adicionar colunas que podem não existir =====
         console.log('🔄 Executando migrações...');
         
+        // Adicionar slots de bau em users
+        try {
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS member_slot TEXT`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS manager_slot TEXT`);
+            console.log('Colunas de slot dos usuarios verificadas/adicionadas');
+        } catch (e) {
+            console.log('slots dos usuarios:', e.message);
+        }
+
         // Adicionar weekly_goal em materials
         try {
             await pool.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS weekly_goal INTEGER DEFAULT 700`);
@@ -623,6 +634,8 @@ const initializeSQLite = () => {
                     email TEXT,
                     password TEXT NOT NULL,
                     role TEXT DEFAULT 'member',
+                    member_slot TEXT,
+                    manager_slot TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     active INTEGER DEFAULT 1
                 )
@@ -834,6 +847,13 @@ const initializeSQLite = () => {
             }
 
             // Migrações SQLite - adicionar colunas novas
+            pool.run(`ALTER TABLE users ADD COLUMN member_slot TEXT`, (err) => {
+                if (!err) console.log('Coluna member_slot adicionada (SQLite)');
+            });
+            pool.run(`ALTER TABLE users ADD COLUMN manager_slot TEXT`, (err) => {
+                if (!err) console.log('Coluna manager_slot adicionada (SQLite)');
+            });
+
             pool.run(`ALTER TABLE deliveries ADD COLUMN payment_type TEXT DEFAULT 'material'`, (err) => {
                 if (!err) console.log('✅ Coluna payment_type adicionada (SQLite)');
             });

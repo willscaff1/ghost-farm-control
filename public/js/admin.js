@@ -4831,6 +4831,22 @@ let membersTableData = [];
 let membersSortColumn = 'passport';
 let membersSortDirection = 'asc';
 let membersStatusFilter = 'all';
+const memberManagerSlotRoles = ['gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
+
+function memberHasManagerSlot(member) {
+    const groups = (member.groups && member.groups.length > 0) ? member.groups : (member.role ? [member.role] : []);
+    return groups.some(group => memberManagerSlotRoles.includes(roleBadgeClass(group)));
+}
+
+function renderMemberSlotCell(member) {
+    const memberSlot = member.member_slot ? escapeHtml(String(member.member_slot)) : '-';
+    const managerSlot = member.manager_slot ? escapeHtml(String(member.manager_slot)) : '-';
+    const managerSlotLine = memberHasManagerSlot(member)
+        ? `<div class="slot-line"><strong>Gerencia:</strong> ${managerSlot}</div>`
+        : '';
+
+    return `<div class="member-slot-cell"><div class="slot-line"><strong>Membros:</strong> ${memberSlot}</div>${managerSlotLine}</div>`;
+}
 
 async function loadMembers() {
     try {
@@ -4847,7 +4863,7 @@ async function loadMembers() {
         renderMembersTable();
     } catch (error) {
         console.error('Erro ao carregar membros:', error);
-        document.getElementById('membersTableBody').innerHTML = '<tr><td colspan="4" class="loading">Erro ao carregar membros</td></tr>';
+        document.getElementById('membersTableBody').innerHTML = '<tr><td colspan="6" class="loading">Erro ao carregar membros</td></tr>';
     }
 }
 
@@ -4918,7 +4934,7 @@ function renderMembersTable() {
     updateMembersSortIndicators();
     
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="loading">Nenhum membro encontrado</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">Nenhum membro encontrado</td></tr>';
         return;
     }
     
@@ -4943,6 +4959,7 @@ function renderMembersTable() {
             <tr class="${statusClass}" data-name="${escapeHtml(member.name.toLowerCase())}" data-passport="${escapeHtml(member.passport || '')}" data-member-id="${member.id}">
                 <td><input type="checkbox" class="member-checkbox" ${member.passport === '6999' ? 'disabled' : ''} data-member-id="${member.id}" data-member-name="${escapeHtml(member.name)}" onchange="updateBulkActions()"></td>
                 <td>${escapeHtml(member.passport || '-')}</td>
+                <td>${renderMemberSlotCell(member)}</td>
                 <td><span class="member-avatar">${initial}</span><span class="member-name">${statusIcon}${escapeHtml(member.name)}</span></td>
                 <td>
                     ${groupsDisplay}
@@ -5125,9 +5142,12 @@ let editingMemberId = null;
 
 function openEditMemberModal(id, name, passport, email) {
     editingMemberId = id;
-    document.getElementById('editMemberName').value = name;
-    document.getElementById('editMemberPassport').value = passport;
-    document.getElementById('editMemberEmail').value = email || '';
+    const selectedMember = membersTableData.find(m => m.id === id);
+    document.getElementById('editMemberName').value = selectedMember?.name || name || '';
+    document.getElementById('editMemberPassport').value = selectedMember?.passport || passport || '';
+    document.getElementById('editMemberEmail').value = selectedMember?.email || email || '';
+    document.getElementById('editMemberSlot').value = selectedMember?.member_slot || '';
+    document.getElementById('editManagerSlot').value = selectedMember?.manager_slot || '';
     document.getElementById('editMemberPassword').value = '';
     
     // Verificar se pode alterar cargos
@@ -5144,7 +5164,7 @@ function openEditMemberModal(id, name, passport, email) {
         }).join('');
         
         // Carregar grupo atual do membro
-        const member = membersTableData.find(m => m.id === id);
+        const member = selectedMember;
         if (member && member.groups) {
             let groups = member.groups || [];
             if (groups.length > 1 && groups.includes('member')) {
@@ -5173,6 +5193,8 @@ async function saveEditMember() {
     const name = document.getElementById('editMemberName').value.trim();
     const passport = document.getElementById('editMemberPassport').value.trim();
     const email = document.getElementById('editMemberEmail').value.trim();
+    const memberSlot = document.getElementById('editMemberSlot').value.trim();
+    const managerSlot = document.getElementById('editManagerSlot').value.trim();
     const newPassword = document.getElementById('editMemberPassword').value;
     
     if (!name || !passport) {
@@ -5190,10 +5212,14 @@ async function saveEditMember() {
         const currentName = (member.name || '').trim();
         const currentPassport = (member.passport || '').trim();
         const currentEmail = (member.email || '').trim();
+        const currentMemberSlot = (member.member_slot || '').trim();
+        const currentManagerSlot = (member.manager_slot || '').trim();
         const hasProfileChanges =
             name !== currentName ||
             passport !== currentPassport ||
             email !== currentEmail ||
+            memberSlot !== currentMemberSlot ||
+            managerSlot !== currentManagerSlot ||
             !!newPassword;
 
         // Atualizar dados básicos apenas quando houve alteração
@@ -5201,7 +5227,14 @@ async function saveEditMember() {
             const response = await fetch(`/api/admin/members/${editingMemberId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, passport, email, newPassword: newPassword || undefined })
+                body: JSON.stringify({
+                    name,
+                    passport,
+                    email,
+                    member_slot: memberSlot,
+                    manager_slot: managerSlot,
+                    newPassword: newPassword || undefined
+                })
             });
 
             const data = await response.json();
@@ -6656,6 +6689,8 @@ document.getElementById('newMemberForm').addEventListener('submit', async (e) =>
     const email = document.getElementById('newEmail').value.trim();
     const password = document.getElementById('newPassword').value;
     const role = document.getElementById('newRole').value;
+    const member_slot = document.getElementById('newMemberSlot').value.trim();
+    const manager_slot = document.getElementById('newManagerSlot').value.trim();
     
     const messageEl = document.getElementById('memberMessage');
     
@@ -6669,7 +6704,7 @@ document.getElementById('newMemberForm').addEventListener('submit', async (e) =>
         const response = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, passport, email, password, role })
+            body: JSON.stringify({ name, passport, email, password, role, member_slot, manager_slot })
         });
         
         const data = await response.json();

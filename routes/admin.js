@@ -820,7 +820,7 @@ router.get('/members', requireAdmin, async (req, res) => {
         const roleNamesMap = await getRoleNames();
         
         const members = await getAll(`
-            SELECT u.id, u.name, u.passport, u.email, u.role, u.created_at, u.active,
+            SELECT u.id, u.name, u.passport, u.email, u.role, u.member_slot, u.manager_slot, u.created_at, u.active,
                    COALESCE((
                        SELECT SUM(di.amount) 
                        FROM delivery_items di 
@@ -922,15 +922,12 @@ router.post('/members/:id/role', requireAdmin, async (req, res) => {
     }
 });
 
-// Editar informações do membro (somente super admin)
+// Editar informações do membro (gerentes podem alterar somente slots)
 router.put('/members/:id', requireAdmin, async (req, res) => {
     try {
-        if (!isSuperAdminUser(req.session.user)) {
-            return res.status(403).json({ error: 'Apenas o super admin pode editar membros' });
-        }
-        
+        const isSuperAdmin = isSuperAdminUser(req.session.user);
         const memberId = req.params.id;
-        const { name, passport, email, role, newPassword } = req.body;
+        const { name, passport, email, role, newPassword, member_slot, manager_slot } = req.body;
         
         const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
         if (!member) {
@@ -943,6 +940,20 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         }
         
         // Verificar se novo passaporte já existe
+        const requestedName = name !== undefined ? String(name).trim() : member.name;
+        const requestedPassport = passport !== undefined ? String(passport).trim().toUpperCase() : member.passport;
+        const requestedEmail = email !== undefined ? String(email).trim() : (member.email || '');
+        const profileChanged =
+            requestedName !== (member.name || '').trim() ||
+            requestedPassport !== (member.passport || '').trim().toUpperCase() ||
+            requestedEmail !== (member.email || '').trim() ||
+            !!role ||
+            !!newPassword;
+
+        if (!isSuperAdmin && profileChanged) {
+            return res.status(403).json({ error: 'Apenas o super admin pode editar dados do membro. Gerentes podem alterar somente os slots.' });
+        }
+
         if (passport && passport !== member.passport) {
             const existing = await getOne('SELECT * FROM users WHERE passport = ? AND id != ?', [passport.toUpperCase(), memberId]);
             if (existing) {
@@ -959,6 +970,9 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
             }
         }
         
+        const cleanMemberSlot = member_slot !== undefined ? String(member_slot || '').trim() || null : member.member_slot;
+        const cleanManagerSlot = manager_slot !== undefined ? String(manager_slot || '').trim() || null : member.manager_slot;
+
         // Se tem nova senha, fazer hash
         let hashedPassword = null;
         if (newPassword && newPassword.length >= 6) {
@@ -968,13 +982,13 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         // Atualizar membro
         if (hashedPassword) {
             await runQuery(
-                'UPDATE users SET name = ?, passport = ?, email = ?, role = ?, password = ? WHERE id = ?',
-                [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, hashedPassword, memberId]
+                'UPDATE users SET name = ?, passport = ?, email = ?, role = ?, member_slot = ?, manager_slot = ?, password = ? WHERE id = ?',
+                [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, cleanMemberSlot, cleanManagerSlot, hashedPassword, memberId]
             );
         } else {
             await runQuery(
-                'UPDATE users SET name = ?, passport = ?, email = ?, role = ? WHERE id = ?',
-                [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, memberId]
+                'UPDATE users SET name = ?, passport = ?, email = ?, role = ?, member_slot = ?, manager_slot = ? WHERE id = ?',
+                [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, cleanMemberSlot, cleanManagerSlot, memberId]
             );
         }
         

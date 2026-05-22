@@ -132,7 +132,7 @@ router.post('/register', async (req, res) => {
             return res.status(403).json({ error: 'Sem permissão para registrar membros' });
         }
         
-        const { name, passport, email, password, role } = req.body;
+        const { name, passport, email, password, role, member_slot, manager_slot } = req.body;
         
         if (!name || !passport || !password) {
             return res.status(400).json({ error: 'Nome, passaporte e senha são obrigatórios' });
@@ -162,8 +162,16 @@ router.post('/register', async (req, res) => {
         const userRole = validRoles.includes(role) ? role : 'member';
         
         const result = await runQuery(
-            'INSERT INTO users (name, passport, email, password, role) VALUES (?, ?, ?, ?, ?)',
-            [name.trim(), passportUpper, email || null, hashedPassword, userRole]
+            'INSERT INTO users (name, passport, email, password, role, member_slot, manager_slot) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+                name.trim(),
+                passportUpper,
+                email || null,
+                hashedPassword,
+                userRole,
+                member_slot ? String(member_slot).trim() : null,
+                manager_slot ? String(manager_slot).trim() : null
+            ]
         );
         
         console.log('Usuário criado:', { name: name.trim(), passport: passportUpper, role: userRole, id: result.lastID });
