@@ -963,7 +963,26 @@
                     <p class="subtitle">Registro de vendas da família com quantidade, valor e print de comprovação.</p>
 
                     <div class="weapon-stock-panel">
-                        <h3>Estoque de Armas</h3>
+                        <div class="weapon-panel-header">
+                            <div>
+                                <h3>Estoque de Armas</h3>
+                                <p>Cadastre modelos e ajuste saldo sem sair da tela de vendas.</p>
+                            </div>
+                            <div class="weapon-stock-kpis">
+                                <div>
+                                    <strong id="weaponStockModels">0</strong>
+                                    <span>modelos</span>
+                                </div>
+                                <div>
+                                    <strong id="weaponStockTotal">0</strong>
+                                    <span>em estoque</span>
+                                </div>
+                                <div>
+                                    <strong id="weaponStockLow">0</strong>
+                                    <span>baixo</span>
+                                </div>
+                            </div>
+                        </div>
                         <form id="weaponStockForm" class="weapon-sales-form">
                             <div class="form-row">
                                 <div class="form-group">
@@ -979,20 +998,8 @@
                             <div id="weaponStockMessage" class="message"></div>
                         </form>
 
-                        <div class="table-container" style="margin-top: 16px;">
-                            <table class="weekly-table">
-                                <thead>
-                                    <tr>
-                                        <th>Modelo</th>
-                                        <th>Estoque</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="weaponStockBody">
-                                    <tr><td colspan="4" class="loading">Carregando...</td></tr>
-                                </tbody>
-                            </table>
+                        <div id="weaponStockBody" class="weapon-stock-grid">
+                            <div class="loading">Carregando...</div>
                         </div>
                     </div>
 
@@ -1039,7 +1046,20 @@
                         <div id="weaponSaleMessage" class="message"></div>
                     </form>
 
-                    <div class="stats-grid" style="margin-top: 24px;">
+                    <div class="weapon-sales-history-header">
+                        <div>
+                            <h3>Extrato de Vendas</h3>
+                            <p>Filtre por mês para conferir total vendido, quantidade e comprovantes.</p>
+                        </div>
+                        <div class="weapon-sales-filter">
+                            <label for="weaponSalesMonth">Mês</label>
+                            <input type="month" id="weaponSalesMonth">
+                            <button type="button" class="btn btn-primary btn-small" onclick="loadWeaponSales()">Filtrar</button>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="clearWeaponSalesMonthFilter()">Todos</button>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid weapon-sales-stats">
                         <div class="stat-card">
                             <div class="stat-value" id="weaponSalesCount">0</div>
                             <div class="stat-label">Vendas</div>

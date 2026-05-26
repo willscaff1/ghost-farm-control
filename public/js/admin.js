@@ -10299,6 +10299,34 @@ function getWeaponSaleProofSrc(sale) {
     return sale.proof_data || sale.proof_url || '';
 }
 
+function getCurrentMonthValue() {
+    return new Date().toISOString().slice(0, 7);
+}
+
+function getWeaponSalesQueryParams() {
+    const monthInput = document.getElementById('weaponSalesMonth');
+    const month = monthInput?.value || '';
+    if (!/^\d{4}-\d{2}$/.test(month)) return '';
+
+    const [year, monthNumber] = month.split('-').map(Number);
+    const start = `${month}-01`;
+    const end = new Date(year, monthNumber, 0).toISOString().slice(0, 10);
+    return `?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+}
+
+function clearWeaponSalesMonthFilter() {
+    const monthInput = document.getElementById('weaponSalesMonth');
+    if (monthInput) monthInput.value = '';
+    loadWeaponSales();
+}
+
+function setDefaultWeaponSalesMonth() {
+    const monthInput = document.getElementById('weaponSalesMonth');
+    if (monthInput && !monthInput.value) {
+        monthInput.value = getCurrentMonthValue();
+    }
+}
+
 let weaponStockCache = [];
 
 function setWeaponMessage(elementId, message, type = 'success') {
@@ -10385,8 +10413,8 @@ function collectWeaponSaleItems() {
 }
 
 async function loadWeaponStock() {
-    const tbody = document.getElementById('weaponStockBody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="loading">Carregando...</td></tr>';
+    const stockContainer = document.getElementById('weaponStockBody');
+    if (stockContainer) stockContainer.innerHTML = '<div class="loading">Carregando...</div>';
 
     try {
         const response = await fetch('/api/admin/weapon-stock');
@@ -10398,27 +10426,45 @@ async function loadWeaponStock() {
         weaponStockCache = data.stock || [];
         renderWeaponSaleItems();
 
-        if (!tbody) return;
+        const activeStock = weaponStockCache.filter(item => item.active !== 0 && item.active !== false);
+        const stockModelsEl = document.getElementById('weaponStockModels');
+        const stockTotalEl = document.getElementById('weaponStockTotal');
+        const stockLowEl = document.getElementById('weaponStockLow');
+        if (stockModelsEl) stockModelsEl.textContent = activeStock.length.toLocaleString('pt-BR');
+        if (stockTotalEl) stockTotalEl.textContent = activeStock.reduce((sum, item) => sum + Number(item.current_stock || 0), 0).toLocaleString('pt-BR');
+        if (stockLowEl) stockLowEl.textContent = activeStock.filter(item => Number(item.current_stock || 0) <= 2).length.toLocaleString('pt-BR');
+
+        if (!stockContainer) return;
         if (weaponStockCache.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="loading">Nenhuma arma cadastrada</td></tr>';
+            stockContainer.innerHTML = '<div class="loading">Nenhuma arma cadastrada</div>';
             return;
         }
 
-        tbody.innerHTML = weaponStockCache.map(item => `
-            <tr>
-                <td><strong>${escapeHtml(item.weapon_name)}</strong></td>
-                <td>${Number(item.current_stock || 0).toLocaleString('pt-BR')}</td>
-                <td>${item.active === 0 || item.active === false ? 'Inativo' : 'Ativo'}</td>
-                <td>
-                    <button class="btn btn-primary btn-small" onclick="adjustWeaponStock(${item.id}, 'add')">Adicionar</button>
-                    <button class="btn btn-secondary btn-small" onclick="adjustWeaponStock(${item.id}, 'remove')">Remover</button>
-                    <button class="btn btn-danger btn-small" onclick="toggleWeaponStock(${item.id})">${item.active === 0 || item.active === false ? 'Ativar' : 'Desativar'}</button>
-                </td>
-            </tr>
-        `).join('');
+        stockContainer.innerHTML = weaponStockCache.map(item => {
+            const currentStock = Number(item.current_stock || 0);
+            const inactive = item.active === 0 || item.active === false;
+            const low = !inactive && currentStock <= 2;
+            return `
+                <div class="weapon-stock-card ${inactive ? 'is-inactive' : ''} ${low ? 'is-low' : ''}">
+                    <div class="weapon-stock-card-main">
+                        <div>
+                            <strong>${escapeHtml(item.weapon_name)}</strong>
+                            <span>${inactive ? 'Inativo' : (low ? 'Estoque baixo' : 'Ativo')}</span>
+                        </div>
+                        <div class="weapon-stock-count">${currentStock.toLocaleString('pt-BR')}</div>
+                    </div>
+                    <div class="weapon-stock-actions">
+                        <input type="number" id="weaponStockAdjust${item.id}" min="1" step="1" value="1" aria-label="Quantidade para ajustar">
+                        <button class="btn btn-primary btn-small" onclick="adjustWeaponStock(${item.id}, 'add')">+</button>
+                        <button class="btn btn-secondary btn-small" onclick="adjustWeaponStock(${item.id}, 'remove')">-</button>
+                        <button class="btn btn-danger btn-small" onclick="toggleWeaponStock(${item.id})">${inactive ? 'Ativar' : 'Desativar'}</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
     } catch (error) {
         console.error('Erro ao carregar estoque de armas:', error);
-        if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="loading">Erro: ${escapeHtml(error.message)}</td></tr>`;
+        if (stockContainer) stockContainer.innerHTML = `<div class="loading">Erro: ${escapeHtml(error.message)}</div>`;
     }
 }
 
@@ -10449,13 +10495,8 @@ async function submitWeaponStock(event) {
 }
 
 async function adjustWeaponStock(stockId, type) {
-    const stock = weaponStockCache.find(item => String(item.id) === String(stockId));
-    const weaponName = stock?.weapon_name || 'esta arma';
-    const label = type === 'add' ? 'adicionar ao' : 'remover do';
-    const rawQuantity = prompt(`Quantidade para ${label} estoque de ${weaponName}:`);
-    if (rawQuantity === null) return;
-
-    const quantity = parseInt(rawQuantity, 10);
+    const quantityInput = document.getElementById(`weaponStockAdjust${stockId}`);
+    const quantity = parseInt(quantityInput?.value, 10);
     if (!Number.isInteger(quantity) || quantity <= 0) {
         alert('Informe uma quantidade válida');
         return;
@@ -10498,7 +10539,7 @@ async function loadWeaponSales() {
 
     try {
         await loadWeaponStock();
-        const response = await fetch('/api/admin/weapon-sales');
+        const response = await fetch(`/api/admin/weapon-sales${getWeaponSalesQueryParams()}`);
         const data = await response.json();
 
         if (!response.ok || data.error) {
@@ -10616,12 +10657,18 @@ const weaponSaleForm = document.getElementById('weaponSaleForm');
 if (weaponSaleForm) {
     weaponSaleForm.addEventListener('submit', submitWeaponSale);
     setDefaultWeaponSaleDate();
+    setDefaultWeaponSalesMonth();
     addWeaponSaleItemRow();
 }
 
 const weaponStockForm = document.getElementById('weaponStockForm');
 if (weaponStockForm) {
     weaponStockForm.addEventListener('submit', submitWeaponStock);
+}
+
+const weaponSalesMonthInput = document.getElementById('weaponSalesMonth');
+if (weaponSalesMonthInput) {
+    weaponSalesMonthInput.addEventListener('change', loadWeaponSales);
 }
 
 // Inicializa

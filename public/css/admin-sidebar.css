@@ -5886,16 +5886,152 @@ body.admin-layout {
 
 .weapon-stock-panel {
     margin: 18px 0 24px;
-    padding: 18px;
+    padding: 20px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.03);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025));
 }
 
 .weapon-stock-panel h3,
 .weapon-sales-form h3 {
     margin: 0 0 14px;
     font-size: 18px;
+}
+
+.weapon-panel-header,
+.weapon-sales-history-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.weapon-panel-header p,
+.weapon-sales-history-header p {
+    margin: 4px 0 0;
+    color: #9aa3ad;
+    font-size: 13px;
+}
+
+.weapon-stock-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(84px, 1fr));
+    gap: 8px;
+    min-width: 300px;
+}
+
+.weapon-stock-kpis div {
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.weapon-stock-kpis strong {
+    display: block;
+    color: #fff;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.weapon-stock-kpis span {
+    display: block;
+    margin-top: 5px;
+    color: #8f98a3;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.weapon-stock-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.weapon-stock-card {
+    padding: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(8, 12, 18, 0.62);
+}
+
+.weapon-stock-card.is-low {
+    border-color: rgba(255, 193, 7, 0.45);
+}
+
+.weapon-stock-card.is-inactive {
+    opacity: 0.62;
+}
+
+.weapon-stock-card-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.weapon-stock-card-main strong {
+    display: block;
+    color: #fff;
+    font-size: 15px;
+}
+
+.weapon-stock-card-main span {
+    display: block;
+    margin-top: 4px;
+    color: #98a2ad;
+    font-size: 12px;
+}
+
+.weapon-stock-count {
+    min-width: 54px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: rgba(52, 152, 219, 0.14);
+    color: #8fd0ff;
+    text-align: center;
+    font-weight: 700;
+}
+
+.weapon-stock-actions {
+    display: grid;
+    grid-template-columns: 76px 38px 38px 1fr;
+    gap: 8px;
+    align-items: center;
+}
+
+.weapon-stock-actions input {
+    width: 100%;
+    min-width: 0;
+}
+
+.weapon-sales-history-header {
+    margin-top: 26px;
+}
+
+.weapon-sales-filter {
+    display: flex;
+    gap: 8px;
+    align-items: end;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.weapon-sales-filter label {
+    width: 100%;
+    color: #9aa3ad;
+    font-size: 12px;
+}
+
+.weapon-sales-filter input[type="month"] {
+    min-width: 150px;
+}
+
+.weapon-sales-stats {
+    margin-top: 12px;
 }
 
 .weapon-sale-item-row {
@@ -5912,6 +6048,24 @@ body.admin-layout {
 }
 
 @media (max-width: 700px) {
+    .weapon-panel-header,
+    .weapon-sales-history-header {
+        flex-direction: column;
+    }
+
+    .weapon-stock-kpis {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .weapon-stock-actions {
+        grid-template-columns: 1fr 38px 38px;
+    }
+
+    .weapon-stock-actions .btn-danger {
+        grid-column: 1 / -1;
+    }
+
     .weapon-sale-item-row {
         grid-template-columns: 1fr;
     }
