@@ -189,6 +189,28 @@ async function ensureWeaponSalesTable() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_stock (
+                id SERIAL PRIMARY KEY,
+                weapon_name TEXT UNIQUE NOT NULL,
+                current_stock INTEGER NOT NULL DEFAULT 0,
+                active INTEGER DEFAULT 1,
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_sale_items (
+                id SERIAL PRIMARY KEY,
+                sale_id INTEGER NOT NULL REFERENCES weapon_sales(id) ON DELETE CASCADE,
+                stock_id INTEGER REFERENCES weapon_stock(id),
+                weapon_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL
+            )
+        `);
     } else {
         await runQuery(`
             CREATE TABLE IF NOT EXISTS weapon_sales (
@@ -206,10 +228,148 @@ async function ensureWeaponSalesTable() {
                 FOREIGN KEY (created_by) REFERENCES users(id)
             )
         `);
+
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_stock (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                weapon_name TEXT UNIQUE NOT NULL,
+                current_stock INTEGER NOT NULL DEFAULT 0,
+                active INTEGER DEFAULT 1,
+                created_by INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        `);
+
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_sale_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sale_id INTEGER NOT NULL,
+                stock_id INTEGER,
+                weapon_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                FOREIGN KEY (sale_id) REFERENCES weapon_sales(id),
+                FOREIGN KEY (stock_id) REFERENCES weapon_stock(id)
+            )
+        `);
     }
 
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_date ON weapon_sales (sale_date)');
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_created_by ON weapon_sales (created_by)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_stock_name ON weapon_stock (weapon_name)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sale_items_sale ON weapon_sale_items (sale_id)');
+
+    const legacySales = await getAll(`
+        SELECT ws.id, ws.weapon_name, ws.quantity
+        FROM weapon_sales ws
+        LEFT JOIN weapon_sale_items wsi ON wsi.sale_id = ws.id
+        WHERE wsi.id IS NULL AND ws.weapon_name IS NOT NULL AND ws.weapon_name != ''
+    `);
+
+    for (const sale of legacySales || []) {
+        await runQuery(
+            'INSERT INTO weapon_sale_items (sale_id, weapon_name, quantity) VALUES (?, ?, ?)',
+            [sale.id, sale.weapon_name, Number(sale.quantity || 1)]
+        );
+    }
+}
+
+function parseWeaponSaleItems(rawItems, fallbackName, fallbackQuantity) {
+    let parsedItems = [];
+
+    if (rawItems) {
+        try {
+            parsedItems = JSON.parse(rawItems);
+        } catch (error) {
+            throw new Error('Lista de armas inválida');
+        }
+    } else if (fallbackName) {
+        parsedItems = [{ weapon_name: fallbackName, quantity: fallbackQuantity }];
+    }
+
+    const normalized = parsedItems.map(item => ({
+        stock_id: item.stock_id ? parseInt(item.stock_id, 10) : null,
+        weapon_name: String(item.weapon_name || '').trim(),
+        quantity: parseInt(item.quantity, 10)
+    })).filter(item => item.weapon_name || item.stock_id);
+
+    if (normalized.length === 0) {
+        throw new Error('Informe pelo menos uma arma vendida');
+    }
+
+    const merged = new Map();
+    for (const item of normalized) {
+        if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+            throw new Error('Informe quantidades válidas para as armas vendidas');
+        }
+        const key = item.stock_id ? `id:${item.stock_id}` : `name:${item.weapon_name.toLowerCase()}`;
+        const existing = merged.get(key) || { ...item, quantity: 0 };
+        existing.quantity += item.quantity;
+        if (item.weapon_name) existing.weapon_name = item.weapon_name;
+        merged.set(key, existing);
+    }
+
+    return [...merged.values()];
+}
+
+async function resolveWeaponSaleItems(items) {
+    const resolved = [];
+
+    for (const item of items) {
+        let stock = null;
+        if (item.stock_id) {
+            stock = await getOne('SELECT * FROM weapon_stock WHERE id = ?', [item.stock_id]);
+        } else if (item.weapon_name) {
+            stock = await getOne('SELECT * FROM weapon_stock WHERE LOWER(weapon_name) = LOWER(?)', [item.weapon_name]);
+        }
+
+        if (!stock) {
+            throw new Error(`Arma não cadastrada no estoque: ${item.weapon_name || item.stock_id}`);
+        }
+
+        if (stock.active === 0 || stock.active === false) {
+            throw new Error(`Arma inativa no estoque: ${stock.weapon_name}`);
+        }
+
+        if (Number(stock.current_stock || 0) < item.quantity) {
+            throw new Error(`Estoque insuficiente para ${stock.weapon_name}. Disponível: ${stock.current_stock}`);
+        }
+
+        resolved.push({
+            stock_id: stock.id,
+            weapon_name: stock.weapon_name,
+            quantity: item.quantity
+        });
+    }
+
+    return resolved;
+}
+
+async function restoreWeaponStock(item) {
+    if (item.stock_id) {
+        const stock = await getOne('SELECT id FROM weapon_stock WHERE id = ?', [item.stock_id]);
+        if (stock) {
+            await runQuery(
+                'UPDATE weapon_stock SET current_stock = current_stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [Number(item.quantity || 0), item.stock_id]
+            );
+            return;
+        }
+    }
+
+    const existing = await getOne('SELECT id FROM weapon_stock WHERE LOWER(weapon_name) = LOWER(?)', [item.weapon_name]);
+    if (existing) {
+        await runQuery(
+            'UPDATE weapon_stock SET current_stock = current_stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [Number(item.quantity || 0), existing.id]
+        );
+    } else {
+        await runQuery(
+            'INSERT INTO weapon_stock (weapon_name, current_stock, active) VALUES (?, ?, ?)',
+            [item.weapon_name, Number(item.quantity || 0), 1]
+        );
+    }
 }
 
 // ===== HELPER: Buscar grupos de todos usuários de uma vez (otimização) =====
@@ -5419,6 +5579,123 @@ router.post('/storage/cleanup', requireSuperAdmin, async (req, res) => {
     }
 });
 
+router.get('/weapon-stock', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const stock = await getAll(`
+            SELECT *
+            FROM weapon_stock
+            ORDER BY active DESC, weapon_name ASC
+        `);
+
+        const stats = (stock || []).reduce((acc, item) => {
+            if (item.active === 0 || item.active === false) return acc;
+            acc.total_models += 1;
+            acc.total_stock += Number(item.current_stock || 0);
+            return acc;
+        }, { total_models: 0, total_stock: 0 });
+
+        res.json({ success: true, stock: stock || [], stats });
+    } catch (error) {
+        console.error('Erro ao buscar estoque de armas:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/weapon-stock', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const weaponName = String(req.body.weapon_name || '').trim();
+        const quantity = parseInt(req.body.quantity, 10) || 0;
+
+        if (!weaponName) {
+            return res.status(400).json({ error: 'Informe o nome da arma' });
+        }
+
+        if (quantity < 0) {
+            return res.status(400).json({ error: 'A quantidade inicial não pode ser negativa' });
+        }
+
+        const existing = await getOne('SELECT id FROM weapon_stock WHERE LOWER(weapon_name) = LOWER(?)', [weaponName]);
+        if (existing) {
+            return res.status(400).json({ error: 'Esta arma já está cadastrada no estoque' });
+        }
+
+        const result = await runQuery(
+            'INSERT INTO weapon_stock (weapon_name, current_stock, active, created_by) VALUES (?, ?, ?, ?)',
+            [weaponName, quantity, 1, req.session.user.id]
+        );
+
+        res.json({ success: true, message: 'Arma cadastrada no estoque', stockId: result.lastID });
+    } catch (error) {
+        console.error('Erro ao cadastrar arma no estoque:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/weapon-stock/:id/adjust', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const stockId = req.params.id;
+        const type = String(req.body.type || '').trim();
+        const quantity = parseInt(req.body.quantity, 10);
+
+        if (!['add', 'remove'].includes(type)) {
+            return res.status(400).json({ error: 'Tipo de ajuste inválido' });
+        }
+
+        if (!Number.isInteger(quantity) || quantity <= 0) {
+            return res.status(400).json({ error: 'Informe uma quantidade válida' });
+        }
+
+        const stock = await getOne('SELECT * FROM weapon_stock WHERE id = ?', [stockId]);
+        if (!stock) {
+            return res.status(404).json({ error: 'Arma não encontrada no estoque' });
+        }
+
+        const currentStock = Number(stock.current_stock || 0);
+        const nextStock = type === 'add' ? currentStock + quantity : currentStock - quantity;
+        if (nextStock < 0) {
+            return res.status(400).json({ error: `Estoque insuficiente. Disponível: ${currentStock}` });
+        }
+
+        await runQuery(
+            'UPDATE weapon_stock SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [nextStock, stockId]
+        );
+
+        res.json({ success: true, message: 'Estoque atualizado', current_stock: nextStock });
+    } catch (error) {
+        console.error('Erro ao ajustar estoque de armas:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/weapon-stock/:id/toggle', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const stock = await getOne('SELECT id, active FROM weapon_stock WHERE id = ?', [req.params.id]);
+        if (!stock) {
+            return res.status(404).json({ error: 'Arma não encontrada no estoque' });
+        }
+
+        const nextActive = (stock.active === 0 || stock.active === false) ? 1 : 0;
+        await runQuery(
+            'UPDATE weapon_stock SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [nextActive, req.params.id]
+        );
+
+        res.json({ success: true, active: nextActive });
+    } catch (error) {
+        console.error('Erro ao alterar status do estoque:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/weapon-sales', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
     try {
         await ensureWeaponSalesTable();
@@ -5446,8 +5723,32 @@ router.get('/weapon-sales', requireAdmin, requireWeaponSalesAccess, async (req, 
             ORDER BY ws.sale_date DESC, ws.created_at DESC, ws.id DESC
         `, params);
 
+        const saleIds = (sales || []).map(s => s.id);
+        let itemsBySale = new Map();
+        if (saleIds.length > 0) {
+            const placeholders = saleIds.map(() => '?').join(',');
+            const items = await getAll(`
+                SELECT *
+                FROM weapon_sale_items
+                WHERE sale_id IN (${placeholders})
+                ORDER BY id ASC
+            `, saleIds);
+            for (const item of items || []) {
+                if (!itemsBySale.has(item.sale_id)) itemsBySale.set(item.sale_id, []);
+                itemsBySale.get(item.sale_id).push(item);
+            }
+        }
+
+        for (const sale of sales || []) {
+            sale.items = itemsBySale.get(sale.id) || [{
+                weapon_name: sale.weapon_name,
+                quantity: Number(sale.quantity || 0)
+            }];
+        }
+
         const stats = (sales || []).reduce((acc, sale) => {
-            acc.total_quantity += Number(sale.quantity || 0);
+            const itemQuantity = (sale.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+            acc.total_quantity += itemQuantity || Number(sale.quantity || 0);
             acc.total_value += Number(sale.sale_value || 0);
             acc.total_sales += 1;
             return acc;
@@ -5471,6 +5772,7 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
 
             const {
                 weapon_name,
+                weapon_items,
                 quantity,
                 sale_value,
                 buyer_name,
@@ -5481,20 +5783,15 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
 
             const weaponName = String(weapon_name || '').trim();
             const qty = parseInt(quantity, 10);
+            const saleItems = await resolveWeaponSaleItems(parseWeaponSaleItems(weapon_items, weaponName, qty));
+            const totalQuantity = saleItems.reduce((sum, item) => sum + item.quantity, 0);
+            const saleWeaponSummary = saleItems.map(item => `${item.weapon_name} x${item.quantity}`).join(', ');
             const rawSaleValue = String(sale_value || '').trim();
             const saleValue = Number(rawSaleValue.includes(',')
                 ? rawSaleValue.replace(/\./g, '').replace(',', '.')
                 : rawSaleValue
             );
             const saleDate = String(sale_date || '').trim();
-
-            if (!weaponName) {
-                return res.status(400).json({ error: 'Informe o nome da arma' });
-            }
-
-            if (!Number.isInteger(qty) || qty <= 0) {
-                return res.status(400).json({ error: 'Informe uma quantidade válida' });
-            }
 
             if (!Number.isFinite(saleValue) || saleValue < 0) {
                 return res.status(400).json({ error: 'Informe um valor de venda válido' });
@@ -5526,8 +5823,8 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
                     proof_url, notes, sale_date, created_by
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
-                weaponName,
-                qty,
+                saleWeaponSummary,
+                totalQuantity,
                 saleValue,
                 buyer_name?.trim() || null,
                 seller_name?.trim() || null,
@@ -5536,6 +5833,17 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
                 saleDate,
                 req.session.user.id
             ]);
+
+            for (const item of saleItems) {
+                await runQuery(
+                    'INSERT INTO weapon_sale_items (sale_id, stock_id, weapon_name, quantity) VALUES (?, ?, ?, ?)',
+                    [result.lastID, item.stock_id, item.weapon_name, item.quantity]
+                );
+                await runQuery(
+                    'UPDATE weapon_stock SET current_stock = current_stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                    [item.quantity, item.stock_id]
+                );
+            }
 
             res.json({
                 success: true,
@@ -5560,6 +5868,22 @@ router.delete('/weapon-sales/:id', requireAdmin, requireWeaponSalesAccess, async
             return res.status(404).json({ error: 'Venda não encontrada' });
         }
 
+        let saleItems = [];
+        try {
+            saleItems = await getAll('SELECT * FROM weapon_sale_items WHERE sale_id = ?', [saleId]);
+        } catch (e) {
+            saleItems = [];
+        }
+
+        if (!saleItems || saleItems.length === 0) {
+            saleItems = [{ weapon_name: sale.weapon_name, quantity: Number(sale.quantity || 0) }];
+        }
+
+        for (const item of saleItems) {
+            await restoreWeaponStock(item);
+        }
+
+        await runQuery('DELETE FROM weapon_sale_items WHERE sale_id = ?', [saleId]);
         await runQuery('DELETE FROM weapon_sales WHERE id = ?', [saleId]);
 
         if (sale.proof_url && sale.proof_url.startsWith('/uploads/')) {

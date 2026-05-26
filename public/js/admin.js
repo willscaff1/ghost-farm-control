@@ -10295,6 +10295,197 @@ function formatWeaponSaleDate(value) {
     return new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR');
 }
 
+let weaponStockCache = [];
+
+function setWeaponMessage(elementId, message, type = 'success') {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.textContent = message;
+    el.className = `message show ${type}`;
+}
+
+function renderWeaponSaleItems() {
+    const container = document.getElementById('weaponSaleItems');
+    if (!container) return;
+
+    const rows = [...container.querySelectorAll('.weapon-sale-item-row')];
+    if (rows.length === 0) {
+        addWeaponSaleItemRow();
+        return;
+    }
+
+    rows.forEach(row => {
+        const select = row.querySelector('.weapon-sale-stock-select');
+        const selectedValue = select?.value || '';
+        if (select) {
+            select.innerHTML = '<option value="">Selecione uma arma do estoque</option>' + weaponStockCache
+                .filter(item => item.active !== 0 && item.active !== false)
+                .map(item => `<option value="${item.id}" ${String(item.id) === selectedValue ? 'selected' : ''}>${escapeHtml(item.weapon_name)} (${Number(item.current_stock || 0).toLocaleString('pt-BR')} em estoque)</option>`)
+                .join('');
+        }
+    });
+}
+
+function addWeaponSaleItemRow() {
+    const container = document.getElementById('weaponSaleItems');
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'weapon-sale-item-row';
+    row.innerHTML = `
+        <select class="weapon-sale-stock-select" required></select>
+        <input type="number" class="weapon-sale-item-quantity" min="1" step="1" value="1" required>
+        <button type="button" class="btn btn-danger btn-small" onclick="removeWeaponSaleItemRow(this)">Remover</button>
+    `;
+    container.appendChild(row);
+    renderWeaponSaleItems();
+}
+
+function removeWeaponSaleItemRow(button) {
+    const container = document.getElementById('weaponSaleItems');
+    const row = button.closest('.weapon-sale-item-row');
+    if (row) row.remove();
+    if (container && container.querySelectorAll('.weapon-sale-item-row').length === 0) {
+        addWeaponSaleItemRow();
+    }
+}
+
+function collectWeaponSaleItems() {
+    const rows = [...document.querySelectorAll('#weaponSaleItems .weapon-sale-item-row')];
+    const items = rows.map(row => {
+        const select = row.querySelector('.weapon-sale-stock-select');
+        const quantityInput = row.querySelector('.weapon-sale-item-quantity');
+        const stock = weaponStockCache.find(item => String(item.id) === String(select?.value));
+        return {
+            stock_id: select?.value || '',
+            weapon_name: stock?.weapon_name || '',
+            quantity: parseInt(quantityInput?.value, 10) || 0
+        };
+    }).filter(item => item.stock_id);
+
+    if (items.length === 0) {
+        throw new Error('Selecione pelo menos uma arma vendida');
+    }
+
+    for (const item of items) {
+        const stock = weaponStockCache.find(s => String(s.id) === String(item.stock_id));
+        if (!item.quantity || item.quantity <= 0) {
+            throw new Error('Informe uma quantidade válida para cada arma');
+        }
+        if (stock && item.quantity > Number(stock.current_stock || 0)) {
+            throw new Error(`Estoque insuficiente para ${stock.weapon_name}`);
+        }
+    }
+
+    return items;
+}
+
+async function loadWeaponStock() {
+    const tbody = document.getElementById('weaponStockBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="loading">Carregando...</td></tr>';
+
+    try {
+        const response = await fetch('/api/admin/weapon-stock');
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao carregar estoque');
+        }
+
+        weaponStockCache = data.stock || [];
+        renderWeaponSaleItems();
+
+        if (!tbody) return;
+        if (weaponStockCache.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="loading">Nenhuma arma cadastrada</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = weaponStockCache.map(item => `
+            <tr>
+                <td><strong>${escapeHtml(item.weapon_name)}</strong></td>
+                <td>${Number(item.current_stock || 0).toLocaleString('pt-BR')}</td>
+                <td>${item.active === 0 || item.active === false ? 'Inativo' : 'Ativo'}</td>
+                <td>
+                    <button class="btn btn-primary btn-small" onclick="adjustWeaponStock(${item.id}, 'add')">Adicionar</button>
+                    <button class="btn btn-secondary btn-small" onclick="adjustWeaponStock(${item.id}, 'remove')">Remover</button>
+                    <button class="btn btn-danger btn-small" onclick="toggleWeaponStock(${item.id})">${item.active === 0 || item.active === false ? 'Ativar' : 'Desativar'}</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Erro ao carregar estoque de armas:', error);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="loading">Erro: ${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
+async function submitWeaponStock(event) {
+    event.preventDefault();
+
+    try {
+        const response = await fetch('/api/admin/weapon-stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                weapon_name: document.getElementById('weaponStockName').value.trim(),
+                quantity: document.getElementById('weaponStockQuantity').value
+            })
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao cadastrar estoque');
+        }
+
+        setWeaponMessage('weaponStockMessage', data.message || 'Arma cadastrada no estoque', 'success');
+        document.getElementById('weaponStockForm').reset();
+        document.getElementById('weaponStockQuantity').value = 0;
+        await loadWeaponStock();
+    } catch (error) {
+        setWeaponMessage('weaponStockMessage', error.message, 'error');
+    }
+}
+
+async function adjustWeaponStock(stockId, type) {
+    const stock = weaponStockCache.find(item => String(item.id) === String(stockId));
+    const weaponName = stock?.weapon_name || 'esta arma';
+    const label = type === 'add' ? 'adicionar ao' : 'remover do';
+    const rawQuantity = prompt(`Quantidade para ${label} estoque de ${weaponName}:`);
+    if (rawQuantity === null) return;
+
+    const quantity = parseInt(rawQuantity, 10);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+        alert('Informe uma quantidade válida');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/weapon-stock/${stockId}/adjust`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, quantity })
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao ajustar estoque');
+        }
+        await loadWeaponStock();
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+async function toggleWeaponStock(stockId) {
+    try {
+        const response = await fetch(`/api/admin/weapon-stock/${stockId}/toggle`, { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao alterar status');
+        }
+        await loadWeaponStock();
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
 async function loadWeaponSales() {
     const tbody = document.getElementById('weaponSalesBody');
     if (!tbody) return;
@@ -10302,6 +10493,7 @@ async function loadWeaponSales() {
     tbody.innerHTML = '<tr><td colspan="8" class="loading">Carregando...</td></tr>';
 
     try {
+        await loadWeaponStock();
         const response = await fetch('/api/admin/weapon-sales');
         const data = await response.json();
 
@@ -10326,8 +10518,8 @@ async function loadWeaponSales() {
         tbody.innerHTML = sales.map(sale => `
             <tr>
                 <td>${formatWeaponSaleDate(sale.sale_date)}</td>
-                <td><strong>${escapeHtml(sale.weapon_name)}</strong>${sale.notes ? `<br><small>${escapeHtml(sale.notes)}</small>` : ''}</td>
-                <td>${Number(sale.quantity || 0).toLocaleString('pt-BR')}</td>
+                <td><strong>${(sale.items || []).map(item => `${escapeHtml(item.weapon_name)} x${Number(item.quantity || 0).toLocaleString('pt-BR')}`).join('<br>')}</strong>${sale.notes ? `<br><small>${escapeHtml(sale.notes)}</small>` : ''}</td>
+                <td>${(sale.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0).toLocaleString('pt-BR')}</td>
                 <td>${formatWeaponSaleMoney(sale.sale_value)}</td>
                 <td>${escapeHtml(sale.buyer_name || '-')}</td>
                 <td>${escapeHtml(sale.seller_name || sale.created_by_name || '-')}</td>
@@ -10353,9 +10545,9 @@ async function submitWeaponSale(event) {
     const proofInput = document.getElementById('weaponSaleProof');
 
     try {
+        const items = collectWeaponSaleItems();
         const formData = new FormData();
-        formData.append('weapon_name', document.getElementById('weaponSaleName').value.trim());
-        formData.append('quantity', document.getElementById('weaponSaleQuantity').value);
+        formData.append('weapon_items', JSON.stringify(items));
         formData.append('sale_value', document.getElementById('weaponSaleValue').value);
         formData.append('sale_date', document.getElementById('weaponSaleDate').value);
         formData.append('buyer_name', document.getElementById('weaponSaleBuyer').value.trim());
@@ -10382,6 +10574,8 @@ async function submitWeaponSale(event) {
         }
         form.reset();
         setDefaultWeaponSaleDate();
+        document.getElementById('weaponSaleItems').innerHTML = '';
+        addWeaponSaleItemRow();
         await loadWeaponSales();
     } catch (error) {
         if (messageEl) {
@@ -10402,6 +10596,7 @@ async function deleteWeaponSale(saleId) {
         if (!response.ok || data.error) {
             throw new Error(data.error || 'Erro ao remover venda');
         }
+        await loadWeaponStock();
         await loadWeaponSales();
     } catch (error) {
         alert(error.message);
@@ -10419,6 +10614,12 @@ const weaponSaleForm = document.getElementById('weaponSaleForm');
 if (weaponSaleForm) {
     weaponSaleForm.addEventListener('submit', submitWeaponSale);
     setDefaultWeaponSaleDate();
+    addWeaponSaleItemRow();
+}
+
+const weaponStockForm = document.getElementById('weaponStockForm');
+if (weaponStockForm) {
+    weaponStockForm.addEventListener('submit', submitWeaponStock);
 }
 
 // Inicializa

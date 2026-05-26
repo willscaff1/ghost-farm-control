@@ -5883,3 +5883,36 @@ body.admin-layout {
         align-self: flex-start;
     }
 }
+
+.weapon-stock-panel {
+    margin: 18px 0 24px;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.weapon-stock-panel h3,
+.weapon-sales-form h3 {
+    margin: 0 0 14px;
+    font-size: 18px;
+}
+
+.weapon-sale-item-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 120px auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.weapon-sale-item-row select,
+.weapon-sale-item-row input {
+    width: 100%;
+}
+
+@media (max-width: 700px) {
+    .weapon-sale-item-row {
+        grid-template-columns: 1fr;
+    }
+}

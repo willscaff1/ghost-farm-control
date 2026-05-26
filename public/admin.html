@@ -962,16 +962,43 @@
                     <h2>🔫 Extrato de Vendas de Armas</h2>
                     <p class="subtitle">Registro de vendas da família com quantidade, valor e print de comprovação.</p>
 
+                    <div class="weapon-stock-panel">
+                        <h3>Estoque de Armas</h3>
+                        <form id="weaponStockForm" class="weapon-sales-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="weaponStockName">Modelo</label>
+                                    <input type="text" id="weaponStockName" required placeholder="Ex: Pistola .50">
+                                </div>
+                                <div class="form-group">
+                                    <label for="weaponStockQuantity">Quantidade inicial</label>
+                                    <input type="number" id="weaponStockQuantity" min="0" step="1" value="0" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Cadastrar no estoque</button>
+                            <div id="weaponStockMessage" class="message"></div>
+                        </form>
+
+                        <div class="table-container" style="margin-top: 16px;">
+                            <table class="weekly-table">
+                                <thead>
+                                    <tr>
+                                        <th>Modelo</th>
+                                        <th>Estoque</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="weaponStockBody">
+                                    <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <form id="weaponSaleForm" class="weapon-sales-form">
+                        <h3>Registrar Venda</h3>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label for="weaponSaleName">Arma</label>
-                                <input type="text" id="weaponSaleName" required placeholder="Ex: Pistola .50">
-                            </div>
-                            <div class="form-group">
-                                <label for="weaponSaleQuantity">Quantidade</label>
-                                <input type="number" id="weaponSaleQuantity" min="1" step="1" value="1" required>
-                            </div>
                             <div class="form-group">
                                 <label for="weaponSaleValue">Valor da venda</label>
                                 <input type="number" id="weaponSaleValue" min="0" step="0.01" required placeholder="0,00">
@@ -980,6 +1007,12 @@
                                 <label for="weaponSaleDate">Data</label>
                                 <input type="date" id="weaponSaleDate" required>
                             </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Armas vendidas</label>
+                            <div id="weaponSaleItems"></div>
+                            <button type="button" class="btn btn-secondary btn-small" onclick="addWeaponSaleItemRow()">Adicionar outro modelo</button>
                         </div>
 
                         <div class="form-row">
