@@ -962,6 +962,7 @@
                     <h2>🔫 Extrato de Vendas de Armas</h2>
                     <p class="subtitle">Registro de vendas da família com quantidade, valor e print de comprovação.</p>
 
+                    <div class="weapon-workspace">
                     <div class="weapon-stock-panel">
                         <div class="weapon-panel-header">
                             <div>
@@ -1003,7 +1004,7 @@
                         </div>
                     </div>
 
-                    <form id="weaponSaleForm" class="weapon-sales-form">
+                    <form id="weaponSaleForm" class="weapon-sales-form weapon-sale-form-panel">
                         <h3>Registrar Venda</h3>
                         <div class="form-row">
                             <div class="form-group">
@@ -1042,9 +1043,10 @@
                             <textarea id="weaponSaleNotes" rows="2" placeholder="Detalhes extras da venda"></textarea>
                         </div>
 
-                        <button type="submit" class="btn btn-primary">Registrar venda</button>
+                        <button type="submit" class="btn btn-primary weapon-primary-action">Registrar venda</button>
                         <div id="weaponSaleMessage" class="message"></div>
                     </form>
+                    </div>
 
                     <div class="weapon-sales-history-header">
                         <div>
@@ -1053,8 +1055,7 @@
                         </div>
                         <div class="weapon-sales-filter">
                             <label for="weaponSalesMonth">Mês</label>
-                            <input type="month" id="weaponSalesMonth">
-                            <button type="button" class="btn btn-primary btn-small" onclick="loadWeaponSales()">Filtrar</button>
+                            <select id="weaponSalesMonth"></select>
                             <button type="button" class="btn btn-secondary btn-small" onclick="clearWeaponSalesMonthFilter()">Todos</button>
                         </div>
                     </div>

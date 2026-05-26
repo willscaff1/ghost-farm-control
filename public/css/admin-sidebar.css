@@ -6070,3 +6070,128 @@ body.admin-layout {
         grid-template-columns: 1fr;
     }
 }
+
+.weapon-workspace {
+    display: grid;
+    grid-template-columns: minmax(360px, 0.95fr) minmax(420px, 1.25fr);
+    gap: 18px;
+    align-items: start;
+    margin-top: 18px;
+}
+
+.weapon-sale-form-panel {
+    order: 1;
+    padding: 20px;
+    border: 1px solid rgba(74, 144, 226, 0.24);
+    border-radius: 8px;
+    background: rgba(10, 18, 28, 0.72);
+}
+
+.weapon-workspace .weapon-stock-panel {
+    order: 2;
+    margin: 0;
+    max-height: 720px;
+    overflow: auto;
+}
+
+.weapon-sales-form .form-row {
+    gap: 12px;
+}
+
+.weapon-sale-items {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.weapon-sale-item-row {
+    grid-template-columns: minmax(220px, 1fr) 96px 92px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.weapon-sale-item-row .btn-danger {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.weapon-primary-action {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.weapon-panel-header {
+    align-items: center;
+}
+
+.weapon-stock-kpis {
+    min-width: 240px;
+}
+
+.weapon-stock-kpis div {
+    padding: 9px 10px;
+}
+
+.weapon-stock-grid {
+    grid-template-columns: 1fr;
+}
+
+.weapon-stock-card {
+    background: rgba(12, 20, 30, 0.82);
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.weapon-stock-card:hover {
+    border-color: rgba(74, 144, 226, 0.35);
+    background: rgba(14, 24, 36, 0.92);
+}
+
+.weapon-stock-count {
+    font-size: 22px;
+    min-width: 64px;
+}
+
+.weapon-stock-actions {
+    grid-template-columns: 82px 40px 40px auto;
+}
+
+.weapon-stock-actions .btn-small {
+    min-height: 38px;
+}
+
+.weapon-sales-filter select {
+    min-width: 190px;
+}
+
+.weapon-sales-history-header {
+    padding: 16px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+@media (max-width: 1100px) {
+    .weapon-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .weapon-workspace .weapon-stock-panel {
+        max-height: none;
+    }
+}
+
+@media (max-width: 700px) {
+    .weapon-sale-item-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .weapon-sale-item-row select {
+        grid-column: 1 / -1;
+    }
+
+    .weapon-sale-item-row .btn-danger {
+        grid-column: 1 / -1;
+    }
+}

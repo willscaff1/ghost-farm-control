@@ -10320,7 +10320,26 @@ function clearWeaponSalesMonthFilter() {
     loadWeaponSales();
 }
 
+function populateWeaponSalesMonthOptions() {
+    const monthInput = document.getElementById('weaponSalesMonth');
+    if (!monthInput || monthInput.options.length > 0) return;
+
+    const options = ['<option value="">Todos os meses</option>'];
+    const date = new Date();
+    date.setDate(1);
+
+    for (let i = 0; i < 18; i++) {
+        const value = date.toISOString().slice(0, 7);
+        const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        options.push(`<option value="${value}">${label.charAt(0).toUpperCase() + label.slice(1)}</option>`);
+        date.setMonth(date.getMonth() - 1);
+    }
+
+    monthInput.innerHTML = options.join('');
+}
+
 function setDefaultWeaponSalesMonth() {
+    populateWeaponSalesMonthOptions();
     const monthInput = document.getElementById('weaponSalesMonth');
     if (monthInput && !monthInput.value) {
         monthInput.value = getCurrentMonthValue();
