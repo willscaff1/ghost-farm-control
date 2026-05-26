@@ -10295,6 +10295,10 @@ function formatWeaponSaleDate(value) {
     return new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR');
 }
 
+function getWeaponSaleProofSrc(sale) {
+    return sale.proof_data || sale.proof_url || '';
+}
+
 let weaponStockCache = [];
 
 function setWeaponMessage(elementId, message, type = 'success') {
@@ -10523,9 +10527,7 @@ async function loadWeaponSales() {
                 <td>${formatWeaponSaleMoney(sale.sale_value)}</td>
                 <td>${escapeHtml(sale.buyer_name || '-')}</td>
                 <td>${escapeHtml(sale.seller_name || sale.created_by_name || '-')}</td>
-                <td>
-                    ${sale.proof_url ? `<img src="${sale.proof_url}" class="delivery-screenshot" style="width:72px;height:54px;object-fit:cover;cursor:pointer;border-radius:6px;" onclick="openModal('${sale.proof_url}')">` : '<span class="no-prints">Sem print</span>'}
-                </td>
+                <td>${getWeaponSaleProofSrc(sale) ? `<img src="${getWeaponSaleProofSrc(sale)}" class="delivery-screenshot" style="width:72px;height:54px;object-fit:cover;cursor:pointer;border-radius:6px;" onclick="openModal('${getWeaponSaleProofSrc(sale)}')" onerror="this.outerHTML='<span class=&quot;no-prints&quot;>Print indisponível</span>'">` : '<span class="no-prints">Sem print</span>'}</td>
                 <td>
                     <button class="btn btn-danger btn-small" onclick="deleteWeaponSale(${sale.id})">Remover</button>
                 </td>

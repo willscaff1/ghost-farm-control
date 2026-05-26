@@ -183,6 +183,7 @@ async function ensureWeaponSalesTable() {
                 buyer_name TEXT,
                 seller_name TEXT,
                 proof_url TEXT,
+                proof_data TEXT,
                 notes TEXT,
                 sale_date DATE NOT NULL,
                 created_by INTEGER REFERENCES users(id),
@@ -221,6 +222,7 @@ async function ensureWeaponSalesTable() {
                 buyer_name TEXT,
                 seller_name TEXT,
                 proof_url TEXT,
+                proof_data TEXT,
                 notes TEXT,
                 sale_date DATE NOT NULL,
                 created_by INTEGER,
@@ -259,6 +261,12 @@ async function ensureWeaponSalesTable() {
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_created_by ON weapon_sales (created_by)');
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_stock_name ON weapon_stock (weapon_name)');
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sale_items_sale ON weapon_sale_items (sale_id)');
+
+    try {
+        await runQuery('ALTER TABLE weapon_sales ADD COLUMN proof_data TEXT');
+    } catch (e) {
+        // Coluna já existe.
+    }
 
     const legacySales = await getAll(`
         SELECT ws.id, ws.weapon_name, ws.quantity
@@ -5816,12 +5824,13 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
             const filepath = path.join(uploadDir, filename);
             fs.writeFileSync(filepath, file.buffer);
             const proofUrl = '/uploads/' + filename;
+            const proofData = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
             const result = await runQuery(`
                 INSERT INTO weapon_sales (
                     weapon_name, quantity, sale_value, buyer_name, seller_name,
-                    proof_url, notes, sale_date, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    proof_url, proof_data, notes, sale_date, created_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 saleWeaponSummary,
                 totalQuantity,
@@ -5829,6 +5838,7 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
                 buyer_name?.trim() || null,
                 seller_name?.trim() || null,
                 proofUrl,
+                proofData,
                 notes?.trim() || null,
                 saleDate,
                 req.session.user.id
@@ -5849,7 +5859,8 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
                 success: true,
                 message: 'Venda registrada com sucesso',
                 saleId: result.lastID,
-                proof_url: proofUrl
+                proof_url: proofUrl,
+                proof_data: proofData
             });
         } catch (error) {
             console.error('Erro ao registrar venda de arma:', error);
