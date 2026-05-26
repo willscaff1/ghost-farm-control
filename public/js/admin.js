@@ -10386,7 +10386,7 @@ function addWeaponSaleItemRow() {
     row.innerHTML = `
         <select class="weapon-sale-stock-select" required></select>
         <input type="number" class="weapon-sale-item-quantity" min="1" step="1" value="1" required>
-        <button type="button" class="btn btn-danger btn-small" onclick="removeWeaponSaleItemRow(this)">Remover</button>
+        <button type="button" class="btn btn-danger btn-small weapon-remove-item" onclick="removeWeaponSaleItemRow(this)">×</button>
     `;
     container.appendChild(row);
     renderWeaponSaleItems();

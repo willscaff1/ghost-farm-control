@@ -6195,3 +6195,221 @@ body.admin-layout {
         grid-column: 1 / -1;
     }
 }
+
+/* Weapon sales final layout pass */
+.weapon-sales-card {
+    background: linear-gradient(180deg, rgba(17, 24, 36, 0.98), rgba(11, 16, 26, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.weapon-sales-card > h2 {
+    margin-bottom: 4px;
+}
+
+.weapon-workspace {
+    display: grid;
+    grid-template-columns: minmax(520px, 1.18fr) minmax(340px, 0.82fr);
+    gap: 20px;
+    align-items: stretch;
+    margin: 22px 0 24px;
+}
+
+.weapon-sale-form-panel,
+.weapon-workspace .weapon-stock-panel,
+.weapon-sales-history-header {
+    border-radius: 8px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+.weapon-sale-form-panel {
+    order: 1;
+    padding: 22px;
+    border: 1px solid rgba(77, 163, 255, 0.24);
+    background: linear-gradient(180deg, rgba(15, 28, 43, 0.92), rgba(10, 17, 28, 0.94));
+}
+
+.weapon-sale-form-panel h3,
+.weapon-panel-header h3,
+.weapon-sales-history-header h3 {
+    letter-spacing: 0;
+}
+
+.weapon-workspace .weapon-stock-panel {
+    order: 2;
+    margin: 0;
+    padding: 18px;
+    max-height: none;
+    overflow: visible;
+    background: rgba(9, 14, 22, 0.74);
+    border-color: rgba(255, 255, 255, 0.075);
+}
+
+.weapon-panel-header {
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.weapon-stock-kpis {
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(66px, 1fr));
+}
+
+.weapon-stock-kpis div {
+    padding: 9px;
+    text-align: center;
+}
+
+.weapon-stock-kpis strong {
+    font-size: 18px;
+}
+
+.weapon-stock-add-form .form-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 88px;
+    gap: 10px;
+}
+
+.weapon-stock-add-form .btn-primary {
+    width: 100%;
+    margin-top: 2px;
+}
+
+.weapon-stock-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.weapon-stock-card {
+    padding: 12px;
+    background: rgba(15, 22, 33, 0.86);
+    border-color: rgba(255, 255, 255, 0.075);
+}
+
+.weapon-stock-card-main {
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.weapon-stock-card-main strong {
+    font-size: 14px;
+}
+
+.weapon-stock-card-main span {
+    font-size: 11px;
+}
+
+.weapon-stock-count {
+    min-width: 56px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 18px;
+}
+
+.weapon-stock-actions {
+    grid-template-columns: 72px 36px 36px minmax(82px, 1fr);
+    gap: 7px;
+}
+
+.weapon-stock-actions input {
+    height: 36px;
+    text-align: center;
+}
+
+.weapon-stock-actions .btn-small {
+    min-height: 36px;
+    padding: 7px 9px;
+}
+
+.weapon-sales-form .form-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.weapon-sale-item-row {
+    grid-template-columns: minmax(0, 1fr) 92px 42px;
+    gap: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.weapon-sale-item-row select,
+.weapon-sale-item-row input {
+    min-height: 38px;
+}
+
+.weapon-remove-item {
+    min-width: 40px;
+    padding: 7px 0;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.weapon-primary-action {
+    min-height: 44px;
+    margin-top: 6px;
+    font-weight: 700;
+}
+
+.weapon-sales-history-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 16px 18px;
+    margin-top: 8px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.weapon-sales-filter {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: end;
+    min-width: 280px;
+}
+
+.weapon-sales-filter label {
+    grid-column: 1 / -1;
+    width: auto;
+}
+
+.weapon-sales-filter select {
+    min-width: 200px;
+    height: 38px;
+}
+
+.weapon-sales-stats {
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
+    margin-top: 14px;
+}
+
+@media (max-width: 1180px) {
+    .weapon-workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .weapon-sales-form .form-row,
+    .weapon-stock-add-form .form-row,
+    .weapon-sales-history-header {
+        grid-template-columns: 1fr;
+    }
+
+    .weapon-sales-filter {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .weapon-sales-filter select {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .weapon-sale-item-row {
+        grid-template-columns: 1fr 84px 40px;
+    }
+}
