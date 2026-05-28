@@ -340,8 +340,12 @@
                     
                     <div class="weekly-table-container">
                         <table class="weekly-table weekly-status-table">
-                            <thead><tr><th>Passaporte</th><th>Slot</th><th>Membro</th><th>Cargo</th>
-                                    <th>Status</th>
+                            <thead><tr>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('passport')">Passaporte <span data-weekly-sort-indicator="passport"></span></button></th>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('slot')">Slot <span data-weekly-sort-indicator="slot"></span></button></th>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('member')">Membro <span data-weekly-sort-indicator="member"></span></button></th>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('role')">Cargo <span data-weekly-sort-indicator="role"></span></button></th>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('status')">Status <span data-weekly-sort-indicator="status"></span></button></th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
@@ -1374,5 +1378,143 @@
         });
     </script>
     <script src="js/admin.js?v=20260522slot"></script>
+    <script>
+        (function () {
+            const weeklyStatusSort = {
+                key: 'member',
+                direction: 'asc'
+            };
+
+            function normalizeSortText(value) {
+                return String(value || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^\w\s-]/g, '')
+                    .trim()
+                    .toLowerCase();
+            }
+
+            function naturalValue(value) {
+                const text = normalizeSortText(value);
+                const number = parseInt(text.replace(/[^\d]/g, ''), 10);
+                return Number.isFinite(number) ? number : text;
+            }
+
+            function compareValues(a, b) {
+                if (typeof a === 'number' && typeof b === 'number') {
+                    return a - b;
+                }
+                return String(a).localeCompare(String(b), 'pt-BR', {
+                    numeric: true,
+                    sensitivity: 'base'
+                });
+            }
+
+            function getWeeklyCellValue(row, key) {
+                switch (key) {
+                    case 'passport':
+                        return naturalValue(row.cells[0]?.textContent);
+                    case 'slot':
+                        return naturalValue(row.querySelector('.slot-cell strong')?.textContent || row.cells[1]?.textContent);
+                    case 'member':
+                        return normalizeSortText(row.querySelector('.member-name')?.textContent || row.cells[2]?.textContent);
+                    case 'role':
+                        return normalizeSortText(row.querySelector('.role-cell')?.textContent || row.cells[3]?.textContent);
+                    case 'status':
+                        return normalizeSortText(row.querySelector('.status-badge')?.textContent || row.cells[4]?.textContent);
+                    default:
+                        return '';
+                }
+            }
+
+            function updateWeeklySortHeaders() {
+                document.querySelectorAll('.weekly-sort-btn').forEach(button => {
+                    const key = button.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+                    const indicator = button.querySelector('[data-weekly-sort-indicator]');
+                    if (!indicator || !key) return;
+
+                    const active = weeklyStatusSort.key === key;
+                    button.classList.toggle('active', active);
+                    button.setAttribute('aria-sort', active ? weeklyStatusSort.direction : 'none');
+                    indicator.textContent = active ? (weeklyStatusSort.direction === 'asc' ? '^' : 'v') : '';
+                });
+            }
+
+            function applyWeeklyStatusSort() {
+                const tbody = document.getElementById('weeklyTableBody');
+                if (!tbody) return;
+
+                const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length >= 6);
+                if (rows.length <= 1) {
+                    updateWeeklySortHeaders();
+                    return;
+                }
+
+                rows.sort((rowA, rowB) => {
+                    const result = compareValues(
+                        getWeeklyCellValue(rowA, weeklyStatusSort.key),
+                        getWeeklyCellValue(rowB, weeklyStatusSort.key)
+                    );
+                    return weeklyStatusSort.direction === 'asc' ? result : -result;
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+                updateWeeklySortHeaders();
+            }
+
+            window.setWeeklyStatusSort = function (key) {
+                if (weeklyStatusSort.key === key) {
+                    weeklyStatusSort.direction = weeklyStatusSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    weeklyStatusSort.key = key;
+                    weeklyStatusSort.direction = 'asc';
+                }
+
+                applyWeeklyStatusSort();
+            };
+
+            const originalRenderWeeklyTable = window.renderWeeklyTable;
+            if (typeof originalRenderWeeklyTable === 'function') {
+                window.renderWeeklyTable = function () {
+                    const result = originalRenderWeeklyTable.apply(this, arguments);
+                    applyWeeklyStatusSort();
+                    return result;
+                };
+            }
+
+            const style = document.createElement('style');
+            style.textContent = `
+                .weekly-sort-btn {
+                    width: 100%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: flex-start;
+                    gap: 6px;
+                    border: 0;
+                    background: transparent;
+                    color: inherit;
+                    font: inherit;
+                    font-weight: 700;
+                    cursor: pointer;
+                    padding: 0;
+                    text-align: left;
+                }
+
+                .weekly-sort-btn:hover,
+                .weekly-sort-btn.active {
+                    color: #8ab4ff;
+                }
+
+                .weekly-sort-btn span {
+                    min-width: 12px;
+                    font-size: 10px;
+                    line-height: 1;
+                }
+            `;
+            document.head.appendChild(style);
+
+            updateWeeklySortHeaders();
+        })();
+    </script>
 </body>
 </html>
