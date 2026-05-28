@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260528freebies"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
     
     
     
@@ -64,6 +64,7 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">Vendas</div>
                 <button class="sidebar-item" data-tab="weapon-sales">🔫 Extrato de Vendas</button>
+                <button class="sidebar-item" data-tab="weapon-freebies">🎁 Armas Gratuitas</button>
             </div>
 
             <!-- Menu Categories -->
@@ -1109,6 +1110,93 @@
                 </div>
             </div>
 
+            <!-- Weapon Freebies Tab -->
+            <div id="weapon-freebies-tab" class="tab-content">
+                <div class="card weapon-sales-card weapon-freebies-card">
+                    <h2>🎁 Armas Gratuitas da Família</h2>
+                    <p class="subtitle">Controle semanal de IA/MTAR grátis por membro. Cada membro pode retirar até 3 armas por semana.</p>
+
+                    <div class="weapon-freebies-header">
+                        <div>
+                            <h3>Semana atual: <span id="weaponFreebieWeekLabel">Carregando...</span></h3>
+                            <p>Na próxima segunda-feira o painel começa novamente em 0/3 automaticamente.</p>
+                        </div>
+                        <div class="weapon-freebies-kpis">
+                            <div>
+                                <strong id="weaponFreebieUsed">0</strong>
+                                <span>retiradas</span>
+                            </div>
+                            <div>
+                                <strong id="weaponFreebieCompleted">0</strong>
+                                <span>membros 3/3</span>
+                            </div>
+                            <div>
+                                <strong id="weaponFreebieRemaining">0</strong>
+                                <span>restantes</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="weapon-freebies-layout">
+                        <form id="weaponFreebieForm" class="weapon-sales-form weapon-freebie-form-panel">
+                            <h3>Registrar Retirada</h3>
+                            <div class="form-group">
+                                <label for="weaponFreebieMember">Membro</label>
+                                <select id="weaponFreebieMember" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponFreebieStock">Arma</label>
+                                <select id="weaponFreebieStock" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponFreebieQuantity">Quantidade</label>
+                                <input type="number" id="weaponFreebieQuantity" min="1" max="3" step="1" value="1" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary weapon-primary-action">Registrar e descontar estoque</button>
+                            <div id="weaponFreebieMessage" class="message"></div>
+                        </form>
+
+                        <div class="weapon-freebie-members-panel">
+                            <div class="weapon-panel-header">
+                                <div>
+                                    <h3>Status dos Membros</h3>
+                                    <p>Mostra quanto cada membro já retirou nesta semana.</p>
+                                </div>
+                            </div>
+                            <div id="weaponFreebieMembers" class="weapon-freebie-member-grid">
+                                <div class="loading">Carregando...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="weapon-sales-history-header weapon-freebie-history-header">
+                        <div>
+                            <h3>Retiradas da Semana</h3>
+                            <p>Histórico da semana atual com baixa automática no estoque.</p>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="margin-top: 20px;">
+                        <table class="weekly-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Membro</th>
+                                    <th>Passaporte</th>
+                                    <th>Arma</th>
+                                    <th>Qtd.</th>
+                                    <th>Registrado por</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weaponFreebieHistoryBody">
+                                <tr><td colspan="7" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- New Member Tab -->
             <div id="new-member-tab" class="tab-content">
                 <div class="card">
@@ -1385,7 +1473,7 @@
             if (iframe) resizeIframe(iframe);
         });
     </script>
-    <script src="js/admin.js?v=20260522slot"></script>
+    <script src="js/admin.js?v=20260528freebies"></script>
     <script>
         (function () {
             const weeklyStatusSort = {

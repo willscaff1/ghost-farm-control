@@ -349,8 +349,17 @@ db.initialize().then(async () => {
                 if (!groupsWithAccess.includes(role.role_name)) continue;
 
                 const permissions = JSON.parse(role.permissions || '[]');
+                let changed = false;
                 if (!permissions.includes('weapon-sales') && !permissions.includes('all')) {
                     permissions.push('weapon-sales');
+                    changed = true;
+                }
+                if (!permissions.includes('weapon-freebies') && !permissions.includes('all')) {
+                    permissions.push('weapon-freebies');
+                    changed = true;
+                }
+
+                if (changed) {
                     await runQuery(
                         'UPDATE role_permissions SET permissions = ? WHERE role_name = ?',
                         [JSON.stringify(permissions), role.role_name]

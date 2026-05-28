@@ -212,6 +212,20 @@ async function ensureWeaponSalesTable() {
                 quantity INTEGER NOT NULL
             )
         `);
+
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_freebies (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                stock_id INTEGER REFERENCES weapon_stock(id),
+                weapon_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                week_start DATE NOT NULL,
+                week_end DATE NOT NULL,
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
     } else {
         await runQuery(`
             CREATE TABLE IF NOT EXISTS weapon_sales (
@@ -255,12 +269,31 @@ async function ensureWeaponSalesTable() {
                 FOREIGN KEY (stock_id) REFERENCES weapon_stock(id)
             )
         `);
+
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_freebies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                stock_id INTEGER,
+                weapon_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                week_start DATE NOT NULL,
+                week_end DATE NOT NULL,
+                created_by INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (stock_id) REFERENCES weapon_stock(id),
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        `);
     }
 
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_date ON weapon_sales (sale_date)');
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_created_by ON weapon_sales (created_by)');
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_stock_name ON weapon_stock (weapon_name)');
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sale_items_sale ON weapon_sale_items (sale_id)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_freebies_week_user ON weapon_freebies (week_start, week_end, user_id)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_freebies_stock ON weapon_freebies (stock_id)');
 
     try {
         await runQuery('ALTER TABLE weapon_sales ADD COLUMN proof_data TEXT');
@@ -378,6 +411,22 @@ async function restoreWeaponStock(item) {
             [item.weapon_name, Number(item.quantity || 0), 1]
         );
     }
+}
+
+const WEEKLY_FREE_WEAPON_LIMIT = 3;
+
+function normalizeWeaponFreebieName(name = '') {
+    return String(name)
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function isFamilyFreeWeapon(name = '') {
+    const normalized = normalizeWeaponFreebieName(name);
+    const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+    return normalized.includes('mtar') || tokens.includes('ia') || normalized === 'ia';
 }
 
 // ===== HELPER: Buscar grupos de todos usuários de uma vez (otimização) =====
@@ -3292,6 +3341,7 @@ router.post('/edit-permissions/revoke', requireAdmin, async (req, res) => {
 // Lista de todas as tabs disponíveis
 const availableTabs = [
     { id: 'weapon-sales', name: 'Extrato de Vendas', section: 'Estatísticas', icon: '🔫' },
+    { id: 'weapon-freebies', name: 'Armas Gratuitas', section: 'Estatísticas', icon: '🎁' },
     { id: 'weekly-status', name: 'Status da Semana', section: 'Dashboard', icon: '📅' },
     { id: 'weekly-ranking', name: 'Ranking Semanal', section: 'Dashboard', icon: '🏆' },
     { id: 'members-panel', name: 'Painel de Membros', section: 'Dashboard', icon: '👥' },
@@ -3368,7 +3418,7 @@ const defaultRolePermissions = [
             'weekly-status', 'weekly-ranking', 'members-panel', 'members-overview', 
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies',
             'farm-settings', 'edit-permissions', 'goals', 'manage-materials', 'manage-payment-types', 'manager-goals', 'whitelist'
         ]),
         can_config: 1
@@ -3380,7 +3430,7 @@ const defaultRolePermissions = [
             'weekly-status', 'weekly-ranking', 'members-panel', 'members-overview', 
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies',
             'edit-permissions', 'goals', 'manager-goals'
         ]),
         can_config: 1
@@ -3432,7 +3482,7 @@ const defaultRolePermissions = [
         permissions: JSON.stringify([
             'weekly-status', 'members-panel', 'members-overview',
             'members', 'members-adv',
-            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals', 'weapon-sales'
+            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals', 'weapon-sales', 'weapon-freebies'
         ]),
         can_config: 0
     }
@@ -5910,6 +5960,182 @@ router.delete('/weapon-sales/:id', requireAdmin, requireWeaponSalesAccess, async
         res.json({ success: true, message: 'Venda removida com sucesso' });
     } catch (error) {
         console.error('Erro ao remover venda de arma:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const week = getCurrentWeek();
+        const users = await getAll(`
+            SELECT id, name, passport, role, active
+            FROM users
+            WHERE active = 1
+              AND passport NOT IN ('admin', '0')
+            ORDER BY name ASC
+        `);
+
+        const userIds = (users || []).map(user => user.id);
+        const groupsMap = await getUserGroupsMap(userIds);
+        const freebieStock = (await getAll(`
+            SELECT *
+            FROM weapon_stock
+            WHERE active = 1
+            ORDER BY weapon_name ASC
+        `)).filter(item => isFamilyFreeWeapon(item.weapon_name));
+
+        const entries = await getAll(`
+            SELECT wf.*, u.name AS user_name, u.passport AS user_passport, c.name AS created_by_name
+            FROM weapon_freebies wf
+            JOIN users u ON u.id = wf.user_id
+            LEFT JOIN users c ON c.id = wf.created_by
+            WHERE wf.week_start = ? AND wf.week_end = ?
+            ORDER BY wf.created_at DESC, wf.id DESC
+        `, [week.start, week.end]);
+
+        const usedByUser = new Map();
+        for (const entry of entries || []) {
+            const used = Number(entry.quantity || 0);
+            usedByUser.set(entry.user_id, (usedByUser.get(entry.user_id) || 0) + used);
+        }
+
+        const members = (users || []).map(user => {
+            const used = usedByUser.get(user.id) || 0;
+            return {
+                id: user.id,
+                name: user.name,
+                passport: user.passport,
+                role: user.role,
+                groups: groupsMap.get(user.id) || (user.role ? [user.role] : []),
+                used,
+                limit: WEEKLY_FREE_WEAPON_LIMIT,
+                remaining: Math.max(0, WEEKLY_FREE_WEAPON_LIMIT - used),
+                status: `${used}/${WEEKLY_FREE_WEAPON_LIMIT}`
+            };
+        });
+
+        const stats = members.reduce((acc, member) => {
+            acc.used += member.used;
+            acc.remaining += member.remaining;
+            if (member.used >= WEEKLY_FREE_WEAPON_LIMIT) acc.completed += 1;
+            if (member.used > 0) acc.with_usage += 1;
+            return acc;
+        }, { used: 0, remaining: 0, completed: 0, with_usage: 0, members: members.length });
+
+        res.json({
+            success: true,
+            week,
+            limit: WEEKLY_FREE_WEAPON_LIMIT,
+            members,
+            entries: entries || [],
+            stock: freebieStock,
+            stats
+        });
+    } catch (error) {
+        console.error('Erro ao buscar retiradas gratuitas:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const userId = parseInt(req.body.user_id, 10);
+        const stockId = parseInt(req.body.stock_id, 10);
+        const quantity = parseInt(req.body.quantity, 10);
+        const week = getCurrentWeek();
+
+        if (!Number.isInteger(userId) || userId <= 0) {
+            return res.status(400).json({ error: 'Selecione um membro valido' });
+        }
+
+        if (!Number.isInteger(stockId) || stockId <= 0) {
+            return res.status(400).json({ error: 'Selecione uma arma valida' });
+        }
+
+        if (!Number.isInteger(quantity) || quantity <= 0) {
+            return res.status(400).json({ error: 'Informe uma quantidade valida' });
+        }
+
+        const member = await getOne(
+            "SELECT id, name, active FROM users WHERE id = ? AND active = 1 AND passport NOT IN ('admin', '0')",
+            [userId]
+        );
+        if (!member) {
+            return res.status(404).json({ error: 'Membro nao encontrado ou inativo' });
+        }
+
+        const stock = await getOne('SELECT * FROM weapon_stock WHERE id = ?', [stockId]);
+        if (!stock || stock.active === 0 || stock.active === false) {
+            return res.status(404).json({ error: 'Arma nao encontrada ou inativa no estoque' });
+        }
+
+        if (!isFamilyFreeWeapon(stock.weapon_name)) {
+            return res.status(400).json({ error: 'Retirada gratuita permitida apenas para IA ou MTAR' });
+        }
+
+        const currentUsage = await getOne(`
+            SELECT COALESCE(SUM(quantity), 0) AS used
+            FROM weapon_freebies
+            WHERE user_id = ? AND week_start = ? AND week_end = ?
+        `, [userId, week.start, week.end]);
+        const used = Number(currentUsage?.used || 0);
+
+        if (used + quantity > WEEKLY_FREE_WEAPON_LIMIT) {
+            return res.status(400).json({
+                error: `Limite semanal excedido. Este membro ja esta em ${used}/${WEEKLY_FREE_WEAPON_LIMIT}.`
+            });
+        }
+
+        if (Number(stock.current_stock || 0) < quantity) {
+            return res.status(400).json({
+                error: `Estoque insuficiente para ${stock.weapon_name}. Disponivel: ${stock.current_stock}`
+            });
+        }
+
+        const result = await runQuery(`
+            INSERT INTO weapon_freebies (user_id, stock_id, weapon_name, quantity, week_start, week_end, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [userId, stockId, stock.weapon_name, quantity, week.start, week.end, req.session.user.id]);
+
+        await runQuery(
+            'UPDATE weapon_stock SET current_stock = current_stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [quantity, stockId]
+        );
+
+        res.json({
+            success: true,
+            message: `Retirada registrada: ${member.name} ${used + quantity}/${WEEKLY_FREE_WEAPON_LIMIT}`,
+            freebieId: result.lastID
+        });
+    } catch (error) {
+        console.error('Erro ao registrar retirada gratuita:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/weapon-freebies/:id', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const freebie = await getOne('SELECT * FROM weapon_freebies WHERE id = ?', [req.params.id]);
+        if (!freebie) {
+            return res.status(404).json({ error: 'Retirada nao encontrada' });
+        }
+
+        await restoreWeaponStock({
+            stock_id: freebie.stock_id,
+            weapon_name: freebie.weapon_name,
+            quantity: Number(freebie.quantity || 0)
+        });
+        await runQuery('DELETE FROM weapon_freebies WHERE id = ?', [req.params.id]);
+
+        res.json({ success: true, message: 'Retirada removida e estoque restaurado' });
+    } catch (error) {
+        console.error('Erro ao remover retirada gratuita:', error);
         res.status(500).json({ error: error.message });
     }
 });

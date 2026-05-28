@@ -350,6 +350,7 @@ function showTab(tabId) {
         case 'all-deliveries': loadAllDeliveries(); break;
         case 'weekly-report': populateReportWeekSelect(); loadWeeklyReport(); break;
         case 'weapon-sales': loadWeaponSales(); break;
+        case 'weapon-freebies': loadWeaponFreebies(); break;
         case 'role-permissions': 
             // Recarregar iframe para pegar dados atualizados
             const iframe = document.querySelector('#role-permissions-tab iframe');
@@ -796,6 +797,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'weapon-sales':
                 loadWeaponSales();
+                break;
+            case 'weapon-freebies':
+                loadWeaponFreebies();
                 break;
             case 'whitelist':
                 loadWhitelist();
@@ -10665,6 +10669,192 @@ async function deleteWeaponSale(saleId) {
     }
 }
 
+let weaponFreebieCache = null;
+
+function isWeaponFreebieStockItem(item) {
+    const name = String(item?.weapon_name || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    const tokens = name.split(/[^a-z0-9]+/).filter(Boolean);
+    return name.includes('mtar') || tokens.includes('ia') || name === 'ia';
+}
+
+function renderWeaponFreebieOptions(data) {
+    const memberSelect = document.getElementById('weaponFreebieMember');
+    const stockSelect = document.getElementById('weaponFreebieStock');
+    if (!memberSelect || !stockSelect) return;
+
+    const selectedMember = memberSelect.value;
+    const selectedStock = stockSelect.value;
+
+    memberSelect.innerHTML = '<option value="">Selecione um membro</option>' + (data.members || [])
+        .map(member => {
+            const disabled = Number(member.remaining || 0) <= 0 ? 'disabled' : '';
+            const label = `${member.name} #${member.passport || '-'} (${member.status})`;
+            return `<option value="${member.id}" ${disabled} ${String(member.id) === selectedMember ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+        })
+        .join('');
+
+    const freebieStock = (data.stock || []).filter(isWeaponFreebieStockItem);
+    stockSelect.innerHTML = '<option value="">Selecione IA ou MTAR</option>' + freebieStock
+        .map(item => {
+            const disabled = Number(item.current_stock || 0) <= 0 ? 'disabled' : '';
+            const label = `${item.weapon_name} (${Number(item.current_stock || 0).toLocaleString('pt-BR')} em estoque)`;
+            return `<option value="${item.id}" ${disabled} ${String(item.id) === selectedStock ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+        })
+        .join('');
+}
+
+function getWeaponFreebieStatusClass(member) {
+    const used = Number(member.used || 0);
+    const limit = Number(member.limit || 3);
+    if (used >= limit) return 'is-complete';
+    if (used > 0) return 'is-progress';
+    return 'is-empty';
+}
+
+function renderWeaponFreebies(data) {
+    const weekLabel = document.getElementById('weaponFreebieWeekLabel');
+    const membersContainer = document.getElementById('weaponFreebieMembers');
+    const historyBody = document.getElementById('weaponFreebieHistoryBody');
+    const stats = data.stats || {};
+
+    if (weekLabel && data.week) {
+        weekLabel.textContent = data.week.label || `${formatWeaponSaleDate(data.week.start)} ate ${formatWeaponSaleDate(data.week.end)}`;
+    }
+
+    const usedEl = document.getElementById('weaponFreebieUsed');
+    const completedEl = document.getElementById('weaponFreebieCompleted');
+    const remainingEl = document.getElementById('weaponFreebieRemaining');
+    if (usedEl) usedEl.textContent = Number(stats.used || 0).toLocaleString('pt-BR');
+    if (completedEl) completedEl.textContent = Number(stats.completed || 0).toLocaleString('pt-BR');
+    if (remainingEl) remainingEl.textContent = Number(stats.remaining || 0).toLocaleString('pt-BR');
+
+    renderWeaponFreebieOptions(data);
+
+    if (membersContainer) {
+        const members = data.members || [];
+        if (members.length === 0) {
+            membersContainer.innerHTML = '<div class="loading">Nenhum membro ativo encontrado</div>';
+        } else {
+            membersContainer.innerHTML = members.map(member => {
+                const used = Number(member.used || 0);
+                const limit = Number(member.limit || 3);
+                const percentage = Math.min(100, Math.round((used / limit) * 100));
+                return `
+                    <div class="weapon-freebie-member-card ${getWeaponFreebieStatusClass(member)}">
+                        <div class="weapon-freebie-member-top">
+                            <div>
+                                <strong>${escapeHtml(member.name)}</strong>
+                                <span>#${escapeHtml(member.passport || '-')}</span>
+                            </div>
+                            <div class="weapon-freebie-counter">${used}/${limit}</div>
+                        </div>
+                        <div class="weapon-freebie-progress">
+                            <span style="width:${percentage}%"></span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    if (historyBody) {
+        const entries = data.entries || [];
+        if (entries.length === 0) {
+            historyBody.innerHTML = '<tr><td colspan="7" class="loading">Nenhuma retirada registrada nesta semana</td></tr>';
+        } else {
+            historyBody.innerHTML = entries.map(entry => `
+                <tr>
+                    <td>${formatWeaponSaleDate(entry.created_at)}</td>
+                    <td><strong>${escapeHtml(entry.user_name || '-')}</strong></td>
+                    <td>${escapeHtml(entry.user_passport || '-')}</td>
+                    <td>${escapeHtml(entry.weapon_name || '-')}</td>
+                    <td>${Number(entry.quantity || 0).toLocaleString('pt-BR')}</td>
+                    <td>${escapeHtml(entry.created_by_name || '-')}</td>
+                    <td><button class="btn btn-danger btn-small" onclick="deleteWeaponFreebie(${entry.id})">Remover</button></td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+async function loadWeaponFreebies() {
+    const membersContainer = document.getElementById('weaponFreebieMembers');
+    const historyBody = document.getElementById('weaponFreebieHistoryBody');
+    if (membersContainer) membersContainer.innerHTML = '<div class="loading">Carregando...</div>';
+    if (historyBody) historyBody.innerHTML = '<tr><td colspan="7" class="loading">Carregando...</td></tr>';
+
+    try {
+        const response = await fetch('/api/admin/weapon-freebies');
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao carregar retiradas gratuitas');
+        }
+
+        weaponFreebieCache = data;
+        renderWeaponFreebies(data);
+    } catch (error) {
+        console.error('Erro ao carregar retiradas gratuitas:', error);
+        if (membersContainer) membersContainer.innerHTML = `<div class="loading">Erro: ${escapeHtml(error.message)}</div>`;
+        if (historyBody) historyBody.innerHTML = `<tr><td colspan="7" class="loading">Erro: ${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
+async function submitWeaponFreebie(event) {
+    event.preventDefault();
+
+    const messageEl = document.getElementById('weaponFreebieMessage');
+    try {
+        const response = await fetch('/api/admin/weapon-freebies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: document.getElementById('weaponFreebieMember').value,
+                stock_id: document.getElementById('weaponFreebieStock').value,
+                quantity: document.getElementById('weaponFreebieQuantity').value
+            })
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao registrar retirada');
+        }
+
+        if (messageEl) {
+            messageEl.textContent = data.message || 'Retirada registrada';
+            messageEl.className = 'message show success';
+        }
+        document.getElementById('weaponFreebieQuantity').value = 1;
+        await loadWeaponFreebies();
+        await loadWeaponStock();
+    } catch (error) {
+        if (messageEl) {
+            messageEl.textContent = error.message;
+            messageEl.className = 'message show error';
+        } else {
+            alert(error.message);
+        }
+    }
+}
+
+async function deleteWeaponFreebie(freebieId) {
+    if (!confirm('Remover esta retirada e devolver a arma ao estoque?')) return;
+
+    try {
+        const response = await fetch(`/api/admin/weapon-freebies/${freebieId}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao remover retirada');
+        }
+        await loadWeaponFreebies();
+        await loadWeaponStock();
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
 function setDefaultWeaponSaleDate() {
     const dateInput = document.getElementById('weaponSaleDate');
     if (dateInput && !dateInput.value) {
@@ -10688,6 +10878,11 @@ if (weaponStockForm) {
 const weaponSalesMonthInput = document.getElementById('weaponSalesMonth');
 if (weaponSalesMonthInput) {
     weaponSalesMonthInput.addEventListener('change', loadWeaponSales);
+}
+
+const weaponFreebieForm = document.getElementById('weaponFreebieForm');
+if (weaponFreebieForm) {
+    weaponFreebieForm.addEventListener('submit', submitWeaponFreebie);
 }
 
 // Inicializa
