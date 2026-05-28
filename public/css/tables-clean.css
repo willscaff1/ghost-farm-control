@@ -187,6 +187,7 @@
 .weekly-status-table th,
 .weekly-status-table td {
     box-sizing: border-box;
+    vertical-align: middle;
 }
 
 .weekly-status-table th:nth-child(1),
@@ -227,6 +228,34 @@
 .weekly-status-table td:nth-child(6) {
     width: 110px;
     text-align: center;
+}
+
+.weekly-status-table td.member-cell {
+    display: table-cell !important;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.weekly-status-table td.member-cell .member-avatar {
+    vertical-align: middle;
+}
+
+.weekly-status-table td.member-cell .member-name,
+.weekly-status-table td.member-cell .pending-extra-badge {
+    vertical-align: middle;
+}
+
+.weekly-status-table td.role-cell {
+    display: table-cell;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.weekly-status-table td.passport-cell,
+.weekly-status-table td.slot-cell {
+    display: table-cell;
+    text-align: center;
+    vertical-align: middle;
 }
 
 .weekly-status-table .weekly-sort-btn {
