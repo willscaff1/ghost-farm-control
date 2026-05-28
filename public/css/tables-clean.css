@@ -212,6 +212,19 @@
     text-align: center !important;
 }
 
+.weekly-status-table th:not(:last-child),
+.weekly-status-table td:not(:last-child) {
+    border-right: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.weekly-status-table th:not(:last-child) {
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+.weekly-status-table tbody tr:hover td:not(:last-child) {
+    border-right-color: rgba(138, 180, 255, 0.28);
+}
+
 .weekly-status-table th:nth-child(1),
 .weekly-status-table td:nth-child(1),
 .weekly-status-table .passport-cell {
