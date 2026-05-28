@@ -6455,21 +6455,134 @@ body.admin-layout {
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
-.weapon-freebie-form-panel select[multiple] {
-    min-height: 220px;
-    padding: 8px;
-}
-
-.weapon-freebie-form-panel select[multiple] option {
-    padding: 8px 10px;
-    border-radius: 6px;
-}
-
 .weapon-freebie-form-panel .field-hint {
     display: block;
     margin-top: 6px;
     color: #9aa3ad;
     font-size: 12px;
+}
+
+.weapon-freebie-weapon-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.weapon-freebie-weapon-card {
+    min-height: 96px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(15, 22, 33, 0.86);
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.weapon-freebie-weapon-card:hover {
+    border-color: rgba(74, 144, 226, 0.45);
+    transform: translateY(-1px);
+}
+
+.weapon-freebie-weapon-card.is-selected {
+    border-color: rgba(39, 174, 96, 0.75);
+    background: rgba(20, 60, 42, 0.38);
+}
+
+.weapon-freebie-weapon-card.is-disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+}
+
+.weapon-freebie-weapon-card span {
+    display: inline-flex;
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(74, 144, 226, 0.18);
+    color: #9dccff;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.weapon-freebie-weapon-card strong {
+    display: block;
+    color: #fff;
+    font-size: 15px;
+}
+
+.weapon-freebie-weapon-card small {
+    display: block;
+    margin-top: 5px;
+    color: #9aa3ad;
+}
+
+.weapon-freebie-bulk-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.weapon-freebie-bulk-toolbar input {
+    min-width: 0;
+}
+
+.weapon-freebie-selected-count {
+    margin-top: 8px;
+    color: #b8d7ff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.weapon-freebie-member-checklist {
+    display: grid;
+    gap: 6px;
+    max-height: 320px;
+    margin-top: 10px;
+    padding: 8px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(5, 10, 18, 0.28);
+}
+
+.weapon-freebie-member-option {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 9px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+    cursor: pointer;
+}
+
+.weapon-freebie-member-option:hover {
+    background: rgba(74, 144, 226, 0.1);
+}
+
+.weapon-freebie-member-option.is-disabled {
+    opacity: 0.52;
+    cursor: not-allowed;
+}
+
+.weapon-freebie-member-option input {
+    width: 16px;
+    height: 16px;
+}
+
+.weapon-freebie-member-option strong {
+    display: block;
+    color: #fff;
+    font-size: 13px;
+}
+
+.weapon-freebie-member-option small {
+    display: block;
+    margin-top: 3px;
+    color: #9aa3ad;
 }
 
 .weapon-freebie-member-grid {

@@ -426,7 +426,8 @@ function normalizeWeaponFreebieName(name = '') {
 function isFamilyFreeWeapon(name = '') {
     const normalized = normalizeWeaponFreebieName(name);
     const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean);
-    return normalized.includes('mtar') || tokens.includes('ia') || normalized === 'ia';
+    const compact = normalized.replace(/[^a-z0-9]/g, '');
+    return compact.includes('mtar') || compact.includes('ia2') || tokens.includes('ia') || normalized === 'ia';
 }
 
 // ===== HELPER: Buscar grupos de todos usuários de uma vez (otimização) =====
@@ -6072,7 +6073,7 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
         }
 
         if (!isFamilyFreeWeapon(stock.weapon_name)) {
-            return res.status(400).json({ error: 'Retirada gratuita permitida apenas para IA ou MTAR' });
+            return res.status(400).json({ error: 'Retirada gratuita permitida apenas para IA2 ou MTAR' });
         }
 
         const totalQuantity = quantity * userIds.length;

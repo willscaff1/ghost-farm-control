@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260528freebies"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260528freebiebulk"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
     
     
     
@@ -1141,13 +1141,23 @@
                         <form id="weaponFreebieForm" class="weapon-sales-form weapon-freebie-form-panel">
                             <h3>Registrar Retirada</h3>
                             <div class="form-group">
-                                <label for="weaponFreebieMember">Membro</label>
-                                <select id="weaponFreebieMember" multiple required size="8"></select>
-                                <small class="field-hint">Segure Ctrl para marcar vários membros de uma vez.</small>
+                                <label>Arma</label>
+                                <input type="hidden" id="weaponFreebieStock" required>
+                                <div id="weaponFreebieWeaponOptions" class="weapon-freebie-weapon-options">
+                                    <div class="loading">Carregando estoque...</div>
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label for="weaponFreebieStock">Arma</label>
-                                <select id="weaponFreebieStock" required></select>
+                                <label>Membros</label>
+                                <div class="weapon-freebie-bulk-toolbar">
+                                    <input type="text" id="weaponFreebieMemberSearch" placeholder="Buscar membro/passaporte" oninput="filterWeaponFreebieMembers()">
+                                    <button type="button" class="btn btn-secondary btn-small" onclick="selectAllVisibleWeaponFreebieMembers()">Selecionar visíveis</button>
+                                    <button type="button" class="btn btn-secondary btn-small" onclick="clearWeaponFreebieMembers()">Limpar</button>
+                                </div>
+                                <div class="weapon-freebie-selected-count" id="weaponFreebieSelectedCount">0 membros selecionados</div>
+                                <div id="weaponFreebieMemberChecklist" class="weapon-freebie-member-checklist">
+                                    <div class="loading">Carregando membros...</div>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label for="weaponFreebieQuantity">Quantidade</label>
@@ -1474,7 +1484,7 @@
             if (iframe) resizeIframe(iframe);
         });
     </script>
-    <script src="js/admin.js?v=20260528freebies"></script>
+    <script src="js/admin.js?v=20260528freebiebulk"></script>
     <script>
         (function () {
             const weeklyStatusSort = {

@@ -10671,40 +10671,126 @@ async function deleteWeaponSale(saleId) {
 
 let weaponFreebieCache = null;
 
-function isWeaponFreebieStockItem(item) {
+function getWeaponFreebieType(item) {
     const name = String(item?.weapon_name || '')
         .trim()
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '');
+    const compact = name.replace(/[^a-z0-9]/g, '');
     const tokens = name.split(/[^a-z0-9]+/).filter(Boolean);
-    return name.includes('mtar') || tokens.includes('ia') || name === 'ia';
+    if (compact.includes('mtar')) return 'MTAR';
+    if (compact.includes('ia2')) return 'IA2';
+    if (tokens.includes('ia') || name === 'ia') return 'IA';
+    return '';
+}
+
+function isWeaponFreebieStockItem(item) {
+    return !!getWeaponFreebieType(item);
+}
+
+function updateWeaponFreebieSelectedCount() {
+    const countEl = document.getElementById('weaponFreebieSelectedCount');
+    if (!countEl) return;
+    const selected = document.querySelectorAll('.weapon-freebie-member-check:checked').length;
+    countEl.textContent = `${selected} membro${selected === 1 ? '' : 's'} selecionado${selected === 1 ? '' : 's'}`;
+}
+
+function setWeaponFreebieStock(stockId) {
+    const hiddenInput = document.getElementById('weaponFreebieStock');
+    if (hiddenInput) hiddenInput.value = stockId || '';
+
+    document.querySelectorAll('.weapon-freebie-weapon-card').forEach(card => {
+        card.classList.toggle('is-selected', String(card.dataset.stockId) === String(stockId));
+    });
+}
+
+function filterWeaponFreebieMembers() {
+    const searchInput = document.getElementById('weaponFreebieMemberSearch');
+    const term = String(searchInput?.value || '').trim().toLowerCase();
+    document.querySelectorAll('.weapon-freebie-member-option').forEach(option => {
+        const haystack = String(option.dataset.search || '').toLowerCase();
+        option.style.display = !term || haystack.includes(term) ? '' : 'none';
+    });
+}
+
+function selectAllVisibleWeaponFreebieMembers() {
+    document.querySelectorAll('.weapon-freebie-member-option').forEach(option => {
+        if (option.style.display === 'none') return;
+        const checkbox = option.querySelector('.weapon-freebie-member-check');
+        if (checkbox && !checkbox.disabled) checkbox.checked = true;
+    });
+    updateWeaponFreebieSelectedCount();
+}
+
+function clearWeaponFreebieMembers() {
+    document.querySelectorAll('.weapon-freebie-member-check').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    updateWeaponFreebieSelectedCount();
 }
 
 function renderWeaponFreebieOptions(data) {
-    const memberSelect = document.getElementById('weaponFreebieMember');
-    const stockSelect = document.getElementById('weaponFreebieStock');
-    if (!memberSelect || !stockSelect) return;
+    const memberChecklist = document.getElementById('weaponFreebieMemberChecklist');
+    const weaponOptions = document.getElementById('weaponFreebieWeaponOptions');
+    const hiddenStockInput = document.getElementById('weaponFreebieStock');
+    if (!memberChecklist || !weaponOptions || !hiddenStockInput) return;
 
-    const selectedMembers = new Set([...memberSelect.selectedOptions].map(option => String(option.value)));
-    const selectedStock = stockSelect.value;
+    const selectedMembers = new Set([...document.querySelectorAll('.weapon-freebie-member-check:checked')].map(input => String(input.value)));
+    const selectedStock = hiddenStockInput.value;
 
-    memberSelect.innerHTML = (data.members || [])
+    memberChecklist.innerHTML = (data.members || [])
         .map(member => {
-            const disabled = Number(member.remaining || 0) <= 0 ? 'disabled' : '';
+            const disabled = Number(member.remaining || 0) <= 0;
             const label = `${member.name} #${member.passport || '-'} (${member.status})`;
-            return `<option value="${member.id}" ${disabled} ${selectedMembers.has(String(member.id)) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+            return `
+                <label class="weapon-freebie-member-option ${disabled ? 'is-disabled' : ''}" data-search="${escapeHtml(`${member.name} ${member.passport || ''}`)}">
+                    <input
+                        type="checkbox"
+                        class="weapon-freebie-member-check"
+                        value="${member.id}"
+                        ${disabled ? 'disabled' : ''}
+                        ${selectedMembers.has(String(member.id)) && !disabled ? 'checked' : ''}
+                        onchange="updateWeaponFreebieSelectedCount()"
+                    >
+                    <span>
+                        <strong>${escapeHtml(member.name)}</strong>
+                        <small>#${escapeHtml(member.passport || '-')} · ${member.status}</small>
+                    </span>
+                </label>
+            `;
         })
-        .join('');
+        .join('') || '<div class="loading">Nenhum membro ativo encontrado</div>';
 
     const freebieStock = (data.stock || []).filter(isWeaponFreebieStockItem);
-    stockSelect.innerHTML = '<option value="">Selecione IA ou MTAR</option>' + freebieStock
+    weaponOptions.innerHTML = freebieStock
         .map(item => {
-            const disabled = Number(item.current_stock || 0) <= 0 ? 'disabled' : '';
-            const label = `${item.weapon_name} (${Number(item.current_stock || 0).toLocaleString('pt-BR')} em estoque)`;
-            return `<option value="${item.id}" ${disabled} ${String(item.id) === selectedStock ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+            const stock = Number(item.current_stock || 0);
+            const disabled = stock <= 0;
+            const type = getWeaponFreebieType(item);
+            return `
+                <button
+                    type="button"
+                    class="weapon-freebie-weapon-card ${String(item.id) === selectedStock ? 'is-selected' : ''} ${disabled ? 'is-disabled' : ''}"
+                    data-stock-id="${item.id}"
+                    onclick="${disabled ? '' : `setWeaponFreebieStock(${item.id})`}"
+                    ${disabled ? 'disabled' : ''}
+                >
+                    <span>${escapeHtml(type)}</span>
+                    <strong>${escapeHtml(item.weapon_name)}</strong>
+                    <small>${stock.toLocaleString('pt-BR')} em estoque</small>
+                </button>
+            `;
         })
-        .join('');
+        .join('') || '<div class="loading">Cadastre IA2 ou MTAR no estoque do Extrato de Vendas</div>';
+
+    if (selectedStock && !freebieStock.some(item => String(item.id) === String(selectedStock) && Number(item.current_stock || 0) > 0)) {
+        setWeaponFreebieStock('');
+    } else if (selectedStock) {
+        setWeaponFreebieStock(selectedStock);
+    }
+    filterWeaponFreebieMembers();
+    updateWeaponFreebieSelectedCount();
 }
 
 function getWeaponFreebieStatusClass(member) {
@@ -10812,7 +10898,7 @@ async function submitWeaponFreebie(event) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                user_ids: [...document.getElementById('weaponFreebieMember').selectedOptions].map(option => option.value),
+                user_ids: [...document.querySelectorAll('.weapon-freebie-member-check:checked')].map(option => option.value),
                 stock_id: document.getElementById('weaponFreebieStock').value,
                 quantity: document.getElementById('weaponFreebieQuantity').value
             })
