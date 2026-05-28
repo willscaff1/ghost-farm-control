@@ -6455,6 +6455,23 @@ body.admin-layout {
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
+.weapon-freebie-form-panel select[multiple] {
+    min-height: 220px;
+    padding: 8px;
+}
+
+.weapon-freebie-form-panel select[multiple] option {
+    padding: 8px 10px;
+    border-radius: 6px;
+}
+
+.weapon-freebie-form-panel .field-hint {
+    display: block;
+    margin-top: 6px;
+    color: #9aa3ad;
+    font-size: 12px;
+}
+
 .weapon-freebie-member-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));

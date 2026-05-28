@@ -6043,13 +6043,19 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
     try {
         await ensureWeaponSalesTable();
 
-        const userId = parseInt(req.body.user_id, 10);
+        const rawUserIds = Array.isArray(req.body.user_ids)
+            ? req.body.user_ids
+            : (req.body.user_id ? [req.body.user_id] : []);
+        const userIds = [...new Set(rawUserIds
+            .map(id => parseInt(id, 10))
+            .filter(id => Number.isInteger(id) && id > 0)
+        )];
         const stockId = parseInt(req.body.stock_id, 10);
         const quantity = parseInt(req.body.quantity, 10);
         const week = getCurrentWeek();
 
-        if (!Number.isInteger(userId) || userId <= 0) {
-            return res.status(400).json({ error: 'Selecione um membro valido' });
+        if (userIds.length === 0) {
+            return res.status(400).json({ error: 'Selecione pelo menos um membro valido' });
         }
 
         if (!Number.isInteger(stockId) || stockId <= 0) {
@@ -6058,14 +6064,6 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
 
         if (!Number.isInteger(quantity) || quantity <= 0) {
             return res.status(400).json({ error: 'Informe uma quantidade valida' });
-        }
-
-        const member = await getOne(
-            "SELECT id, name, active FROM users WHERE id = ? AND active = 1 AND passport NOT IN ('admin', '0')",
-            [userId]
-        );
-        if (!member) {
-            return res.status(404).json({ error: 'Membro nao encontrado ou inativo' });
         }
 
         const stock = await getOne('SELECT * FROM weapon_stock WHERE id = ?', [stockId]);
@@ -6077,39 +6075,65 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
             return res.status(400).json({ error: 'Retirada gratuita permitida apenas para IA ou MTAR' });
         }
 
-        const currentUsage = await getOne(`
-            SELECT COALESCE(SUM(quantity), 0) AS used
-            FROM weapon_freebies
-            WHERE user_id = ? AND week_start = ? AND week_end = ?
-        `, [userId, week.start, week.end]);
-        const used = Number(currentUsage?.used || 0);
-
-        if (used + quantity > WEEKLY_FREE_WEAPON_LIMIT) {
+        const totalQuantity = quantity * userIds.length;
+        if (Number(stock.current_stock || 0) < totalQuantity) {
             return res.status(400).json({
-                error: `Limite semanal excedido. Este membro ja esta em ${used}/${WEEKLY_FREE_WEAPON_LIMIT}.`
+                error: `Estoque insuficiente para ${stock.weapon_name}. Precisa: ${totalQuantity}. Disponivel: ${stock.current_stock}`
             });
         }
 
-        if (Number(stock.current_stock || 0) < quantity) {
+        const placeholders = userIds.map(() => '?').join(',');
+        const members = await getAll(
+            `SELECT id, name, active FROM users WHERE id IN (${placeholders}) AND active = 1 AND passport NOT IN ('admin', '0')`,
+            userIds
+        );
+        const membersById = new Map((members || []).map(member => [Number(member.id), member]));
+        const invalidIds = userIds.filter(id => !membersById.has(id));
+        if (invalidIds.length > 0) {
+            return res.status(404).json({ error: 'Um ou mais membros selecionados nao foram encontrados ou estao inativos' });
+        }
+
+        const usageRows = await getAll(
+            `SELECT user_id, COALESCE(SUM(quantity), 0) AS used
+             FROM weapon_freebies
+             WHERE user_id IN (${placeholders}) AND week_start = ? AND week_end = ?
+             GROUP BY user_id`,
+            [...userIds, week.start, week.end]
+        );
+        const usageById = new Map((usageRows || []).map(row => [Number(row.user_id), Number(row.used || 0)]));
+        const exceeded = [];
+        for (const userId of userIds) {
+            const used = usageById.get(userId) || 0;
+            if (used + quantity > WEEKLY_FREE_WEAPON_LIMIT) {
+                const member = membersById.get(userId);
+                exceeded.push(`${member.name} (${used}/${WEEKLY_FREE_WEAPON_LIMIT})`);
+            }
+        }
+
+        if (exceeded.length > 0) {
             return res.status(400).json({
-                error: `Estoque insuficiente para ${stock.weapon_name}. Disponivel: ${stock.current_stock}`
+                error: `Limite semanal excedido para: ${exceeded.join(', ')}`
             });
         }
 
-        const result = await runQuery(`
-            INSERT INTO weapon_freebies (user_id, stock_id, weapon_name, quantity, week_start, week_end, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [userId, stockId, stock.weapon_name, quantity, week.start, week.end, req.session.user.id]);
+        const createdIds = [];
+        for (const userId of userIds) {
+            const result = await runQuery(`
+                INSERT INTO weapon_freebies (user_id, stock_id, weapon_name, quantity, week_start, week_end, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [userId, stockId, stock.weapon_name, quantity, week.start, week.end, req.session.user.id]);
+            createdIds.push(result.lastID);
+        }
 
         await runQuery(
             'UPDATE weapon_stock SET current_stock = current_stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [quantity, stockId]
+            [totalQuantity, stockId]
         );
 
         res.json({
             success: true,
-            message: `Retirada registrada: ${member.name} ${used + quantity}/${WEEKLY_FREE_WEAPON_LIMIT}`,
-            freebieId: result.lastID
+            message: `Retirada registrada para ${userIds.length} membro(s). Total baixado: ${totalQuantity}`,
+            freebieIds: createdIds
         });
     } catch (error) {
         console.error('Erro ao registrar retirada gratuita:', error);

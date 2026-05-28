@@ -10686,14 +10686,14 @@ function renderWeaponFreebieOptions(data) {
     const stockSelect = document.getElementById('weaponFreebieStock');
     if (!memberSelect || !stockSelect) return;
 
-    const selectedMember = memberSelect.value;
+    const selectedMembers = new Set([...memberSelect.selectedOptions].map(option => String(option.value)));
     const selectedStock = stockSelect.value;
 
-    memberSelect.innerHTML = '<option value="">Selecione um membro</option>' + (data.members || [])
+    memberSelect.innerHTML = (data.members || [])
         .map(member => {
             const disabled = Number(member.remaining || 0) <= 0 ? 'disabled' : '';
             const label = `${member.name} #${member.passport || '-'} (${member.status})`;
-            return `<option value="${member.id}" ${disabled} ${String(member.id) === selectedMember ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+            return `<option value="${member.id}" ${disabled} ${selectedMembers.has(String(member.id)) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
         })
         .join('');
 
@@ -10812,7 +10812,7 @@ async function submitWeaponFreebie(event) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                user_id: document.getElementById('weaponFreebieMember').value,
+                user_ids: [...document.getElementById('weaponFreebieMember').selectedOptions].map(option => option.value),
                 stock_id: document.getElementById('weaponFreebieStock').value,
                 quantity: document.getElementById('weaponFreebieQuantity').value
             })
