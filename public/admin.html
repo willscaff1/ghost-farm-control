@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260528freebiebulk"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260528membercards"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
     
     
     
@@ -1142,7 +1142,6 @@
                             <h3>Registrar Retirada</h3>
                             <div class="form-group">
                                 <label>Arma</label>
-                                <input type="hidden" id="weaponFreebieStock" required>
                                 <div id="weaponFreebieWeaponOptions" class="weapon-freebie-weapon-options">
                                     <div class="loading">Carregando estoque...</div>
                                 </div>
@@ -1158,10 +1157,6 @@
                                 <div id="weaponFreebieMemberChecklist" class="weapon-freebie-member-checklist">
                                     <div class="loading">Carregando membros...</div>
                                 </div>
-                            </div>
-                            <div class="form-group">
-                                <label for="weaponFreebieQuantity">Quantidade</label>
-                                <input type="number" id="weaponFreebieQuantity" min="1" max="3" step="1" value="1" required>
                             </div>
                             <button type="submit" class="btn btn-primary weapon-primary-action">Registrar e descontar estoque</button>
                             <div id="weaponFreebieMessage" class="message"></div>
@@ -1484,7 +1479,7 @@
             if (iframe) resizeIframe(iframe);
         });
     </script>
-    <script src="js/admin.js?v=20260528freebiebulk"></script>
+    <script src="js/admin.js?v=20260528membercards"></script>
     <script>
         (function () {
             const weeklyStatusSort = {

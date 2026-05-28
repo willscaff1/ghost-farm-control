@@ -6468,6 +6468,36 @@ body.admin-layout {
     gap: 10px;
 }
 
+.weapon-freebie-stock-summary {
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(15, 22, 33, 0.86);
+}
+
+.weapon-freebie-stock-summary span {
+    display: inline-flex;
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(74, 144, 226, 0.18);
+    color: #9dccff;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.weapon-freebie-stock-summary strong {
+    display: block;
+    color: #fff;
+    font-size: 15px;
+}
+
+.weapon-freebie-stock-summary small {
+    display: block;
+    margin-top: 5px;
+    color: #9aa3ad;
+}
+
 .weapon-freebie-weapon-card {
     min-height: 96px;
     padding: 12px;
@@ -6550,13 +6580,10 @@ body.admin-layout {
 
 .weapon-freebie-member-option {
     display: grid;
-    grid-template-columns: 18px minmax(0, 1fr);
     gap: 10px;
-    align-items: center;
-    padding: 9px 10px;
+    padding: 12px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.035);
-    cursor: pointer;
 }
 
 .weapon-freebie-member-option:hover {
@@ -6568,21 +6595,88 @@ body.admin-layout {
     cursor: not-allowed;
 }
 
-.weapon-freebie-member-option input {
+.weapon-freebie-member-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+}
+
+.weapon-freebie-member-identity {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.weapon-freebie-member-option input[type="checkbox"] {
     width: 16px;
     height: 16px;
 }
 
-.weapon-freebie-member-option strong {
+.weapon-freebie-member-option strong,
+.weapon-freebie-member-identity strong {
     display: block;
     color: #fff;
     font-size: 13px;
 }
 
-.weapon-freebie-member-option small {
+.weapon-freebie-member-option small,
+.weapon-freebie-member-identity small {
     display: block;
     margin-top: 3px;
     color: #9aa3ad;
+}
+
+.weapon-freebie-card-count {
+    min-width: 46px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(74, 144, 226, 0.14);
+    color: #b8d7ff;
+    text-align: center;
+    font-weight: 800;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.weapon-freebie-card-weapons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.weapon-freebie-card-weapons .weapon-freebie-weapon-card {
+    min-height: 74px;
+    padding: 10px;
+}
+
+.weapon-freebie-card-weapons .weapon-freebie-weapon-card span {
+    margin-bottom: 5px;
+}
+
+.weapon-freebie-card-weapons .weapon-freebie-weapon-card strong {
+    font-size: 13px;
+}
+
+.weapon-freebie-card-controls {
+    display: grid;
+    grid-template-columns: auto 86px;
+    gap: 8px;
+    align-items: center;
+    justify-content: end;
+}
+
+.weapon-freebie-card-controls label {
+    margin: 0;
+    color: #9aa3ad;
+    font-size: 12px;
+}
+
+.weapon-freebie-card-controls input {
+    height: 36px;
+    text-align: center;
 }
 
 .weapon-freebie-member-grid {

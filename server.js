@@ -346,9 +346,13 @@ db.initialize().then(async () => {
             let updated = 0;
 
             for (const role of roles) {
-                if (!groupsWithAccess.includes(role.role_name)) continue;
-
                 const permissions = JSON.parse(role.permissions || '[]');
+                const hasSalesAccess = groupsWithAccess.includes(role.role_name) ||
+                    permissions.includes('weapon-sales') ||
+                    permissions.includes('weapon-freebies') ||
+                    permissions.includes('all');
+                if (!hasSalesAccess) continue;
+
                 let changed = false;
                 if (!permissions.includes('weapon-sales') && !permissions.includes('all')) {
                     permissions.push('weapon-sales');

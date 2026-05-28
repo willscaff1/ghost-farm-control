@@ -10696,13 +10696,21 @@ function updateWeaponFreebieSelectedCount() {
     countEl.textContent = `${selected} membro${selected === 1 ? '' : 's'} selecionado${selected === 1 ? '' : 's'}`;
 }
 
-function setWeaponFreebieStock(stockId) {
-    const hiddenInput = document.getElementById('weaponFreebieStock');
+function setWeaponFreebieCardStock(userId, stockId) {
+    const card = document.querySelector(`.weapon-freebie-member-option[data-user-id="${userId}"]`);
+    if (!card) return;
+
+    const hiddenInput = card.querySelector('.weapon-freebie-card-stock');
     if (hiddenInput) hiddenInput.value = stockId || '';
 
-    document.querySelectorAll('.weapon-freebie-weapon-card').forEach(card => {
-        card.classList.toggle('is-selected', String(card.dataset.stockId) === String(stockId));
+    const checkbox = card.querySelector('.weapon-freebie-member-check');
+    if (checkbox && !checkbox.disabled) checkbox.checked = true;
+
+    card.querySelectorAll('.weapon-freebie-weapon-card').forEach(button => {
+        button.classList.toggle('is-selected', String(button.dataset.stockId) === String(stockId));
     });
+
+    updateWeaponFreebieSelectedCount();
 }
 
 function filterWeaponFreebieMembers() {
@@ -10718,7 +10726,14 @@ function selectAllVisibleWeaponFreebieMembers() {
     document.querySelectorAll('.weapon-freebie-member-option').forEach(option => {
         if (option.style.display === 'none') return;
         const checkbox = option.querySelector('.weapon-freebie-member-check');
-        if (checkbox && !checkbox.disabled) checkbox.checked = true;
+        if (checkbox && !checkbox.disabled) {
+            checkbox.checked = true;
+            const hiddenStock = option.querySelector('.weapon-freebie-card-stock');
+            if (hiddenStock && !hiddenStock.value) {
+                const firstWeapon = option.querySelector('.weapon-freebie-weapon-card:not(:disabled)');
+                if (firstWeapon) setWeaponFreebieCardStock(option.dataset.userId, firstWeapon.dataset.stockId);
+            }
+        }
     });
     updateWeaponFreebieSelectedCount();
 }
@@ -10730,65 +10745,147 @@ function clearWeaponFreebieMembers() {
     updateWeaponFreebieSelectedCount();
 }
 
+function collectWeaponFreebieAssignments() {
+    const assignments = [];
+    const errors = [];
+
+    document.querySelectorAll('.weapon-freebie-member-option').forEach(card => {
+        const checkbox = card.querySelector('.weapon-freebie-member-check');
+        if (!checkbox || !checkbox.checked) return;
+
+        const userId = checkbox.value;
+        const memberName = card.querySelector('.weapon-freebie-member-identity strong')?.textContent || `Membro ${userId}`;
+        const stockId = card.querySelector('.weapon-freebie-card-stock')?.value || '';
+        const quantityInput = card.querySelector('.weapon-freebie-card-quantity');
+        const quantity = parseInt(quantityInput?.value, 10);
+
+        if (!stockId) {
+            errors.push(`${memberName}: selecione IA2 ou MTAR`);
+            return;
+        }
+
+        if (!Number.isInteger(quantity) || quantity <= 0) {
+            errors.push(`${memberName}: quantidade invalida`);
+            return;
+        }
+
+        assignments.push({
+            user_id: userId,
+            stock_id: stockId,
+            quantity
+        });
+    });
+
+    if (errors.length > 0) {
+        throw new Error(errors.join(' | '));
+    }
+
+    if (assignments.length === 0) {
+        throw new Error('Selecione pelo menos um membro');
+    }
+
+    return assignments;
+}
+
+function getWeaponFreebieStockButtons(memberId, stockItems, selectedStock) {
+    if (stockItems.length === 0) {
+        return '<div class="loading">Cadastre IA2 ou MTAR no estoque do Extrato de Vendas</div>';
+    }
+
+    return stockItems.map(item => {
+        const stock = Number(item.current_stock || 0);
+        const disabled = stock <= 0;
+        const type = getWeaponFreebieType(item);
+        return `
+            <button
+                type="button"
+                class="weapon-freebie-weapon-card ${String(item.id) === String(selectedStock) ? 'is-selected' : ''} ${disabled ? 'is-disabled' : ''}"
+                data-stock-id="${item.id}"
+                onclick="${disabled ? '' : `setWeaponFreebieCardStock(${memberId}, ${item.id})`}"
+                ${disabled ? 'disabled' : ''}
+            >
+                <span>${escapeHtml(type)}</span>
+                <strong>${escapeHtml(item.weapon_name)}</strong>
+                <small>${stock.toLocaleString('pt-BR')}</small>
+            </button>
+        `;
+    }).join('');
+}
+
 function renderWeaponFreebieOptions(data) {
     const memberChecklist = document.getElementById('weaponFreebieMemberChecklist');
     const weaponOptions = document.getElementById('weaponFreebieWeaponOptions');
-    const hiddenStockInput = document.getElementById('weaponFreebieStock');
-    if (!memberChecklist || !weaponOptions || !hiddenStockInput) return;
+    if (!memberChecklist || !weaponOptions) return;
 
     const selectedMembers = new Set([...document.querySelectorAll('.weapon-freebie-member-check:checked')].map(input => String(input.value)));
-    const selectedStock = hiddenStockInput.value;
-
-    memberChecklist.innerHTML = (data.members || [])
-        .map(member => {
-            const disabled = Number(member.remaining || 0) <= 0;
-            const label = `${member.name} #${member.passport || '-'} (${member.status})`;
-            return `
-                <label class="weapon-freebie-member-option ${disabled ? 'is-disabled' : ''}" data-search="${escapeHtml(`${member.name} ${member.passport || ''}`)}">
-                    <input
-                        type="checkbox"
-                        class="weapon-freebie-member-check"
-                        value="${member.id}"
-                        ${disabled ? 'disabled' : ''}
-                        ${selectedMembers.has(String(member.id)) && !disabled ? 'checked' : ''}
-                        onchange="updateWeaponFreebieSelectedCount()"
-                    >
-                    <span>
-                        <strong>${escapeHtml(member.name)}</strong>
-                        <small>#${escapeHtml(member.passport || '-')} · ${member.status}</small>
-                    </span>
-                </label>
-            `;
-        })
-        .join('') || '<div class="loading">Nenhum membro ativo encontrado</div>';
+    const selectedStockByMember = new Map([...document.querySelectorAll('.weapon-freebie-member-option')].map(card => {
+        const input = card.querySelector('.weapon-freebie-card-stock');
+        return [String(card.dataset.userId), input?.value || ''];
+    }));
+    const quantityByMember = new Map([...document.querySelectorAll('.weapon-freebie-member-option')].map(card => {
+        const input = card.querySelector('.weapon-freebie-card-quantity');
+        return [String(card.dataset.userId), input?.value || '1'];
+    }));
 
     const freebieStock = (data.stock || []).filter(isWeaponFreebieStockItem);
     weaponOptions.innerHTML = freebieStock
         .map(item => {
             const stock = Number(item.current_stock || 0);
-            const disabled = stock <= 0;
             const type = getWeaponFreebieType(item);
             return `
-                <button
-                    type="button"
-                    class="weapon-freebie-weapon-card ${String(item.id) === selectedStock ? 'is-selected' : ''} ${disabled ? 'is-disabled' : ''}"
-                    data-stock-id="${item.id}"
-                    onclick="${disabled ? '' : `setWeaponFreebieStock(${item.id})`}"
-                    ${disabled ? 'disabled' : ''}
-                >
+                <div class="weapon-freebie-stock-summary">
                     <span>${escapeHtml(type)}</span>
                     <strong>${escapeHtml(item.weapon_name)}</strong>
                     <small>${stock.toLocaleString('pt-BR')} em estoque</small>
-                </button>
+                </div>
             `;
         })
         .join('') || '<div class="loading">Cadastre IA2 ou MTAR no estoque do Extrato de Vendas</div>';
 
-    if (selectedStock && !freebieStock.some(item => String(item.id) === String(selectedStock) && Number(item.current_stock || 0) > 0)) {
-        setWeaponFreebieStock('');
-    } else if (selectedStock) {
-        setWeaponFreebieStock(selectedStock);
-    }
+    memberChecklist.innerHTML = (data.members || [])
+        .map(member => {
+            const disabled = Number(member.remaining || 0) <= 0;
+            const selectedStock = selectedStockByMember.get(String(member.id)) || '';
+            const selectedQuantity = quantityByMember.get(String(member.id)) || '1';
+            const maxQuantity = Math.max(1, Number(member.remaining || 1));
+            return `
+                <div class="weapon-freebie-member-option ${disabled ? 'is-disabled' : ''}" data-user-id="${member.id}" data-search="${escapeHtml(`${member.name} ${member.passport || ''}`)}">
+                    <div class="weapon-freebie-member-row">
+                        <label class="weapon-freebie-member-identity">
+                            <input
+                                type="checkbox"
+                                class="weapon-freebie-member-check"
+                                value="${member.id}"
+                                ${disabled ? 'disabled' : ''}
+                                ${selectedMembers.has(String(member.id)) && !disabled ? 'checked' : ''}
+                                onchange="updateWeaponFreebieSelectedCount()"
+                            >
+                            <span>
+                                <strong>${escapeHtml(member.name)}</strong>
+                                <small>#${escapeHtml(member.passport || '-')} - ${member.status}</small>
+                            </span>
+                        </label>
+                        <div class="weapon-freebie-card-count">${member.status}</div>
+                    </div>
+                    <input type="hidden" class="weapon-freebie-card-stock" value="${escapeHtml(selectedStock)}">
+                    <div class="weapon-freebie-card-weapons">
+                        ${getWeaponFreebieStockButtons(member.id, freebieStock, selectedStock)}
+                    </div>
+                    <div class="weapon-freebie-card-controls">
+                        <label>Qtd.</label>
+                        <input
+                            type="number"
+                            class="weapon-freebie-card-quantity"
+                            min="1"
+                            max="${maxQuantity}"
+                            step="1"
+                            value="${escapeHtml(selectedQuantity)}"
+                        >
+                    </div>
+                </div>
+            `;
+        })
+        .join('') || '<div class="loading">Nenhum membro ativo encontrado</div>';
     filterWeaponFreebieMembers();
     updateWeaponFreebieSelectedCount();
 }
@@ -10898,9 +10995,7 @@ async function submitWeaponFreebie(event) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                user_ids: [...document.querySelectorAll('.weapon-freebie-member-check:checked')].map(option => option.value),
-                stock_id: document.getElementById('weaponFreebieStock').value,
-                quantity: document.getElementById('weaponFreebieQuantity').value
+                assignments: collectWeaponFreebieAssignments()
             })
         });
         const data = await response.json();
@@ -10912,7 +11007,7 @@ async function submitWeaponFreebie(event) {
             messageEl.textContent = data.message || 'Retirada registrada';
             messageEl.className = 'message show success';
         }
-        document.getElementById('weaponFreebieQuantity').value = 1;
+        clearWeaponFreebieMembers();
         await loadWeaponFreebies();
         await loadWeaponStock();
     } catch (error) {

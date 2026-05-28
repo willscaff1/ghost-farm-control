@@ -156,8 +156,26 @@ const requireWeaponSalesAccess = async (req, res, next) => {
     try {
         const sessionGroups = Array.isArray(req.session.user.groups) ? req.session.user.groups : [];
         const dbGroups = await getUserGroups(req.session.user.id).catch(() => []);
-        const groups = [...sessionGroups, ...dbGroups, req.session.user.role].map(normalizeGroupName);
-        const allowed = isSuperAdminUser(req.session.user) || groups.some(g => weaponSalesGroups.has(g));
+        const groups = [...new Set([...sessionGroups, ...dbGroups, req.session.user.role]
+            .map(normalizeGroupName)
+            .filter(Boolean)
+        )];
+        let allowed = isSuperAdminUser(req.session.user) || groups.some(g => weaponSalesGroups.has(g));
+
+        if (!allowed && groups.length > 0) {
+            const placeholders = groups.map(() => '?').join(',');
+            const roleRows = await getAll(
+                `SELECT role_name, permissions FROM role_permissions WHERE role_name IN (${placeholders}) AND active = 1`,
+                groups
+            );
+
+            allowed = (roleRows || []).some(role => {
+                const permissions = JSON.parse(role.permissions || '[]');
+                return permissions.includes('all') ||
+                    permissions.includes('weapon-sales') ||
+                    permissions.includes('weapon-freebies');
+            });
+        }
 
         if (!allowed) {
             return res.status(403).json({ error: 'Sem permissão para acessar o extrato de vendas' });
@@ -6044,48 +6062,46 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
     try {
         await ensureWeaponSalesTable();
 
-        const rawUserIds = Array.isArray(req.body.user_ids)
-            ? req.body.user_ids
-            : (req.body.user_id ? [req.body.user_id] : []);
-        const userIds = [...new Set(rawUserIds
-            .map(id => parseInt(id, 10))
-            .filter(id => Number.isInteger(id) && id > 0)
-        )];
-        const stockId = parseInt(req.body.stock_id, 10);
-        const quantity = parseInt(req.body.quantity, 10);
+        const rawAssignments = Array.isArray(req.body.assignments) ? req.body.assignments : null;
+        let assignments = [];
+
+        if (rawAssignments) {
+            assignments = rawAssignments.map(item => ({
+                user_id: parseInt(item.user_id, 10),
+                stock_id: parseInt(item.stock_id, 10),
+                quantity: parseInt(item.quantity, 10)
+            }));
+        } else {
+            const rawUserIds = Array.isArray(req.body.user_ids)
+                ? req.body.user_ids
+                : (req.body.user_id ? [req.body.user_id] : []);
+            const stockId = parseInt(req.body.stock_id, 10);
+            const quantity = parseInt(req.body.quantity, 10);
+            assignments = rawUserIds.map(userId => ({
+                user_id: parseInt(userId, 10),
+                stock_id: stockId,
+                quantity
+            }));
+        }
+
+        assignments = assignments.filter(item =>
+            Number.isInteger(item.user_id) && item.user_id > 0 &&
+            Number.isInteger(item.stock_id) && item.stock_id > 0 &&
+            Number.isInteger(item.quantity) && item.quantity > 0
+        );
+
         const week = getCurrentWeek();
 
-        if (userIds.length === 0) {
-            return res.status(400).json({ error: 'Selecione pelo menos um membro valido' });
+        if (assignments.length === 0) {
+            return res.status(400).json({ error: 'Selecione pelo menos uma retirada valida' });
         }
 
-        if (!Number.isInteger(stockId) || stockId <= 0) {
-            return res.status(400).json({ error: 'Selecione uma arma valida' });
-        }
+        const userIds = [...new Set(assignments.map(item => item.user_id))];
+        const stockIds = [...new Set(assignments.map(item => item.stock_id))];
 
-        if (!Number.isInteger(quantity) || quantity <= 0) {
-            return res.status(400).json({ error: 'Informe uma quantidade valida' });
-        }
-
-        const stock = await getOne('SELECT * FROM weapon_stock WHERE id = ?', [stockId]);
-        if (!stock || stock.active === 0 || stock.active === false) {
-            return res.status(404).json({ error: 'Arma nao encontrada ou inativa no estoque' });
-        }
-
-        if (!isFamilyFreeWeapon(stock.weapon_name)) {
-            return res.status(400).json({ error: 'Retirada gratuita permitida apenas para IA2 ou MTAR' });
-        }
-
-        const totalQuantity = quantity * userIds.length;
-        if (Number(stock.current_stock || 0) < totalQuantity) {
-            return res.status(400).json({
-                error: `Estoque insuficiente para ${stock.weapon_name}. Precisa: ${totalQuantity}. Disponivel: ${stock.current_stock}`
-            });
-        }
-
-        const placeholders = userIds.map(() => '?').join(',');
+        const userPlaceholders = userIds.map(() => '?').join(',');
         const members = await getAll(
-            `SELECT id, name, active FROM users WHERE id IN (${placeholders}) AND active = 1 AND passport NOT IN ('admin', '0')`,
+            `SELECT id, name, active FROM users WHERE id IN (${userPlaceholders}) AND active = 1 AND passport NOT IN ('admin', '0')`,
             userIds
         );
         const membersById = new Map((members || []).map(member => [Number(member.id), member]));
@@ -6094,10 +6110,47 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
             return res.status(404).json({ error: 'Um ou mais membros selecionados nao foram encontrados ou estao inativos' });
         }
 
+        const stockPlaceholders = stockIds.map(() => '?').join(',');
+        const stocks = await getAll(
+            `SELECT * FROM weapon_stock WHERE id IN (${stockPlaceholders})`,
+            stockIds
+        );
+        const stocksById = new Map((stocks || []).map(stock => [Number(stock.id), stock]));
+        const invalidStocks = [];
+        for (const stockId of stockIds) {
+            const stock = stocksById.get(stockId);
+            if (!stock || stock.active === 0 || stock.active === false || !isFamilyFreeWeapon(stock.weapon_name)) {
+                invalidStocks.push(stockId);
+            }
+        }
+
+        if (invalidStocks.length > 0) {
+            return res.status(400).json({ error: 'Uma ou mais armas selecionadas nao sao IA2/MTAR ativas do estoque' });
+        }
+
+        const quantityByStock = new Map();
+        const quantityByUser = new Map();
+        for (const item of assignments) {
+            quantityByStock.set(item.stock_id, (quantityByStock.get(item.stock_id) || 0) + item.quantity);
+            quantityByUser.set(item.user_id, (quantityByUser.get(item.user_id) || 0) + item.quantity);
+        }
+
+        const insufficient = [];
+        for (const [stockId, totalQuantity] of quantityByStock.entries()) {
+            const stock = stocksById.get(stockId);
+            if (Number(stock.current_stock || 0) < totalQuantity) {
+                insufficient.push(`${stock.weapon_name}: precisa ${totalQuantity}, disponivel ${stock.current_stock}`);
+            }
+        }
+
+        if (insufficient.length > 0) {
+            return res.status(400).json({ error: `Estoque insuficiente: ${insufficient.join('; ')}` });
+        }
+
         const usageRows = await getAll(
             `SELECT user_id, COALESCE(SUM(quantity), 0) AS used
              FROM weapon_freebies
-             WHERE user_id IN (${placeholders}) AND week_start = ? AND week_end = ?
+             WHERE user_id IN (${userPlaceholders}) AND week_start = ? AND week_end = ?
              GROUP BY user_id`,
             [...userIds, week.start, week.end]
         );
@@ -6105,7 +6158,8 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
         const exceeded = [];
         for (const userId of userIds) {
             const used = usageById.get(userId) || 0;
-            if (used + quantity > WEEKLY_FREE_WEAPON_LIMIT) {
+            const adding = quantityByUser.get(userId) || 0;
+            if (used + adding > WEEKLY_FREE_WEAPON_LIMIT) {
                 const member = membersById.get(userId);
                 exceeded.push(`${member.name} (${used}/${WEEKLY_FREE_WEAPON_LIMIT})`);
             }
@@ -6118,22 +6172,25 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
         }
 
         const createdIds = [];
-        for (const userId of userIds) {
+        for (const item of assignments) {
+            const stock = stocksById.get(item.stock_id);
             const result = await runQuery(`
                 INSERT INTO weapon_freebies (user_id, stock_id, weapon_name, quantity, week_start, week_end, created_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            `, [userId, stockId, stock.weapon_name, quantity, week.start, week.end, req.session.user.id]);
+            `, [item.user_id, item.stock_id, stock.weapon_name, item.quantity, week.start, week.end, req.session.user.id]);
             createdIds.push(result.lastID);
         }
 
-        await runQuery(
-            'UPDATE weapon_stock SET current_stock = current_stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [totalQuantity, stockId]
-        );
+        for (const [stockId, totalQuantity] of quantityByStock.entries()) {
+            await runQuery(
+                'UPDATE weapon_stock SET current_stock = current_stock - ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [totalQuantity, stockId]
+            );
+        }
 
         res.json({
             success: true,
-            message: `Retirada registrada para ${userIds.length} membro(s). Total baixado: ${totalQuantity}`,
+            message: `Retirada registrada para ${userIds.length} membro(s). Total baixado: ${assignments.reduce((sum, item) => sum + item.quantity, 0)}`,
             freebieIds: createdIds
         });
     } catch (error) {
