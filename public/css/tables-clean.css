@@ -155,17 +155,51 @@
     text-align: center;
 }
 
+.weekly-status-table {
+    table-layout: fixed;
+    min-width: 980px;
+}
+
+.weekly-status-table .weekly-col-passport {
+    width: 118px;
+}
+
+.weekly-status-table .weekly-col-slot {
+    width: 145px;
+}
+
+.weekly-status-table .weekly-col-member {
+    width: auto;
+}
+
+.weekly-status-table .weekly-col-role {
+    width: 190px;
+}
+
+.weekly-status-table .weekly-col-status {
+    width: 190px;
+}
+
+.weekly-status-table .weekly-col-actions {
+    width: 110px;
+}
+
+.weekly-status-table th,
+.weekly-status-table td {
+    box-sizing: border-box;
+}
+
 .weekly-status-table th:nth-child(1),
 .weekly-status-table td:nth-child(1),
 .weekly-status-table .passport-cell {
-    width: 105px;
+    width: 118px;
     text-align: center;
 }
 
 .weekly-status-table th:nth-child(2),
 .weekly-status-table td:nth-child(2),
 .weekly-status-table .slot-cell {
-    width: 130px;
+    width: 145px;
     text-align: center;
 }
 
@@ -179,19 +213,61 @@
 .weekly-status-table th:nth-child(4),
 .weekly-status-table td:nth-child(4),
 .weekly-status-table .role-cell {
-    width: 170px;
+    width: 190px;
     text-align: left;
 }
 
 .weekly-status-table th:nth-child(5),
 .weekly-status-table td:nth-child(5) {
-    width: 180px;
+    width: 190px;
     text-align: center;
 }
 
 .weekly-status-table th:nth-child(6),
 .weekly-status-table td:nth-child(6) {
     width: 110px;
+    text-align: center;
+}
+
+.weekly-status-table .weekly-sort-btn {
+    width: 100%;
+    min-height: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+    text-transform: inherit;
+}
+
+.weekly-status-table th:nth-child(1) .weekly-sort-btn,
+.weekly-status-table th:nth-child(2) .weekly-sort-btn,
+.weekly-status-table th:nth-child(5) .weekly-sort-btn {
+    justify-content: center;
+    text-align: center;
+}
+
+.weekly-status-table th:nth-child(3) .weekly-sort-btn,
+.weekly-status-table th:nth-child(4) .weekly-sort-btn {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.weekly-status-table .weekly-sort-btn:hover,
+.weekly-status-table .weekly-sort-btn.active {
+    color: #8ab4ff;
+}
+
+.weekly-status-table .weekly-sort-btn span {
+    width: 12px;
+    flex: 0 0 12px;
+    font-size: 10px;
+    line-height: 1;
     text-align: center;
 }
 

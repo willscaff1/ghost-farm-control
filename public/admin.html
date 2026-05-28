@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css"><link rel="stylesheet" href="css/tables-clean.css?v=20260522slot">
+    <link rel="stylesheet" href="css/admin-sidebar.css"><link rel="stylesheet" href="css/tables-clean.css?v=20260528sortalign">
     
     
     
@@ -340,6 +340,14 @@
                     
                     <div class="weekly-table-container">
                         <table class="weekly-table weekly-status-table">
+                            <colgroup>
+                                <col class="weekly-col-passport">
+                                <col class="weekly-col-slot">
+                                <col class="weekly-col-member">
+                                <col class="weekly-col-role">
+                                <col class="weekly-col-status">
+                                <col class="weekly-col-actions">
+                            </colgroup>
                             <thead><tr>
                                     <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('passport')">Passaporte <span data-weekly-sort-indicator="passport"></span></button></th>
                                     <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('slot')">Slot <span data-weekly-sort-indicator="slot"></span></button></th>
@@ -1481,38 +1489,6 @@
                     return result;
                 };
             }
-
-            const style = document.createElement('style');
-            style.textContent = `
-                .weekly-sort-btn {
-                    width: 100%;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: flex-start;
-                    gap: 6px;
-                    border: 0;
-                    background: transparent;
-                    color: inherit;
-                    font: inherit;
-                    font-weight: 700;
-                    cursor: pointer;
-                    padding: 0;
-                    text-align: left;
-                }
-
-                .weekly-sort-btn:hover,
-                .weekly-sort-btn.active {
-                    color: #8ab4ff;
-                }
-
-                .weekly-sort-btn span {
-                    min-width: 12px;
-                    font-size: 10px;
-                    line-height: 1;
-                }
-            `;
-            document.head.appendChild(style);
-
             updateWeeklySortHeaders();
         })();
     </script>
