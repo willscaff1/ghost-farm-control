@@ -244,6 +244,20 @@ async function ensureWeaponSalesTable() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_production_entries (
+                id SERIAL PRIMARY KEY,
+                stock_id INTEGER NOT NULL REFERENCES weapon_stock(id),
+                weapon_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                production_date DATE NOT NULL,
+                responsible_name TEXT,
+                notes TEXT,
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
     } else {
         await runQuery(`
             CREATE TABLE IF NOT EXISTS weapon_sales (
@@ -304,6 +318,22 @@ async function ensureWeaponSalesTable() {
                 FOREIGN KEY (created_by) REFERENCES users(id)
             )
         `);
+
+        await runQuery(`
+            CREATE TABLE IF NOT EXISTS weapon_production_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stock_id INTEGER NOT NULL,
+                weapon_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                production_date DATE NOT NULL,
+                responsible_name TEXT,
+                notes TEXT,
+                created_by INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (stock_id) REFERENCES weapon_stock(id),
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        `);
     }
 
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sales_date ON weapon_sales (sale_date)');
@@ -312,6 +342,8 @@ async function ensureWeaponSalesTable() {
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_sale_items_sale ON weapon_sale_items (sale_id)');
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_freebies_week_user ON weapon_freebies (week_start, week_end, user_id)');
     await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_freebies_stock ON weapon_freebies (stock_id)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_production_date ON weapon_production_entries (production_date)');
+    await runQuery('CREATE INDEX IF NOT EXISTS idx_weapon_production_stock ON weapon_production_entries (stock_id)');
 
     try {
         await runQuery('ALTER TABLE weapon_sales ADD COLUMN proof_data TEXT');
@@ -5769,6 +5801,92 @@ router.post('/weapon-stock/:id/toggle', requireAdmin, requireWeaponSalesAccess, 
         res.json({ success: true, active: nextActive });
     } catch (error) {
         console.error('Erro ao alterar status do estoque:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/weapon-production', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const entries = await getAll(`
+            SELECT wpe.*, u.name AS created_by_name
+            FROM weapon_production_entries wpe
+            LEFT JOIN users u ON u.id = wpe.created_by
+            ORDER BY wpe.production_date DESC, wpe.created_at DESC, wpe.id DESC
+            LIMIT 30
+        `);
+
+        const stats = (entries || []).reduce((acc, entry) => {
+            acc.total_quantity += Number(entry.quantity || 0);
+            acc.total_entries += 1;
+            return acc;
+        }, { total_entries: 0, total_quantity: 0 });
+
+        res.json({ success: true, entries: entries || [], stats });
+    } catch (error) {
+        console.error('Erro ao buscar entradas de fabricacao:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/weapon-production', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const stockId = parseInt(req.body.stock_id, 10);
+        const quantity = parseInt(req.body.quantity, 10);
+        const productionDate = String(req.body.production_date || '').trim();
+        const responsibleName = String(req.body.responsible_name || '').trim();
+        const notes = String(req.body.notes || '').trim();
+
+        if (!Number.isInteger(stockId) || stockId <= 0) {
+            return res.status(400).json({ error: 'Selecione uma arma do estoque' });
+        }
+
+        if (!Number.isInteger(quantity) || quantity <= 0) {
+            return res.status(400).json({ error: 'Informe uma quantidade fabricada valida' });
+        }
+
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(productionDate)) {
+            return res.status(400).json({ error: 'Informe uma data de fabricacao valida' });
+        }
+
+        const stock = await getOne('SELECT * FROM weapon_stock WHERE id = ?', [stockId]);
+        if (!stock) {
+            return res.status(404).json({ error: 'Arma nao encontrada no estoque' });
+        }
+
+        if (stock.active === 0 || stock.active === false) {
+            return res.status(400).json({ error: 'Nao e possivel fabricar entrada para uma arma inativa' });
+        }
+
+        const result = await runQuery(`
+            INSERT INTO weapon_production_entries (
+                stock_id, weapon_name, quantity, production_date, responsible_name, notes, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+            stock.id,
+            stock.weapon_name,
+            quantity,
+            productionDate,
+            responsibleName || null,
+            notes || null,
+            req.session.user.id
+        ]);
+
+        await runQuery(
+            'UPDATE weapon_stock SET current_stock = current_stock + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [quantity, stock.id]
+        );
+
+        res.json({
+            success: true,
+            message: `Entrada de fabricacao registrada: ${stock.weapon_name} +${quantity}`,
+            productionId: result.lastID
+        });
+    } catch (error) {
+        console.error('Erro ao registrar entrada de fabricacao:', error);
         res.status(500).json({ error: error.message });
     }
 });

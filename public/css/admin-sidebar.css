@@ -6274,6 +6274,71 @@ body.admin-layout {
     margin-top: 2px;
 }
 
+.weapon-production-form {
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid rgba(39, 174, 96, 0.18);
+    border-radius: 8px;
+    background: rgba(20, 60, 42, 0.16);
+}
+
+.weapon-production-form h3 {
+    margin: 0 0 14px;
+    color: #fff;
+}
+
+.weapon-production-form .btn-primary {
+    width: 100%;
+}
+
+.weapon-production-history {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.weapon-production-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.weapon-production-entry {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(15, 22, 33, 0.7);
+}
+
+.weapon-production-entry strong {
+    display: block;
+    color: #fff;
+    font-size: 13px;
+}
+
+.weapon-production-entry span,
+.weapon-production-entry small {
+    display: block;
+    margin-top: 3px;
+    color: #9aa3ad;
+    font-size: 12px;
+}
+
+.weapon-production-qty {
+    min-width: 58px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: rgba(39, 174, 96, 0.16);
+    color: #5de08b;
+    text-align: center;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
 .weapon-stock-grid {
     grid-template-columns: 1fr;
     gap: 10px;

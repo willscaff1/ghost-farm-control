@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260528membercards"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260529production"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
     
     
     
@@ -1012,8 +1012,50 @@
                             <div id="weaponStockMessage" class="message"></div>
                         </form>
 
+                        <form id="weaponProductionForm" class="weapon-sales-form weapon-production-form">
+                            <h3>Entrada de Fabricação</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="weaponProductionStock">Arma</label>
+                                    <select id="weaponProductionStock" required></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="weaponProductionQuantity">Quantidade</label>
+                                    <input type="number" id="weaponProductionQuantity" min="1" step="1" value="1" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="weaponProductionDate">Data</label>
+                                    <input type="date" id="weaponProductionDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="weaponProductionResponsible">Responsável</label>
+                                    <input type="text" id="weaponProductionResponsible" placeholder="Quem fabricou">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponProductionNotes">Observações</label>
+                                <textarea id="weaponProductionNotes" rows="2" placeholder="Materiais, lote ou detalhe da fabricação"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Registrar entrada</button>
+                            <div id="weaponProductionMessage" class="message"></div>
+                        </form>
+
                         <div id="weaponStockBody" class="weapon-stock-grid">
                             <div class="loading">Carregando...</div>
+                        </div>
+
+                        <div class="weapon-production-history">
+                            <div class="weapon-panel-header">
+                                <div>
+                                    <h3>Últimas Fabricações</h3>
+                                    <p>Entradas recentes somadas ao estoque.</p>
+                                </div>
+                            </div>
+                            <div id="weaponProductionHistory" class="weapon-production-list">
+                                <div class="loading">Carregando...</div>
+                            </div>
                         </div>
                     </div>
 
@@ -1479,7 +1521,7 @@
             if (iframe) resizeIframe(iframe);
         });
     </script>
-    <script src="js/admin.js?v=20260528membercards"></script>
+    <script src="js/admin.js?v=20260529production"></script>
     <script>
         (function () {
             const weeklyStatusSort = {

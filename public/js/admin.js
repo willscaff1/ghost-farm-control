@@ -10448,6 +10448,7 @@ async function loadWeaponStock() {
 
         weaponStockCache = data.stock || [];
         renderWeaponSaleItems();
+        renderWeaponProductionOptions();
 
         const activeStock = weaponStockCache.filter(item => item.active !== 0 && item.active !== false);
         const stockModelsEl = document.getElementById('weaponStockModels');
@@ -10491,6 +10492,41 @@ async function loadWeaponStock() {
     }
 }
 
+async function loadWeaponProductionHistory() {
+    const container = document.getElementById('weaponProductionHistory');
+    if (container) container.innerHTML = '<div class="loading">Carregando...</div>';
+
+    try {
+        const response = await fetch('/api/admin/weapon-production');
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao carregar fabricacoes');
+        }
+
+        const entries = data.entries || [];
+        if (!container) return;
+
+        if (entries.length === 0) {
+            container.innerHTML = '<div class="loading">Nenhuma fabricação registrada</div>';
+            return;
+        }
+
+        container.innerHTML = entries.slice(0, 8).map(entry => `
+            <div class="weapon-production-entry">
+                <div>
+                    <strong>${escapeHtml(entry.weapon_name || '-')}</strong>
+                    <span>${formatWeaponSaleDate(entry.production_date)}${entry.responsible_name ? ` · ${escapeHtml(entry.responsible_name)}` : ''}</span>
+                    ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ''}
+                </div>
+                <div class="weapon-production-qty">+${Number(entry.quantity || 0).toLocaleString('pt-BR')}</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Erro ao carregar fabricacoes:', error);
+        if (container) container.innerHTML = `<div class="loading">Erro: ${escapeHtml(error.message)}</div>`;
+    }
+}
+
 async function submitWeaponStock(event) {
     event.preventDefault();
 
@@ -10512,8 +10548,40 @@ async function submitWeaponStock(event) {
         document.getElementById('weaponStockForm').reset();
         document.getElementById('weaponStockQuantity').value = 0;
         await loadWeaponStock();
+        await loadWeaponProductionHistory();
     } catch (error) {
         setWeaponMessage('weaponStockMessage', error.message, 'error');
+    }
+}
+
+async function submitWeaponProduction(event) {
+    event.preventDefault();
+
+    try {
+        const response = await fetch('/api/admin/weapon-production', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                stock_id: document.getElementById('weaponProductionStock').value,
+                quantity: document.getElementById('weaponProductionQuantity').value,
+                production_date: document.getElementById('weaponProductionDate').value,
+                responsible_name: document.getElementById('weaponProductionResponsible').value.trim(),
+                notes: document.getElementById('weaponProductionNotes').value.trim()
+            })
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Erro ao registrar fabricacao');
+        }
+
+        setWeaponMessage('weaponProductionMessage', data.message || 'Entrada registrada', 'success');
+        document.getElementById('weaponProductionForm').reset();
+        setDefaultWeaponProductionDate();
+        document.getElementById('weaponProductionQuantity').value = 1;
+        await loadWeaponStock();
+        await loadWeaponProductionHistory();
+    } catch (error) {
+        setWeaponMessage('weaponProductionMessage', error.message, 'error');
     }
 }
 
@@ -10562,6 +10630,7 @@ async function loadWeaponSales() {
 
     try {
         await loadWeaponStock();
+        await loadWeaponProductionHistory();
         const response = await fetch(`/api/admin/weapon-sales${getWeaponSalesQueryParams()}`);
         const data = await response.json();
 
@@ -10720,6 +10789,21 @@ function filterWeaponFreebieMembers() {
         const haystack = String(option.dataset.search || '').toLowerCase();
         option.style.display = !term || haystack.includes(term) ? '' : 'none';
     });
+}
+
+function renderWeaponProductionOptions() {
+    const select = document.getElementById('weaponProductionStock');
+    if (!select) return;
+
+    const selectedValue = select.value || '';
+    const activeStock = weaponStockCache.filter(item => item.active !== 0 && item.active !== false);
+    select.innerHTML = '<option value="">Selecione uma arma</option>' + activeStock
+        .map(item => `
+            <option value="${item.id}" ${String(item.id) === selectedValue ? 'selected' : ''}>
+                ${escapeHtml(item.weapon_name)} (${Number(item.current_stock || 0).toLocaleString('pt-BR')} em estoque)
+            </option>
+        `)
+        .join('');
 }
 
 function selectAllVisibleWeaponFreebieMembers() {
@@ -11043,6 +11127,13 @@ function setDefaultWeaponSaleDate() {
     }
 }
 
+function setDefaultWeaponProductionDate() {
+    const dateInput = document.getElementById('weaponProductionDate');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
+}
+
 const weaponSaleForm = document.getElementById('weaponSaleForm');
 if (weaponSaleForm) {
     weaponSaleForm.addEventListener('submit', submitWeaponSale);
@@ -11054,6 +11145,12 @@ if (weaponSaleForm) {
 const weaponStockForm = document.getElementById('weaponStockForm');
 if (weaponStockForm) {
     weaponStockForm.addEventListener('submit', submitWeaponStock);
+}
+
+const weaponProductionForm = document.getElementById('weaponProductionForm');
+if (weaponProductionForm) {
+    weaponProductionForm.addEventListener('submit', submitWeaponProduction);
+    setDefaultWeaponProductionDate();
 }
 
 const weaponSalesMonthInput = document.getElementById('weaponSalesMonth');
