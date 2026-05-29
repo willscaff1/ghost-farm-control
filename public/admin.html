@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260529production"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260529saleslayout"><link rel="stylesheet" href="css/tables-clean.css?v=20260528columnbars">
     
     
     
@@ -976,7 +976,7 @@
                     <p class="subtitle">Registro de vendas da família com quantidade, valor e print de comprovação.</p>
 
                     <div class="weapon-workspace">
-                    <div class="weapon-stock-panel">
+                    <div class="weapon-stock-panel weapon-entry-panel">
                         <div class="weapon-panel-header">
                             <div>
                                 <h3>Estoque de Armas</h3>
@@ -1042,10 +1042,6 @@
                             <div id="weaponProductionMessage" class="message"></div>
                         </form>
 
-                        <div id="weaponStockBody" class="weapon-stock-grid">
-                            <div class="loading">Carregando...</div>
-                        </div>
-
                         <div class="weapon-production-history">
                             <div class="weapon-panel-header">
                                 <div>
@@ -1059,8 +1055,8 @@
                         </div>
                     </div>
 
-                    <form id="weaponSaleForm" class="weapon-sales-form weapon-sale-form-panel">
-                        <h3>Registrar Venda</h3>
+                    <form id="weaponSaleForm" class="weapon-sales-form weapon-sale-form-panel weapon-exit-panel">
+                        <h3>Saida de Estoque / Venda</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="weaponSaleValue">Valor da venda</label>
@@ -1078,7 +1074,7 @@
                             <button type="button" class="btn btn-secondary btn-small" onclick="addWeaponSaleItemRow()">Adicionar outro modelo</button>
                         </div>
 
-                        <div class="form-row">
+                        <div class="form-row weapon-sale-meta-row">
                             <div class="form-group">
                                 <label for="weaponSaleBuyer">Comprador</label>
                                 <input type="text" id="weaponSaleBuyer" placeholder="Nome/passaporte">
@@ -1101,6 +1097,18 @@
                         <button type="submit" class="btn btn-primary weapon-primary-action">Registrar venda</button>
                         <div id="weaponSaleMessage" class="message"></div>
                     </form>
+                    </div>
+
+                    <div class="weapon-stock-overview-panel">
+                        <div class="weapon-panel-header">
+                            <div>
+                                <h3>Estoque Atual</h3>
+                                <p>Ajuste saldo manualmente quando precisar corrigir contagem.</p>
+                            </div>
+                        </div>
+                        <div id="weaponStockBody" class="weapon-stock-grid">
+                            <div class="loading">Carregando...</div>
+                        </div>
                     </div>
 
                     <div class="weapon-sales-history-header">

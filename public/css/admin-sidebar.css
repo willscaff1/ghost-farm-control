@@ -6208,7 +6208,7 @@ body.admin-layout {
 
 .weapon-workspace {
     display: grid;
-    grid-template-columns: minmax(520px, 1.18fr) minmax(340px, 0.82fr);
+    grid-template-columns: repeat(2, minmax(420px, 1fr));
     gap: 20px;
     align-items: stretch;
     margin: 22px 0 24px;
@@ -6216,16 +6216,22 @@ body.admin-layout {
 
 .weapon-sale-form-panel,
 .weapon-workspace .weapon-stock-panel,
+.weapon-stock-overview-panel,
 .weapon-sales-history-header {
     border-radius: 8px;
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
 }
 
 .weapon-sale-form-panel {
-    order: 1;
+    display: flex;
+    flex-direction: column;
     padding: 22px;
     border: 1px solid rgba(77, 163, 255, 0.24);
     background: linear-gradient(180deg, rgba(15, 28, 43, 0.92), rgba(10, 17, 28, 0.94));
+}
+
+.weapon-exit-panel {
+    min-height: 100%;
 }
 
 .weapon-sale-form-panel h3,
@@ -6235,13 +6241,18 @@ body.admin-layout {
 }
 
 .weapon-workspace .weapon-stock-panel {
-    order: 2;
+    display: flex;
+    flex-direction: column;
     margin: 0;
-    padding: 18px;
+    padding: 22px;
     max-height: none;
     overflow: visible;
-    background: rgba(9, 14, 22, 0.74);
-    border-color: rgba(255, 255, 255, 0.075);
+    background: linear-gradient(180deg, rgba(13, 34, 28, 0.9), rgba(9, 16, 23, 0.94));
+    border: 1px solid rgba(39, 174, 96, 0.18);
+}
+
+.weapon-entry-panel {
+    min-height: 100%;
 }
 
 .weapon-panel-header {
@@ -6265,8 +6276,8 @@ body.admin-layout {
 
 .weapon-stock-add-form .form-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 88px;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) 120px;
+    gap: 12px;
 }
 
 .weapon-stock-add-form .btn-primary {
@@ -6276,10 +6287,10 @@ body.admin-layout {
 
 .weapon-production-form {
     margin-top: 16px;
-    padding: 16px;
-    border: 1px solid rgba(39, 174, 96, 0.18);
+    padding: 18px;
+    border: 1px solid rgba(39, 174, 96, 0.22);
     border-radius: 8px;
-    background: rgba(20, 60, 42, 0.16);
+    background: rgba(20, 60, 42, 0.2);
 }
 
 .weapon-production-form h3 {
@@ -6295,6 +6306,13 @@ body.admin-layout {
     margin-top: 18px;
     padding-top: 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.weapon-stock-overview-panel {
+    margin: 0 0 24px;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    background: rgba(9, 14, 22, 0.74);
 }
 
 .weapon-production-list {
@@ -6340,13 +6358,14 @@ body.admin-layout {
 }
 
 .weapon-stock-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
     margin-top: 14px;
 }
 
 .weapon-stock-card {
-    padding: 12px;
+    padding: 14px;
     background: rgba(15, 22, 33, 0.86);
     border-color: rgba(255, 255, 255, 0.075);
 }
@@ -6372,17 +6391,17 @@ body.admin-layout {
 }
 
 .weapon-stock-actions {
-    grid-template-columns: 72px 36px 36px minmax(82px, 1fr);
-    gap: 7px;
+    grid-template-columns: 88px 42px 42px minmax(96px, 1fr);
+    gap: 8px;
 }
 
 .weapon-stock-actions input {
-    height: 36px;
+    height: 38px;
     text-align: center;
 }
 
 .weapon-stock-actions .btn-small {
-    min-height: 36px;
+    min-height: 38px;
     padding: 7px 9px;
 }
 
@@ -6392,11 +6411,15 @@ body.admin-layout {
     gap: 14px;
 }
 
+.weapon-sale-meta-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .weapon-sale-item-row {
-    grid-template-columns: minmax(0, 1fr) 92px 42px;
-    gap: 8px;
-    padding: 10px;
-    margin-bottom: 8px;
+    grid-template-columns: minmax(0, 1fr) 110px 44px;
+    gap: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
     background: rgba(255, 255, 255, 0.04);
     border-color: rgba(255, 255, 255, 0.08);
 }
@@ -6839,6 +6862,8 @@ body.admin-layout {
 @media (max-width: 760px) {
     .weapon-sales-form .form-row,
     .weapon-stock-add-form .form-row,
+    .weapon-production-form .form-row,
+    .weapon-sale-meta-row,
     .weapon-sales-history-header {
         grid-template-columns: 1fr;
     }
