@@ -4339,6 +4339,21 @@ async function loadAdminStats() {
 }
 
 // Carregar entregas pendentes (da semana selecionada)
+function renderPendingFarmMemberMeta(member) {
+    const slotInfo = getWeeklyStatusSlotInfo(member || {});
+    const passport = member?.user_passport || member?.passport || '-';
+    const slotClass = slotInfo.type === 'manager' ? 'manager' : 'member';
+
+    return `
+        <div class="pending-farm-member-meta">
+            <span class="pending-farm-chip">Passaporte: <strong>${escapeHtml(String(passport))}</strong></span>
+            <span class="pending-farm-chip pending-farm-slot ${slotClass}">
+                ${escapeHtml(slotInfo.label)}: <strong>${escapeHtml(slotInfo.slot)}</strong>
+            </span>
+        </div>
+    `;
+}
+
 async function loadPendingDeliveries() {
     console.log('📦 Iniciando loadPendingDeliveries...');
     try {
@@ -4405,6 +4420,7 @@ async function loadPendingDeliveries() {
                     <div class="delivery-item" id="delivery-${delivery.id}">
                         <div class="delivery-info">
                             <h3>📦 Farm de ${delivery.user_name} ${inProgressBadge}</h3>
+                            ${renderPendingFarmMemberMeta(delivery)}
                             ${paymentInfo}
                             <p class="week-info">📅 Semana: ${formatWeekDate(delivery.week_start)} - ${formatWeekDate(delivery.week_end)}</p>
                             <div class="materials-list">
@@ -4494,6 +4510,7 @@ async function loadPendingExtraFarms() {
                     <div class="delivery-item extra-farm-item" id="extra-farm-${extra.id}" style="border-left: 3px solid #ffd700;">
                         <div class="delivery-info">
                             <h3>🏆 Farm Extra de ${extra.user_name}</h3>
+                            ${renderPendingFarmMemberMeta(extra)}
                             <p class="week-info">📅 Semana: ${formatWeekDate(extra.week_start)} - ${formatWeekDate(extra.week_end)}</p>
                             <div class="materials-list">
                                 ${extra.materialDetails.map(mat => `

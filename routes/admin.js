@@ -726,7 +726,8 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
             SELECT ${isSummary
                 ? 'd.id, d.user_id, d.week_start, d.week_end, d.status, d.created_at, d.payment_type, d.payment_type_id, d.dirty_money_amount'
                 : 'd.*, d.payment_type, d.payment_type_id, d.dirty_money_amount'}, 
-                   u.name as user_name, u.passport as user_passport
+                   u.name as user_name, u.passport as user_passport, u.role as user_role,
+                   u.member_slot, u.manager_slot
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
             WHERE d.status = 'pending'
@@ -741,6 +742,31 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
         query += ` ORDER BY d.week_start DESC, d.created_at ASC`;
         
         const deliveries = await getAll(query, params);
+
+        if (deliveries.length > 0) {
+            const userIds = [...new Set(deliveries.map(d => d.user_id).filter(Boolean))];
+            const groupRows = userIds.length > 0
+                ? await getAll(`
+                    SELECT user_id, group_name
+                    FROM user_groups
+                    WHERE user_id IN (${userIds.map(() => '?').join(',')})
+                `, userIds)
+                : [];
+            const groupsByUser = new Map();
+            for (const row of groupRows) {
+                if (!groupsByUser.has(row.user_id)) groupsByUser.set(row.user_id, []);
+                groupsByUser.get(row.user_id).push(row.group_name);
+            }
+
+            for (const delivery of deliveries) {
+                const groups = groupsByUser.get(delivery.user_id) || [];
+                const isManager = isManagerByGroups([...groups, delivery.user_role]);
+                delivery.groups = groups;
+                delivery.storage_slot = isManager ? delivery.manager_slot : delivery.member_slot;
+                delivery.storage_slot_type = isManager ? 'manager' : 'member';
+                delivery.storage_slot_label = isManager ? 'Bau da Gerencia' : 'Bau dos Membros';
+            }
+        }
 
         if (isSummary) {
             return res.json({ deliveries });
@@ -4500,6 +4526,9 @@ router.get('/extra-farms/pending', requireAdmin, async (req, res) => {
                 ef.created_at,
                 u.name as user_name,
                 u.passport as user_passport,
+                u.role as user_role,
+                u.member_slot,
+                u.manager_slot,
                 d.week_start,
                 d.week_end
             FROM extra_farm_requests ef
@@ -4512,6 +4541,31 @@ router.get('/extra-farms/pending', requireAdmin, async (req, res) => {
         console.log('🏆 Farms extras encontrados:', extras.length);
         
         // Batch: carregar todos os materiais e screenshots de uma vez
+        if (extras.length > 0) {
+            const userIds = [...new Set(extras.map(e => e.user_id).filter(Boolean))];
+            const groupRows = userIds.length > 0
+                ? await getAll(`
+                    SELECT user_id, group_name
+                    FROM user_groups
+                    WHERE user_id IN (${userIds.map(() => '?').join(',')})
+                `, userIds)
+                : [];
+            const groupsByUser = new Map();
+            for (const row of groupRows) {
+                if (!groupsByUser.has(row.user_id)) groupsByUser.set(row.user_id, []);
+                groupsByUser.get(row.user_id).push(row.group_name);
+            }
+
+            for (const extra of extras) {
+                const groups = groupsByUser.get(extra.user_id) || [];
+                const isManager = isManagerByGroups([...groups, extra.user_role]);
+                extra.groups = groups;
+                extra.storage_slot = isManager ? extra.manager_slot : extra.member_slot;
+                extra.storage_slot_type = isManager ? 'manager' : 'member';
+                extra.storage_slot_label = isManager ? 'Bau da Gerencia' : 'Bau dos Membros';
+            }
+        }
+
         const allMaterials = await getAll('SELECT id, name, icon FROM materials');
         const materialsMap = new Map(allMaterials.map(m => [String(m.id), m]));
         
