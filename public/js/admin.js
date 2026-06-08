@@ -5,6 +5,8 @@ let selectedWeek = null;
 let adminNotifications = [];
 let currentUserPermissions = null; // Permissões carregadas do banco
 let familyCommandmentsMembers = [];
+let familyCommandmentsSortColumn = 'name';
+let familyCommandmentsSortDirection = 'asc';
 
 // Helper para escapar HTML e evitar XSS quando usamos innerHTML
 function escapeHtml(str) {
@@ -6657,9 +6659,46 @@ function formatCommandmentDate(value) {
 }
 
 function commandmentStatusLabel(status) {
-    if (status === 'accepted') return '<span style="color:#22c55e;font-weight:700;">Aceitou</span>';
-    if (status === 'refused') return '<span style="color:#ef4444;font-weight:700;">Recusou</span>';
-    return '<span style="color:#f59e0b;font-weight:700;">Pendente</span>';
+    if (status === 'accepted') return '<span class="status-badge completed">Aceitou</span>';
+    if (status === 'refused') return '<span class="status-badge rejected">Recusou</span>';
+    return '<span class="status-badge pending">Pendente</span>';
+}
+
+function renderCommandmentGroupBadges(member) {
+    const groups = member.groups && member.groups.length ? member.groups : [member.role || 'member'];
+    return groups.map(group => (
+        `<span class="role-badge badge-${roleBadgeClass(group)}">${escapeHtml(roleNames[group] || group)}</span>`
+    )).join(' ');
+}
+
+function getCommandmentSortValue(member, column) {
+    if (column === 'groups') {
+        return (member.groups && member.groups.length ? member.groups : [member.role || 'member'])
+            .map(group => roleNames[group] || group)
+            .join(' ');
+    }
+    if (column === 'status') return member.commandment_status || 'pending';
+    if (column === 'responded_at') return member.commandment_responded_at || '';
+    if (column === 'last_login_at') return member.last_login_at || '';
+    return member[column] || '';
+}
+
+function sortFamilyCommandmentsReport(column) {
+    if (familyCommandmentsSortColumn === column) {
+        familyCommandmentsSortDirection = familyCommandmentsSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        familyCommandmentsSortColumn = column;
+        familyCommandmentsSortDirection = 'asc';
+    }
+    renderFamilyCommandmentsReport();
+}
+
+function updateFamilyCommandmentsSortIndicators() {
+    document.querySelectorAll('[data-cmd-sort]').forEach(el => {
+        el.textContent = el.dataset.cmdSort === familyCommandmentsSortColumn
+            ? (familyCommandmentsSortDirection === 'asc' ? '▲' : '▼')
+            : '';
+    });
 }
 
 async function loadFamilyCommandments() {
@@ -6729,6 +6768,14 @@ function renderFamilyCommandmentsReport() {
         const groups = (member.groups || []).join(' ');
         const haystack = `${member.name || ''} ${member.passport || ''} ${groups}`.toLowerCase();
         return !search || haystack.includes(search);
+    }).sort((a, b) => {
+        const aValue = getCommandmentSortValue(a, familyCommandmentsSortColumn);
+        const bValue = getCommandmentSortValue(b, familyCommandmentsSortColumn);
+        const comparison = String(aValue).localeCompare(String(bValue), 'pt-BR', {
+            numeric: true,
+            sensitivity: 'base'
+        });
+        return familyCommandmentsSortDirection === 'asc' ? comparison : -comparison;
     });
 
     const accepted = familyCommandmentsMembers.filter(m => m.commandment_status === 'accepted').length;
@@ -6737,6 +6784,7 @@ function renderFamilyCommandmentsReport() {
     document.getElementById('cmdAcceptedCount').textContent = accepted;
     document.getElementById('cmdRefusedCount').textContent = refused;
     document.getElementById('cmdPendingCount').textContent = pending;
+    updateFamilyCommandmentsSortIndicators();
 
     if (members.length === 0) {
         body.innerHTML = '<tr><td colspan="6" class="loading">Nenhum membro encontrado</td></tr>';
@@ -6747,7 +6795,7 @@ function renderFamilyCommandmentsReport() {
         <tr>
             <td>${escapeHtml(member.passport || '-')}</td>
             <td>${escapeHtml(member.name || '-')}</td>
-            <td>${escapeHtml((member.groups && member.groups.length ? member.groups : [member.role || 'member']).join(', '))}</td>
+            <td>${renderCommandmentGroupBadges(member)}</td>
             <td>${commandmentStatusLabel(member.commandment_status)}</td>
             <td>${formatCommandmentDate(member.commandment_responded_at)}</td>
             <td>${formatCommandmentDate(member.last_login_at)}</td>

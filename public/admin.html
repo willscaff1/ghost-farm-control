@@ -96,7 +96,7 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">⚙️ Configurações</div>
                 <button class="sidebar-item" data-tab="farm-settings">🎛️ Config. do Farm</button>
-                <button class="sidebar-item" data-tab="family-commandments">Mandamentos da Familia</button>
+                <button class="sidebar-item" data-tab="family-commandments">📜 Mandamentos da Familia</button>
                 <button class="sidebar-item" data-tab="edit-permissions">✏️ Liberar Edição</button>
                 <button class="sidebar-item" data-tab="goals">🎯 Metas (Membros e Gerentes)</button>
                 <button class="sidebar-item" data-tab="whitelist">🛡️ Whitelist (Isentos)</button>
@@ -866,12 +866,12 @@
                         <table class="weekly-table">
                             <thead>
                                 <tr>
-                                    <th>Passaporte</th>
-                                    <th>Nome</th>
-                                    <th>Cargo/Grupo</th>
-                                    <th>Status</th>
-                                    <th>Resposta</th>
-                                    <th>Ultimo Login</th>
+                                    <th class="sortable" onclick="sortFamilyCommandmentsReport('passport')">Passaporte <span class="sort-arrow" data-cmd-sort="passport"></span></th>
+                                    <th class="sortable" onclick="sortFamilyCommandmentsReport('name')">Nome <span class="sort-arrow" data-cmd-sort="name"></span></th>
+                                    <th class="sortable" onclick="sortFamilyCommandmentsReport('groups')">Cargo/Grupo <span class="sort-arrow" data-cmd-sort="groups"></span></th>
+                                    <th class="sortable" onclick="sortFamilyCommandmentsReport('status')">Status <span class="sort-arrow" data-cmd-sort="status"></span></th>
+                                    <th class="sortable" onclick="sortFamilyCommandmentsReport('responded_at')">Resposta <span class="sort-arrow" data-cmd-sort="responded_at"></span></th>
+                                    <th class="sortable" onclick="sortFamilyCommandmentsReport('last_login_at')">Ultimo Login <span class="sort-arrow" data-cmd-sort="last_login_at"></span></th>
                                 </tr>
                             </thead>
                             <tbody id="familyCommandmentsReportBody">

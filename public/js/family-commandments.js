@@ -87,6 +87,11 @@
                 margin-top: 14px;
                 color: #fca5a5;
             }
+            .family-commandments-scroll-hint {
+                margin-top: 12px;
+                color: #fbbf24;
+                font-size: 14px;
+            }
             .family-commandments-actions {
                 display: flex;
                 justify-content: flex-end;
@@ -118,6 +123,43 @@
         document.head.appendChild(style);
     }
 
+    function requireScrollToEnd(scrollEl, acceptBtn, hintEl) {
+        if (!scrollEl || !acceptBtn) return;
+
+        const unlock = () => {
+            acceptBtn.disabled = false;
+            acceptBtn.title = '';
+            if (hintEl) {
+                hintEl.textContent = 'Leitura concluida. Agora voce pode concordar.';
+                hintEl.style.color = '#86efac';
+            }
+        };
+
+        const check = () => {
+            const remaining = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+            if (remaining <= 8) {
+                unlock();
+                scrollEl.removeEventListener('scroll', check);
+            }
+        };
+
+        acceptBtn.disabled = true;
+        acceptBtn.title = 'Role os mandamentos ate o final para liberar o aceite';
+        if (hintEl) {
+            hintEl.textContent = 'Role os mandamentos ate o final para liberar o aceite.';
+            hintEl.style.color = '#fbbf24';
+        }
+
+        requestAnimationFrame(() => {
+            if (scrollEl.scrollHeight <= scrollEl.clientHeight + 8) {
+                unlock();
+                return;
+            }
+            check();
+            scrollEl.addEventListener('scroll', check);
+        });
+    }
+
     function setStandaloneMessage(message) {
         const el = document.getElementById('termsMessage');
         if (el) el.textContent = message || '';
@@ -138,6 +180,7 @@
                 </header>
                 <div class="family-commandments-body">
                     <div class="family-commandments-text" id="familyCommandmentsGateText"></div>
+                    <div class="family-commandments-scroll-hint" id="familyCommandmentsGateScrollHint"></div>
                     <div class="family-commandments-message" id="familyCommandmentsGateMessage"></div>
                 </div>
                 <footer class="family-commandments-actions">
@@ -148,7 +191,8 @@
         `;
 
         overlay.querySelector('#familyCommandmentsGateTitle').textContent = data.title || 'Mandamentos da Familia';
-        overlay.querySelector('#familyCommandmentsGateText').textContent = data.content || 'Nenhum mandamento cadastrado.';
+        const textEl = overlay.querySelector('#familyCommandmentsGateText');
+        textEl.textContent = data.content || 'Nenhum mandamento cadastrado.';
 
         document.body.appendChild(overlay);
         document.body.classList.add('family-commandments-locked');
@@ -156,6 +200,8 @@
         const messageEl = overlay.querySelector('#familyCommandmentsGateMessage');
         const acceptBtn = overlay.querySelector('#familyCommandmentsAcceptBtn');
         const rejectBtn = overlay.querySelector('#familyCommandmentsRejectBtn');
+        const scrollHintEl = overlay.querySelector('#familyCommandmentsGateScrollHint');
+        requireScrollToEnd(textEl, acceptBtn, scrollHintEl);
 
         async function submit(accepted) {
             messageEl.textContent = '';
@@ -185,7 +231,7 @@
                 }
             } catch (error) {
                 messageEl.textContent = error.message || 'Erro ao enviar resposta';
-                acceptBtn.disabled = false;
+                requireScrollToEnd(textEl, acceptBtn, scrollHintEl);
                 rejectBtn.disabled = false;
             }
         }
@@ -248,8 +294,13 @@
 
             document.getElementById('termsTitle').textContent = data.title || 'Mandamentos da Familia';
             contentEl.textContent = data.content || 'Nenhum mandamento cadastrado.';
+            const acceptBtn = document.getElementById('acceptTermsBtn');
+            const hintEl = document.createElement('div');
+            hintEl.className = 'family-commandments-scroll-hint';
+            contentEl.insertAdjacentElement('afterend', hintEl);
+            requireScrollToEnd(contentEl, acceptBtn, hintEl);
 
-            document.getElementById('acceptTermsBtn').addEventListener('click', async () => {
+            acceptBtn.addEventListener('click', async () => {
                 await fetch('/api/auth/commandments-response', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
