@@ -87,7 +87,11 @@ async function checkAuth() {
         
         if (data.user) {
             if (data.user.commandments_required) {
-                window.location.href = '/family-commandments';
+                if (typeof showFamilyCommandmentsGate === 'function') {
+                    await showFamilyCommandmentsGate({ onAccepted: () => window.location.reload() });
+                } else {
+                    window.location.href = '/family-commandments';
+                }
                 return;
             }
 

@@ -252,7 +252,11 @@ async function checkAuth() {
         const data = await response.json();
 
         if (data.user?.commandments_required) {
-            window.location.href = '/family-commandments';
+            if (typeof showFamilyCommandmentsGate === 'function') {
+                await showFamilyCommandmentsGate({ onAccepted: () => window.location.reload() });
+            } else {
+                window.location.href = '/family-commandments';
+            }
             return;
         }
         

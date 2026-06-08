@@ -121,6 +121,7 @@ async function getCommandmentsReport() {
     const users = await getAll(`
         SELECT id, name, passport, email, role, active, last_login_at, created_at
         FROM users
+        WHERE active = 1
         ORDER BY LOWER(name)
     `);
     const groups = await getAll('SELECT user_id, group_name FROM user_groups');
