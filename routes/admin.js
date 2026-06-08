@@ -2132,6 +2132,13 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     delivery = memberDeliveries[0]; // not_delivered / rejected / fallback
                 }
             }
+            const lastRejectedDelivery = memberDeliveries.find(d => d.status === 'rejected' && d.approval_note);
+            const lastRejectionInfo = lastRejectedDelivery ? {
+                last_rejection_note: lastRejectedDelivery.approval_note,
+                last_rejected_by_name: lastRejectedDelivery.approved_by_name,
+                last_rejected_at: lastRejectedDelivery.approved_at,
+                last_rejected_delivery_id: lastRejectedDelivery.id
+            } : {};
             const justification = justificationsMap.get(member.id);
 
             // Dados da entrega
@@ -2310,6 +2317,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 const isLatePayment = delivery.description && delivery.description.includes('[META ATRASADA]');
                 pendingApproval.push({
                     ...member,
+                    ...lastRejectionInfo,
                     delivery_id: delivery.id,
                     delivered_at: delivery.delivered_at,
                     screenshot_url: delivery.screenshot_url,
@@ -2327,6 +2335,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 if (!whitelistIds.has(member.id)) {
                     notDelivered.push({
                         ...member,
+                        ...lastRejectionInfo,
                         has_adv_applied: warningsSet.has(member.id),
                         was_rejected: true,
                         rejected_by_name: delivery.approved_by_name,

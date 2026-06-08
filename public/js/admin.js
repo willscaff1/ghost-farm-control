@@ -2214,6 +2214,26 @@ function renderWeeklyStatusSlotCell(member) {
     `;
 }
 
+function renderLastRejectionNotice(member, compact = true) {
+    const note = member?.last_rejection_note || member?.rejection_note;
+    if (!note) return '';
+
+    const by = member.last_rejected_by_name || member.rejected_by_name;
+    const when = member.last_rejected_at || member.rejected_at;
+    const meta = [
+        by ? `por ${escapeHtml(by)}` : '',
+        when ? new Date(when).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+    ].filter(Boolean).join(' - ');
+    const label = compact ? 'Ultima recusa' : 'Motivo da ultima recusa';
+
+    return `
+        <div class="last-rejection-notice" style="margin-top: ${compact ? '6px' : '12px'}; padding: ${compact ? '6px 8px' : '12px'}; border-left: 3px solid #e74c3c; background: rgba(231,76,60,0.12); border-radius: 4px; color: #ffd6d6; font-size: ${compact ? '12px' : '14px'}; line-height: 1.35;">
+            <strong>${label}:</strong> ${escapeHtml(note)}
+            ${meta ? `<div style="opacity: .78; margin-top: 3px;">${meta}</div>` : ''}
+        </div>
+    `;
+}
+
 // Carregar status semanal (da semana selecionada)
 async function loadWeeklyStatus() {
     // Se já temos dados em cache válidos, apenas renderizar (cache estendido para 2min)
@@ -2441,14 +2461,15 @@ function renderWeeklyTable(filter) {
         if (member.pending_extra && member.pending_extra.id) {
             pendingExtraBadge = `<span class="pending-extra-badge" onclick="showPendingExtraModal(${member.pending_extra.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}')">🏆 Extra Pendente</span>`;
         }
-        
+        const rejectionNotice = renderLastRejectionNotice(member, true);
+
         return `
             <tr class="status-${member.status}">
                 <td class="passport-cell">${escapeHtml(member.passport || '-')}</td>
                 <td class="slot-cell">${renderWeeklyStatusSlotCell(member)}</td>
                 <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${escapeHtml(member.name)}${member.is_late_payment ? ' ⏰' : ''}</span>${pendingExtraBadge}</td>
                 <td class="role-cell">${groupsDisplay}</td>
-                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span></td>
+                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span>${rejectionNotice}</td>
                 <td style="white-space: nowrap;">${actionHtml}</td>
             </tr>
         `;
@@ -3091,6 +3112,7 @@ async function showApprovalModal(member) {
     // Guardar o delivery_id para uso na aprovação com edição
     window.currentApprovalDeliveryId = member.delivery_id;
     window.currentApprovalIsDirtyMoney = isDirtyMoney;
+    const lastRejectionHtml = renderLastRejectionNotice(member, false);
     
     showActionModal(`
         <div class="approval-modal">
@@ -3111,6 +3133,7 @@ async function showApprovalModal(member) {
                 <h3>🖼️ Prints (${member.screenshots ? member.screenshots.length : (member.screenshot_url ? 1 : 0)})</h3>
                 ${screenshotsHtml}
             </div>
+            ${lastRejectionHtml}
             <div class="approval-note-container">
                 <h3>📝 Observação (obrigatória para rejeição)</h3>
                 <textarea id="approvalNoteInput" class="approval-note-input" placeholder="Digite uma observação (ao rejeitar, esse motivo será mostrado ao membro)..." rows="3"></textarea>
