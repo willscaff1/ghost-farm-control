@@ -4,6 +4,10 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
+const {
+    getCommandmentsReport,
+    saveCommandments
+} = require('../services/familyCommandments');
 
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
 
@@ -711,6 +715,26 @@ router.get('/current-week', requireAdmin, async (req, res) => {
     try {
         const week = getCurrentWeek();
         res.json({ week });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/family-commandments', requireAdmin, async (req, res) => {
+    try {
+        const report = await getCommandmentsReport();
+        res.json(report);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/family-commandments', requireAdmin, async (req, res) => {
+    try {
+        const { title, content, active } = req.body || {};
+        const saved = await saveCommandments({ title, content, active }, req.session.user.id);
+        const report = await getCommandmentsReport();
+        res.json({ success: true, commandments: saved, report });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -3435,6 +3459,7 @@ const availableTabs = [
     { id: 'all-deliveries', name: 'Histórico', section: 'Estatísticas', icon: '📋' },
     { id: 'weekly-report', name: 'Relatório Semanal', section: 'Estatísticas', icon: '📄' },
     { id: 'farm-settings', name: 'Config. do Farm', section: 'Configurações', icon: '🎛️' },
+    { id: 'family-commandments', name: 'Mandamentos da Familia', section: 'Configurações', icon: '📜' },
     { id: 'competitions', name: 'Competições', section: 'Configurações', icon: '🏆' },
     { id: 'edit-permissions', name: 'Liberar Edição', section: 'Configurações', icon: '✏️' },
     { id: 'goals', name: 'Metas (Membros e Gerentes)', section: 'Configurações', icon: '🎯' },
@@ -3461,6 +3486,7 @@ const availableTabs = [
 // - all-deliveries: Histórico
 // - weekly-report: Relatório Semanal
 // - farm-settings: Config. do Farm (requer can_config)
+// - family-commandments: Mandamentos da Familia
 // - edit-permissions: Liberar Edição (requer can_config)
 // - goals: Metas (Membros e Gerentes)
 // - manage-materials: Gerenciar Materiais (requer can_config)
@@ -3496,7 +3522,7 @@ const defaultRolePermissions = [
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
             'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies',
-            'farm-settings', 'edit-permissions', 'goals', 'manage-materials', 'manage-payment-types', 'manager-goals', 'whitelist'
+            'farm-settings', 'family-commandments', 'edit-permissions', 'goals', 'manage-materials', 'manage-payment-types', 'manager-goals', 'whitelist'
         ]),
         can_config: 1
     },
@@ -3508,7 +3534,7 @@ const defaultRolePermissions = [
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
             'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies',
-            'edit-permissions', 'goals', 'manager-goals'
+            'family-commandments', 'edit-permissions', 'goals', 'manager-goals'
         ]),
         can_config: 1
     },

@@ -86,6 +86,11 @@ async function checkAuth() {
         const data = await response.json();
         
         if (data.user) {
+            if (data.user.commandments_required) {
+                window.location.href = '/family-commandments';
+                return;
+            }
+
             currentUser = data.user;
             document.getElementById('userName').textContent = currentUser.name;
             

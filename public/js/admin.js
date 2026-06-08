@@ -4,6 +4,7 @@ let selectedWeekOffset = 0; // 0 = semana atual, +1 = próxima, +2 = próxima+1,
 let selectedWeek = null;
 let adminNotifications = [];
 let currentUserPermissions = null; // Permissões carregadas do banco
+let familyCommandmentsMembers = [];
 
 // Helper para escapar HTML e evitar XSS quando usamos innerHTML
 function escapeHtml(str) {
@@ -249,6 +250,11 @@ async function checkAuth() {
         }
         
         const data = await response.json();
+
+        if (data.user?.commandments_required) {
+            window.location.href = '/family-commandments';
+            return;
+        }
         
         // Verificar se o usuário tem pelo menos um grupo administrativo
         const userGroups = data.user?.groups || [data.user?.role];
@@ -334,6 +340,7 @@ function showTab(tabId) {
         case 'members': loadMembers(); break; // Sempre recarregar para pegar grupos atualizados
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
+        case 'family-commandments': loadFamilyCommandments(); break;
         case 'competitions': 
             // Iframe carrega automaticamente
             console.log('🏆 Aba de competições aberta (iframe)');
@@ -776,6 +783,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'farm-settings':
                 loadFarmSettings();
+                break;
+            case 'family-commandments':
+                loadFamilyCommandments();
                 break;
             case 'manage-materials':
                 loadMaterials();
@@ -6635,6 +6645,112 @@ async function confirmSaveManagerPaymentGoal(id, newGoal) {
 let competitionEnabled = false;
 
 // Carregar configurações do farm
+function formatCommandmentDate(value) {
+    if (!value) return 'Nunca';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('pt-BR');
+}
+
+function commandmentStatusLabel(status) {
+    if (status === 'accepted') return '<span style="color:#22c55e;font-weight:700;">Aceitou</span>';
+    if (status === 'refused') return '<span style="color:#ef4444;font-weight:700;">Recusou</span>';
+    return '<span style="color:#f59e0b;font-weight:700;">Pendente</span>';
+}
+
+async function loadFamilyCommandments() {
+    const body = document.getElementById('familyCommandmentsReportBody');
+    if (body) body.innerHTML = '<tr><td colspan="6" class="loading">Carregando...</td></tr>';
+
+    try {
+        const response = await fetch('/api/admin/family-commandments');
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Erro ao carregar mandamentos');
+
+        const commandments = data.commandments || {};
+        document.getElementById('familyCommandmentsTitle').value = commandments.title || 'Mandamentos da Familia';
+        document.getElementById('familyCommandmentsContent').value = commandments.content || '';
+        document.getElementById('familyCommandmentsActive').checked = !!commandments.active;
+        document.getElementById('familyCommandmentsVersion').textContent = `Versao atual: ${commandments.version || 1}`;
+
+        familyCommandmentsMembers = data.members || [];
+        renderFamilyCommandmentsReport();
+    } catch (error) {
+        if (body) body.innerHTML = `<tr><td colspan="6" class="loading">Erro: ${escapeHtml(error.message)}</td></tr>`;
+        showNotification(error.message, 'error');
+    }
+}
+
+async function saveFamilyCommandments() {
+    const messageEl = document.getElementById('familyCommandmentsMessage');
+    try {
+        const payload = {
+            title: document.getElementById('familyCommandmentsTitle').value,
+            content: document.getElementById('familyCommandmentsContent').value,
+            active: document.getElementById('familyCommandmentsActive').checked
+        };
+
+        const response = await fetch('/api/admin/family-commandments', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Erro ao salvar mandamentos');
+
+        messageEl.textContent = data.commandments?.changed
+            ? 'Mandamentos salvos. Uma nova versao foi criada e exigira novo aceite.'
+            : 'Mandamentos salvos sem alterar a versao.';
+        messageEl.className = 'message show success';
+
+        const report = data.report || {};
+        familyCommandmentsMembers = report.members || [];
+        const commandments = report.commandments || data.commandments || {};
+        document.getElementById('familyCommandmentsVersion').textContent = `Versao atual: ${commandments.version || 1}`;
+        renderFamilyCommandmentsReport();
+        showNotification('Mandamentos salvos', 'success');
+    } catch (error) {
+        messageEl.textContent = error.message;
+        messageEl.className = 'message show error';
+        showNotification(error.message, 'error');
+    }
+}
+
+function renderFamilyCommandmentsReport() {
+    const body = document.getElementById('familyCommandmentsReportBody');
+    if (!body) return;
+
+    const search = String(document.getElementById('familyCommandmentsSearch')?.value || '').toLowerCase().trim();
+    const members = familyCommandmentsMembers.filter(member => {
+        const groups = (member.groups || []).join(' ');
+        const haystack = `${member.name || ''} ${member.passport || ''} ${groups}`.toLowerCase();
+        return !search || haystack.includes(search);
+    });
+
+    const accepted = familyCommandmentsMembers.filter(m => m.commandment_status === 'accepted').length;
+    const refused = familyCommandmentsMembers.filter(m => m.commandment_status === 'refused').length;
+    const pending = familyCommandmentsMembers.length - accepted - refused;
+    document.getElementById('cmdAcceptedCount').textContent = accepted;
+    document.getElementById('cmdRefusedCount').textContent = refused;
+    document.getElementById('cmdPendingCount').textContent = pending;
+
+    if (members.length === 0) {
+        body.innerHTML = '<tr><td colspan="6" class="loading">Nenhum membro encontrado</td></tr>';
+        return;
+    }
+
+    body.innerHTML = members.map(member => `
+        <tr>
+            <td>${escapeHtml(member.passport || '-')}</td>
+            <td>${escapeHtml(member.name || '-')}</td>
+            <td>${escapeHtml((member.groups && member.groups.length ? member.groups : [member.role || 'member']).join(', '))}</td>
+            <td>${commandmentStatusLabel(member.commandment_status)}</td>
+            <td>${formatCommandmentDate(member.commandment_responded_at)}</td>
+            <td>${formatCommandmentDate(member.last_login_at)}</td>
+        </tr>
+    `).join('');
+}
+
 async function loadFarmSettings() {
     try {
         const response = await fetch('/api/admin/farm-settings');
@@ -10516,6 +10632,7 @@ async function loadWeaponProductionHistory() {
     try {
         const response = await fetch('/api/admin/weapon-production');
         const data = await response.json();
+
         if (!response.ok || data.error) {
             throw new Error(data.error || 'Erro ao carregar fabricacoes');
         }

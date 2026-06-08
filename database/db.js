@@ -197,6 +197,7 @@ const initializePostgres = async () => {
                 member_slot TEXT,
                 manager_slot TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login_at TIMESTAMP,
                 active INTEGER DEFAULT 1
             )
         `);
@@ -361,6 +362,16 @@ const initializePostgres = async () => {
             )
         `);
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS family_commandment_responses (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                version INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                responded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Criar super admin (somente com senha de bootstrap configurada)
         const existing = await pool.query(`SELECT id FROM users WHERE passport = '6999'`);
         if (existing.rows.length === 0 && superAdminBootstrapPassword) {
@@ -381,6 +392,7 @@ const initializePostgres = async () => {
         try {
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS member_slot TEXT`);
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS manager_slot TEXT`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP`);
             console.log('Colunas de slot dos usuarios verificadas/adicionadas');
         } catch (e) {
             console.log('slots dos usuarios:', e.message);
@@ -536,7 +548,11 @@ const initializePostgres = async () => {
         const defaultSettings = [
             ['farm_materials_enabled', 'true'],      // Habilitar farm de materiais
             ['farm_payment_enabled', 'true'],        // Habilitar pagamento com dinheiro
-            ['farm_payment_mode', 'either']          // 'either' = um ou outro, 'both' = ambos obrigatórios
+            ['farm_payment_mode', 'either'],
+            ['family_commandments_title', 'Mandamentos da Familia'],
+            ['family_commandments_content', ''],
+            ['family_commandments_version', '1'],
+            ['family_commandments_active', 'false']
         ];
 
         for (const [key, value] of defaultSettings) {
@@ -557,6 +573,7 @@ const initializePostgres = async () => {
             'CREATE INDEX IF NOT EXISTS idx_users_passport ON users (passport)',
             'CREATE INDEX IF NOT EXISTS idx_users_role ON users (role)',
             'CREATE INDEX IF NOT EXISTS idx_users_active ON users (active)',
+            'CREATE INDEX IF NOT EXISTS idx_users_last_login ON users (last_login_at)',
             
             // Tabela deliveries - mais acessada
             'CREATE INDEX IF NOT EXISTS idx_deliveries_user_id ON deliveries (user_id)',
@@ -598,6 +615,8 @@ const initializePostgres = async () => {
             
             // Tabela farm_whitelist
             'CREATE INDEX IF NOT EXISTS idx_whitelist_user ON farm_whitelist (user_id)',
+            'CREATE INDEX IF NOT EXISTS idx_family_cmd_user_version ON family_commandment_responses (user_id, version)',
+            'CREATE INDEX IF NOT EXISTS idx_family_cmd_version_status ON family_commandment_responses (version, status)',
         ];
         
         let indexCount = 0;
@@ -637,6 +656,7 @@ const initializeSQLite = () => {
                     member_slot TEXT,
                     manager_slot TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    last_login_at DATETIME,
                     active INTEGER DEFAULT 1
                 )
             `);
@@ -816,6 +836,17 @@ const initializeSQLite = () => {
                 )
             `);
 
+            pool.run(`
+                CREATE TABLE IF NOT EXISTS family_commandment_responses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    version INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    responded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            `);
+
             // Tabela de observações dos membros (histórico)
             pool.run(`
                 CREATE TABLE IF NOT EXISTS member_observations (
@@ -852,6 +883,9 @@ const initializeSQLite = () => {
             });
             pool.run(`ALTER TABLE users ADD COLUMN manager_slot TEXT`, (err) => {
                 if (!err) console.log('Coluna manager_slot adicionada (SQLite)');
+            });
+            pool.run(`ALTER TABLE users ADD COLUMN last_login_at DATETIME`, (err) => {
+                if (!err) console.log('Coluna last_login_at adicionada (SQLite)');
             });
 
             pool.run(`ALTER TABLE deliveries ADD COLUMN payment_type TEXT DEFAULT 'material'`, (err) => {
@@ -907,7 +941,11 @@ const initializeSQLite = () => {
             const defaultSettings = [
                 ['farm_materials_enabled', 'true'],
                 ['farm_payment_enabled', 'true'],
-                ['farm_payment_mode', 'either']
+                ['farm_payment_mode', 'either'],
+                ['family_commandments_title', 'Mandamentos da Familia'],
+                ['family_commandments_content', ''],
+                ['family_commandments_version', '1'],
+                ['family_commandments_active', 'false']
             ];
             defaultSettings.forEach(([key, value]) => {
                 pool.run(`INSERT OR IGNORE INTO farm_settings (setting_key, setting_value) VALUES (?, ?)`, [key, value]);

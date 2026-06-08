@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mandamentos da Familia - Ghosts</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            min-height: 100vh;
+            background: #0f1020;
+            color: #f8fafc;
+        }
+        .terms-shell {
+            width: min(980px, calc(100% - 32px));
+            margin: 32px auto;
+        }
+        .terms-card {
+            background: #17182b;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+            overflow: hidden;
+        }
+        .terms-header {
+            padding: 28px 32px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .terms-header h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            letter-spacing: 0;
+        }
+        .terms-header p {
+            margin: 0;
+            color: #aeb4c8;
+        }
+        .terms-content {
+            padding: 32px;
+        }
+        .terms-box {
+            min-height: 320px;
+            max-height: 56vh;
+            overflow: auto;
+            white-space: pre-wrap;
+            line-height: 1.65;
+            background: #10111f;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 24px;
+            color: #eef2ff;
+        }
+        .terms-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 24px 32px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .terms-message {
+            min-height: 24px;
+            margin-top: 16px;
+            color: #fca5a5;
+        }
+        @media (max-width: 640px) {
+            .terms-shell {
+                width: calc(100% - 20px);
+                margin: 10px auto;
+            }
+            .terms-header,
+            .terms-content,
+            .terms-actions {
+                padding: 20px;
+            }
+            .terms-actions {
+                flex-direction: column-reverse;
+            }
+            .terms-actions .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="terms-shell">
+        <section class="terms-card">
+            <header class="terms-header">
+                <h1 id="termsTitle">Mandamentos da Familia</h1>
+                <p>Para continuar usando o sistema, leia e aceite os mandamentos atuais.</p>
+            </header>
+            <div class="terms-content">
+                <div id="termsContent" class="terms-box">Carregando...</div>
+                <div id="termsMessage" class="terms-message"></div>
+            </div>
+            <footer class="terms-actions">
+                <button id="rejectTermsBtn" class="btn btn-secondary" type="button">Recusar e sair</button>
+                <button id="acceptTermsBtn" class="btn btn-primary" type="button">Aceito os mandamentos</button>
+            </footer>
+        </section>
+    </main>
+
+    <script src="js/family-commandments.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@ const db = require('./database/db');
 const authRoutes = require('./routes/auth');
 const deliveryRoutes = require('./routes/delivery');
 const adminRoutes = require('./routes/admin');
+const { getUserCommandmentStatus } = require('./services/familyCommandments');
 
 const crypto = require('crypto');
 
@@ -55,8 +56,27 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/delivery', deliveryRoutes);
-app.use('/api/admin', adminRoutes);
+
+const requireCommandmentsAcceptance = async (req, res, next) => {
+    if (!req.session?.user) return next();
+
+    try {
+        const status = await getUserCommandmentStatus(req.session.user.id);
+        if (status.requiresAcceptance) {
+            return res.status(428).json({
+                error: 'Aceite os mandamentos da familia para continuar',
+                commandments_required: true,
+                redirect: '/family-commandments'
+            });
+        }
+        next();
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao verificar aceite dos mandamentos' });
+    }
+};
+
+app.use('/api/delivery', requireCommandmentsAcceptance, deliveryRoutes);
+app.use('/api/admin', requireCommandmentsAcceptance, adminRoutes);
 
 // Health check — usado pelo smoke test e monitoramento
 app.get('/health', async (req, res) => {
@@ -85,6 +105,10 @@ app.get('/admin', (req, res) => {
 
 app.get('/register', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'register.html'));
+});
+
+app.get('/family-commandments', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'family-commandments.html'));
 });
 
 // Initialize database and start server
@@ -380,6 +404,38 @@ db.initialize().then(async () => {
         }
     }
     
+    async function updateFamilyCommandmentsPermissions() {
+        try {
+            const { runQuery, getAll } = require('./database/db');
+            const groupsWithAccess = ['super_admin', 'gerente_geral', '01', '02'];
+            const roles = await getAll('SELECT * FROM role_permissions');
+            let updated = 0;
+
+            for (const role of roles) {
+                const permissions = JSON.parse(role.permissions || '[]');
+                const shouldHaveAccess = groupsWithAccess.includes(role.role_name) ||
+                    permissions.includes('all') ||
+                    role.can_config === 1 ||
+                    role.can_config === true;
+
+                if (shouldHaveAccess && !permissions.includes('family-commandments') && !permissions.includes('all')) {
+                    permissions.push('family-commandments');
+                    await runQuery(
+                        'UPDATE role_permissions SET permissions = ? WHERE role_name = ?',
+                        [JSON.stringify(permissions), role.role_name]
+                    );
+                    updated++;
+                }
+            }
+
+            if (updated > 0) {
+                console.log(`Mandamentos: permissao atualizada (${updated} grupos)`);
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar permissoes de mandamentos:', error.message);
+        }
+    }
+
     // Função para migrar farms in_progress para pending (novo fluxo de aprovação)
     async function migrateInProgressToPending() {
         try {
@@ -664,6 +720,9 @@ db.initialize().then(async () => {
 
         // Atualizar permissões do extrato de vendas
         await updateWeaponSalesPermissions();
+
+        // Atualizar permissoes dos mandamentos da familia
+        await updateFamilyCommandmentsPermissions();
         
         // Migrar farms in_progress para pending (novo fluxo de aprovação)
         await migrateInProgressToPending();

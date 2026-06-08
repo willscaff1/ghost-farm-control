@@ -1,6 +1,11 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { runQuery, getOne, getAll } = require('../database/db');
+const {
+    getCurrentCommandments,
+    getUserCommandmentStatus,
+    recordCommandmentResponse
+} = require('../services/familyCommandments');
 
 const router = express.Router();
 
@@ -33,10 +38,16 @@ router.post('/login', async (req, res) => {
             email: user.email,
             role: user.role
         };
+
+        await runQuery('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
+        const commandments = await getUserCommandmentStatus(user.id);
         
         res.json({ 
             success: true, 
-            user: req.session.user 
+            user: {
+                ...req.session.user,
+                commandments_required: commandments.requiresAcceptance
+            }
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -73,11 +84,14 @@ router.get('/me', async (req, res) => {
             req.session.user.groups = groups;
             req.session.user.role = groups[0] || userCheck.role; // Atualizar role também
             
+            const commandments = await getUserCommandmentStatus(req.session.user.id);
+
             res.json({ 
                 user: {
                     ...req.session.user,
                     groups: groups,
-                    role: groups[0] || userCheck.role
+                    role: groups[0] || userCheck.role,
+                    commandments_required: commandments.requiresAcceptance
                 }
             });
         } catch (error) {
@@ -87,6 +101,55 @@ router.get('/me', async (req, res) => {
         }
     } else {
         res.status(401).json({ error: 'Não autenticado' });
+    }
+});
+
+router.get('/commandments-status', async (req, res) => {
+    try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Nao autenticado' });
+        }
+
+        const status = await getUserCommandmentStatus(req.session.user.id);
+        res.json({
+            title: status.title,
+            content: status.content,
+            version: status.version,
+            active: status.active,
+            status: status.status,
+            responded_at: status.responded_at,
+            requiresAcceptance: status.requiresAcceptance
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/commandments-response', async (req, res) => {
+    try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Nao autenticado' });
+        }
+
+        const { accepted } = req.body || {};
+        const current = await getCurrentCommandments();
+
+        if (!current.requiresAcceptance) {
+            return res.json({ success: true, requiresAcceptance: false });
+        }
+
+        const status = accepted === true ? 'accepted' : 'refused';
+        await recordCommandmentResponse(req.session.user.id, current.version, status);
+
+        if (status === 'refused') {
+            return req.session.destroy(() => {
+                res.json({ success: true, accepted: false, redirect: '/' });
+            });
+        }
+
+        res.json({ success: true, accepted: true, redirect: req.session.user.role === 'member' ? '/dashboard' : '/admin' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

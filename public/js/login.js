@@ -36,7 +36,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             
             // Redireciona baseado no tipo de usuário
             setTimeout(() => {
-                if (isAdminRole(data.user.role)) {
+                if (data.user.commandments_required) {
+                    window.location.href = '/family-commandments';
+                } else if (isAdminRole(data.user.role)) {
                     window.location.href = '/admin';
                 } else {
                     window.location.href = '/dashboard';
@@ -57,7 +59,9 @@ fetch('/api/auth/me')
     .then(res => res.json())
     .then(data => {
         if (data.user) {
-            if (isAdminRole(data.user.role)) {
+            if (data.user.commandments_required) {
+                window.location.href = '/family-commandments';
+            } else if (isAdminRole(data.user.role)) {
                 window.location.href = '/admin';
             } else {
                 window.location.href = '/dashboard';

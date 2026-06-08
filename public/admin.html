@@ -96,6 +96,7 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">⚙️ Configurações</div>
                 <button class="sidebar-item" data-tab="farm-settings">🎛️ Config. do Farm</button>
+                <button class="sidebar-item" data-tab="family-commandments">Mandamentos da Familia</button>
                 <button class="sidebar-item" data-tab="edit-permissions">✏️ Liberar Edição</button>
                 <button class="sidebar-item" data-tab="goals">🎯 Metas (Membros e Gerentes)</button>
                 <button class="sidebar-item" data-tab="whitelist">🛡️ Whitelist (Isentos)</button>
@@ -802,6 +803,82 @@
                     </div>
 
                     <div id="farmSettingsMessage" class="message"></div>
+                </div>
+            </div>
+
+            <!-- Family Commandments Tab -->
+            <div id="family-commandments-tab" class="tab-content">
+                <div class="card">
+                    <h2>Mandamentos da Familia</h2>
+                    <p class="subtitle">Edite os termos exibidos no primeiro acesso. Ao salvar uma nova versao, todos precisam aceitar novamente.</p>
+
+                    <div class="settings-section">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Exigir aceite dos membros e gerentes</span>
+                                <span class="setting-description">Quem recusar sera deslogado e voltara para a tela de login.</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="familyCommandmentsActive">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="familyCommandmentsTitle">Titulo</label>
+                        <input type="text" id="familyCommandmentsTitle" placeholder="Mandamentos da Familia">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="familyCommandmentsContent">Mandamentos</label>
+                        <textarea id="familyCommandmentsContent" rows="12" placeholder="Digite aqui os mandamentos da familia..." style="width: 100%; min-height: 260px; resize: vertical;"></textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
+                        <button class="btn btn-primary" onclick="saveFamilyCommandments()">Salvar Mandamentos</button>
+                        <button class="btn btn-secondary" onclick="loadFamilyCommandments()">Atualizar Relatorio</button>
+                        <span id="familyCommandmentsVersion" class="subtitle"></span>
+                    </div>
+
+                    <div id="familyCommandmentsMessage" class="message"></div>
+
+                    <div class="stats-grid" style="margin-top: 24px;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="cmdAcceptedCount">0</div>
+                            <div class="stat-label">Aceitaram</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="cmdRefusedCount">0</div>
+                            <div class="stat-label">Recusaram</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="cmdPendingCount">0</div>
+                            <div class="stat-label">Pendentes</div>
+                        </div>
+                    </div>
+
+                    <div class="overview-controls" style="margin-top: 20px;">
+                        <input type="text" id="familyCommandmentsSearch" placeholder="Buscar por nome, passaporte ou cargo..." class="search-input" onkeyup="renderFamilyCommandmentsReport()">
+                    </div>
+
+                    <div class="table-container">
+                        <table class="weekly-table">
+                            <thead>
+                                <tr>
+                                    <th>Passaporte</th>
+                                    <th>Nome</th>
+                                    <th>Cargo/Grupo</th>
+                                    <th>Status</th>
+                                    <th>Resposta</th>
+                                    <th>Ultimo Login</th>
+                                </tr>
+                            </thead>
+                            <tbody id="familyCommandmentsReportBody">
+                                <tr><td colspan="6" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
