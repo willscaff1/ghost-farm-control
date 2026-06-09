@@ -157,7 +157,7 @@
 
 .weekly-status-table {
     table-layout: fixed;
-    min-width: 980px;
+    min-width: 1040px;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -179,7 +179,7 @@
 }
 
 .weekly-status-table .weekly-col-status {
-    width: 190px;
+    width: 250px;
 }
 
 .weekly-status-table .weekly-col-actions {
@@ -256,8 +256,19 @@
 
 .weekly-status-table th:nth-child(5),
 .weekly-status-table td:nth-child(5) {
-    width: 190px;
+    width: 250px;
     text-align: center;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+.weekly-status-table td:nth-child(5) .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    max-width: 100%;
+    margin: 0 auto;
 }
 
 .weekly-status-table th:nth-child(6),
