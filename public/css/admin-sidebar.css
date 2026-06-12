@@ -6959,6 +6959,28 @@ body.admin-layout {
     font-variant-numeric: tabular-nums;
 }
 
+.weapon-stock-edit {
+    display: inline-flex;
+    justify-content: center;
+}
+
+.weapon-stock-edit input {
+    width: 90px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 20, 40, 0.6);
+    color: #fff;
+    font-size: 14px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.weapon-stock-edit input:focus {
+    outline: none;
+    border-color: #6c5ce7;
+}
+
 .weapon-price-edit input:focus {
     outline: none;
     border-color: #6c5ce7;

@@ -10813,15 +10813,19 @@ function renderWeaponCatalog() {
         return `
             <tr>
                 <td><strong>${escapeHtml(item.weapon_name)}</strong></td>
-                <td>${Number(item.current_stock || 0).toLocaleString('pt-BR')}</td>
+                <td>
+                    <div class="weapon-stock-edit">
+                        <input type="number" id="weaponCatalogStock${item.id}" min="0" step="1" value="${Number(item.current_stock || 0)}">
+                    </div>
+                </td>
                 <td>
                     <div class="weapon-price-edit">
                         <input type="text" id="weaponPriceInput${item.id}" inputmode="numeric" value="${price > 0 ? formatWeaponSaleMoney(price).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : ''}" placeholder="R$ 0,00" data-raw-value="${price > 0 ? price.toFixed(2) : ''}" oninput="applyWeaponMoneyMask(this)">
-                        <button class="btn btn-primary btn-small" onclick="saveWeaponPrice(${item.id})">Salvar</button>
                     </div>
                 </td>
                 <td>${statusLabel}</td>
                 <td>
+                    <button class="btn btn-primary btn-small" onclick="saveWeaponCatalogRow(${item.id})">💾 Salvar</button>
                     <button class="btn btn-danger btn-small" onclick="toggleWeaponStock(${item.id})">${inactive ? 'Ativar' : 'Desativar'}</button>
                 </td>
             </tr>
@@ -10829,21 +10833,38 @@ function renderWeaponCatalog() {
     }).join('');
 }
 
-async function saveWeaponPrice(stockId) {
-    const input = document.getElementById(`weaponPriceInput${stockId}`);
+// Salva estoque e valor de venda da linha do catálogo
+async function saveWeaponCatalogRow(stockId) {
+    const stockInput = document.getElementById(`weaponCatalogStock${stockId}`);
+    const priceInput = document.getElementById(`weaponPriceInput${stockId}`);
 
     try {
-        const response = await fetch(`/api/admin/weapon-stock/${stockId}/price`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sale_price: getWeaponMoneyRaw(input) })
-        });
-        const data = await response.json();
-        if (!response.ok || data.error) {
-            throw new Error(data.error || 'Erro ao salvar valor');
+        const newStock = parseInt(stockInput?.value, 10);
+        if (!Number.isInteger(newStock) || newStock < 0) {
+            throw new Error('Informe um estoque válido (0 ou mais)');
         }
 
-        showNotification(data.message || 'Valor atualizado', 'success');
+        const stockResponse = await fetch(`/api/admin/weapon-stock/${stockId}/adjust`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'set', quantity: newStock })
+        });
+        const stockData = await stockResponse.json();
+        if (!stockResponse.ok || stockData.error) {
+            throw new Error(stockData.error || 'Erro ao salvar estoque');
+        }
+
+        const priceResponse = await fetch(`/api/admin/weapon-stock/${stockId}/price`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sale_price: getWeaponMoneyRaw(priceInput) })
+        });
+        const priceData = await priceResponse.json();
+        if (!priceResponse.ok || priceData.error) {
+            throw new Error(priceData.error || 'Erro ao salvar valor');
+        }
+
+        showNotification('Arma atualizada: estoque e valor salvos', 'success');
         await loadWeaponStock();
     } catch (error) {
         alert(error.message);

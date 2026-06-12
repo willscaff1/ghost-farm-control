@@ -5858,11 +5858,11 @@ router.post('/weapon-stock/:id/adjust', requireAdmin, requireWeaponSalesAccess, 
         const type = String(req.body.type || '').trim();
         const quantity = parseInt(req.body.quantity, 10);
 
-        if (!['add', 'remove'].includes(type)) {
+        if (!['add', 'remove', 'set'].includes(type)) {
             return res.status(400).json({ error: 'Tipo de ajuste inválido' });
         }
 
-        if (!Number.isInteger(quantity) || quantity <= 0) {
+        if (!Number.isInteger(quantity) || (type === 'set' ? quantity < 0 : quantity <= 0)) {
             return res.status(400).json({ error: 'Informe uma quantidade válida' });
         }
 
@@ -5872,7 +5872,9 @@ router.post('/weapon-stock/:id/adjust', requireAdmin, requireWeaponSalesAccess, 
         }
 
         const currentStock = Number(stock.current_stock || 0);
-        const nextStock = type === 'add' ? currentStock + quantity : currentStock - quantity;
+        const nextStock = type === 'set'
+            ? quantity
+            : (type === 'add' ? currentStock + quantity : currentStock - quantity);
         if (nextStock < 0) {
             return res.status(400).json({ error: `Estoque insuficiente. Disponível: ${currentStock}` });
         }
