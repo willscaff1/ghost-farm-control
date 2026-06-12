@@ -1,0 +1,363 @@
+/* ============================================================
+   THEME POLISH — camada global de acabamento visual
+   Carregada por último em todas as páginas.
+   Padroniza: cantos arredondados, bordas, sombras, foco,
+   badges em pílula, scrollbars e simetria de espaçamento.
+   ============================================================ */
+
+:root {
+    --tp-r-sm: 10px;
+    --tp-r-md: 12px;
+    --tp-r-lg: 18px;
+    --tp-r-pill: 999px;
+    --tp-border: rgba(148, 163, 184, 0.16);
+    --tp-border-strong: rgba(148, 163, 184, 0.28);
+    --tp-accent: #6c5ce7;
+    --tp-accent-soft: rgba(108, 92, 231, 0.35);
+    --tp-card-shadow: 0 10px 34px rgba(0, 0, 0, 0.35);
+    --tp-focus-ring: 0 0 0 3px rgba(108, 92, 231, 0.25);
+}
+
+/* ---------- Tipografia / base ---------- */
+
+body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* ---------- Campos de formulário ---------- */
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="email"],
+input[type="date"],
+input[type="month"],
+input[type="search"],
+select,
+textarea {
+    border-radius: var(--tp-r-md) !important;
+    border: 1px solid var(--tp-border-strong);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="date"]:focus,
+input[type="month"]:focus,
+input[type="search"]:focus,
+select:focus,
+textarea:focus {
+    outline: none !important;
+    border-color: var(--tp-accent) !important;
+    box-shadow: var(--tp-focus-ring);
+}
+
+input[type="file"] {
+    border-radius: var(--tp-r-md) !important;
+}
+
+/* ---------- Botões ---------- */
+
+.btn,
+button.btn,
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-small,
+.btn-submit,
+.btn-justify,
+.btn-add-screenshot,
+.btn-clear-notifications,
+.action-btn,
+.filter-btn,
+.payment-type-btn,
+.week-nav-btn,
+.weapon-primary-action {
+    border-radius: var(--tp-r-sm) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.btn:hover,
+.btn-primary:hover,
+.btn-submit:hover,
+.action-btn:hover,
+.weapon-primary-action:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active,
+.btn-primary:active,
+.btn-submit:active,
+.action-btn:active {
+    transform: translateY(0);
+}
+
+/* ---------- Cards / painéis ---------- */
+
+.card,
+.panel,
+.stat-card,
+.login-box,
+.weapon-stock-card,
+.weapon-stock-add-form,
+.weapon-production-form,
+.weapon-production-history,
+.weapon-stock-panel,
+.weapon-sale-form-panel,
+.weapon-stock-overview-panel,
+.weapon-freebie-form-panel {
+    border-radius: var(--tp-r-lg) !important;
+}
+
+.card,
+.panel {
+    border: 1px solid var(--tp-border);
+    box-shadow: var(--tp-card-shadow);
+}
+
+.stat-card {
+    border: 1px solid var(--tp-border);
+    transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.stat-card:hover {
+    border-color: var(--tp-accent-soft);
+    transform: translateY(-2px);
+}
+
+/* ---------- Modais ---------- */
+
+.modal-content,
+.warnings-modal-content,
+.recovery-modal,
+.action-modal-content,
+.confirmation-modal-content {
+    border-radius: var(--tp-r-lg) !important;
+    border: 1px solid var(--tp-border-strong);
+}
+
+.modal-close-btn {
+    border-radius: var(--tp-r-pill) !important;
+}
+
+/* ---------- Tabelas ---------- */
+
+.table-container {
+    border-radius: var(--tp-r-lg);
+    border: 1px solid var(--tp-border);
+    overflow: auto;
+}
+
+.weekly-table thead th:first-child,
+.weekly-status-table thead th:first-child {
+    border-top-left-radius: var(--tp-r-lg);
+}
+
+.weekly-table thead th:last-child,
+.weekly-status-table thead th:last-child {
+    border-top-right-radius: var(--tp-r-lg);
+}
+
+.weekly-table tbody tr:last-child td:first-child {
+    border-bottom-left-radius: var(--tp-r-lg);
+}
+
+.weekly-table tbody tr:last-child td:last-child {
+    border-bottom-right-radius: var(--tp-r-lg);
+}
+
+.weekly-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+/* ---------- Badges em pílula ---------- */
+
+.status-badge,
+.role-badge,
+.week-status-badge,
+.pending-extra-badge,
+.adv-applied-badge,
+.late-payment-tag,
+.notification-badge {
+    border-radius: var(--tp-r-pill) !important;
+}
+
+.role-badge {
+    padding: 4px 12px;
+}
+
+/* ---------- Sidebar (admin) ---------- */
+
+.sidebar-item {
+    border-radius: var(--tp-r-sm) !important;
+    width: calc(100% - 16px) !important;
+    margin: 2px 8px;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease, padding 0.18s ease;
+}
+
+.sidebar-item:hover {
+    transform: translateX(2px);
+}
+
+.sidebar-item.active {
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.85), rgba(91, 76, 219, 0.85)) !important;
+    color: #fff !important;
+    border-left-color: transparent !important;
+    box-shadow: 0 4px 14px rgba(108, 92, 231, 0.35);
+}
+
+/* ---------- Navbar / barra de semana ---------- */
+
+.navbar {
+    border-bottom: 1px solid var(--tp-border);
+    backdrop-filter: blur(8px);
+}
+
+.week-bar {
+    border-radius: var(--tp-r-lg) !important;
+    border: 1px solid var(--tp-border);
+}
+
+.week-nav-btn {
+    border-radius: var(--tp-r-pill) !important;
+}
+
+/* ---------- Mensagens / avisos ---------- */
+
+.message,
+.form-message,
+.recovery-msg,
+.weapon-catalog-hint {
+    border-radius: var(--tp-r-md) !important;
+}
+
+/* ---------- Imagens / screenshots ---------- */
+
+.delivery-screenshot,
+.screenshots-grid img,
+.screenshot-preview {
+    border-radius: var(--tp-r-sm) !important;
+}
+
+.member-avatar {
+    border-radius: var(--tp-r-pill) !important;
+}
+
+/* ---------- Dropdowns ---------- */
+
+.user-dropdown,
+.notifications-dropdown {
+    border-radius: var(--tp-r-md) !important;
+    border: 1px solid var(--tp-border-strong);
+    box-shadow: var(--tp-card-shadow);
+    overflow: hidden;
+}
+
+.dropdown-item {
+    transition: background 0.15s ease;
+}
+
+/* ---------- Página Armas e Valores / Extrato ---------- */
+
+#weapon-catalog-tab .weapon-stock-add-form {
+    box-shadow: var(--tp-card-shadow);
+}
+
+.weapon-stock-kpis div {
+    border-radius: var(--tp-r-md);
+    border: 1px solid var(--tp-border);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.weapon-sale-item-row select,
+.weapon-sale-item-row input {
+    border-radius: var(--tp-r-sm) !important;
+}
+
+.weapon-seller-option {
+    border-radius: var(--tp-r-sm) !important;
+}
+
+.weapon-production-entry {
+    border-radius: var(--tp-r-md);
+    border: 1px solid var(--tp-border);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 10px 12px;
+}
+
+/* ---------- Scrollbars ---------- */
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(108, 92, 231, 0.45) rgba(255, 255, 255, 0.04);
+}
+
+*::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+}
+
+*::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--tp-r-pill);
+}
+
+*::-webkit-scrollbar-thumb {
+    background: rgba(108, 92, 231, 0.45);
+    border-radius: var(--tp-r-pill);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(108, 92, 231, 0.7);
+    background-clip: padding-box;
+}
+
+/* ---------- Simetria de espaçamento ---------- */
+
+.card {
+    padding: 24px;
+}
+
+.card h2 {
+    margin-bottom: 6px;
+}
+
+.card .subtitle {
+    margin-bottom: 20px;
+    color: #8a93b8;
+}
+
+.form-row {
+    gap: 14px;
+}
+
+.form-group label {
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+/* ---------- Transições suaves nas trocas de tab ---------- */
+
+.tab-content.active {
+    animation: tpFadeIn 0.22s ease;
+}
+
+@keyframes tpFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Respeita usuários que preferem menos movimento */
+@media (prefers-reduced-motion: reduce) {
+    .tab-content.active,
+    .btn, .btn-primary, .btn-submit, .action-btn,
+    .sidebar-item, .stat-card {
+        animation: none !important;
+        transition: none !important;
+    }
+}
