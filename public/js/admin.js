@@ -10506,6 +10506,25 @@ function formatWeaponSaleMoney(value) {
     });
 }
 
+// Máscara de moeda BRL: digita números e o campo formata como R$ 1.234,56
+function applyWeaponMoneyMask(input) {
+    if (!input) return;
+    const digits = String(input.value).replace(/\D/g, '');
+    const amount = Number(digits) / 100;
+    input.value = amount > 0 ? formatWeaponSaleMoney(amount) : '';
+    input.dataset.rawValue = amount > 0 ? amount.toFixed(2) : '';
+}
+
+// Valor numérico de um campo com máscara de moeda
+function getWeaponMoneyRaw(input) {
+    if (!input) return '';
+    if (input.dataset.rawValue !== undefined && input.dataset.rawValue !== '') {
+        return input.dataset.rawValue;
+    }
+    const digits = String(input.value).replace(/\D/g, '');
+    return digits ? (Number(digits) / 100).toFixed(2) : '';
+}
+
 function formatWeaponSaleDate(value) {
     if (!value) return '-';
     return new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR');
@@ -10612,7 +10631,9 @@ function recalcWeaponSaleTotal() {
         total += Number(stock?.sale_price || 0) * quantity;
     });
 
-    valueInput.value = total > 0 ? (Math.round(total * 100) / 100).toFixed(2) : '';
+    total = Math.round(total * 100) / 100;
+    valueInput.value = total > 0 ? formatWeaponSaleMoney(total) : '';
+    valueInput.dataset.rawValue = total > 0 ? total.toFixed(2) : '';
 }
 
 function addWeaponSaleItemRow() {
@@ -10795,8 +10816,7 @@ function renderWeaponCatalog() {
                 <td>${Number(item.current_stock || 0).toLocaleString('pt-BR')}</td>
                 <td>
                     <div class="weapon-price-edit">
-                        <span>R$</span>
-                        <input type="number" id="weaponPriceInput${item.id}" min="0" step="0.01" value="${price > 0 ? price.toFixed(2) : ''}" placeholder="0,00">
+                        <input type="text" id="weaponPriceInput${item.id}" inputmode="numeric" value="${price > 0 ? formatWeaponSaleMoney(price).replace(/&/g, '&amp;').replace(/"/g, '&quot;') : ''}" placeholder="R$ 0,00" data-raw-value="${price > 0 ? price.toFixed(2) : ''}" oninput="applyWeaponMoneyMask(this)">
                         <button class="btn btn-primary btn-small" onclick="saveWeaponPrice(${item.id})">Salvar</button>
                     </div>
                 </td>
@@ -10816,7 +10836,7 @@ async function saveWeaponPrice(stockId) {
         const response = await fetch(`/api/admin/weapon-stock/${stockId}/price`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sale_price: input?.value ?? '' })
+            body: JSON.stringify({ sale_price: getWeaponMoneyRaw(input) })
         });
         const data = await response.json();
         if (!response.ok || data.error) {
@@ -10840,7 +10860,7 @@ async function submitWeaponStock(event) {
             body: JSON.stringify({
                 weapon_name: document.getElementById('weaponStockName').value.trim(),
                 quantity: document.getElementById('weaponStockQuantity').value,
-                sale_price: document.getElementById('weaponStockPrice')?.value || 0
+                sale_price: getWeaponMoneyRaw(document.getElementById('weaponStockPrice')) || 0
             })
         });
         const data = await response.json();
@@ -11030,7 +11050,7 @@ async function submitWeaponSale(event) {
 
         const formData = new FormData();
         formData.append('weapon_items', JSON.stringify(items));
-        formData.append('sale_value', document.getElementById('weaponSaleValue').value);
+        formData.append('sale_value', getWeaponMoneyRaw(document.getElementById('weaponSaleValue')));
         formData.append('sale_date', document.getElementById('weaponSaleDate').value);
         formData.append('buyer_name', document.getElementById('weaponSaleBuyer').value.trim());
         formData.append('seller_name', sellers.join(', '));

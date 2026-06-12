@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260612weaponcatalog"><link rel="stylesheet" href="css/tables-clean.css?v=20260609statuscol">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260612moneyfmt"><link rel="stylesheet" href="css/tables-clean.css?v=20260609statuscol">
     
     
     
@@ -1061,8 +1061,8 @@
                                 <input type="text" id="weaponStockName" required placeholder="Ex: Pistola .50">
                             </div>
                             <div class="form-group">
-                                <label for="weaponStockPrice">Valor de venda (R$)</label>
-                                <input type="number" id="weaponStockPrice" min="0" step="0.01" required placeholder="0,00">
+                                <label for="weaponStockPrice">Valor de venda</label>
+                                <input type="text" id="weaponStockPrice" inputmode="numeric" required placeholder="R$ 0,00" oninput="applyWeaponMoneyMask(this)">
                             </div>
                             <div class="form-group">
                                 <label for="weaponStockQuantity">Quantidade inicial</label>
@@ -1169,7 +1169,7 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="weaponSaleValue">Valor da venda (automático)</label>
-                                <input type="number" id="weaponSaleValue" min="0" step="0.01" readonly placeholder="0,00" title="Calculado automaticamente pelos valores definidos em Configurações > Armas e Valores">
+                                <input type="text" id="weaponSaleValue" readonly placeholder="R$ 0,00" title="Calculado automaticamente pelos valores definidos em Configurações > Armas e Valores">
                                 <small class="weapon-sale-value-hint">Calculado pelos valores definidos em Armas e Valores</small>
                             </div>
                             <div class="form-group">
@@ -1643,7 +1643,7 @@
         });
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
-    <script src="js/admin.js?v=20260612weaponcatalog"></script>
+    <script src="js/admin.js?v=20260612moneyfmt"></script>
     <script>
         (function () {
             const weeklyStatusSort = {

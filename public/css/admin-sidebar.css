@@ -6948,7 +6948,7 @@ body.admin-layout {
 }
 
 .weapon-price-edit input {
-    width: 120px;
+    width: 140px;
     padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid rgba(148, 163, 184, 0.25);
@@ -6956,6 +6956,7 @@ body.admin-layout {
     color: #fff;
     font-size: 14px;
     text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .weapon-price-edit input:focus {
