@@ -6919,3 +6919,130 @@ body.admin-layout {
         grid-template-columns: 1fr 84px 40px;
     }
 }
+
+/* ===== Armas e Valores (catálogo) + vendedores múltiplos ===== */
+
+#weapon-catalog-tab .weapon-stock-add-form .form-row {
+    grid-template-columns: minmax(0, 1fr) 160px 140px;
+}
+
+#weapon-catalog-tab .weapon-stock-add-form {
+    max-width: 760px;
+    padding: 18px;
+    border: 1px solid rgba(108, 92, 231, 0.25);
+    border-radius: 10px;
+    background: rgba(40, 35, 80, 0.18);
+}
+
+.weapon-price-edit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+
+.weapon-price-edit span {
+    color: #9aa8d9;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.weapon-price-edit input {
+    width: 120px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 20, 40, 0.6);
+    color: #fff;
+    font-size: 14px;
+    text-align: right;
+}
+
+.weapon-price-edit input:focus {
+    outline: none;
+    border-color: #6c5ce7;
+}
+
+.weapon-catalog-hint {
+    margin: 10px 0 16px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px dashed rgba(108, 92, 231, 0.45);
+    background: rgba(108, 92, 231, 0.08);
+    color: #b8c5ff;
+    font-size: 13px;
+}
+
+.weapon-sale-value-hint {
+    display: block;
+    margin-top: 4px;
+    color: #8a93b8;
+    font-size: 11px;
+}
+
+#weaponSaleValue[readonly] {
+    background: rgba(39, 174, 96, 0.08);
+    border-color: rgba(39, 174, 96, 0.35);
+    color: #2ecc71;
+    font-weight: 700;
+    cursor: default;
+}
+
+.weapon-seller-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 20, 40, 0.45);
+}
+
+.weapon-seller-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(255, 255, 255, 0.03);
+    color: #d4dbff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.weapon-seller-option:hover {
+    border-color: rgba(108, 92, 231, 0.5);
+    background: rgba(108, 92, 231, 0.12);
+}
+
+.weapon-seller-option:has(input:checked) {
+    border-color: #6c5ce7;
+    background: rgba(108, 92, 231, 0.22);
+    color: #fff;
+}
+
+.weapon-seller-option input {
+    accent-color: #6c5ce7;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+}
+
+.weapon-seller-option small {
+    color: #8a93b8;
+}
+
+@media (max-width: 900px) {
+    #weapon-catalog-tab .weapon-stock-add-form .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .weapon-seller-list {
+        grid-template-columns: 1fr;
+    }
+}

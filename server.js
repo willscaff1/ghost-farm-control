@@ -386,6 +386,10 @@ db.initialize().then(async () => {
                     permissions.push('weapon-freebies');
                     changed = true;
                 }
+                if (!permissions.includes('weapon-catalog') && !permissions.includes('all')) {
+                    permissions.push('weapon-catalog');
+                    changed = true;
+                }
 
                 if (changed) {
                     await runQuery(

@@ -177,7 +177,8 @@ const requireWeaponSalesAccess = async (req, res, next) => {
                 const permissions = JSON.parse(role.permissions || '[]');
                 return permissions.includes('all') ||
                     permissions.includes('weapon-sales') ||
-                    permissions.includes('weapon-freebies');
+                    permissions.includes('weapon-freebies') ||
+                    permissions.includes('weapon-catalog');
             });
         }
 
@@ -351,6 +352,12 @@ async function ensureWeaponSalesTable() {
 
     try {
         await runQuery('ALTER TABLE weapon_sales ADD COLUMN proof_data TEXT');
+    } catch (e) {
+        // Coluna já existe.
+    }
+
+    try {
+        await runQuery('ALTER TABLE weapon_stock ADD COLUMN sale_price REAL DEFAULT 0');
     } catch (e) {
         // Coluna já existe.
     }
@@ -3468,6 +3475,7 @@ const availableTabs = [
     { id: 'all-deliveries', name: 'Histórico', section: 'Estatísticas', icon: '📋' },
     { id: 'weekly-report', name: 'Relatório Semanal', section: 'Estatísticas', icon: '📄' },
     { id: 'farm-settings', name: 'Config. do Farm', section: 'Configurações', icon: '🎛️' },
+    { id: 'weapon-catalog', name: 'Armas e Valores', section: 'Configurações', icon: '🔫' },
     { id: 'family-commandments', name: 'Mandamentos da Familia', section: 'Configurações', icon: '📜' },
     { id: 'competitions', name: 'Competições', section: 'Configurações', icon: '🏆' },
     { id: 'edit-permissions', name: 'Liberar Edição', section: 'Configurações', icon: '✏️' },
@@ -3530,7 +3538,7 @@ const defaultRolePermissions = [
             'weekly-status', 'weekly-ranking', 'members-panel', 'members-overview', 
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies', 'weapon-catalog',
             'farm-settings', 'family-commandments', 'edit-permissions', 'goals', 'manage-materials', 'manage-payment-types', 'manager-goals', 'whitelist'
         ]),
         can_config: 1
@@ -3542,7 +3550,7 @@ const defaultRolePermissions = [
             'weekly-status', 'weekly-ranking', 'members-panel', 'members-overview', 
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies',
+            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies', 'weapon-catalog',
             'family-commandments', 'edit-permissions', 'goals', 'manager-goals'
         ]),
         can_config: 1
@@ -3594,7 +3602,7 @@ const defaultRolePermissions = [
         permissions: JSON.stringify([
             'weekly-status', 'members-panel', 'members-overview',
             'members', 'members-adv',
-            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals', 'weapon-sales', 'weapon-freebies'
+            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals', 'weapon-sales', 'weapon-freebies', 'weapon-catalog'
         ]),
         can_config: 0
     }
@@ -5807,6 +5815,11 @@ router.post('/weapon-stock', requireAdmin, requireWeaponSalesAccess, async (req,
 
         const weaponName = String(req.body.weapon_name || '').trim();
         const quantity = parseInt(req.body.quantity, 10) || 0;
+        const rawPrice = String(req.body.sale_price ?? '0').trim();
+        const salePrice = Number(rawPrice.includes(',')
+            ? rawPrice.replace(/\./g, '').replace(',', '.')
+            : rawPrice
+        );
 
         if (!weaponName) {
             return res.status(400).json({ error: 'Informe o nome da arma' });
@@ -5816,17 +5829,21 @@ router.post('/weapon-stock', requireAdmin, requireWeaponSalesAccess, async (req,
             return res.status(400).json({ error: 'A quantidade inicial não pode ser negativa' });
         }
 
+        if (!Number.isFinite(salePrice) || salePrice < 0) {
+            return res.status(400).json({ error: 'Informe um valor de venda válido' });
+        }
+
         const existing = await getOne('SELECT id FROM weapon_stock WHERE LOWER(weapon_name) = LOWER(?)', [weaponName]);
         if (existing) {
             return res.status(400).json({ error: 'Esta arma já está cadastrada no estoque' });
         }
 
         const result = await runQuery(
-            'INSERT INTO weapon_stock (weapon_name, current_stock, active, created_by) VALUES (?, ?, ?, ?)',
-            [weaponName, quantity, 1, req.session.user.id]
+            'INSERT INTO weapon_stock (weapon_name, current_stock, sale_price, active, created_by) VALUES (?, ?, ?, ?, ?)',
+            [weaponName, quantity, salePrice, 1, req.session.user.id]
         );
 
-        res.json({ success: true, message: 'Arma cadastrada no estoque', stockId: result.lastID });
+        res.json({ success: true, message: 'Arma cadastrada com sucesso', stockId: result.lastID });
     } catch (error) {
         console.error('Erro ao cadastrar arma no estoque:', error);
         res.status(500).json({ error: error.message });
@@ -5890,6 +5907,67 @@ router.post('/weapon-stock/:id/toggle', requireAdmin, requireWeaponSalesAccess, 
         res.json({ success: true, active: nextActive });
     } catch (error) {
         console.error('Erro ao alterar status do estoque:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Atualizar valor de venda de uma arma do catálogo
+router.post('/weapon-stock/:id/price', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        await ensureWeaponSalesTable();
+
+        const rawPrice = String(req.body.sale_price ?? '').trim();
+        const salePrice = Number(rawPrice.includes(',')
+            ? rawPrice.replace(/\./g, '').replace(',', '.')
+            : rawPrice
+        );
+
+        if (!Number.isFinite(salePrice) || salePrice < 0) {
+            return res.status(400).json({ error: 'Informe um valor de venda válido' });
+        }
+
+        const stock = await getOne('SELECT id, weapon_name FROM weapon_stock WHERE id = ?', [req.params.id]);
+        if (!stock) {
+            return res.status(404).json({ error: 'Arma não encontrada no estoque' });
+        }
+
+        await runQuery(
+            'UPDATE weapon_stock SET sale_price = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [salePrice, req.params.id]
+        );
+
+        res.json({ success: true, message: `Valor de ${stock.weapon_name} atualizado`, sale_price: salePrice });
+    } catch (error) {
+        console.error('Erro ao atualizar valor da arma:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Lista de vendedores possíveis (gerentes ativos)
+router.get('/weapon-sellers', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+    try {
+        const users = await getAll(`
+            SELECT id, name, passport, role
+            FROM users
+            WHERE active = 1
+              AND passport NOT IN ('admin', '0')
+            ORDER BY name ASC
+        `);
+
+        const groupsMap = await getUserGroupsMap((users || []).map(u => u.id));
+        const sellers = (users || []).filter(user => {
+            const groups = groupsMap.get(user.id) || (user.role ? [user.role] : []);
+            return groups.some(g => managerGroups.has(normalizeGroupName(g)));
+        }).map(user => ({
+            id: user.id,
+            name: user.name,
+            passport: user.passport,
+            groups: groupsMap.get(user.id) || (user.role ? [user.role] : [])
+        }));
+
+        res.json({ success: true, sellers });
+    } catch (error) {
+        console.error('Erro ao buscar vendedores:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -6070,16 +6148,28 @@ router.post('/weapon-sales', requireAdmin, requireWeaponSalesAccess, (req, res) 
             const saleItems = await resolveWeaponSaleItems(parseWeaponSaleItems(weapon_items, weaponName, qty));
             const totalQuantity = saleItems.reduce((sum, item) => sum + item.quantity, 0);
             const saleWeaponSummary = saleItems.map(item => `${item.weapon_name} x${item.quantity}`).join(', ');
-            const rawSaleValue = String(sale_value || '').trim();
-            const saleValue = Number(rawSaleValue.includes(',')
-                ? rawSaleValue.replace(/\./g, '').replace(',', '.')
-                : rawSaleValue
-            );
             const saleDate = String(sale_date || '').trim();
 
-            if (!Number.isFinite(saleValue) || saleValue < 0) {
-                return res.status(400).json({ error: 'Informe um valor de venda válido' });
+            // Valor calculado automaticamente pelos preços do catálogo (Armas e Valores)
+            let saleValue = 0;
+            const missingPrice = [];
+            for (const item of saleItems) {
+                const stockRow = await getOne('SELECT sale_price FROM weapon_stock WHERE id = ?', [item.stock_id]);
+                const price = Number(stockRow?.sale_price || 0);
+                if (!Number.isFinite(price) || price <= 0) {
+                    missingPrice.push(item.weapon_name);
+                } else {
+                    saleValue += price * item.quantity;
+                }
             }
+
+            if (missingPrice.length > 0) {
+                return res.status(400).json({
+                    error: `Defina o valor de venda em Configurações > Armas e Valores para: ${missingPrice.join(', ')}`
+                });
+            }
+
+            saleValue = Math.round(saleValue * 100) / 100;
 
             if (!/^\d{4}-\d{2}-\d{2}$/.test(saleDate)) {
                 return res.status(400).json({ error: 'Informe uma data de venda válida' });

@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260530farmslot"><link rel="stylesheet" href="css/tables-clean.css?v=20260609statuscol">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260612weaponcatalog"><link rel="stylesheet" href="css/tables-clean.css?v=20260609statuscol">
     
     
     
@@ -96,6 +96,7 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">⚙️ Configurações</div>
                 <button class="sidebar-item" data-tab="farm-settings">🎛️ Config. do Farm</button>
+                <button class="sidebar-item" data-tab="weapon-catalog">🔫 Armas e Valores</button>
                 <button class="sidebar-item" data-tab="family-commandments">📜 Mandamentos da Familia</button>
                 <button class="sidebar-item" data-tab="edit-permissions">✏️ Liberar Edição</button>
                 <button class="sidebar-item" data-tab="goals">🎯 Metas (Membros e Gerentes)</button>
@@ -1047,6 +1048,50 @@
             </div>
 
             <!-- Weapon Sales Extract Tab -->
+            <!-- Weapon Catalog Tab (Configurações > Armas e Valores) -->
+            <div id="weapon-catalog-tab" class="tab-content">
+                <div class="card weapon-sales-card">
+                    <h2>🔫 Armas e Valores</h2>
+                    <p class="subtitle">Cadastre as armas da família e defina o valor de venda de cada uma. O Extrato de Vendas usa esses valores para calcular o total automaticamente.</p>
+
+                    <form id="weaponStockForm" class="weapon-sales-form weapon-stock-add-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weaponStockName">Modelo</label>
+                                <input type="text" id="weaponStockName" required placeholder="Ex: Pistola .50">
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponStockPrice">Valor de venda (R$)</label>
+                                <input type="number" id="weaponStockPrice" min="0" step="0.01" required placeholder="0,00">
+                            </div>
+                            <div class="form-group">
+                                <label for="weaponStockQuantity">Quantidade inicial</label>
+                                <input type="number" id="weaponStockQuantity" min="0" step="1" value="0" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Cadastrar arma</button>
+                        <div id="weaponStockMessage" class="message"></div>
+                    </form>
+
+                    <div class="table-container" style="margin-top: 20px;">
+                        <table class="weekly-table">
+                            <thead>
+                                <tr>
+                                    <th>Arma</th>
+                                    <th>Estoque</th>
+                                    <th>Valor de venda</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weaponCatalogBody">
+                                <tr><td colspan="5" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div id="weapon-sales-tab" class="tab-content">
                 <div class="card weapon-sales-card">
                     <h2>🔫 Extrato de Vendas de Armas</h2>
@@ -1057,7 +1102,7 @@
                         <div class="weapon-panel-header">
                             <div>
                                 <h3>Estoque de Armas</h3>
-                                <p>Cadastre modelos e ajuste saldo sem sair da tela de vendas.</p>
+                                <p>Acompanhe o saldo e registre fabricações sem sair da tela de vendas.</p>
                             </div>
                             <div class="weapon-stock-kpis">
                                 <div>
@@ -1074,20 +1119,7 @@
                                 </div>
                             </div>
                         </div>
-                        <form id="weaponStockForm" class="weapon-sales-form weapon-stock-add-form">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="weaponStockName">Modelo</label>
-                                    <input type="text" id="weaponStockName" required placeholder="Ex: Pistola .50">
-                                </div>
-                                <div class="form-group">
-                                    <label for="weaponStockQuantity">Quantidade inicial</label>
-                                    <input type="number" id="weaponStockQuantity" min="0" step="1" value="0" required>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Cadastrar no estoque</button>
-                            <div id="weaponStockMessage" class="message"></div>
-                        </form>
+                        <p class="weapon-catalog-hint">➕ Para cadastrar novas armas e definir os valores de venda, acesse <strong>Configurações → 🔫 Armas e Valores</strong>.</p>
 
                         <form id="weaponProductionForm" class="weapon-sales-form weapon-production-form">
                             <h3>Entrada de Fabricação</h3>
@@ -1136,8 +1168,9 @@
                         <h3>Saida de Estoque / Venda</h3>
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="weaponSaleValue">Valor da venda</label>
-                                <input type="number" id="weaponSaleValue" min="0" step="0.01" required placeholder="0,00">
+                                <label for="weaponSaleValue">Valor da venda (automático)</label>
+                                <input type="number" id="weaponSaleValue" min="0" step="0.01" readonly placeholder="0,00" title="Calculado automaticamente pelos valores definidos em Configurações > Armas e Valores">
+                                <small class="weapon-sale-value-hint">Calculado pelos valores definidos em Armas e Valores</small>
                             </div>
                             <div class="form-group">
                                 <label for="weaponSaleDate">Data</label>
@@ -1157,12 +1190,15 @@
                                 <input type="text" id="weaponSaleBuyer" placeholder="Nome/passaporte">
                             </div>
                             <div class="form-group">
-                                <label for="weaponSaleSeller">Vendedor</label>
-                                <input type="text" id="weaponSaleSeller" placeholder="Responsável pela venda">
-                            </div>
-                            <div class="form-group">
                                 <label for="weaponSaleProof">Print de comprovação</label>
                                 <input type="file" id="weaponSaleProof" accept="image/*" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Vendedores (gerentes) — selecione 1 ou mais</label>
+                            <div id="weaponSaleSellers" class="weapon-seller-list">
+                                <div class="loading">Carregando gerentes...</div>
                             </div>
                         </div>
 
@@ -1607,7 +1643,7 @@
         });
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
-    <script src="js/admin.js?v=20260530farmslot"></script>
+    <script src="js/admin.js?v=20260612weaponcatalog"></script>
     <script>
         (function () {
             const weeklyStatusSort = {
