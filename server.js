@@ -653,6 +653,60 @@ db.initialize().then(async () => {
         }
     }
 
+    // One-shot: garante que TODOS os membros ativos fiquem aprovados na semana 08-14/06
+    async function bulkApproveAllMembersWeek_08_14() {
+        const markerKey = 'bulk_approve_all_week_08_14_done';
+        const W = { start: '2026-06-08', end: '2026-06-14' };
+
+        try {
+            const { runQuery, getOne, getAll } = require('./database/db');
+            const alreadyDone = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [markerKey]);
+            if (alreadyDone?.setting_value === 'true') {
+                console.log('✅ Aprovação total da semana 08-14/06 já executada');
+                return;
+            }
+
+            // 1) Aprovar todas as entregas existentes da semana
+            const resApprove = await runQuery(
+                `UPDATE deliveries SET status = 'approved', is_partial = 0, approved_at = CURRENT_TIMESTAMP
+                 WHERE week_start = ? AND week_end = ?`,
+                [W.start, W.end]
+            );
+            console.log(`📦 [08-14/06] Entregas existentes aprovadas: ${resApprove?.changes ?? 'ok'}`);
+
+            // 2) Criar entrega aprovada para membros ativos SEM entrega na semana
+            const members = await getAll(
+                `SELECT id FROM users WHERE active = 1 AND passport NOT IN ('admin', '0')`
+            );
+            const existing = await getAll(
+                'SELECT DISTINCT user_id FROM deliveries WHERE week_start = ? AND week_end = ?',
+                [W.start, W.end]
+            );
+            const haveDelivery = new Set((existing || []).map(r => r.user_id));
+
+            let created = 0;
+            for (const member of members || []) {
+                if (haveDelivery.has(member.id)) continue;
+                await runQuery(
+                    `INSERT INTO deliveries (user_id, week_start, week_end, status, is_partial, approved_at, description)
+                     VALUES (?, ?, ?, 'approved', 0, CURRENT_TIMESTAMP, '[APROVADO EM LOTE]')`,
+                    [member.id, W.start, W.end]
+                );
+                created++;
+            }
+            console.log(`✅ [08-14/06] Entregas aprovadas criadas para membros sem entrega: ${created}`);
+
+            await runQuery(
+                'INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)',
+                [markerKey, 'true']
+            );
+
+            console.log('✅ Aprovação total da semana 08-14/06 concluída');
+        } catch (error) {
+            console.error('⚠️ Erro na aprovação total da semana 08-14/06:', error.message);
+        }
+    }
+
     // Função para criar índices de performance (CRÍTICO para velocidade)
     async function createPerformanceIndexes() {
         if (!process.env.DATABASE_URL) return; // Só em produção (PostgreSQL)
@@ -807,6 +861,9 @@ db.initialize().then(async () => {
 
         // One-shot: aprovar semana 08-14/06 e zerar semana 15-21/06
         await bulkWeekOps_2026_06();
+
+        // One-shot: garantir que TODOS os membros fiquem aprovados na semana 08-14/06
+        await bulkApproveAllMembersWeek_08_14();
         
         // Criar índices para performance (muito importante!)
         await createPerformanceIndexes();
