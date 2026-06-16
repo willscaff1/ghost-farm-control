@@ -6519,6 +6519,10 @@ function targetSelectHtml(selectId, selected) {
 }
 
 function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes, target) {
+    const normalizedTarget = target === 'manager' ? 'manager' : 'member';
+    const isManagerTarget = normalizedTarget === 'manager';
+    const currentGoal = isManagerTarget ? goalGerentes : goalMembros;
+    const goalLabel = isManagerTarget ? 'Meta da gerencia' : 'Meta dos membros';
     const modalHtml = `
         <div class="edit-modal-overlay" id="editMaterialGoalsModal">
             <div class="edit-modal-content">
@@ -6537,15 +6541,12 @@ function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes, t
                     </div>
                     <div class="form-group">
                         <label>Destino (quem farma)</label>
-                        ${targetSelectHtml('editMatGoalsTarget', target)}
+                        <input type="hidden" id="editMatGoalsTarget" value="${normalizedTarget}">
+                        <div style="font-weight:600;">${isManagerTarget ? 'Gerencia' : 'Membros'}</div>
                     </div>
                     <div class="form-group">
-                        <label>Meta (membros)</label>
-                        <input type="number" id="editMatGoalMembros" value="${goalMembros}" min="1" class="edit-input" style="width:120px;">
-                    </div>
-                    <div class="form-group">
-                        <label>Meta (gerentes)</label>
-                        <input type="number" id="editMatGoalGerentes" value="${goalGerentes}" min="1" class="edit-input" style="width:120px;">
+                        <label>${goalLabel}</label>
+                        <input type="number" id="editMatGoal" value="${currentGoal}" min="1" class="edit-input" style="width:120px;">
                     </div>
                     <div class="modal-buttons" style="margin-top:16px;">
                         <button class="btn btn-primary" onclick="saveMaterialGoals(${id})">💾 Salvar</button>
@@ -6558,11 +6559,10 @@ function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes, t
 }
 
 async function saveMaterialGoals(id) {
-    const goalM = parseInt(document.getElementById('editMatGoalMembros')?.value);
-    const goalG = parseInt(document.getElementById('editMatGoalGerentes')?.value);
+    const goal = parseInt(document.getElementById('editMatGoal')?.value);
     const newIcon = document.getElementById('editMatGoalsIcon')?.value;
-    const newTarget = document.getElementById('editMatGoalsTarget')?.value || 'both';
-    if (isNaN(goalM) || goalM < 1 || isNaN(goalG) || goalG < 1) {
+    const newTarget = document.getElementById('editMatGoalsTarget')?.value === 'manager' ? 'manager' : 'member';
+    if (isNaN(goal) || goal < 1) {
         showNotification('Metas inválidas.', 'error');
         return;
     }
@@ -6570,7 +6570,7 @@ async function saveMaterialGoals(id) {
         const res = await fetch(`/api/admin/materials/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ weekly_goal: goalM, manager_weekly_goal: goalG, icon: newIcon, target_role: newTarget })
+            body: JSON.stringify({ weekly_goal: goal, manager_weekly_goal: goal, icon: newIcon, target_role: newTarget })
         });
         const data = await res.json();
         if (data.success) {
@@ -6587,8 +6587,12 @@ async function saveMaterialGoals(id) {
 
 function openEditPaymentTypeGoalsModal(id, name, icon, goalMembros, goalGerentes, unitType, target) {
     const isUnidade = unitType === 'unidade';
-    const labelM = isUnidade ? 'Meta (membros) un.' : 'Meta R$ (membros)';
-    const labelG = isUnidade ? 'Meta (gerentes) un.' : 'Meta R$ (gerentes)';
+    const normalizedTarget = target === 'manager' ? 'manager' : 'member';
+    const isManagerTarget = normalizedTarget === 'manager';
+    const currentGoal = isManagerTarget ? goalGerentes : goalMembros;
+    const goalLabel = isUnidade
+        ? (isManagerTarget ? 'Meta da gerencia un.' : 'Meta dos membros un.')
+        : (isManagerTarget ? 'Meta R$ da gerencia' : 'Meta R$ dos membros');
     const modalHtml = `
         <div class="edit-modal-overlay" id="editPaymentTypeGoalsModal">
             <div class="edit-modal-content">
@@ -6603,15 +6607,12 @@ function openEditPaymentTypeGoalsModal(id, name, icon, goalMembros, goalGerentes
                     </div>
                     <div class="form-group">
                         <label>Destino (quem farma)</label>
-                        ${targetSelectHtml('editPayGoalsTarget', target)}
+                        <input type="hidden" id="editPayGoalsTarget" value="${normalizedTarget}">
+                        <div style="font-weight:600;">${isManagerTarget ? 'Gerencia' : 'Membros'}</div>
                     </div>
                     <div class="form-group">
-                        <label>${labelM}</label>
-                        <input type="number" id="editPayGoalMembros" value="${goalMembros}" min="1" class="edit-input" style="width:140px;">
-                    </div>
-                    <div class="form-group">
-                        <label>${labelG}</label>
-                        <input type="number" id="editPayGoalGerentes" value="${goalGerentes}" min="1" class="edit-input" style="width:140px;">
+                        <label>${goalLabel}</label>
+                        <input type="number" id="editPayGoal" value="${currentGoal}" min="1" class="edit-input" style="width:140px;">
                     </div>
                     <div class="modal-buttons" style="margin-top:16px;">
                         <button class="btn btn-primary" onclick="savePaymentTypeGoals(${id})">💾 Salvar</button>
@@ -6624,10 +6625,9 @@ function openEditPaymentTypeGoalsModal(id, name, icon, goalMembros, goalGerentes
 }
 
 async function savePaymentTypeGoals(id) {
-    const goalM = parseInt(document.getElementById('editPayGoalMembros')?.value);
-    const goalG = parseInt(document.getElementById('editPayGoalGerentes')?.value);
-    const newTarget = document.getElementById('editPayGoalsTarget')?.value || 'both';
-    if (isNaN(goalM) || goalM < 1 || isNaN(goalG) || goalG < 1) {
+    const goal = parseInt(document.getElementById('editPayGoal')?.value);
+    const newTarget = document.getElementById('editPayGoalsTarget')?.value === 'manager' ? 'manager' : 'member';
+    if (isNaN(goal) || goal < 1) {
         showNotification('Metas inválidas.', 'error');
         return;
     }
@@ -6635,7 +6635,7 @@ async function savePaymentTypeGoals(id) {
         const res = await fetch(`/api/admin/payment-types/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ weekly_goal: goalM, manager_weekly_goal: goalG, target_role: newTarget })
+            body: JSON.stringify({ weekly_goal: goal, manager_weekly_goal: goal, target_role: newTarget })
         });
         const data = await res.json();
         if (data.success) {

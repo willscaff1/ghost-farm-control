@@ -546,8 +546,16 @@ router.put('/update-pending', requireAuth, async (req, res) => {
         }
         
         // Atualizar cada material
+        const isManager = await isManagerUser(userId, req.session.user);
+        const allowedMaterials = (await getAll('SELECT id, target_role FROM materials WHERE active = 1'))
+            .filter(m => productAppliesToRole(m, isManager));
+        const allowedMaterialIds = new Set(allowedMaterials.map(m => Number(m.id)));
+
         for (const [materialId, amount] of Object.entries(materials)) {
             const numAmount = parseInt(amount);
+            if (numAmount > 0 && !allowedMaterialIds.has(Number(materialId))) {
+                return res.status(400).json({ error: 'Produto de farm inválido para seu cargo' });
+            }
             
             // Verificar se já existe o item
             const existingItem = await getOne(
@@ -925,6 +933,34 @@ router.post('/', requireAuth, (req, res) => {
                 }
             }
 
+            const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
+                .filter(m => productAppliesToRole(m, isManager));
+            const allowedMaterialIds = new Set(allMaterials.map(m => Number(m.id)));
+
+            if (paymentType === 'material') {
+                if (allMaterials.length === 0) {
+                    return res.status(400).json({ error: 'Nenhum produto de farm configurado para seu cargo' });
+                }
+
+                const invalidMaterial = materialsArray.find(item => {
+                    const amount = parseInt(item.amount) || 0;
+                    return amount > 0 && !allowedMaterialIds.has(Number(item.material_id));
+                });
+                if (invalidMaterial) {
+                    return res.status(400).json({ error: 'Produto de farm inválido para seu cargo' });
+                }
+            }
+
+            if (paymentType === 'dirty_money' && paymentTypeId) {
+                const selectedPaymentType = await getOne(
+                    'SELECT id, active, target_role FROM payment_types WHERE id = ?',
+                    [paymentTypeId]
+                );
+                if (!selectedPaymentType || selectedPaymentType.active === 0 || !productAppliesToRole(selectedPaymentType, isManager)) {
+                    return res.status(400).json({ error: 'Tipo de pagamento inválido para seu cargo' });
+                }
+            }
+
             // Carregar configurações para saber se competição está ativa (controla Farm Extra)
             const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
             const settingsObj = {};
@@ -993,8 +1029,6 @@ router.post('/', requireAuth, (req, res) => {
                 });
             }
 
-            const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
-                .filter(m => productAppliesToRole(m, isManager));
             let isComplete = false;
             let progressDetails = [];
 
@@ -1117,6 +1151,7 @@ router.post('/pay-past-week', requireAuth, (req, res) => {
         try {
             const { materials, week_start, week_end, payment_type, payment_type_id, dirty_money_amount } = req.body;
             const userId = req.session.user.id;
+            const isManager = await isManagerUser(userId, req.session.user);
             const paymentType = payment_type || 'material';
             const paymentTypeId = payment_type_id ? parseInt(payment_type_id) : null;
             const dirtyMoneyAmount = parseInt(dirty_money_amount) || 0;
@@ -1150,7 +1185,37 @@ router.post('/pay-past-week', requireAuth, (req, res) => {
             if (justification) {
                 return res.status(400).json({ error: 'Esta semana já tem justificativa aprovada' });
             }
-            
+            let materialsArray = [];
+            const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
+                .filter(m => productAppliesToRole(m, isManager));
+            const allowedMaterialIds = new Set(allMaterials.map(m => Number(m.id)));
+
+            if (paymentType === 'material') {
+                materialsArray = typeof materials === 'string' ? JSON.parse(materials || '[]') : (materials || []);
+                const invalidMaterial = materialsArray.find(mat => {
+                    const amount = parseInt(mat.amount) || 0;
+                    return amount > 0 && !allowedMaterialIds.has(Number(mat.material_id));
+                });
+                if (invalidMaterial) {
+                    return res.status(400).json({ error: 'Produto de farm inválido para seu cargo' });
+                }
+            }
+
+            if (paymentType === 'dirty_money') {
+                if (dirtyMoneyAmount <= 0) {
+                    return res.status(400).json({ error: 'Informe o valor do pagamento' });
+                }
+                if (paymentTypeId) {
+                    const selectedPaymentType = await getOne(
+                        'SELECT id, active, target_role FROM payment_types WHERE id = ?',
+                        [paymentTypeId]
+                    );
+                    if (!selectedPaymentType || selectedPaymentType.active === 0 || !productAppliesToRole(selectedPaymentType, isManager)) {
+                        return res.status(400).json({ error: 'Tipo de pagamento inválido para seu cargo' });
+                    }
+                }
+            }
+
             // Deletar entregas rejeitadas ou parciais antigas para substituir
             const existingDelivery = await getOne(`
                 SELECT id FROM deliveries 
@@ -1179,8 +1244,6 @@ router.post('/pay-past-week', requireAuth, (req, res) => {
             
             // Salvar materiais se for pagamento com materiais
             if (paymentType === 'material' && materials) {
-                const materialsArray = typeof materials === 'string' ? JSON.parse(materials) : materials;
-                
                 for (const mat of materialsArray) {
                     if (mat.amount > 0) {
                         await runQuery(
@@ -1493,7 +1556,10 @@ router.post('/edit-value', requireAuth, async (req, res) => {
         const isManager = await isManagerUser(userId, req.session.user);
 
         // Buscar meta do material (para verificar se completou, mas não bloqueia)
-        const materialData = await getOne('SELECT name, weekly_goal, manager_weekly_goal FROM materials WHERE id = ?', [material_id]);
+        const materialData = await getOne('SELECT name, weekly_goal, manager_weekly_goal, target_role, active FROM materials WHERE id = ?', [material_id]);
+        if (!materialData || materialData.active === 0 || !productAppliesToRole(materialData, isManager)) {
+            return res.status(400).json({ error: 'Produto de farm inválido para seu cargo' });
+        }
         const materialGoal = resolveMaterialGoal(materialData || {}, isManager);
         
         // Verificar se já existe esse material na entrega

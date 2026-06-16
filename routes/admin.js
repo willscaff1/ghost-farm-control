@@ -802,6 +802,7 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
                 const groups = groupsByUser.get(delivery.user_id) || [];
                 const isManager = isManagerByGroups([...groups, delivery.user_role]);
                 delivery.groups = groups;
+                delivery.is_manager_farm = isManager;
                 delivery.storage_slot = isManager ? delivery.manager_slot : delivery.member_slot;
                 delivery.storage_slot_type = isManager ? 'manager' : 'member';
                 delivery.storage_slot_label = isManager ? 'Bau da Gerencia' : 'Bau dos Membros';
@@ -818,7 +819,7 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
             
             const [allItems, allScreenshots] = await Promise.all([
                 getAll(`
-                    SELECT di.*, m.name as material_name, m.icon as material_icon
+                    SELECT di.*, m.name as material_name, m.icon as material_icon, m.target_role
                     FROM delivery_items di
                     JOIN materials m ON di.material_id = m.id
                     WHERE di.delivery_id IN (${placeholders})
@@ -841,7 +842,10 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
             }
             
             const itemsByDelivery = {};
+            const deliveryById = new Map(deliveries.map(d => [Number(d.id), d]));
             for (const item of allItems) {
+                const delivery = deliveryById.get(Number(item.delivery_id));
+                if (delivery && !productAppliesToRole(item, !!delivery.is_manager_farm)) continue;
                 if (!itemsByDelivery[item.delivery_id]) itemsByDelivery[item.delivery_id] = [];
                 itemsByDelivery[item.delivery_id].push(item);
             }
@@ -876,7 +880,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
         
         if (week_start && week_end) {
             deliveries = await getAll(`
-                SELECT d.*, u.name as user_name, u.passport as user_passport, a.name as approved_by_name
+                SELECT d.*, u.name as user_name, u.passport as user_passport, u.role as user_role, a.name as approved_by_name
                 FROM deliveries d
                 JOIN users u ON d.user_id = u.id
                 LEFT JOIN users a ON d.approved_by = a.id
@@ -885,7 +889,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
             `, [week_start, week_end]);
         } else {
             deliveries = await getAll(`
-                SELECT d.*, u.name as user_name, u.passport as user_passport, a.name as approved_by_name
+                SELECT d.*, u.name as user_name, u.passport as user_passport, u.role as user_role, a.name as approved_by_name
                 FROM deliveries d
                 JOIN users u ON d.user_id = u.id
                 LEFT JOIN users a ON d.approved_by = a.id
@@ -894,18 +898,35 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
         }
         
         if (deliveries.length > 0) {
+            const userIds = [...new Set(deliveries.map(d => d.user_id).filter(Boolean))];
+            const groupRows = userIds.length > 0
+                ? await getAll(`SELECT user_id, group_name FROM user_groups WHERE user_id IN (${userIds.map(() => '?').join(',')})`, userIds)
+                : [];
+            const groupsByUser = new Map();
+            for (const row of groupRows) {
+                if (!groupsByUser.has(row.user_id)) groupsByUser.set(row.user_id, []);
+                groupsByUser.get(row.user_id).push(row.group_name);
+            }
+            for (const delivery of deliveries) {
+                const groups = groupsByUser.get(delivery.user_id) || [];
+                delivery.is_manager_farm = isManagerByGroups([...groups, delivery.user_role]);
+            }
+
             const deliveryIds = deliveries.map(d => d.id);
             const placeholders = deliveryIds.map(() => '?').join(',');
             
             const allItems = await getAll(`
-                SELECT di.*, m.name as material_name, m.icon as material_icon
+                SELECT di.*, m.name as material_name, m.icon as material_icon, m.target_role
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
                 WHERE di.delivery_id IN (${placeholders})
             `, deliveryIds);
             
             const itemsByDelivery = {};
+            const deliveryById = new Map(deliveries.map(d => [Number(d.id), d]));
             for (const item of allItems) {
+                const delivery = deliveryById.get(Number(item.delivery_id));
+                if (delivery && !productAppliesToRole(item, !!delivery.is_manager_farm)) continue;
                 if (!itemsByDelivery[item.delivery_id]) itemsByDelivery[item.delivery_id] = [];
                 itemsByDelivery[item.delivery_id].push(item);
             }
@@ -925,7 +946,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
 router.get('/deliveries/all-farms', requireAdmin, async (req, res) => {
     try {
         const deliveries = await getAll(`
-            SELECT d.*, u.name as user_name, u.passport, a.name as approved_by_name
+            SELECT d.*, u.name as user_name, u.passport, u.role as user_role, a.name as approved_by_name
             FROM deliveries d
             JOIN users u ON d.user_id = u.id AND u.active = 1
             LEFT JOIN users a ON d.approved_by = a.id
@@ -936,13 +957,30 @@ router.get('/deliveries/all-farms', requireAdmin, async (req, res) => {
         // Batch: buscar itens e screenshots de todas as entregas de uma vez
         const dIds = deliveries.map(d => d.id);
         if (dIds.length > 0) {
+            const userIds = [...new Set(deliveries.map(d => d.user_id).filter(Boolean))];
+            const groupRows = userIds.length > 0
+                ? await getAll(`SELECT user_id, group_name FROM user_groups WHERE user_id IN (${userIds.map(() => '?').join(',')})`, userIds)
+                : [];
+            const groupsByUser = new Map();
+            for (const row of groupRows) {
+                if (!groupsByUser.has(row.user_id)) groupsByUser.set(row.user_id, []);
+                groupsByUser.get(row.user_id).push(row.group_name);
+            }
+            for (const delivery of deliveries) {
+                const groups = groupsByUser.get(delivery.user_id) || [];
+                delivery.is_manager_farm = isManagerByGroups([...groups, delivery.user_role]);
+            }
+
             const ph = dIds.map(() => '?').join(',');
             const [allItems, allScreenshots] = await Promise.all([
-                getAll(`SELECT di.*, m.name as material_name, m.icon as material_icon FROM delivery_items di JOIN materials m ON di.material_id = m.id WHERE di.delivery_id IN (${ph})`, dIds),
+                getAll(`SELECT di.*, m.name as material_name, m.icon as material_icon, m.target_role FROM delivery_items di JOIN materials m ON di.material_id = m.id WHERE di.delivery_id IN (${ph})`, dIds),
                 getAll(`SELECT delivery_id, screenshot_url FROM delivery_screenshots WHERE delivery_id IN (${ph})`, dIds)
             ]);
             const itemsByD = new Map();
+            const deliveryById = new Map(deliveries.map(d => [Number(d.id), d]));
             for (const item of allItems) {
+                const delivery = deliveryById.get(Number(item.delivery_id));
+                if (delivery && !productAppliesToRole(item, !!delivery.is_manager_farm)) continue;
                 if (!itemsByD.has(item.delivery_id)) itemsByD.set(item.delivery_id, []);
                 itemsByD.get(item.delivery_id).push(item);
             }
@@ -994,8 +1032,10 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
             const amount = delivery.dirty_money_amount || 0;
             metaAtingida = amount >= goal;
         } else {
-            items = await getAll('SELECT di.*, m.weekly_goal, m.manager_weekly_goal FROM delivery_items di JOIN materials m ON di.material_id = m.id WHERE di.delivery_id = ?', [deliveryId]);
-            const materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1');
+            items = await getAll('SELECT di.*, m.weekly_goal, m.manager_weekly_goal, m.target_role FROM delivery_items di JOIN materials m ON di.material_id = m.id WHERE di.delivery_id = ?', [deliveryId]);
+            items = items.filter(item => productAppliesToRole(item, isManager));
+            const materials = (await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
+                .filter(m => productAppliesToRole(m, isManager));
 
             for (const mat of materials) {
                 const item = items.find(i => i.material_id === mat.id);
@@ -1035,13 +1075,7 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
         
         if (activeCompetition) {
             // Contar total de materiais da entrega
-            const materialsSum = await getOne(`
-                SELECT SUM(amount) as total 
-                FROM delivery_items 
-                WHERE delivery_id = ?
-            `, [deliveryId]);
-            
-            const totalMaterials = materialsSum?.total || 0;
+            const totalMaterials = items.reduce((sum, item) => sum + (parseInt(item.amount, 10) || 0), 0);
             
             if (totalMaterials > 0) {
                 // Adicionar entrada na competição
@@ -1597,10 +1631,12 @@ router.get('/materials', requireAdmin, async (req, res) => {
             if (!isNaN(memberId)) {
                 const groups = await getUserGroups(memberId);
                 const isManager = isManagerByGroups(groups);
-                materials = materials.map(m => ({
-                    ...m,
-                    weekly_goal: isManager ? (m.manager_weekly_goal ?? m.weekly_goal) : m.weekly_goal
-                }));
+                materials = materials
+                    .filter(m => productAppliesToRole(m, isManager))
+                    .map(m => ({
+                        ...m,
+                        weekly_goal: isManager ? (m.manager_weekly_goal ?? m.weekly_goal) : m.weekly_goal
+                    }));
             }
         }
 
@@ -1648,13 +1684,19 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
             if (deliveryIds.length > 0) {
                 const itemPlaceholders = deliveryIds.map(() => '?').join(',');
                 const allItems = await getAll(`
-                    SELECT di.delivery_id, di.amount, m.name, m.icon
+                    SELECT di.delivery_id, di.amount, m.name, m.icon, m.target_role
                     FROM delivery_items di
                     JOIN materials m ON di.material_id = m.id
                     WHERE di.delivery_id IN (${itemPlaceholders})
                 `, deliveryIds);
+                const pendingDeliveryById = new Map(allPendingDeliveries.map(d => [Number(d.id), d]));
 
                 for (const item of allItems) {
+                    const delivery = pendingDeliveryById.get(Number(item.delivery_id));
+                    const member = pendingMembers.find(m => Number(m.id) === Number(delivery?.user_id));
+                    const groups = pendingGroupsMap.get(delivery?.user_id) || (member?.role ? [member.role] : []);
+                    const isManager = isManagerByGroups(groups);
+                    if (!productAppliesToRole(item, isManager)) continue;
                     if (!itemsMap.has(item.delivery_id)) itemsMap.set(item.delivery_id, []);
                     itemsMap.get(item.delivery_id).push({ amount: item.amount, name: item.name, icon: item.icon });
                 }
@@ -2085,7 +2127,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             const placeholders = deliveryIds.map(() => '?').join(',');
             [allDeliveryItems, allExtraFarms] = await Promise.all([
                 getAll(`
-                    SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
+                    SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
                     FROM delivery_items di
                     JOIN materials m ON di.material_id = m.id
                     WHERE di.delivery_id IN (${placeholders})
@@ -2175,10 +2217,12 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             let effectivePaymentType = delivery?.payment_type || 'material';
 
             if (delivery) {
-                deliveryItems = (deliveryItemsMap.get(delivery.id) || []).map(item => ({
-                    ...item,
-                    weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
-                }));
+                deliveryItems = (deliveryItemsMap.get(delivery.id) || [])
+                    .filter(item => productAppliesToRole(item, isManager))
+                    .map(item => ({
+                        ...item,
+                        weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
+                    }));
 
                 // Se não há itens de materiais e tem dinheiro, tratar como pagamento em dinheiro
                 if (delivery.dirty_money_amount > 0 && deliveryItems.length === 0) {
@@ -2555,6 +2599,8 @@ router.get('/member-farm-details/:memberId', requireAdmin, async (req, res) => {
         
         // Buscar dados do membro
         const member = await getOne('SELECT id, name, passport, role FROM users WHERE id = ?', [memberId]);
+        const memberGroups = await getUserGroups(memberId);
+        const isManager = isManagerByGroups(memberGroups);
         if (!member) {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
@@ -2571,11 +2617,12 @@ router.get('/member-farm-details/:memberId', requireAdmin, async (req, res) => {
         if (delivery) {
             // Buscar itens do delivery
             items = await getAll(`
-                SELECT di.*, m.name as material_name, m.icon as material_icon
+                SELECT di.*, m.name as material_name, m.icon as material_icon, m.target_role
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
                 WHERE di.delivery_id = ?
             `, [delivery.id]);
+            items = items.filter(item => productAppliesToRole(item, isManager));
         }
         
         // Buscar justificativa da semana (se houver)
@@ -2632,16 +2679,18 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
         for (let delivery of deliveries) {
             // Itens da meta principal
             delivery.items = await getAll(`
-                SELECT di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
+                SELECT di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
                 WHERE di.delivery_id = ?
             `, [delivery.id]);
 
-            delivery.items = delivery.items.map(item => ({
-                ...item,
-                weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
-            }));
+            delivery.items = delivery.items
+                .filter(item => productAppliesToRole(item, isManager))
+                .map(item => ({
+                    ...item,
+                    weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
+                }));
             
             // Farms extras relacionados
             try {
@@ -2668,8 +2717,8 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
                                 formatted: `$${parseInt(amount).toLocaleString()}`
                             });
                         } else {
-                            const mat = await getOne('SELECT name, icon FROM materials WHERE id = ?', [matId]);
-                            if (mat) {
+                            const mat = await getOne('SELECT name, icon, target_role FROM materials WHERE id = ?', [matId]);
+                            if (mat && productAppliesToRole(mat, isManager)) {
                                 materialDetails.push({ 
                                     material_name: mat.name, 
                                     material_icon: mat.icon, 
@@ -4912,7 +4961,7 @@ router.get('/week-submissions', requireAdmin, async (req, res) => {
         const deliveryIds = deliveries.map(d => d.id);
         const placeholders = deliveryIds.map(() => '?').join(',');
         const allItems = await getAll(`
-            SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
+            SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
             FROM delivery_items di
             JOIN materials m ON di.material_id = m.id
             WHERE di.delivery_id IN (${placeholders})
@@ -4924,6 +4973,7 @@ router.get('/week-submissions', requireAdmin, async (req, res) => {
         const isManager = isManagerByGroups(deliveryGroups);
         const itemsByDid = new Map();
         for (const it of allItems) {
+            if (!productAppliesToRole(it, isManager)) continue;
             if (!itemsByDid.has(it.delivery_id)) itemsByDid.set(it.delivery_id, []);
             itemsByDid.get(it.delivery_id).push({
                 ...it,
@@ -4999,7 +5049,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
         if (deliveryIds.length > 0) {
             const placeholders = deliveryIds.map(() => '?').join(',');
             allItems = await getAll(`
-                SELECT di.*, d.id as delivery_id, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
+                SELECT di.*, d.id as delivery_id, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
                 FROM delivery_items di
                 JOIN deliveries d ON di.delivery_id = d.id
                 JOIN materials m ON di.material_id = m.id
@@ -5007,6 +5057,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
                 ORDER BY m.name ASC
             `, deliveryIds);
         }
+        allItems = allItems.filter(item => productAppliesToRole(item, isManager));
         
         // Agregar por material (somar todos os envios)
         const materialMap = new Map();
@@ -5066,10 +5117,12 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
         
         // Buscar todos os materiais para permitir adicionar novos
         let allMaterials = await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name');
-        allMaterials = allMaterials.map(mat => ({
-            ...mat,
-            weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal
-        }));
+        allMaterials = allMaterials
+            .filter(mat => productAppliesToRole(mat, isManager))
+            .map(mat => ({
+                ...mat,
+                weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal
+            }));
         
         // Determinar status agregado com prioridade correta:
         // 1. approved + !partial = completo
@@ -5177,16 +5230,18 @@ router.get('/delivery/:deliveryId/details', requireAdmin, async (req, res) => {
 
         // Buscar itens da entrega
         const items = await getAll(`
-            SELECT di.*, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal
+            SELECT di.*, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
             FROM delivery_items di
             JOIN materials m ON di.material_id = m.id
             WHERE di.delivery_id = ?
         `, [deliveryId]);
 
-        const adjustedItems = items.map(item => ({
-            ...item,
-            weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
-        }));
+        const adjustedItems = items
+            .filter(item => productAppliesToRole(item, isManager))
+            .map(item => ({
+                ...item,
+                weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
+            }));
         
         // Buscar screenshots da entrega
         const screenshots = await getAll(`
@@ -5195,10 +5250,12 @@ router.get('/delivery/:deliveryId/details', requireAdmin, async (req, res) => {
         
         // Buscar todos os materiais ativos para permitir adicionar novos
         let allMaterials = await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name');
-        allMaterials = allMaterials.map(mat => ({
-            ...mat,
-            weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal
-        }));
+        allMaterials = allMaterials
+            .filter(mat => productAppliesToRole(mat, isManager))
+            .map(mat => ({
+                ...mat,
+                weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal
+            }));
         
         res.json({ 
             success: true, 
@@ -5233,6 +5290,10 @@ router.put('/delivery/:deliveryId/item', requireAdmin, async (req, res) => {
         
         const deliveryGroups = await getUserGroups(delivery.user_id);
         const isManager = isManagerByGroups(deliveryGroups);
+        const material = await getOne('SELECT * FROM materials WHERE id = ? AND active = 1', [materialId]);
+        if (!material || !productAppliesToRole(material, isManager)) {
+            return res.status(400).json({ error: 'Produto de farm inválido para o cargo deste usuário' });
+        }
 
         // Verificar se o item existe
         const existingItem = await getOne(
@@ -5264,7 +5325,8 @@ router.put('/delivery/:deliveryId/item', requireAdmin, async (req, res) => {
         
         // Recalcular status da entrega se necessário
         const allItems = await getAll('SELECT * FROM delivery_items WHERE delivery_id = ?', [deliveryId]);
-        const materials = await getAll('SELECT * FROM materials WHERE active = 1');
+        const materials = (await getAll('SELECT * FROM materials WHERE active = 1'))
+            .filter(mat => productAppliesToRole(mat, isManager));
         
         // Verificar se bateu a meta (todos os materiais atingiram a meta)
         let metGoal = true;
@@ -5566,6 +5628,18 @@ router.post('/delivery/create-manual', requireAdmin, async (req, res) => {
         );
 
         const isSuperAdmin = isSuperAdminUser(req.session.user);
+        const targetGroups = await getUserGroups(userId);
+        const targetIsManager = isManagerByGroups(targetGroups);
+        const allowedMaterials = (await getAll('SELECT id, target_role FROM materials WHERE active = 1'))
+            .filter(m => productAppliesToRole(m, targetIsManager));
+        const allowedMaterialIds = new Set(allowedMaterials.map(m => Number(m.id)));
+        const invalidItem = (items || []).find(item => {
+            const amount = parseInt(item.amount, 10) || 0;
+            return amount > 0 && !allowedMaterialIds.has(Number(item.materialId));
+        });
+        if (!isNotDelivered && invalidItem) {
+            return res.status(400).json({ error: 'Produto de farm inválido para o cargo deste usuário' });
+        }
 
         if (existing && !isSuperAdmin) {
             return res.status(400).json({ error: 'Já existe uma entrega para essa semana. Use a edição.' });
@@ -5661,25 +5735,44 @@ router.get('/member/:memberId/deliveries', requireAdmin, async (req, res) => {
         const { memberId } = req.params;
         
         // Buscar membro
-        const member = await getOne('SELECT id, name, passport FROM users WHERE id = ?', [memberId]);
+        const member = await getOne('SELECT id, name, passport, role FROM users WHERE id = ?', [memberId]);
         if (!member) {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
-        
+        const memberGroups = await getUserGroups(memberId);
+        const isManager = isManagerByGroups(memberGroups.length > 0 ? memberGroups : [member.role]);
+
         // Buscar entregas
         const deliveries = await getAll(`
-            SELECT d.*, 
-                   (SELECT GROUP_CONCAT(m.name || ': ' || di.amount) 
-                    FROM delivery_items di 
-                    JOIN materials m ON di.material_id = m.id 
-                    WHERE di.delivery_id = d.id) as items_summary
+            SELECT d.*
             FROM deliveries d
             WHERE d.user_id = ?
             ORDER BY d.week_start DESC, d.created_at DESC
         `, [memberId]);
+
+        const deliveryIds = deliveries.map(d => d.id);
+        if (deliveryIds.length > 0) {
+            const placeholders = deliveryIds.map(() => '?').join(',');
+            const allItems = await getAll(`
+                SELECT di.delivery_id, di.amount, m.name, m.target_role
+                FROM delivery_items di
+                JOIN materials m ON di.material_id = m.id
+                WHERE di.delivery_id IN (${placeholders})
+            `, deliveryIds);
+            const summaryByDelivery = new Map();
+            for (const item of allItems) {
+                if (!productAppliesToRole(item, isManager)) continue;
+                if (!summaryByDelivery.has(item.delivery_id)) summaryByDelivery.set(item.delivery_id, []);
+                summaryByDelivery.get(item.delivery_id).push(`${item.name}: ${item.amount}`);
+            }
+            for (const delivery of deliveries) {
+                delivery.items_summary = (summaryByDelivery.get(delivery.id) || []).join(', ');
+            }
+        }
         
         // Buscar materiais ativos
-        const materials = await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name');
+        const materials = (await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name'))
+            .filter(material => productAppliesToRole(material, isManager));
         
         res.json({ 
             success: true, 

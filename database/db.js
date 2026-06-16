@@ -4,6 +4,13 @@ const bcrypt = require('bcryptjs');
 const isProduction = process.env.DATABASE_URL ? true : false;
 // Senha de bootstrap para super admin: deve ser sempre definida explicitamente via ambiente
 const superAdminBootstrapPassword = process.env.SUPERADMIN_BOOTSTRAP_PASSWORD || null;
+const FARM_ROLE_SPLIT_MARKER = 'farm_product_role_split_capofol_v1_done';
+const MANAGER_DEFAULT_MATERIAL = {
+    name: 'Capofol',
+    icon: 'C',
+    weeklyGoal: 700,
+    managerWeeklyGoal: 700
+};
 
 let pool;
 let dbType;
@@ -532,6 +539,40 @@ const initializePostgres = async () => {
             await pool.query(`UPDATE payment_types SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
         } catch (e) { /* ignorar */ }
 
+        try {
+            const splitDone = await pool.query(
+                `SELECT setting_value FROM farm_settings WHERE setting_key = $1`,
+                [FARM_ROLE_SPLIT_MARKER]
+            );
+
+            if (splitDone.rows.length === 0) {
+                await pool.query(`UPDATE materials SET target_role = 'member' WHERE target_role IS NULL OR target_role = 'both'`);
+                await pool.query(`UPDATE payment_types SET target_role = 'member' WHERE target_role IS NULL OR target_role = 'both'`);
+                await pool.query(
+                    `INSERT INTO materials (name, icon, weekly_goal, manager_weekly_goal, target_role, active)
+                     VALUES ($1, $2, $3, $4, 'manager', 1)
+                     ON CONFLICT (name) DO UPDATE SET
+                        active = 1,
+                        target_role = 'manager',
+                        manager_weekly_goal = COALESCE(materials.manager_weekly_goal, EXCLUDED.manager_weekly_goal),
+                        weekly_goal = COALESCE(materials.weekly_goal, EXCLUDED.weekly_goal)`,
+                    [
+                        MANAGER_DEFAULT_MATERIAL.name,
+                        MANAGER_DEFAULT_MATERIAL.icon,
+                        MANAGER_DEFAULT_MATERIAL.weeklyGoal,
+                        MANAGER_DEFAULT_MATERIAL.managerWeeklyGoal
+                    ]
+                );
+                await pool.query(
+                    `INSERT INTO farm_settings (setting_key, setting_value) VALUES ($1, $2) ON CONFLICT (setting_key) DO NOTHING`,
+                    [FARM_ROLE_SPLIT_MARKER, 'true']
+                );
+                console.log('Produtos de membro/gerente separados e Capofol configurado');
+            }
+        } catch (e) {
+            console.log('Separacao de produtos por cargo:', e.message);
+        }
+
         // Tabela de observações dos membros (histórico)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS member_observations (
@@ -558,7 +599,7 @@ const initializePostgres = async () => {
 
         for (const [name, icon, goal, unitType] of defaultPaymentTypes) {
             await pool.query(
-                `INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (name) DO UPDATE SET unit_type = EXCLUDED.unit_type, weekly_goal = EXCLUDED.weekly_goal, manager_weekly_goal = EXCLUDED.manager_weekly_goal`,
+                `INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role) VALUES ($1, $2, $3, $4, $5, 'member') ON CONFLICT (name) DO UPDATE SET unit_type = EXCLUDED.unit_type, weekly_goal = EXCLUDED.weekly_goal, manager_weekly_goal = EXCLUDED.manager_weekly_goal`,
                 [name, icon, goal, goal, unitType]
             );
         }
@@ -949,6 +990,35 @@ const initializeSQLite = () => {
             // Preencher metas de gerente onde estiverem vazias
             pool.run(`UPDATE materials SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
             pool.run(`UPDATE payment_types SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
+            pool.run(`UPDATE materials SET target_role = 'member' WHERE (target_role IS NULL OR target_role = 'both') AND NOT EXISTS (SELECT 1 FROM farm_settings WHERE setting_key = ? AND setting_value = 'true')`, [FARM_ROLE_SPLIT_MARKER]);
+            pool.run(`UPDATE payment_types SET target_role = 'member' WHERE (target_role IS NULL OR target_role = 'both') AND NOT EXISTS (SELECT 1 FROM farm_settings WHERE setting_key = ? AND setting_value = 'true')`, [FARM_ROLE_SPLIT_MARKER]);
+            pool.run(
+                `INSERT OR IGNORE INTO materials (name, icon, weekly_goal, manager_weekly_goal, target_role, active)
+                 SELECT ?, ?, ?, ?, 'manager', 1
+                 WHERE NOT EXISTS (SELECT 1 FROM farm_settings WHERE setting_key = ? AND setting_value = 'true')`,
+                [
+                    MANAGER_DEFAULT_MATERIAL.name,
+                    MANAGER_DEFAULT_MATERIAL.icon,
+                    MANAGER_DEFAULT_MATERIAL.weeklyGoal,
+                    MANAGER_DEFAULT_MATERIAL.managerWeeklyGoal,
+                    FARM_ROLE_SPLIT_MARKER
+                ]
+            );
+            pool.run(
+                `UPDATE materials
+                 SET active = 1,
+                     target_role = 'manager',
+                     manager_weekly_goal = COALESCE(manager_weekly_goal, weekly_goal, ?),
+                     weekly_goal = COALESCE(weekly_goal, ?)
+                 WHERE LOWER(name) = LOWER(?) AND NOT EXISTS (SELECT 1 FROM farm_settings WHERE setting_key = ? AND setting_value = 'true')`,
+                [
+                    MANAGER_DEFAULT_MATERIAL.managerWeeklyGoal,
+                    MANAGER_DEFAULT_MATERIAL.weeklyGoal,
+                    MANAGER_DEFAULT_MATERIAL.name,
+                    FARM_ROLE_SPLIT_MARKER
+                ]
+            );
+            pool.run(`INSERT OR IGNORE INTO farm_settings (setting_key, setting_value) VALUES (?, 'true')`, [FARM_ROLE_SPLIT_MARKER]);
 
             // Inserir tipos de pagamento padrão (R$ = Dinheiro; unidade = Pepita, Ruby, Safira)
             const defaultPaymentTypes = [
@@ -960,7 +1030,7 @@ const initializeSQLite = () => {
                 ['Safira', '💠', 700, 'unidade']
             ];
             defaultPaymentTypes.forEach(([name, icon, goal, unitType]) => {
-                pool.run(`INSERT OR IGNORE INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type) VALUES (?, ?, ?, ?, ?)`, [name, icon, goal, goal, unitType]);
+                pool.run(`INSERT OR IGNORE INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role) VALUES (?, ?, ?, ?, ?, 'member')`, [name, icon, goal, goal, unitType]);
             });
             // Corrigir tipos em unidade que estavam com 50000
             pool.run(`UPDATE payment_types SET unit_type = 'unidade', weekly_goal = 700, manager_weekly_goal = 700 WHERE name IN ('Pepita de Ouro', 'Pepita de Prata', 'Ruby', 'Safira')`);
