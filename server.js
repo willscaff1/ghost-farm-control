@@ -582,6 +582,77 @@ db.initialize().then(async () => {
         }
     }
 
+    // Operação one-shot: aprovar semana 08-14/06 e zerar semana 15-21/06
+    async function bulkWeekOps_2026_06() {
+        const markerKey = 'bulk_week_ops_2026_06_08_15_done';
+        const APPROVE = { start: '2026-06-08', end: '2026-06-14' };
+        const CLEAR = { start: '2026-06-15', end: '2026-06-21' };
+
+        try {
+            const { runQuery, getOne, getAll } = require('./database/db');
+            const alreadyDone = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [markerKey]);
+            if (alreadyDone?.setting_value === 'true') {
+                console.log('✅ Operação em lote 08-14/06 + 15-21/06 já executada');
+                return;
+            }
+
+            // ===== Semana A: aprovar todas as entregas =====
+            const resApprove = await runQuery(
+                `UPDATE deliveries SET status = 'approved', is_partial = 0, approved_at = CURRENT_TIMESTAMP
+                 WHERE week_start = ? AND week_end = ?`,
+                [APPROVE.start, APPROVE.end]
+            );
+            console.log(`📦 [08-14/06] Entregas aprovadas: ${resApprove?.changes ?? 'ok'}`);
+
+            // ===== Semana B: marcar não entregue + zerar quantidades e prints =====
+            const clearTargets = await getAll(
+                'SELECT id FROM deliveries WHERE week_start = ? AND week_end = ?',
+                [CLEAR.start, CLEAR.end]
+            );
+            const clearIds = (clearTargets || []).map(d => d.id);
+
+            if (clearIds.length > 0) {
+                const ph = clearIds.map(() => '?').join(',');
+
+                try {
+                    await runQuery(
+                        `DELETE FROM extra_farm_screenshots WHERE extra_farm_id IN (
+                            SELECT id FROM extra_farm_requests WHERE delivery_id IN (${ph})
+                        )`, clearIds
+                    );
+                } catch (e) { console.log('ℹ️ extra_farm_screenshots:', e.message); }
+
+                try {
+                    await runQuery(`DELETE FROM extra_farm_requests WHERE delivery_id IN (${ph})`, clearIds);
+                } catch (e) { console.log('ℹ️ extra_farm_requests:', e.message); }
+
+                try {
+                    await runQuery(`DELETE FROM delivery_screenshots WHERE delivery_id IN (${ph})`, clearIds);
+                } catch (e) { console.log('ℹ️ delivery_screenshots:', e.message); }
+
+                await runQuery(`DELETE FROM delivery_items WHERE delivery_id IN (${ph})`, clearIds);
+
+                await runQuery(
+                    `UPDATE deliveries SET status = 'not_delivered', is_partial = 0, screenshot_url = NULL, dirty_money_amount = 0
+                     WHERE id IN (${ph})`,
+                    clearIds
+                );
+                console.log(`🧹 [15-21/06] Entregas zeradas e marcadas como não entregue: ${clearIds.length}`);
+            } else {
+                console.log('ℹ️ [15-21/06] Nenhuma entrega encontrada para zerar');
+            }
+
+            await runQuery(
+                'INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)',
+                [markerKey, 'true']
+            );
+
+            console.log('✅ Operação em lote 08-14/06 + 15-21/06 concluída');
+        } catch (error) {
+            console.error('⚠️ Erro na operação em lote de semanas:', error.message);
+        }
+    }
+
     // Função para criar índices de performance (CRÍTICO para velocidade)
     async function createPerformanceIndexes() {
         if (!process.env.DATABASE_URL) return; // Só em produção (PostgreSQL)
@@ -733,6 +804,9 @@ db.initialize().then(async () => {
 
         // Esconder materiais padrão antigos e impedir que voltem após reinício
         await deactivateLegacyDefaultMaterials();
+
+        // One-shot: aprovar semana 08-14/06 e zerar semana 15-21/06
+        await bulkWeekOps_2026_06();
         
         // Criar índices para performance (muito importante!)
         await createPerformanceIndexes();
