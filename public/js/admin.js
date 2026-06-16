@@ -6251,8 +6251,9 @@ async function loadGoalsMaterials() {
             </tr>`;
         };
 
+        // Cada material aparece em UMA tabela só (independentes): gerência = 'manager', resto = membros
+        const gerentes = inGoals.filter(m => (m.target_role || 'both') === 'manager');
         const membros = inGoals.filter(m => (m.target_role || 'both') !== 'manager');
-        const gerentes = inGoals.filter(m => (m.target_role || 'both') !== 'member');
 
         tbodyM.innerHTML = membros.length
             ? membros.map(m => rowHtml(m, 'member')).join('')
@@ -6322,8 +6323,9 @@ async function loadGoalsPaymentTypes() {
             </tr>`;
         };
 
+        // Cada tipo aparece em UMA tabela só (independentes): gerência = 'manager', resto = membros
+        const gerentes = inGoals.filter(pt => (pt.target_role || 'both') === 'manager');
         const membros = inGoals.filter(pt => (pt.target_role || 'both') !== 'manager');
-        const gerentes = inGoals.filter(pt => (pt.target_role || 'both') !== 'member');
 
         tbodyM.innerHTML = membros.length
             ? membros.map(pt => rowHtml(pt, 'member')).join('')
@@ -6407,10 +6409,11 @@ function materialIconOptionsHtml(selected) {
 function targetSelectHtml(selectId, selected) {
     const opts = [
         { v: 'member', t: '👤 Membros' },
-        { v: 'manager', t: '🛡️ Gerência (01, 02, Gerentes)' },
-        { v: 'both', t: '👥 Ambos' }
+        { v: 'manager', t: '🛡️ Gerência (01, 02, Gerentes)' }
     ];
-    return `<select id="${selectId}" class="icon-select">${opts.map(o => `<option value="${o.v}" ${o.v === (selected || 'both') ? 'selected' : ''}>${o.t}</option>`).join('')}</select>`;
+    // Produtos legados marcados como 'both' caem no lado dos Membros por padrão
+    const sel = selected === 'manager' ? 'manager' : 'member';
+    return `<select id="${selectId}" class="icon-select">${opts.map(o => `<option value="${o.v}" ${o.v === sel ? 'selected' : ''}>${o.t}</option>`).join('')}</select>`;
 }
 
 function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes, target) {

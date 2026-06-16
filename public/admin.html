@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260616metasep"><link rel="stylesheet" href="css/tables-clean.css?v=20260609statuscol">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260616indep"><link rel="stylesheet" href="css/tables-clean.css?v=20260609statuscol">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260612theme1">
     
     
@@ -935,7 +935,6 @@
                             <select id="newMaterialTarget" class="goals-input goals-dropdown">
                                 <option value="member">👤 Membros</option>
                                 <option value="manager">🛡️ Gerência (01, 02, Gerentes)</option>
-                                <option value="both">👥 Ambos</option>
                             </select>
                             <label class="goals-label">Meta (membros)</label>
                             <input type="number" id="newMaterialGoal" value="700" min="1" max="999999" class="goals-input goals-number">
@@ -1020,7 +1019,6 @@
                             <select id="newPaymentTypeTarget" class="goals-input goals-dropdown">
                                 <option value="member">👤 Membros</option>
                                 <option value="manager">🛡️ Gerência (01, 02, Gerentes)</option>
-                                <option value="both">👥 Ambos</option>
                             </select>
                             <label class="goals-label" id="paymentTypeGoalLabel">Meta (membros)</label>
                             <input type="number" id="newPaymentTypeGoal" value="50000" min="1" max="999999999" class="goals-input goals-number">
@@ -1703,7 +1701,7 @@
         });
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
-    <script src="js/admin.js?v=20260616metasep"></script>
+    <script src="js/admin.js?v=20260616indep"></script>
     <script>
         (function () {
             const weeklyStatusSort = {
