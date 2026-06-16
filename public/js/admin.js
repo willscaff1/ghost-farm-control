@@ -5259,6 +5259,7 @@ function openEditMemberModal(id, name, passport, email) {
     editingMemberId = id;
     const selectedMember = membersTableData.find(m => m.id === id);
     document.getElementById('editMemberName').value = selectedMember?.original_name || selectedMember?.name || name || '';
+    document.getElementById('editMemberCapitalNickname').value = selectedMember?.capital_nickname || '';
     document.getElementById('editMemberPassport').value = selectedMember?.passport || passport || '';
     document.getElementById('editMemberEmail').value = selectedMember?.email || email || '';
     document.getElementById('editMemberSlot').value = selectedMember?.member_slot || '';
@@ -5308,6 +5309,7 @@ async function saveEditMember() {
     if (!editingMemberId) return;
     
     const name = document.getElementById('editMemberName').value.trim();
+    const capitalNickname = document.getElementById('editMemberCapitalNickname').value.trim().replace(/\s+/g, ' ');
     const passport = document.getElementById('editMemberPassport').value.trim();
     const email = document.getElementById('editMemberEmail').value.trim();
     const memberSlot = document.getElementById('editMemberSlot').value.trim();
@@ -5316,6 +5318,10 @@ async function saveEditMember() {
     
     if (!name || !passport) {
         alert('Nome e passaporte são obrigatórios!');
+        return;
+    }
+    if (capitalNickname && (capitalNickname.length < 2 || capitalNickname.length > 40)) {
+        alert('O vulgo deve ter entre 2 e 40 caracteres.');
         return;
     }
     
@@ -5332,10 +5338,12 @@ async function saveEditMember() {
         const currentRelevantSlot = ((usesManagerSlot ? member.manager_slot : member.member_slot) || '').trim();
 
         const currentName = (member.original_name || member.name || '').trim();
+        const currentCapitalNickname = (member.capital_nickname || '').trim();
         const currentPassport = (member.passport || '').trim();
         const currentEmail = (member.email || '').trim();
         const hasProfileChanges =
             name !== currentName ||
+            capitalNickname !== currentCapitalNickname ||
             passport !== currentPassport ||
             email !== currentEmail ||
             relevantSlot !== currentRelevantSlot ||
@@ -5348,6 +5356,7 @@ async function saveEditMember() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name,
+                    capital_nickname: capitalNickname,
                     passport,
                     email,
                     member_slot: usesManagerSlot ? undefined : memberSlot,

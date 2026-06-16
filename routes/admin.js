@@ -1303,7 +1303,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
     try {
         const isSuperAdmin = isSuperAdminUser(req.session.user);
         const memberId = req.params.id;
-        const { name, passport, email, role, newPassword, member_slot, manager_slot } = req.body;
+        const { name, passport, email, role, newPassword, member_slot, manager_slot, capital_nickname } = req.body;
         
         const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
         if (!member) {
@@ -1317,10 +1317,14 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         
         // Verificar se novo passaporte já existe
         const requestedName = name !== undefined ? String(name).trim() : member.name;
+        const requestedCapitalNickname = capital_nickname !== undefined
+            ? String(capital_nickname || '').trim().replace(/\s+/g, ' ')
+            : (member.capital_nickname || '');
         const requestedPassport = passport !== undefined ? String(passport).trim().toUpperCase() : member.passport;
         const requestedEmail = email !== undefined ? String(email).trim() : (member.email || '');
         const profileChanged =
             requestedName !== (member.name || '').trim() ||
+            requestedCapitalNickname !== (member.capital_nickname || '').trim() ||
             requestedPassport !== (member.passport || '').trim().toUpperCase() ||
             requestedEmail !== (member.email || '').trim() ||
             !!role ||
@@ -1336,6 +1340,10 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
                 return res.status(400).json({ error: 'Este passaporte já está em uso' });
             }
         }
+
+        if (requestedCapitalNickname && (requestedCapitalNickname.length < 2 || requestedCapitalNickname.length > 40)) {
+            return res.status(400).json({ error: 'O vulgo deve ter entre 2 e 40 caracteres' });
+        }
         
         // Validar cargo se fornecido - buscar grupos válidos do banco
         if (role) {
@@ -1348,6 +1356,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         
         const cleanMemberSlot = member_slot !== undefined ? String(member_slot || '').trim() || null : member.member_slot;
         const cleanManagerSlot = manager_slot !== undefined ? String(manager_slot || '').trim() || null : member.manager_slot;
+        const cleanCapitalNickname = capital_nickname !== undefined ? requestedCapitalNickname || null : member.capital_nickname;
 
         // Se tem nova senha, fazer hash
         let hashedPassword = null;
@@ -1358,16 +1367,20 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         // Atualizar membro
         if (hashedPassword) {
             await runQuery(
-                'UPDATE users SET name = ?, passport = ?, email = ?, role = ?, member_slot = ?, manager_slot = ?, password = ? WHERE id = ?',
-                [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, cleanMemberSlot, cleanManagerSlot, hashedPassword, memberId]
+                'UPDATE users SET name = ?, capital_nickname = ?, passport = ?, email = ?, role = ?, member_slot = ?, manager_slot = ?, password = ? WHERE id = ?',
+                [name || member.name, cleanCapitalNickname, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, cleanMemberSlot, cleanManagerSlot, hashedPassword, memberId]
             );
         } else {
             await runQuery(
-                'UPDATE users SET name = ?, passport = ?, email = ?, role = ?, member_slot = ?, manager_slot = ? WHERE id = ?',
-                [name || member.name, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, cleanMemberSlot, cleanManagerSlot, memberId]
+                'UPDATE users SET name = ?, capital_nickname = ?, passport = ?, email = ?, role = ?, member_slot = ?, manager_slot = ? WHERE id = ?',
+                [name || member.name, cleanCapitalNickname, (passport || member.passport).toUpperCase(), email || member.email, role || member.role, cleanMemberSlot, cleanManagerSlot, memberId]
             );
         }
         
+        if (typeof global.__clearWeeklyStatusCache === 'function') {
+            global.__clearWeeklyStatusCache();
+        }
+
         res.json({ success: true, message: 'Membro atualizado com sucesso' });
     } catch (error) {
         res.status(500).json({ error: error.message });
