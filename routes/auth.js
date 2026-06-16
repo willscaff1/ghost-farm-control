@@ -9,6 +9,14 @@ const {
 
 const router = express.Router();
 
+const systemPassports = new Set(['0', 'admin']);
+
+function needsCapitalNickname(user = {}) {
+    const passport = String(user.passport || '').trim().toLowerCase();
+    if (!passport || systemPassports.has(passport)) return false;
+    return !String(user.capital_nickname || '').trim();
+}
+
 // Login (usando passaporte)
 router.post('/login', async (req, res) => {
     try {
@@ -36,7 +44,8 @@ router.post('/login', async (req, res) => {
             name: user.name,
             passport: user.passport,
             email: user.email,
-            role: user.role
+            role: user.role,
+            capital_nickname: user.capital_nickname || null
         };
 
         await runQuery('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
@@ -46,7 +55,8 @@ router.post('/login', async (req, res) => {
             success: true, 
             user: {
                 ...req.session.user,
-                commandments_required: commandments.requiresAcceptance
+                commandments_required: commandments.requiresAcceptance,
+                requires_capital_nickname: !commandments.requiresAcceptance && needsCapitalNickname(user)
             }
         });
     } catch (error) {
@@ -65,7 +75,7 @@ router.get('/me', async (req, res) => {
     if (req.session.user) {
         try {
             const [userCheck, userGroups] = await Promise.all([
-                getOne('SELECT active, role FROM users WHERE id = ?', [req.session.user.id]),
+                getOne('SELECT id, name, passport, email, active, role, capital_nickname FROM users WHERE id = ?', [req.session.user.id]),
                 getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [req.session.user.id])
             ]);
             
@@ -83,6 +93,10 @@ router.get('/me', async (req, res) => {
             // Atualizar a sessão com os grupos mais recentes
             req.session.user.groups = groups;
             req.session.user.role = groups[0] || userCheck.role; // Atualizar role também
+            req.session.user.name = userCheck.name;
+            req.session.user.passport = userCheck.passport;
+            req.session.user.email = userCheck.email;
+            req.session.user.capital_nickname = userCheck.capital_nickname || null;
             
             const commandments = await getUserCommandmentStatus(req.session.user.id);
 
@@ -91,7 +105,8 @@ router.get('/me', async (req, res) => {
                     ...req.session.user,
                     groups: groups,
                     role: groups[0] || userCheck.role,
-                    commandments_required: commandments.requiresAcceptance
+                    commandments_required: commandments.requiresAcceptance,
+                    requires_capital_nickname: !commandments.requiresAcceptance && needsCapitalNickname(userCheck, groups)
                 }
             });
         } catch (error) {
@@ -101,6 +116,69 @@ router.get('/me', async (req, res) => {
         }
     } else {
         res.status(401).json({ error: 'Não autenticado' });
+    }
+});
+
+router.post('/capital-nickname', async (req, res) => {
+    try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Nao autenticado' });
+        }
+
+        const nickname = String(req.body?.capital_nickname || '').trim().replace(/\s+/g, ' ');
+        if (!nickname) {
+            return res.status(400).json({ error: 'Informe seu vulgo na Capital' });
+        }
+        if (nickname.length < 2 || nickname.length > 40) {
+            return res.status(400).json({ error: 'O vulgo deve ter entre 2 e 40 caracteres' });
+        }
+
+        const [user, userGroups] = await Promise.all([
+            getOne('SELECT id, name, passport, email, active, role, capital_nickname FROM users WHERE id = ?', [req.session.user.id]),
+            getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [req.session.user.id])
+        ]);
+
+        if (!user || user.active === 0 || user.active === false) {
+            req.session.destroy();
+            return res.status(403).json({ error: 'Usuario desativado' });
+        }
+
+        const groups = userGroups.map(g => g.group_name);
+        if (!needsCapitalNickname(user, groups)) {
+            return res.json({
+                success: true,
+                user: {
+                    ...req.session.user,
+                    capital_nickname: user.capital_nickname || null,
+                    requires_capital_nickname: false
+                }
+            });
+        }
+
+        await runQuery('UPDATE users SET capital_nickname = ? WHERE id = ?', [nickname, user.id]);
+        if (typeof global.__clearWeeklyStatusCache === 'function') {
+            global.__clearWeeklyStatusCache();
+        }
+
+        req.session.user = {
+            ...req.session.user,
+            name: user.name,
+            passport: user.passport,
+            email: user.email,
+            role: groups[0] || user.role,
+            groups,
+            capital_nickname: nickname
+        };
+
+        res.json({
+            success: true,
+            user: {
+                ...req.session.user,
+                requires_capital_nickname: false
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

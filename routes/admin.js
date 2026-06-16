@@ -97,6 +97,8 @@ const setCachedWeeklyStatus = (weekStart, weekEnd, data) => {
     });
 };
 
+global.__clearWeeklyStatusCache = () => weeklyStatusCache.clear();
+
 // Helper centralizado de super admin (RBAC baseado em role/grupos)
 const isSuperAdminUser = (user) => {
     if (!user) return false;
@@ -766,7 +768,9 @@ router.get('/deliveries/pending', requireAdmin, async (req, res) => {
             SELECT ${isSummary
                 ? 'd.id, d.user_id, d.week_start, d.week_end, d.status, d.created_at, d.payment_type, d.payment_type_id, d.dirty_money_amount'
                 : 'd.*, d.payment_type, d.payment_type_id, d.dirty_money_amount'}, 
-                   u.name as user_name, u.passport as user_passport, u.role as user_role,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name,
+                   u.name as user_original_name, u.capital_nickname,
+                   u.passport as user_passport, u.role as user_role,
                    u.member_slot, u.manager_slot
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
@@ -1188,7 +1192,11 @@ router.get('/members', requireAdmin, async (req, res) => {
         const roleNamesMap = await getRoleNames();
         
         const members = await getAll(`
-            SELECT u.id, u.name, u.passport, u.email, u.role, u.member_slot, u.manager_slot, u.created_at, u.active,
+            SELECT u.id,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                   u.name as original_name,
+                   u.capital_nickname,
+                   u.passport, u.email, u.role, u.member_slot, u.manager_slot, u.created_at, u.active,
                    COALESCE((
                        SELECT SUM(di.amount) 
                        FROM delivery_items di 
@@ -1200,7 +1208,7 @@ router.get('/members', requireAdmin, async (req, res) => {
                    (SELECT COUNT(*) FROM warnings WHERE user_id = u.id) as warnings_count
             FROM users u
             WHERE u.passport != '0'
-            ORDER BY u.name ASC
+            ORDER BY COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) ASC
         `);
         
         // Buscar grupos de TODOS os usuários de uma vez (otimizado)
@@ -2056,9 +2064,13 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         ] = await Promise.all([
             getAll(`SELECT user_id FROM farm_whitelist`),
             getAll(`
-                SELECT id, name, passport, role, member_slot, manager_slot, created_at FROM users
+                SELECT id,
+                       COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name,
+                       name as original_name,
+                       capital_nickname,
+                       passport, role, member_slot, manager_slot, created_at FROM users
                 WHERE active = 1 AND passport != '0'
-                ORDER BY name
+                ORDER BY COALESCE(NULLIF(TRIM(capital_nickname), ''), name)
             `),
             getAll(`
                 SELECT ug.user_id, ug.group_name 

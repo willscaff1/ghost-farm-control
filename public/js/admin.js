@@ -269,6 +269,9 @@ async function checkAuth() {
         
         if (data.user && hasAdminAccess) {
             currentUser = data.user;
+            if (typeof ensureCapitalNicknameModal === 'function') {
+                ensureCapitalNicknameModal(currentUser);
+            }
             
             // Usar o primeiro grupo administrativo para display
             const primaryAdminRole = userGroups.find(g => adminRoles.includes(g)) || userGroups[0];
@@ -5255,7 +5258,7 @@ function updateEditMemberSlotVisibility(member) {
 function openEditMemberModal(id, name, passport, email) {
     editingMemberId = id;
     const selectedMember = membersTableData.find(m => m.id === id);
-    document.getElementById('editMemberName').value = selectedMember?.name || name || '';
+    document.getElementById('editMemberName').value = selectedMember?.original_name || selectedMember?.name || name || '';
     document.getElementById('editMemberPassport').value = selectedMember?.passport || passport || '';
     document.getElementById('editMemberEmail').value = selectedMember?.email || email || '';
     document.getElementById('editMemberSlot').value = selectedMember?.member_slot || '';
@@ -5328,7 +5331,7 @@ async function saveEditMember() {
         const relevantSlot = usesManagerSlot ? managerSlot : memberSlot;
         const currentRelevantSlot = ((usesManagerSlot ? member.manager_slot : member.member_slot) || '').trim();
 
-        const currentName = (member.name || '').trim();
+        const currentName = (member.original_name || member.name || '').trim();
         const currentPassport = (member.passport || '').trim();
         const currentEmail = (member.email || '').trim();
         const hasProfileChanges =

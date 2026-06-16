@@ -97,6 +97,9 @@ async function checkAuth() {
 
             currentUser = data.user;
             document.getElementById('userName').textContent = currentUser.name;
+            if (typeof ensureCapitalNicknameModal === 'function') {
+                ensureCapitalNicknameModal(currentUser);
+            }
             
             // Usar grupos se disponível, senão usar role
             const userGroups = data.user.groups || [data.user.role];
