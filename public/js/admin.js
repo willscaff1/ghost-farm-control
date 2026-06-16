@@ -6208,7 +6208,111 @@ async function loadManagerGoals() {
     await loadGoalsTab();
 }
 
+const MONEY_ICON_OPTIONS = [
+    { icon: '💰', name: 'Dinheiro' },
+    { icon: '💵', name: 'Nota' },
+    { icon: '💸', name: 'Dinheiro voando' },
+    { icon: '🪙', name: 'Moeda' },
+    { icon: '💳', name: 'Cartão' },
+    { icon: '💼', name: 'Maleta' },
+    { icon: '💎', name: 'Diamante' },
+    { icon: '💠', name: 'Safira' }
+];
+
+function fillIconSelect(id, options) {
+    const sel = document.getElementById(id);
+    if (!sel || sel.options.length > 0) return;
+    sel.innerHTML = options.map(o => `<option value="${o.icon}">${o.icon} ${o.name}</option>`).join('');
+}
+
+function populateGoalsIconSelects() {
+    fillIconSelect('matIconMembros', MATERIAL_ICON_OPTIONS);
+    fillIconSelect('matIconGerentes', MATERIAL_ICON_OPTIONS);
+    fillIconSelect('payIconMembros', MONEY_ICON_OPTIONS);
+    fillIconSelect('payIconGerentes', MONEY_ICON_OPTIONS);
+}
+
+function setGoalsMsg(id, text, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'goals-message show ' + type;
+    setTimeout(() => { if (el) el.className = 'goals-message'; }, 4000);
+}
+
+// Adiciona material/produto direto na seção (membro ou gerência)
+async function addGoalMaterial(side) {
+    const sfx = side === 'manager' ? 'Gerentes' : 'Membros';
+    const nameEl = document.getElementById('matName' + sfx);
+    const iconEl = document.getElementById('matIcon' + sfx);
+    const goalEl = document.getElementById('matGoal' + sfx);
+    const msgId = 'matMsg' + sfx;
+    const name = (nameEl?.value || '').trim();
+    const icon = iconEl?.value || '📦';
+    const goal = parseInt(goalEl?.value) || 700;
+
+    if (!name) { setGoalsMsg(msgId, 'Digite o nome do material/produto.', 'error'); return; }
+
+    try {
+        const resp = await fetch('/api/admin/materials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon, weekly_goal: goal, manager_weekly_goal: goal, target_role: side })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            setGoalsMsg(msgId, data.message || 'Adicionado.', 'success');
+            if (nameEl) nameEl.value = '';
+            loadGoalsMaterials();
+        } else {
+            setGoalsMsg(msgId, data.error || 'Erro ao adicionar.', 'error');
+        }
+    } catch (e) {
+        setGoalsMsg(msgId, 'Erro de conexão.', 'error');
+    }
+}
+
+// Adiciona tipo de pagamento direto na seção (membro ou gerência)
+async function addGoalPayment(side) {
+    const sfx = side === 'manager' ? 'Gerentes' : 'Membros';
+    const nameEl = document.getElementById('payName' + sfx);
+    const iconEl = document.getElementById('payIcon' + sfx);
+    const unitEl = document.getElementById('payUnit' + sfx);
+    const goalEl = document.getElementById('payGoal' + sfx);
+    const msgId = 'payMsg' + sfx;
+    const name = (nameEl?.value || '').trim();
+    const icon = iconEl?.value || '💰';
+    const unit = unitEl?.value === 'unidade' ? 'unidade' : 'R$';
+    const goal = parseInt(goalEl?.value) || (unit === 'unidade' ? 700 : 50000);
+
+    if (!name) { setGoalsMsg(msgId, 'Digite o nome do pagamento.', 'error'); return; }
+
+    try {
+        const resp = await fetch('/api/admin/payment-types', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, icon, weekly_goal: goal, manager_weekly_goal: goal, unit_type: unit, target_role: side })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            setGoalsMsg(msgId, data.message || 'Adicionado.', 'success');
+            if (nameEl) nameEl.value = '';
+            loadGoalsPaymentTypes();
+        } else {
+            setGoalsMsg(msgId, data.error || 'Erro ao adicionar.', 'error');
+        }
+    } catch (e) {
+        setGoalsMsg(msgId, 'Erro de conexão.', 'error');
+    }
+}
+
+document.getElementById('btnAddMatMembros')?.addEventListener('click', () => addGoalMaterial('member'));
+document.getElementById('btnAddMatGerentes')?.addEventListener('click', () => addGoalMaterial('manager'));
+document.getElementById('btnAddPayMembros')?.addEventListener('click', () => addGoalPayment('member'));
+document.getElementById('btnAddPayGerentes')?.addEventListener('click', () => addGoalPayment('manager'));
+
 async function loadGoalsTab() {
+    populateGoalsIconSelects();
     await Promise.all([
         loadGoalsMaterials(),
         loadGoalsPaymentTypes()
@@ -6242,11 +6346,10 @@ async function loadGoalsMaterials() {
                 <td class="goals-cell-icon">${m.icon || '📦'}</td>
                 <td class="goals-cell-name">${escapeHtml(m.name || '-')}</td>
                 <td class="goals-cell-meta">${Number(goalCol === 'manager' ? goalG : goalM).toLocaleString('pt-BR')}</td>
-                <td class="goals-cell-target">${targetRoleLabel(target)}</td>
                 <td><span class="goals-status-active">Ativo</span></td>
                 <td class="goals-actions">
-                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditMaterialGoalsModal(${m.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG}, '${target}')">✏️ Editar metas</button>
-                    <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removeMaterialFromGoals(${m.id})" title="Excluir este material da meta">Excluir da meta</button>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditMaterialGoalsModal(${m.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG}, '${target}')">✏️ Editar</button>
+                    <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removeMaterialFromGoals(${m.id})" title="Excluir este material da meta">Excluir</button>
                 </td>
             </tr>`;
         };
@@ -6257,13 +6360,13 @@ async function loadGoalsMaterials() {
 
         tbodyM.innerHTML = membros.length
             ? membros.map(m => rowHtml(m, 'member')).join('')
-            : '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum material para membros.</td></tr>';
+            : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum material para membros.</td></tr>';
         tbodyG.innerHTML = gerentes.length
             ? gerentes.map(m => rowHtml(m, 'manager')).join('')
-            : '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum material para a gerência. Ex: Capofol 💊</td></tr>';
+            : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum material para a gerência. Ex: Capofol 💊</td></tr>';
     } catch (err) {
         console.error(err);
-        tbodyM.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
+        tbodyM.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
         tbodyG.innerHTML = '';
     }
 }
@@ -6314,11 +6417,10 @@ async function loadGoalsPaymentTypes() {
                 <td class="goals-cell-icon">${pt.icon || '💰'}</td>
                 <td class="goals-cell-name">${pt.name || '-'}</td>
                 <td class="goals-cell-meta">${fmt(goalCol === 'manager' ? goalG : goalM)}</td>
-                <td class="goals-cell-target">${targetRoleLabel(target)}</td>
                 <td><span class="goals-status-active">Ativo</span></td>
                 <td class="goals-actions">
-                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditPaymentTypeGoalsModal(${pt.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG}, '${(pt.unit_type || 'R$').replace(/'/g, "\\'")}', '${target}')">✏️ Editar metas</button>
-                    <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removePaymentTypeFromGoals(${pt.id})" title="Excluir da meta">Excluir da meta</button>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditPaymentTypeGoalsModal(${pt.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG}, '${(pt.unit_type || 'R$').replace(/'/g, "\\'")}', '${target}')">✏️ Editar</button>
+                    <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removePaymentTypeFromGoals(${pt.id})" title="Excluir da meta">Excluir</button>
                 </td>
             </tr>`;
         };
@@ -6329,13 +6431,13 @@ async function loadGoalsPaymentTypes() {
 
         tbodyM.innerHTML = membros.length
             ? membros.map(pt => rowHtml(pt, 'member')).join('')
-            : '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum pagamento para membros.</td></tr>';
+            : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum pagamento para membros.</td></tr>';
         tbodyG.innerHTML = gerentes.length
             ? gerentes.map(pt => rowHtml(pt, 'manager')).join('')
-            : '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum pagamento para a gerência.</td></tr>';
+            : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum pagamento para a gerência.</td></tr>';
     } catch (err) {
         console.error(err);
-        tbodyM.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
+        tbodyM.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
         tbodyG.innerHTML = '';
     }
 }

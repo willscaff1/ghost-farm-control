@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260616indep"><link rel="stylesheet" href="css/tables-clean.css?v=20260609statuscol">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260616sep2"><link rel="stylesheet" href="css/tables-clean.css?v=20260609statuscol">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260612theme1">
     
     
@@ -892,59 +892,20 @@
 
                     <!-- Materiais -->
                     <div class="goals-section">
-                        <h3>📦 Materiais</h3>
-                        <div class="goals-add-form">
-                            <label class="goals-label">Material</label>
-                            <select id="materialSelectDropdown" class="goals-input goals-dropdown">
-                                <!-- Opções carregadas por JS: todos os materiais por nome + Adicionar novo material -->
-                            </select>
-                            <div id="newMaterialNameWrap" class="goals-new-name-wrap" style="display: none;">
-                                <label class="goals-label">Nome do novo</label>
-                                <input type="text" id="newMaterialName" placeholder="Ex: Ópio, Farinha de Trigo" class="goals-input goals-name">
-                            </div>
-                            <div id="newMaterialIconWrap" class="goals-new-name-wrap" style="display: none;">
-                                <label class="goals-label">Ícone</label>
-                                <select id="newMaterialIcon" class="goals-input goals-icon">
-                                <option value="💊">💊 Capofol (pílula dourada)</option>
-                                <option value="💉">💉 Seringa</option>
-                                <option value="🪡">🪡 Agulha</option>
-                                <option value="🟡">🟡 Pílula dourada</option>
-                                <option value="🩸">🩸 Sangue</option>
-                                <option value="🧬">🧬 Composto</option>
-                                <option value="📦">📦</option>
-                                <option value="📄">📄</option>
-                                <option value="🧪">🧪</option>
-                                <option value="🌿">🌿</option>
-                                <option value="🪵">🪵</option>
-                                <option value="⛏️">⛏️</option>
-                                <option value="💎">💎</option>
-                                <option value="🔥">🔥</option>
-                                <option value="💧">💧</option>
-                                <option value="🌾">🌾</option>
-                                <option value="🧱">🧱</option>
-                                <option value="🪨">🪨</option>
-                                <option value="⚒️">⚒️</option>
-                                <option value="🗡️">🗡️</option>
-                                <option value="👕">👕</option>
-                                <option value="🍞">🍞</option>
-                                <option value="🔮">🔮</option>
-                                <option value="⚡">⚡</option>
-                            </select>
-                            </div>
-                            <label class="goals-label">Destino</label>
-                            <select id="newMaterialTarget" class="goals-input goals-dropdown">
-                                <option value="member">👤 Membros</option>
-                                <option value="manager">🛡️ Gerência (01, 02, Gerentes)</option>
-                            </select>
-                            <label class="goals-label">Meta (membros)</label>
-                            <input type="number" id="newMaterialGoal" value="700" min="1" max="999999" class="goals-input goals-number">
-                            <label class="goals-label">Meta (gerentes)</label>
-                            <input type="number" id="newMaterialManagerGoal" value="700" min="1" max="999999" class="goals-input goals-number">
-                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMaterial">Adicionar</button>
-                        </div>
-                        <div id="materialMessage" class="goals-message"></div>
+                        <h3>📦 Materiais e Produtos</h3>
 
+                        <!-- MEMBROS -->
                         <h4 class="goals-subsection-title">👤 Metas dos Membros</h4>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Material/Produto</label>
+                            <input type="text" id="matNameMembros" placeholder="Ex: Agulha, Seringa" class="goals-input goals-name">
+                            <label class="goals-label">Ícone</label>
+                            <select id="matIconMembros" class="goals-input goals-icon"></select>
+                            <label class="goals-label">Meta</label>
+                            <input type="number" id="matGoalMembros" value="700" min="1" max="999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMatMembros">➕ Adicionar ao membro</button>
+                        </div>
+                        <div id="matMsgMembros" class="goals-message"></div>
                         <div class="goals-table-wrap">
                             <table class="goals-table">
                                 <thead>
@@ -952,18 +913,28 @@
                                         <th>Ícone</th>
                                         <th>Nome</th>
                                         <th>Meta (Membros)</th>
-                                        <th>Destino</th>
                                         <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="goalsMaterialsBodyMembros">
-                                    <tr><td colspan="6" class="loading">Carregando...</td></tr>
+                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
 
+                        <!-- GERÊNCIA -->
                         <h4 class="goals-subsection-title">🛡️ Metas da Gerência (01, 02, Gerentes)</h4>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Material/Produto</label>
+                            <input type="text" id="matNameGerentes" placeholder="Ex: Capofol" class="goals-input goals-name">
+                            <label class="goals-label">Ícone</label>
+                            <select id="matIconGerentes" class="goals-input goals-icon"></select>
+                            <label class="goals-label">Meta</label>
+                            <input type="number" id="matGoalGerentes" value="500" min="1" max="999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMatGerentes">➕ Adicionar à gerência</button>
+                        </div>
+                        <div id="matMsgGerentes" class="goals-message"></div>
                         <div class="goals-table-wrap">
                             <table class="goals-table">
                                 <thead>
@@ -971,13 +942,12 @@
                                         <th>Ícone</th>
                                         <th>Nome</th>
                                         <th>Meta (Gerentes)</th>
-                                        <th>Destino</th>
                                         <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="goalsMaterialsBodyGerentes">
-                                    <tr><td colspan="6" class="loading">Carregando...</td></tr>
+                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -986,49 +956,24 @@
                     <!-- Tipos de pagamento -->
                     <div class="goals-section">
                         <h3>💰 Tipos de pagamento</h3>
-                        <div class="goals-add-form">
-                            <label class="goals-label">Tipo de pagamento</label>
-                            <select id="paymentTypeSelectDropdown" class="goals-input goals-dropdown">
-                                <!-- Opções carregadas por JS -->
-                            </select>
-                            <div id="newPaymentTypeNameWrap" class="goals-new-name-wrap" style="display: none;">
-                                <label class="goals-label">Nome do novo</label>
-                                <input type="text" id="newPaymentTypeName" placeholder="Ex: Dinheiro Sujo" class="goals-input goals-name">
-                            </div>
-                            <div id="newPaymentTypeIconWrap" class="goals-new-name-wrap" style="display: none;">
-                                <label class="goals-label">Ícone</label>
-                                <select id="newPaymentTypeIcon" class="goals-input goals-icon">
-                                    <option value="💰">💰</option>
-                                    <option value="💵">💵</option>
-                                    <option value="💸">💸</option>
-                                    <option value="🪙">🪙</option>
-                                    <option value="💳">💳</option>
-                                    <option value="💼">💼</option>
-                                    <option value="💎">💎</option>
-                                    <option value="💠">💠</option>
-                                </select>
-                            </div>
-                            <div id="newPaymentTypeUnitWrap" class="goals-new-name-wrap" style="display: none;">
-                                <label class="goals-label">Tipo de meta</label>
-                                <select id="newPaymentTypeUnit" class="goals-input goals-dropdown">
-                                    <option value="R$">R$ (valor)</option>
-                                    <option value="unidade">Unidades</option>
-                                </select>
-                            </div>
-                            <label class="goals-label">Destino</label>
-                            <select id="newPaymentTypeTarget" class="goals-input goals-dropdown">
-                                <option value="member">👤 Membros</option>
-                                <option value="manager">🛡️ Gerência (01, 02, Gerentes)</option>
-                            </select>
-                            <label class="goals-label" id="paymentTypeGoalLabel">Meta (membros)</label>
-                            <input type="number" id="newPaymentTypeGoal" value="50000" min="1" max="999999999" class="goals-input goals-number">
-                            <label class="goals-label" id="paymentTypeManagerGoalLabel">Meta (gerentes)</label>
-                            <input type="number" id="newPaymentTypeManagerGoal" value="50000" min="1" max="999999999" class="goals-input goals-number">
-                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddPaymentType">Adicionar</button>
-                        </div>
-                        <div id="paymentTypeMessage" class="goals-message"></div>
 
+                        <!-- MEMBROS -->
                         <h4 class="goals-subsection-title">👤 Pagamentos dos Membros</h4>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Nome</label>
+                            <input type="text" id="payNameMembros" placeholder="Ex: Dinheiro Sujo" class="goals-input goals-name">
+                            <label class="goals-label">Ícone</label>
+                            <select id="payIconMembros" class="goals-input goals-icon"></select>
+                            <label class="goals-label">Tipo</label>
+                            <select id="payUnitMembros" class="goals-input goals-dropdown">
+                                <option value="R$">R$ (valor)</option>
+                                <option value="unidade">Unidades</option>
+                            </select>
+                            <label class="goals-label">Meta</label>
+                            <input type="number" id="payGoalMembros" value="50000" min="1" max="999999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddPayMembros">➕ Adicionar ao membro</button>
+                        </div>
+                        <div id="payMsgMembros" class="goals-message"></div>
                         <div class="goals-table-wrap">
                             <table class="goals-table">
                                 <thead>
@@ -1036,18 +981,33 @@
                                         <th>Ícone</th>
                                         <th>Nome</th>
                                         <th>Meta (Membros)</th>
-                                        <th>Destino</th>
                                         <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="goalsPaymentTypesBodyMembros">
-                                    <tr><td colspan="6" class="loading">Carregando...</td></tr>
+                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
 
+                        <!-- GERÊNCIA -->
                         <h4 class="goals-subsection-title">🛡️ Pagamentos da Gerência (01, 02, Gerentes)</h4>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Nome</label>
+                            <input type="text" id="payNameGerentes" placeholder="Ex: Caixa da Gerência" class="goals-input goals-name">
+                            <label class="goals-label">Ícone</label>
+                            <select id="payIconGerentes" class="goals-input goals-icon"></select>
+                            <label class="goals-label">Tipo</label>
+                            <select id="payUnitGerentes" class="goals-input goals-dropdown">
+                                <option value="R$">R$ (valor)</option>
+                                <option value="unidade">Unidades</option>
+                            </select>
+                            <label class="goals-label">Meta</label>
+                            <input type="number" id="payGoalGerentes" value="50000" min="1" max="999999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddPayGerentes">➕ Adicionar à gerência</button>
+                        </div>
+                        <div id="payMsgGerentes" class="goals-message"></div>
                         <div class="goals-table-wrap">
                             <table class="goals-table">
                                 <thead>
@@ -1055,13 +1015,12 @@
                                         <th>Ícone</th>
                                         <th>Nome</th>
                                         <th>Meta (Gerentes)</th>
-                                        <th>Destino</th>
                                         <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="goalsPaymentTypesBodyGerentes">
-                                    <tr><td colspan="6" class="loading">Carregando...</td></tr>
+                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1701,7 +1660,7 @@
         });
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
-    <script src="js/admin.js?v=20260616indep"></script>
+    <script src="js/admin.js?v=20260616sep2"></script>
     <script>
         (function () {
             const weeklyStatusSort = {
