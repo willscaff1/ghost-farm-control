@@ -2787,7 +2787,7 @@ async function showDeliveryExtract(member) {
     const metaBatida = Object.keys(progressByMaterial).length > 0 &&
         Object.values(progressByMaterial).every(p => (p.total || 0) >= (p.goal || 700));
 
-    const progressBarsHtml = metaBatida
+    const progressBarsHtml = false && metaBatida
         ? `
         <div class="extract-section progress-week meta-batida">
             <div class="extract-section-header">
