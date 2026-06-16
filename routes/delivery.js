@@ -97,11 +97,13 @@ const resolvePaymentGoal = (paymentType, isManager) => {
     return paymentType.weekly_goal ?? 50000;
 };
 
-// Um produto (material/pagamento) se aplica ao cargo? membros, gerentes ou ambos
+// Separação total por cargo:
+// - Gerente (gerência/01/02) farma SOMENTE produtos marcados como 'manager'
+// - Membro farma o resto ('member' e os legados 'both')
 const productAppliesToRole = (product, isManager) => {
     const t = (product && product.target_role) || 'both';
-    if (t === 'both') return true;
-    return isManager ? t === 'manager' : t === 'member';
+    if (isManager) return t === 'manager';
+    return t !== 'manager';
 };
 
 // Helper para calcular semana com offset (PADRONIZADO)

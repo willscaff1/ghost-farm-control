@@ -67,11 +67,13 @@ const normalizeGroupName = (groupName = '') => String(groupName)
 
 const isManagerByGroups = (groups = []) => groups.some(g => managerGroups.has(normalizeGroupName(g)));
 
-// Um produto (material/pagamento) se aplica ao cargo? membros, gerentes ou ambos
+// Separação total por cargo:
+// - Gerente (gerência/01/02) conta SOMENTE produtos marcados como 'manager'
+// - Membro conta o resto ('member' e os legados 'both')
 const productAppliesToRole = (product, isManager) => {
     const t = (product && product.target_role) || 'both';
-    if (t === 'both') return true;
-    return isManager ? t === 'manager' : t === 'member';
+    if (isManager) return t === 'manager';
+    return t !== 'manager';
 };
 
 const weeklyStatusCache = new Map();
