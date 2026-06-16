@@ -5782,6 +5782,7 @@ document.getElementById('btnAddMaterial')?.addEventListener('click', async () =>
     }
     const weekly_goal = parseInt(document.getElementById('newMaterialGoal')?.value) || 700;
     const manager_weekly_goal = parseInt(document.getElementById('newMaterialManagerGoal')?.value) || weekly_goal;
+    const target_role = document.getElementById('newMaterialTarget')?.value || 'both';
     if (val === '__new__') {
         name = nameInput && nameInput.value ? nameInput.value.trim() : '';
         if (!name) {
@@ -5794,7 +5795,7 @@ document.getElementById('btnAddMaterial')?.addEventListener('click', async () =>
             const response = await fetch('/api/admin/materials', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal })
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, target_role })
             });
             const data = await response.json();
             if (data.success) {
@@ -5829,7 +5830,7 @@ document.getElementById('btnAddMaterial')?.addEventListener('click', async () =>
             const response = await fetch('/api/admin/materials', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal })
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, target_role })
             });
             const data = await response.json();
             if (data.success) {
@@ -5847,7 +5848,7 @@ document.getElementById('btnAddMaterial')?.addEventListener('click', async () =>
             const response = await fetch(`/api/admin/materials/${val}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal })
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, target_role })
             });
             const data = await response.json();
             if (data.success) {
@@ -5902,6 +5903,7 @@ document.getElementById('btnAddPaymentType')?.addEventListener('click', async ()
     }
     const weekly_goal = parseInt(document.getElementById('newPaymentTypeGoal')?.value) || 50000;
     const manager_weekly_goal = parseInt(document.getElementById('newPaymentTypeManagerGoal')?.value) || weekly_goal;
+    const target_role = document.getElementById('newPaymentTypeTarget')?.value || 'both';
     if (val === '__new__') {
         name = nameInput && nameInput.value ? nameInput.value.trim() : '';
         if (!name) {
@@ -5918,7 +5920,7 @@ document.getElementById('btnAddPaymentType')?.addEventListener('click', async ()
             const response = await fetch('/api/admin/payment-types', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType })
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType, target_role })
             });
             const data = await response.json();
             if (data.success) {
@@ -5955,7 +5957,7 @@ document.getElementById('btnAddPaymentType')?.addEventListener('click', async ()
             const response = await fetch('/api/admin/payment-types', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType })
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType, target_role })
             });
             const data = await response.json();
             if (data.success) {
@@ -5973,7 +5975,7 @@ document.getElementById('btnAddPaymentType')?.addEventListener('click', async ()
             const response = await fetch(`/api/admin/payment-types/${val}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType })
+                body: JSON.stringify({ name, icon, weekly_goal, manager_weekly_goal, unit_type: unitType, target_role })
             });
             const data = await response.json();
             if (data.success) {
@@ -6213,39 +6215,55 @@ async function loadGoalsTab() {
     ]);
 }
 
+function targetRoleLabel(target) {
+    if (target === 'member') return '👤 Membros';
+    if (target === 'manager') return '🛡️ Gerência';
+    return '👥 Ambos';
+}
+
 async function loadGoalsMaterials() {
-    const tbody = document.getElementById('goalsMaterialsBody');
-    if (!tbody) return;
+    const tbodyM = document.getElementById('goalsMaterialsBodyMembros');
+    const tbodyG = document.getElementById('goalsMaterialsBodyGerentes');
+    if (!tbodyM || !tbodyG) return;
     try {
         const response = await fetch('/api/admin/materials');
         const data = await response.json();
         const all = data.materials || data || [];
         populateMaterialSelectDropdown(all);
         const inGoals = all.filter(m => m.active === 1 || m.active === true || m.active === '1');
-        if (inGoals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum material nas metas. Adicione pelo dropdown acima.</td></tr>';
-            return;
-        }
-        tbody.innerHTML = inGoals.map(m => {
+
+        const rowHtml = (m, goalCol) => {
             const nameEsc = (m.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
             const iconEsc = (m.icon || '📦').replace(/'/g, "\\'");
             const goalM = m.weekly_goal ?? 700;
             const goalG = m.manager_weekly_goal ?? m.weekly_goal ?? 700;
+            const target = m.target_role || 'both';
             return `<tr>
                 <td class="goals-cell-icon">${m.icon || '📦'}</td>
                 <td class="goals-cell-name">${escapeHtml(m.name || '-')}</td>
-                <td class="goals-cell-meta">${Number(goalM).toLocaleString('pt-BR')}</td>
-                <td class="goals-cell-meta">${Number(goalG).toLocaleString('pt-BR')}</td>
+                <td class="goals-cell-meta">${Number(goalCol === 'manager' ? goalG : goalM).toLocaleString('pt-BR')}</td>
+                <td class="goals-cell-target">${targetRoleLabel(target)}</td>
                 <td><span class="goals-status-active">Ativo</span></td>
                 <td class="goals-actions">
-                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditMaterialGoalsModal(${m.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG})">✏️ Editar metas</button>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditMaterialGoalsModal(${m.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG}, '${target}')">✏️ Editar metas</button>
                     <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removeMaterialFromGoals(${m.id})" title="Excluir este material da meta">Excluir da meta</button>
                 </td>
             </tr>`;
-        }).join('');
+        };
+
+        const membros = inGoals.filter(m => (m.target_role || 'both') !== 'manager');
+        const gerentes = inGoals.filter(m => (m.target_role || 'both') !== 'member');
+
+        tbodyM.innerHTML = membros.length
+            ? membros.map(m => rowHtml(m, 'member')).join('')
+            : '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum material para membros.</td></tr>';
+        tbodyG.innerHTML = gerentes.length
+            ? gerentes.map(m => rowHtml(m, 'manager')).join('')
+            : '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum material para a gerência. Ex: Capofol 💊</td></tr>';
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
+        tbodyM.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
+        tbodyG.innerHTML = '';
     }
 }
 
@@ -6274,39 +6292,49 @@ function populateMaterialSelectDropdown(allMaterials) {
 }
 
 async function loadGoalsPaymentTypes() {
-    const tbody = document.getElementById('goalsPaymentTypesBody');
-    if (!tbody) return;
+    const tbodyM = document.getElementById('goalsPaymentTypesBodyMembros');
+    const tbodyG = document.getElementById('goalsPaymentTypesBodyGerentes');
+    if (!tbodyM || !tbodyG) return;
     try {
         const response = await fetch('/api/admin/payment-types');
         const data = await response.json();
         const all = data.paymentTypes || data || [];
         populatePaymentTypeSelectDropdown(all);
         const inGoals = all.filter(pt => pt.active === 1 || pt.active === true || pt.active === '1');
-        if (inGoals.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum tipo de pagamento nas metas. Adicione pelo dropdown acima.</td></tr>';
-            return;
-        }
-        tbody.innerHTML = inGoals.map(pt => {
+
+        const rowHtml = (pt, goalCol) => {
             const nameEsc = (pt.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
             const iconEsc = (pt.icon || '💰').replace(/'/g, "\\'");
             const goalM = pt.weekly_goal ?? (pt.unit_type === 'unidade' ? 700 : 50000);
             const goalG = pt.manager_weekly_goal ?? pt.weekly_goal ?? goalM;
+            const target = pt.target_role || 'both';
             const fmt = (v) => pt.unit_type === 'unidade' ? `${Number(v).toLocaleString('pt-BR')} un.` : `R$ ${Number(v).toLocaleString('pt-BR')}`;
             return `<tr>
                 <td class="goals-cell-icon">${pt.icon || '💰'}</td>
                 <td class="goals-cell-name">${pt.name || '-'}</td>
-                <td class="goals-cell-meta">${fmt(goalM)}</td>
-                <td class="goals-cell-meta">${fmt(goalG)}</td>
+                <td class="goals-cell-meta">${fmt(goalCol === 'manager' ? goalG : goalM)}</td>
+                <td class="goals-cell-target">${targetRoleLabel(target)}</td>
                 <td><span class="goals-status-active">Ativo</span></td>
                 <td class="goals-actions">
-                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditPaymentTypeGoalsModal(${pt.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG}, '${(pt.unit_type || 'R$').replace(/'/g, "\\'")}')">✏️ Editar metas</button>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="openEditPaymentTypeGoalsModal(${pt.id}, '${nameEsc}', '${iconEsc}', ${goalM}, ${goalG}, '${(pt.unit_type || 'R$').replace(/'/g, "\\'")}', '${target}')">✏️ Editar metas</button>
                     <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removePaymentTypeFromGoals(${pt.id})" title="Excluir da meta">Excluir da meta</button>
                 </td>
             </tr>`;
-        }).join('');
+        };
+
+        const membros = inGoals.filter(pt => (pt.target_role || 'both') !== 'manager');
+        const gerentes = inGoals.filter(pt => (pt.target_role || 'both') !== 'member');
+
+        tbodyM.innerHTML = membros.length
+            ? membros.map(pt => rowHtml(pt, 'member')).join('')
+            : '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum pagamento para membros.</td></tr>';
+        tbodyG.innerHTML = gerentes.length
+            ? gerentes.map(pt => rowHtml(pt, 'manager')).join('')
+            : '<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">Nenhum pagamento para a gerência.</td></tr>';
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
+        tbodyM.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
+        tbodyG.innerHTML = '';
     }
 }
 
@@ -6349,7 +6377,43 @@ function removePaymentTypeFromGoals(id) {
     togglePaymentType(id);
 }
 
-function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes) {
+// Lista de ícones disponíveis para materiais/metas (inclui Capofol, agulha, seringa)
+const MATERIAL_ICON_OPTIONS = [
+    { icon: '💊', name: 'Capofol (pílula dourada)' },
+    { icon: '💉', name: 'Seringa' },
+    { icon: '🪡', name: 'Agulha' },
+    { icon: '🟡', name: 'Pílula dourada' },
+    { icon: '🩸', name: 'Sangue' },
+    { icon: '🧬', name: 'Composto' },
+    { icon: '📦', name: 'Caixa' },
+    { icon: '📄', name: 'Folha' },
+    { icon: '🧪', name: 'Tubo de ensaio' },
+    { icon: '🌿', name: 'Erva' },
+    { icon: '🌾', name: 'Trigo' },
+    { icon: '💎', name: 'Diamante' },
+    { icon: '🔥', name: 'Fogo' },
+    { icon: '💧', name: 'Água' },
+    { icon: '⚡', name: 'Raio' }
+];
+
+function materialIconOptionsHtml(selected) {
+    const list = MATERIAL_ICON_OPTIONS.slice();
+    if (selected && !list.some(o => o.icon === selected)) {
+        list.unshift({ icon: selected, name: 'Atual' });
+    }
+    return list.map(o => `<option value="${o.icon}" ${o.icon === selected ? 'selected' : ''}>${o.icon} ${o.name}</option>`).join('');
+}
+
+function targetSelectHtml(selectId, selected) {
+    const opts = [
+        { v: 'member', t: '👤 Membros' },
+        { v: 'manager', t: '🛡️ Gerência (01, 02, Gerentes)' },
+        { v: 'both', t: '👥 Ambos' }
+    ];
+    return `<select id="${selectId}" class="icon-select">${opts.map(o => `<option value="${o.v}" ${o.v === (selected || 'both') ? 'selected' : ''}>${o.t}</option>`).join('')}</select>`;
+}
+
+function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes, target) {
     const modalHtml = `
         <div class="edit-modal-overlay" id="editMaterialGoalsModal">
             <div class="edit-modal-content">
@@ -6358,9 +6422,17 @@ function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes) {
                     <div class="form-group" style="margin-bottom:12px;">
                         <label>Material</label>
                         <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;">
-                            <span style="font-size:28px;">${icon}</span>
+                            <span id="editMatGoalsIconPreview" style="font-size:28px;">${icon}</span>
                             <span style="font-weight:600;">${name}</span>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Ícone</label>
+                        <select id="editMatGoalsIcon" class="icon-select" onchange="document.getElementById('editMatGoalsIconPreview').textContent = this.value;">${materialIconOptionsHtml(icon)}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Destino (quem farma)</label>
+                        ${targetSelectHtml('editMatGoalsTarget', target)}
                     </div>
                     <div class="form-group">
                         <label>Meta (membros)</label>
@@ -6383,6 +6455,8 @@ function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes) {
 async function saveMaterialGoals(id) {
     const goalM = parseInt(document.getElementById('editMatGoalMembros')?.value);
     const goalG = parseInt(document.getElementById('editMatGoalGerentes')?.value);
+    const newIcon = document.getElementById('editMatGoalsIcon')?.value;
+    const newTarget = document.getElementById('editMatGoalsTarget')?.value || 'both';
     if (isNaN(goalM) || goalM < 1 || isNaN(goalG) || goalG < 1) {
         showNotification('Metas inválidas.', 'error');
         return;
@@ -6391,7 +6465,7 @@ async function saveMaterialGoals(id) {
         const res = await fetch(`/api/admin/materials/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ weekly_goal: goalM, manager_weekly_goal: goalG })
+            body: JSON.stringify({ weekly_goal: goalM, manager_weekly_goal: goalG, icon: newIcon, target_role: newTarget })
         });
         const data = await res.json();
         if (data.success) {
@@ -6406,7 +6480,7 @@ async function saveMaterialGoals(id) {
     }
 }
 
-function openEditPaymentTypeGoalsModal(id, name, icon, goalMembros, goalGerentes, unitType) {
+function openEditPaymentTypeGoalsModal(id, name, icon, goalMembros, goalGerentes, unitType, target) {
     const isUnidade = unitType === 'unidade';
     const labelM = isUnidade ? 'Meta (membros) un.' : 'Meta R$ (membros)';
     const labelG = isUnidade ? 'Meta (gerentes) un.' : 'Meta R$ (gerentes)';
@@ -6421,6 +6495,10 @@ function openEditPaymentTypeGoalsModal(id, name, icon, goalMembros, goalGerentes
                             <span style="font-size:28px;">${icon}</span>
                             <span style="font-weight:600;">${name}</span>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Destino (quem farma)</label>
+                        ${targetSelectHtml('editPayGoalsTarget', target)}
                     </div>
                     <div class="form-group">
                         <label>${labelM}</label>
@@ -6443,6 +6521,7 @@ function openEditPaymentTypeGoalsModal(id, name, icon, goalMembros, goalGerentes
 async function savePaymentTypeGoals(id) {
     const goalM = parseInt(document.getElementById('editPayGoalMembros')?.value);
     const goalG = parseInt(document.getElementById('editPayGoalGerentes')?.value);
+    const newTarget = document.getElementById('editPayGoalsTarget')?.value || 'both';
     if (isNaN(goalM) || goalM < 1 || isNaN(goalG) || goalG < 1) {
         showNotification('Metas inválidas.', 'error');
         return;
@@ -6451,7 +6530,7 @@ async function savePaymentTypeGoals(id) {
         const res = await fetch(`/api/admin/payment-types/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ weekly_goal: goalM, manager_weekly_goal: goalG })
+            body: JSON.stringify({ weekly_goal: goalM, manager_weekly_goal: goalG, target_role: newTarget })
         });
         const data = await res.json();
         if (data.success) {

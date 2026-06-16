@@ -210,6 +210,7 @@ const initializePostgres = async () => {
                 icon TEXT DEFAULT '📦',
                 weekly_goal INTEGER DEFAULT 700,
                 manager_weekly_goal INTEGER DEFAULT 700,
+                target_role TEXT DEFAULT 'both',
                 active INTEGER DEFAULT 1
             )
         `);
@@ -321,6 +322,7 @@ const initializePostgres = async () => {
                 icon TEXT DEFAULT '💰',
                 weekly_goal INTEGER DEFAULT 50000,
                 manager_weekly_goal INTEGER DEFAULT 50000,
+                target_role TEXT DEFAULT 'both',
                 active INTEGER DEFAULT 1
             )
         `);
@@ -412,6 +414,24 @@ const initializePostgres = async () => {
             console.log('✅ Coluna manager_weekly_goal verificada/adicionada');
         } catch (e) {
             console.log('ℹ️ manager_weekly_goal:', e.message);
+        }
+
+        // Adicionar target_role em materials (membros/gerentes/ambos)
+        try {
+            await pool.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS target_role TEXT DEFAULT 'both'`);
+            await pool.query(`UPDATE materials SET target_role = 'both' WHERE target_role IS NULL`);
+            console.log('✅ Coluna target_role (materials) verificada/adicionada');
+        } catch (e) {
+            console.log('ℹ️ target_role (materials):', e.message);
+        }
+
+        // Adicionar target_role em payment_types
+        try {
+            await pool.query(`ALTER TABLE payment_types ADD COLUMN IF NOT EXISTS target_role TEXT DEFAULT 'both'`);
+            await pool.query(`UPDATE payment_types SET target_role = 'both' WHERE target_role IS NULL`);
+            console.log('✅ Coluna target_role (payment_types) verificada/adicionada');
+        } catch (e) {
+            console.log('ℹ️ target_role (payment_types):', e.message);
         }
         
         // Atualizar materials existentes que não tem weekly_goal
@@ -669,6 +689,7 @@ const initializeSQLite = () => {
                     icon TEXT DEFAULT '📦',
                     weekly_goal INTEGER DEFAULT 700,
                     manager_weekly_goal INTEGER DEFAULT 700,
+                    target_role TEXT DEFAULT 'both',
                     active INTEGER DEFAULT 1
                 )
             `);
@@ -793,6 +814,7 @@ const initializeSQLite = () => {
                     icon TEXT DEFAULT '💰',
                     weekly_goal INTEGER DEFAULT 50000,
                     manager_weekly_goal INTEGER DEFAULT 50000,
+                    target_role TEXT DEFAULT 'both',
                     active INTEGER DEFAULT 1
                 )
             `);
@@ -906,6 +928,12 @@ const initializeSQLite = () => {
 
             pool.run(`ALTER TABLE materials ADD COLUMN manager_weekly_goal INTEGER DEFAULT 700`, (err) => {
                 if (!err) console.log('✅ Coluna manager_weekly_goal adicionada (SQLite)');
+            });
+            pool.run(`ALTER TABLE materials ADD COLUMN target_role TEXT DEFAULT 'both'`, (err) => {
+                if (!err) console.log('✅ Coluna target_role adicionada em materials (SQLite)');
+            });
+            pool.run(`ALTER TABLE payment_types ADD COLUMN target_role TEXT DEFAULT 'both'`, (err) => {
+                if (!err) console.log('✅ Coluna target_role adicionada em payment_types (SQLite)');
             });
             pool.run(`ALTER TABLE payment_types ADD COLUMN manager_weekly_goal INTEGER DEFAULT 50000`, (err) => {
                 if (!err) console.log('✅ Coluna manager_weekly_goal adicionada (SQLite)');

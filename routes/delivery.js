@@ -97,6 +97,13 @@ const resolvePaymentGoal = (paymentType, isManager) => {
     return paymentType.weekly_goal ?? 50000;
 };
 
+// Um produto (material/pagamento) se aplica ao cargo? membros, gerentes ou ambos
+const productAppliesToRole = (product, isManager) => {
+    const t = (product && product.target_role) || 'both';
+    if (t === 'both') return true;
+    return isManager ? t === 'manager' : t === 'member';
+};
+
 // Helper para calcular semana com offset (PADRONIZADO)
 const getWeekWithOffset = (offset = 0) => {
     // Usar data local sem conversão UTC
@@ -171,10 +178,11 @@ router.get('/current-week', requireAuth, async (req, res) => {
 
         let materials = [];
         try {
-            materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1');
+            materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1');
         } catch (e) {
             materials = await getAll('SELECT id, weekly_goal FROM materials WHERE active = 1');
         }
+        materials = (materials || []).filter(m => productAppliesToRole(m, isManager));
 
         let paymentTypes = [];
         try {
@@ -206,10 +214,12 @@ router.get('/current-week', requireAuth, async (req, res) => {
         if (existingDelivery) {
             let allMaterials = [];
             try {
-                allMaterials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1');
+                allMaterials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1');
             } catch (e) {
                 allMaterials = await getAll('SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1');
             }
+            // Apenas materiais do cargo do usuário
+            allMaterials = allMaterials.filter(m => productAppliesToRole(m, isManager));
             const activeDeliveryIds = weekDeliveries.map(d => d.id);
             const approvedDeliveryIds = weekDeliveries.filter(d => d.status === 'approved').map(d => d.id);
 
@@ -586,7 +596,7 @@ router.get('/materials', requireAuth, async (req, res) => {
         // Tenta buscar com weekly_goal, se falhar busca sem
         let materials;
         try {
-            materials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, active FROM materials WHERE active = 1 ORDER BY name');
+            materials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role, active FROM materials WHERE active = 1 ORDER BY name');
             console.log('📦 Materiais encontrados (com weekly_goal):', materials?.length);
         } catch (e) {
             console.log('⚠️ Fallback sem weekly_goal:', e.message);
@@ -602,10 +612,13 @@ router.get('/materials', requireAuth, async (req, res) => {
             materials = [];
         }
         
-        materials = materials.map(m => ({
-            ...m,
-            weekly_goal: resolveMaterialGoal(m, isManager)
-        }));
+        // Mostrar apenas os materiais do cargo do usuário (gerente vê gerente; membro vê membro)
+        materials = materials
+            .filter(m => productAppliesToRole(m, isManager))
+            .map(m => ({
+                ...m,
+                weekly_goal: resolveMaterialGoal(m, isManager)
+            }));
 
         res.json({ materials, weeklyGoal: DEFAULT_WEEKLY_GOAL });
     } catch (error) {
@@ -620,14 +633,16 @@ router.get('/payment-types', requireAuth, async (req, res) => {
         const isManager = await isManagerUser(req.session.user.id, req.session.user);
         let paymentTypes = [];
         try {
-            paymentTypes = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, unit_type FROM payment_types WHERE active = 1 ORDER BY name');
+            paymentTypes = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role FROM payment_types WHERE active = 1 ORDER BY name');
         } catch (e) {
             paymentTypes = await getAll('SELECT id, name, icon, weekly_goal, unit_type FROM payment_types WHERE active = 1 ORDER BY name');
         }
-        paymentTypes = (paymentTypes || []).map(pt => ({
-            ...pt,
-            weekly_goal: resolvePaymentGoal(pt, isManager)
-        }));
+        paymentTypes = (paymentTypes || [])
+            .filter(pt => productAppliesToRole(pt, isManager))
+            .map(pt => ({
+                ...pt,
+                weekly_goal: resolvePaymentGoal(pt, isManager)
+            }));
         res.json({ paymentTypes: paymentTypes || [] });
     } catch (error) {
         console.error('❌ Erro ao buscar tipos de pagamento:', error);
@@ -976,7 +991,8 @@ router.post('/', requireAuth, (req, res) => {
                 });
             }
 
-            const allMaterials = await getAll('SELECT id, name, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1');
+            const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
+                .filter(m => productAppliesToRole(m, isManager));
             let isComplete = false;
             let progressDetails = [];
 
@@ -1273,10 +1289,11 @@ router.get('/my', requireAuth, async (req, res) => {
 
         let materials = [];
         try {
-            materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1');
+            materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1');
         } catch (e) {
             materials = await getAll('SELECT id, weekly_goal FROM materials WHERE active = 1');
         }
+        materials = (materials || []).filter(m => productAppliesToRole(m, isManager));
 
         let paymentTypes = [];
         try {
@@ -1500,7 +1517,8 @@ router.post('/edit-value', requireAuth, async (req, res) => {
         }
         
         // Verificar se completou o farm (recalcular is_partial e status)
-        const allMaterials = await getAll('SELECT id, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1');
+        const allMaterials = (await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
+            .filter(m => productAppliesToRole(m, isManager));
         const deliveryItems = await getAll('SELECT material_id, amount FROM delivery_items WHERE delivery_id = ?', [existingDelivery.id]);
         
         let allComplete = true;

@@ -67,6 +67,13 @@ const normalizeGroupName = (groupName = '') => String(groupName)
 
 const isManagerByGroups = (groups = []) => groups.some(g => managerGroups.has(normalizeGroupName(g)));
 
+// Um produto (material/pagamento) se aplica ao cargo? membros, gerentes ou ambos
+const productAppliesToRole = (product, isManager) => {
+    const t = (product && product.target_role) || 'both';
+    if (t === 'both') return true;
+    return isManager ? t === 'manager' : t === 'member';
+};
+
 const weeklyStatusCache = new Map();
 const WEEKLY_STATUS_CACHE_TTL_MS = parseInt(process.env.WEEKLY_STATUS_CACHE_TTL_MS, 10) || 60000;
 
@@ -1716,7 +1723,7 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
 
 router.post('/materials', requireAdmin, async (req, res) => {
     try {
-        const { name, icon, weekly_goal, manager_weekly_goal } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, target_role } = req.body;
         
         if (!name) {
             return res.status(400).json({ error: 'Nome do material é obrigatório' });
@@ -1725,14 +1732,15 @@ router.post('/materials', requireAdmin, async (req, res) => {
         const trimmedName = name.trim();
         const goal = parseInt(weekly_goal) || 700;
         const managerGoal = !isNaN(parseInt(manager_weekly_goal)) ? parseInt(manager_weekly_goal) : goal;
+        const targetRole = ['member', 'manager', 'both'].includes(target_role) ? target_role : 'both';
         
         const existing = await getOne('SELECT id, active FROM materials WHERE name = ?', [trimmedName]);
         if (existing) {
             const isInactive = existing.active === 0 || existing.active === '0' || existing.active === false || existing.active == null;
             if (isInactive) {
                 await runQuery(
-                    'UPDATE materials SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ? WHERE id = ?',
-                    [icon || '📦', goal, managerGoal, existing.id]
+                    'UPDATE materials SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ? WHERE id = ?',
+                    [icon || '📦', goal, managerGoal, targetRole, existing.id]
                 );
                 return res.json({ success: true, message: 'Material reativado e meta atualizada' });
             }
@@ -1740,8 +1748,8 @@ router.post('/materials', requireAdmin, async (req, res) => {
         }
         
         await runQuery(
-            'INSERT INTO materials (name, icon, weekly_goal, manager_weekly_goal) VALUES (?, ?, ?, ?)',
-            [trimmedName, icon || '📦', goal, managerGoal]
+            'INSERT INTO materials (name, icon, weekly_goal, manager_weekly_goal, target_role) VALUES (?, ?, ?, ?, ?)',
+            [trimmedName, icon || '📦', goal, managerGoal, targetRole]
         );
         
         res.json({ success: true, message: 'Material adicionado' });
@@ -1758,7 +1766,7 @@ router.post('/materials', requireAdmin, async (req, res) => {
 router.put('/materials/:id', requireAdmin, async (req, res) => {
     try {
         const materialId = req.params.id;
-        const { name, icon, weekly_goal, manager_weekly_goal } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, target_role } = req.body;
         
         const material = await getOne('SELECT * FROM materials WHERE id = ?', [materialId]);
         if (!material) {
@@ -1772,6 +1780,9 @@ router.put('/materials/:id', requireAdmin, async (req, res) => {
         const newManagerGoal = manager_weekly_goal !== undefined && !isNaN(parsedManagerGoal)
             ? parsedManagerGoal
             : (material.manager_weekly_goal ?? material.weekly_goal);
+        const newTargetRole = ['member', 'manager', 'both'].includes(target_role)
+            ? target_role
+            : (material.target_role || 'both');
         
         if (newName.trim() !== (material.name || '').trim()) {
             const existing = await getOne('SELECT id FROM materials WHERE name = ? AND id != ?', [newName.trim(), materialId]);
@@ -1781,8 +1792,8 @@ router.put('/materials/:id', requireAdmin, async (req, res) => {
         }
         
         await runQuery(
-            'UPDATE materials SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ? WHERE id = ?',
-            [newName.trim(), newIcon, newGoal, newManagerGoal, materialId]
+            'UPDATE materials SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ? WHERE id = ?',
+            [newName.trim(), newIcon, newGoal, newManagerGoal, newTargetRole, materialId]
         );
         
         res.json({ success: true, message: 'Material atualizado' });
@@ -1824,7 +1835,7 @@ router.get('/payment-types', requireAdmin, async (req, res) => {
 // Adicionar novo tipo de pagamento
 router.post('/payment-types', requireAdmin, async (req, res) => {
     try {
-        const { name, icon, weekly_goal, manager_weekly_goal, unit_type } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role } = req.body;
         
         if (!name) {
             return res.status(400).json({ error: 'Nome do tipo de pagamento é obrigatório' });
@@ -1835,14 +1846,15 @@ router.post('/payment-types', requireAdmin, async (req, res) => {
         const defaultGoal = unitType === 'unidade' ? 700 : 50000;
         const goal = parseInt(weekly_goal) || defaultGoal;
         const managerGoal = !isNaN(parseInt(manager_weekly_goal)) ? parseInt(manager_weekly_goal) : goal;
+        const targetRole = ['member', 'manager', 'both'].includes(target_role) ? target_role : 'both';
         
         const existing = await getOne('SELECT id, active FROM payment_types WHERE name = ?', [trimmedName]);
         if (existing) {
             const isInactive = existing.active === 0 || existing.active === '0' || existing.active === false || existing.active == null;
             if (isInactive) {
                 await runQuery(
-                    'UPDATE payment_types SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, unit_type = ? WHERE id = ?',
-                    [icon || '💰', goal, managerGoal, unitType, existing.id]
+                    'UPDATE payment_types SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, unit_type = ?, target_role = ? WHERE id = ?',
+                    [icon || '💰', goal, managerGoal, unitType, targetRole, existing.id]
                 );
                 return res.json({ success: true, message: 'Tipo de pagamento reativado e meta atualizada' });
             }
@@ -1850,8 +1862,8 @@ router.post('/payment-types', requireAdmin, async (req, res) => {
         }
         
         await runQuery(
-            'INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type) VALUES (?, ?, ?, ?, ?)',
-            [trimmedName, icon || '💰', goal, managerGoal, unitType]
+            'INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role) VALUES (?, ?, ?, ?, ?, ?)',
+            [trimmedName, icon || '💰', goal, managerGoal, unitType, targetRole]
         );
         
         res.json({ success: true, message: 'Tipo de pagamento adicionado' });
@@ -1868,7 +1880,7 @@ router.post('/payment-types', requireAdmin, async (req, res) => {
 router.put('/payment-types/:id', requireAdmin, async (req, res) => {
     try {
         const id = req.params.id;
-        const { name, icon, weekly_goal, manager_weekly_goal, unit_type } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role } = req.body;
         
         const paymentType = await getOne('SELECT * FROM payment_types WHERE id = ?', [id]);
         if (!paymentType) {
@@ -1883,10 +1895,13 @@ router.put('/payment-types/:id', requireAdmin, async (req, res) => {
         const newManagerGoal = manager_weekly_goal !== undefined && !isNaN(parsedManagerGoal)
             ? parsedManagerGoal
             : (paymentType.manager_weekly_goal ?? paymentType.weekly_goal);
+        const newTargetRole = ['member', 'manager', 'both'].includes(target_role)
+            ? target_role
+            : (paymentType.target_role || 'both');
         
         await runQuery(
-            'UPDATE payment_types SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, unit_type = ? WHERE id = ?',
-            [newName, newIcon, newGoal, newManagerGoal, newUnitType, id]
+            'UPDATE payment_types SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, unit_type = ?, target_role = ? WHERE id = ?',
+            [newName, newIcon, newGoal, newManagerGoal, newUnitType, newTargetRole, id]
         );
         
         res.json({ success: true, message: 'Tipo de pagamento atualizado' });
@@ -2021,7 +2036,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 SELECT user_id FROM warnings 
                 WHERE week_start = ? AND week_end = ?
             `, [weekStart, weekEnd]),
-            getAll(`SELECT id, name, icon, weekly_goal, manager_weekly_goal FROM materials WHERE active = 1`)
+            getAll(`SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1`)
                 .catch(() => getAll(`SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1`)),
             getAll('SELECT id, weekly_goal, manager_weekly_goal FROM payment_types')
                 .catch(() => getAll('SELECT id, weekly_goal FROM payment_types'))
@@ -2195,12 +2210,13 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                                 sumByMaterial.set(mid, prev + (parseInt(it.amount, 10) || 0));
                             }
                         }
-                        // Completo = TODOS os materiais ativos com total >= meta; senão = Em progresso
-                        if (allMaterials.length === 0) {
+                        // Completo = TODOS os materiais do CARGO com total >= meta; senão = Em progresso
+                        const applicableMaterials = allMaterials.filter(mat => productAppliesToRole(mat, isManager));
+                        if (applicableMaterials.length === 0) {
                             effectiveIsPartial = sumByMaterial.size === 0;
                         } else {
                             let all100 = true;
-                            for (const mat of allMaterials) {
+                            for (const mat of applicableMaterials) {
                                 const matId = mat.id != null ? Number(mat.id) : mat.id;
                                 const total = sumByMaterial.get(matId) || 0;
                                 const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);

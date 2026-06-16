@@ -7069,3 +7069,24 @@ body.admin-layout {
         grid-template-columns: 1fr;
     }
 }
+
+/* ===== Metas: subseções Membros x Gerência + coluna Destino ===== */
+.goals-subsection-title {
+    margin: 22px 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #b8c5ff;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.goals-cell-target {
+    text-align: center;
+    font-size: 12px;
+    color: #cfd6ff;
+    white-space: nowrap;
+}
