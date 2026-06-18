@@ -24,6 +24,11 @@
         .card-header.expanded::after { content: ''; }
         .card-header-left { display: flex; align-items: center; gap: 12px; flex: 1; }
         .card-header-left b { font-size: 16px; }
+        .group-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .group-avatar { width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; background: rgba(45, 212, 191, 0.16); border: 1px solid rgba(45, 212, 191, 0.34); color: #5eead4; flex: 0 0 auto; }
+        .group-title-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .group-title-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .group-title-text small { color: #8f93a8; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card-header-actions { display: flex; gap: 8px; align-items: center; }
         .btn-icon { background: none; border: none; color: #fff; cursor: pointer; font-size: 18px; padding: 5px 10px; border-radius: 4px; transition: background 0.2s; }
         .btn-icon:hover { background: rgba(255,255,255,0.1); }
@@ -55,7 +60,7 @@
         /* Modal Criar Grupo */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
         .modal.show { display: flex; }
-        .modal-content { background: #1a1a2e; border-radius: 12px; padding: 30px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-content { background: #1a1a2e; border-radius: 12px; padding: 30px; max-width: 680px; width: 90%; max-height: 90vh; overflow-y: auto; }
         .modal-header { margin-bottom: 20px; }
         .modal-header h3 { font-size: 22px; }
         .modal-body { margin-bottom: 20px; }
@@ -93,6 +98,10 @@
         .user-item:hover { background: #242442; }
         .user-item-name { font-weight: 600; font-size: 14px; }
         .user-item-passport { color: #888; font-size: 12px; }
+        .create-permissions-box { margin-top: 18px; padding: 16px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 8px; }
+        .create-permissions-row { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; }
+        .create-permissions-row label { display: flex; align-items: center; gap: 8px; color: #fff; cursor: pointer; }
+        .create-tabs-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -126,6 +135,14 @@
                     <label>Nome de Exibição *</label>
                     <input type="text" id="newDisplayName" placeholder="ex: Gerente de Vendas">
                     <small>Nome que aparecerá na interface</small>
+                </div>
+                <div class="create-permissions-box">
+                    <div class="create-permissions-row">
+                        <label><input type="checkbox" id="newAccessAll" onchange="toggleCreateAll()"> Acesso Total</label>
+                        <label><input type="checkbox" id="newCanConfig"> Pode acessar Configuracoes</label>
+                    </div>
+                    <label style="color:#888;font-size:14px;">Permissoes iniciais do grupo</label>
+                    <div class="create-tabs-grid" id="newTabsGrid"></div>
                 </div>
             </div>
             <div class="modal-actions">
@@ -177,6 +194,20 @@
         // Grupos protegidos (não podem ser deletados)
         var protectedRoles = ['super_admin'];
 
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function roleInitial(role) {
+            var text = String(role.display_name || role.role_name || '?').trim();
+            return (text.charAt(0) || '?').toUpperCase();
+        }
+
         // Carregar dados
         function loadRoles() {
             fetch('/api/admin/role-permissions')
@@ -220,7 +251,8 @@
                 html += '<div class="card ' + (isCustom ? 'custom' : '') + '">';
                 html += '<div class="card-header">';
                 html += '<div class="card-header-left" onclick="toggleCard(' + i + ')">';
-                html += '<b>' + icon + ' ' + role.display_name + '</b>';
+                html += '<span class="group-avatar">' + escapeHtml(roleInitial(role)) + '</span>';
+                html += '<span class="group-title-text"><b>' + escapeHtml(role.display_name) + '</b><small>' + escapeHtml(role.role_name) + '</small></span>';
                 html += '</div>';
                 html += '<div class="card-header-actions">';
                 if (!isProtected) {
@@ -429,14 +461,42 @@
             document.getElementById('createGroupModal').classList.add('show');
             document.getElementById('newRoleName').value = '';
             document.getElementById('newDisplayName').value = '';
+            document.getElementById('newAccessAll').checked = false;
+            document.getElementById('newCanConfig').checked = false;
+            renderCreateTabs();
         }
         
         function closeCreateModal() {
             document.getElementById('createGroupModal').classList.remove('show');
         }
+
+        function renderCreateTabs() {
+            var grid = document.getElementById('newTabsGrid');
+            if (!grid) return;
+            var html = '';
+            for (var i = 0; i < tabs.length; i++) {
+                var tab = tabs[i];
+                html += '<label class="tab-label">';
+                html += '<input type="checkbox" class="newTabCb" data-tab="' + escapeHtml(tab.id) + '">';
+                html += escapeHtml(tab.icon + ' ' + tab.name);
+                html += '</label>';
+            }
+            grid.innerHTML = html || '<span style="color:#888;">Nenhuma permissao disponivel</span>';
+        }
+
+        function toggleCreateAll() {
+            var checked = document.getElementById('newAccessAll').checked;
+            var cbs = document.querySelectorAll('.newTabCb');
+            for (var i = 0; i < cbs.length; i++) {
+                cbs[i].checked = checked;
+                cbs[i].disabled = checked;
+            }
+            var grid = document.getElementById('newTabsGrid');
+            if (grid) grid.style.opacity = checked ? '0.5' : '1';
+        }
         
         function createGroup() {
-            var roleName = document.getElementById('newRoleName').value.trim();
+            var roleName = document.getElementById('newRoleName').value.trim().toLowerCase();
             var displayName = document.getElementById('newDisplayName').value.trim();
             
             if (!roleName || !displayName) {
@@ -449,14 +509,24 @@
                 return;
             }
             
+            var permissions = [];
+            if (document.getElementById('newAccessAll').checked) {
+                permissions = ['all'];
+            } else {
+                var createCbs = document.querySelectorAll('.newTabCb:checked');
+                for (var c = 0; c < createCbs.length; c++) {
+                    permissions.push(createCbs[c].getAttribute('data-tab'));
+                }
+            }
+            
             fetch('/api/admin/role-permissions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     role_name: roleName,
                     display_name: displayName,
-                    permissions: [],
-                    can_config: 0
+                    permissions: permissions,
+                    can_config: document.getElementById('newCanConfig').checked ? 1 : 0
                 })
             })
             .then(function(res) { return res.json(); })
@@ -526,7 +596,7 @@
                 var member = groupMembers[i];
                 html += '<div class="member-item">';
                 html += '<div class="member-info">';
-                html += '<div class="member-name">' + member.name + '</div>';
+                html += '<div class="member-name">' + escapeHtml(member.name) + '</div>';
                 html += '</div>';
                 html += '<button class="btn-remove-member" onclick="removeMemberFromGroup(\'' + roleName + '\', ' + member.id + ', ' + index + ')">Remover</button>';
                 html += '</div>';
@@ -589,7 +659,7 @@
         function renderUserList() {
             var search = document.getElementById('memberSearch').value.toLowerCase();
             var filtered = allUsers.filter(function(u) {
-                return u.name.toLowerCase().indexOf(search) >= 0 || u.passport.indexOf(search) >= 0;
+                return String(u.name || '').toLowerCase().indexOf(search) >= 0 || String(u.passport || '').indexOf(search) >= 0;
             });
             
             var userList = document.getElementById('userList');
@@ -603,8 +673,8 @@
             for (var i = 0; i < filtered.length; i++) {
                 var user = filtered[i];
                 html += '<div class="user-item" onclick="addUserToGroup(' + user.id + ')">';
-                html += '<div class="user-item-name">' + user.name + '</div>';
-                html += '<div class="user-item-passport">Passaporte: ' + user.passport + '</div>';
+                html += '<div class="user-item-name">' + escapeHtml(user.name) + '</div>';
+                html += '<div class="user-item-passport">Passaporte: ' + escapeHtml(user.passport) + '</div>';
                 html += '</div>';
             }
             

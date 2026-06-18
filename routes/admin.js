@@ -884,7 +884,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
         
         if (week_start && week_end) {
             deliveries = await getAll(`
-                SELECT d.*, u.name as user_name, u.passport as user_passport, u.role as user_role, a.name as approved_by_name
+                SELECT d.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name, u.passport as user_passport, u.role as user_role, COALESCE(NULLIF(TRIM(a.capital_nickname), ''), a.name) as approved_by_name
                 FROM deliveries d
                 JOIN users u ON d.user_id = u.id
                 LEFT JOIN users a ON d.approved_by = a.id
@@ -893,7 +893,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
             `, [week_start, week_end]);
         } else {
             deliveries = await getAll(`
-                SELECT d.*, u.name as user_name, u.passport as user_passport, u.role as user_role, a.name as approved_by_name
+                SELECT d.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name, u.passport as user_passport, u.role as user_role, COALESCE(NULLIF(TRIM(a.capital_nickname), ''), a.name) as approved_by_name
                 FROM deliveries d
                 JOIN users u ON d.user_id = u.id
                 LEFT JOIN users a ON d.approved_by = a.id
@@ -950,7 +950,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
 router.get('/deliveries/all-farms', requireAdmin, async (req, res) => {
     try {
         const deliveries = await getAll(`
-            SELECT d.*, u.name as user_name, u.passport, u.role as user_role, a.name as approved_by_name
+            SELECT d.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name, u.passport, u.role as user_role, COALESCE(NULLIF(TRIM(a.capital_nickname), ''), a.name) as approved_by_name
             FROM deliveries d
             JOIN users u ON d.user_id = u.id AND u.active = 1
             LEFT JOIN users a ON d.approved_by = a.id
@@ -1490,7 +1490,9 @@ router.get('/weekly-ranking-fast', requireAdmin, async (req, res) => {
                 d.id as delivery_id,
                 d.user_id,
                 d.created_at as delivered_at,
-                u.name,
+                COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                u.name as original_name,
+                u.capital_nickname,
                 u.passport
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
@@ -1578,7 +1580,7 @@ router.get('/ranking', requireAdmin, async (req, res) => {
             // Farms: apenas da semana selecionada
             // ADVs: da semana selecionada OU sem semana definida (ADVs antigas)
             ranking = await getAll(`
-                SELECT u.id, u.name, u.passport,
+                SELECT u.id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.name as original_name, u.capital_nickname, u.passport,
                        (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved' AND week_start = ? AND week_end = ?) as farms_count,
                        (SELECT COUNT(*) FROM warnings WHERE user_id = u.id AND (week_start = ? AND week_end = ? OR week_start IS NULL)) as warnings_count
                 FROM users u
@@ -1588,7 +1590,7 @@ router.get('/ranking', requireAdmin, async (req, res) => {
         } else {
             // Ranking geral (todos os farms e ADVs)
             ranking = await getAll(`
-                SELECT u.id, u.name, u.passport,
+                SELECT u.id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.name as original_name, u.capital_nickname, u.passport,
                        (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as farms_count,
                        (SELECT COUNT(*) FROM warnings WHERE user_id = u.id) as warnings_count
                 FROM users u
@@ -1671,7 +1673,7 @@ router.get('/materials', requireAdmin, async (req, res) => {
 router.get('/members-farm-status', requireAdmin, async (req, res) => {
     try {
         const pendingMembers = await getAll(`
-            SELECT DISTINCT u.id, u.name, u.passport, u.role,
+            SELECT DISTINCT u.id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.name as original_name, u.capital_nickname, u.passport, u.role,
                    (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'pending') as pending_count,
                    (SELECT MAX(created_at) FROM deliveries WHERE user_id = u.id AND status = 'pending') as last_pending
             FROM users u
@@ -1744,7 +1746,7 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
         }
 
         const completedMembers = await getAll(`
-            SELECT u.id, u.name, u.passport, u.role,
+            SELECT u.id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.name as original_name, u.capital_nickname, u.passport, u.role,
                    (SELECT COUNT(*) FROM deliveries WHERE user_id = u.id AND status = 'approved') as approved_count,
                    COALESCE((
                        SELECT SUM(di.amount) 
@@ -2092,7 +2094,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 WHERE u.active = 1 AND u.passport != '0'
             `),
             getAll(`
-                SELECT d.*, d.created_at as delivered_at, u.name as approved_by_name
+                SELECT d.*, d.created_at as delivered_at, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as approved_by_name
                 FROM deliveries d
                 LEFT JOIN users u ON d.approved_by = u.id
                 WHERE d.week_start = ? AND d.week_end = ?
@@ -2509,9 +2511,9 @@ router.get('/members-overview', requireAdmin, async (req, res) => {
         
         // 2. Todos os membros ativos
         const allMembers = await getAll(`
-            SELECT id, name, passport, role FROM users 
+            SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport, role FROM users 
             WHERE active = 1 AND passport != '0'
-            ORDER BY name
+            ORDER BY COALESCE(NULLIF(TRIM(capital_nickname), ''), name)
         `);
         
         // 3. Todos os grupos de todos os membros
@@ -2623,7 +2625,7 @@ router.get('/member-farm-details/:memberId', requireAdmin, async (req, res) => {
         const { week_start, week_end } = req.query;
         
         // Buscar dados do membro
-        const member = await getOne('SELECT id, name, passport, role FROM users WHERE id = ?', [memberId]);
+        const member = await getOne(`SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport, role FROM users WHERE id = ?`, [memberId]);
         const memberGroups = await getUserGroups(memberId);
         const isManager = isManagerByGroups(memberGroups);
         if (!member) {
@@ -2632,7 +2634,7 @@ router.get('/member-farm-details/:memberId', requireAdmin, async (req, res) => {
         
         // Buscar delivery da semana
         const delivery = await getOne(`
-            SELECT d.*, u.name as approved_by_name
+            SELECT d.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as approved_by_name
             FROM deliveries d
             LEFT JOIN users u ON d.approved_by = u.id
             WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
@@ -2652,7 +2654,7 @@ router.get('/member-farm-details/:memberId', requireAdmin, async (req, res) => {
         
         // Buscar justificativa da semana (se houver)
         const justification = await getOne(`
-            SELECT j.*, u.name as approved_by_name
+            SELECT j.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as approved_by_name
             FROM justifications j
             LEFT JOIN users u ON j.approved_by = u.id
             WHERE j.user_id = ? AND j.week_start = ? AND j.week_end = ?
@@ -2677,7 +2679,7 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
         const { memberId } = req.params;
         
         // Buscar dados do membro
-        const member = await getOne('SELECT id, name, passport, role, created_at FROM users WHERE id = ?', [memberId]);
+        const member = await getOne(`SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport, role, created_at FROM users WHERE id = ?`, [memberId]);
         if (!member) {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
@@ -2692,7 +2694,7 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
         
         // Buscar últimas 10 semanas de farm (deliveries)
         const deliveries = await getAll(`
-            SELECT d.*, u.name as approved_by_name
+            SELECT d.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as approved_by_name
             FROM deliveries d
             LEFT JOIN users u ON d.approved_by = u.id
             WHERE d.user_id = ?
@@ -2720,7 +2722,7 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
             // Farms extras relacionados
             try {
                 const extraFarms = await getAll(`
-                    SELECT ef.*, reviewer.name as reviewer_name
+                    SELECT ef.*, COALESCE(NULLIF(TRIM(reviewer.capital_nickname), ''), reviewer.name) as reviewer_name
                     FROM extra_farm_requests ef
                     LEFT JOIN users reviewer ON ef.reviewed_by = reviewer.id
                     WHERE ef.delivery_id = ?
@@ -2765,7 +2767,7 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
         
         // Buscar justificativas (últimas 10)
         const justifications = await getAll(`
-            SELECT j.*, u.name as approved_by_name
+            SELECT j.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as approved_by_name
             FROM justifications j
             LEFT JOIN users u ON j.approved_by = u.id
             WHERE j.user_id = ?
@@ -2775,7 +2777,7 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
         
         // Buscar todas as advertências
         const warnings = await getAll(`
-            SELECT w.*, u.name as given_by_name
+            SELECT w.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as given_by_name
             FROM warnings w
             JOIN users u ON w.given_by = u.id
             WHERE w.user_id = ?
@@ -2824,14 +2826,14 @@ router.get('/member-warnings/:memberId', requireAdmin, async (req, res) => {
         const { memberId } = req.params;
         
         // Buscar dados do membro
-        const member = await getOne('SELECT id, name, passport, role FROM users WHERE id = ?', [memberId]);
+        const member = await getOne(`SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport, role FROM users WHERE id = ?`, [memberId]);
         if (!member) {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
         
         // Buscar todas as advertências
         const warnings = await getAll(`
-            SELECT w.*, u.name as given_by_name
+            SELECT w.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as given_by_name
             FROM warnings w
             JOIN users u ON w.given_by = u.id
             WHERE w.user_id = ?
@@ -2855,7 +2857,7 @@ router.get('/justifications/pending', requireAdmin, async (req, res) => {
         const { week_start, week_end } = req.query;
         
         let query = `
-            SELECT j.*, u.name as user_name, u.passport as user_passport, u.role as user_role
+            SELECT j.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name, u.passport as user_passport, u.role as user_role
             FROM justifications j
             JOIN users u ON j.user_id = u.id
             WHERE j.status = 'pending'
@@ -2896,7 +2898,7 @@ router.get('/justifications/pending', requireAdmin, async (req, res) => {
 router.get('/justifications/all', requireAdmin, async (req, res) => {
     try {
         const query = `
-            SELECT j.*, u.name as user_name, u.passport, u.role as user_role
+            SELECT j.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name, u.passport, u.role as user_role
             FROM justifications j
             JOIN users u ON j.user_id = u.id
             ORDER BY j.created_at DESC
@@ -3167,7 +3169,7 @@ router.get('/members/:id/warnings', requireAdmin, async (req, res) => {
         const memberId = req.params.id;
         
         const warnings = await getAll(`
-            SELECT w.*, u.name as given_by_name
+            SELECT w.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as given_by_name
             FROM warnings w
             JOIN users u ON w.given_by = u.id
             WHERE w.user_id = ?
@@ -3258,7 +3260,7 @@ router.delete('/warnings/:id', requireAdmin, async (req, res) => {
         
         // Buscar a ADV
         const warning = await getOne(`
-            SELECT w.*, u.name as member_name 
+            SELECT w.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as member_name 
             FROM warnings w 
             JOIN users u ON w.user_id = u.id 
             WHERE w.id = ?
@@ -3295,9 +3297,9 @@ router.get('/warnings/all', requireAdmin, async (req, res) => {
                 w.user_id,
                 w.reason,
                 w.created_at,
-                u.name as user_name,
+                COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name,
                 u.passport as user_passport,
-                a.name as applied_by_name,
+                COALESCE(NULLIF(TRIM(a.capital_nickname), ''), a.name) as applied_by_name,
                 a.passport as applied_by_passport
             FROM warnings w
             INNER JOIN users u ON w.user_id = u.id
@@ -3315,7 +3317,7 @@ router.get('/warnings/all', requireAdmin, async (req, res) => {
 router.get('/warnings', requireAdmin, async (req, res) => {
     try {
         const warnings = await getAll(`
-            SELECT w.*, u.name as member_name, u.passport as member_passport, a.name as given_by_name
+            SELECT w.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as member_name, u.passport as member_passport, COALESCE(NULLIF(TRIM(a.capital_nickname), ''), a.name) as given_by_name
             FROM warnings w
             JOIN users u ON w.user_id = u.id
             JOIN users a ON w.given_by = a.id
@@ -3345,7 +3347,7 @@ router.get('/members/:id/warnings/count', requireAdmin, async (req, res) => {
 router.get('/whitelist', requireAdmin, async (req, res) => {
     try {
         const whitelist = await getAll(`
-            SELECT w.*, u.name as member_name, u.passport as member_passport, a.name as added_by_name
+            SELECT w.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as member_name, u.passport as member_passport, COALESCE(NULLIF(TRIM(a.capital_nickname), ''), a.name) as added_by_name
             FROM farm_whitelist w
             JOIN users u ON w.user_id = u.id
             JOIN users a ON w.added_by = a.id
@@ -3413,14 +3415,16 @@ router.get('/members-with-advs', requireAdmin, async (req, res) => {
         const members = await getAll(`
             SELECT 
                 u.id,
-                u.name,
+                COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                u.name as original_name,
+                u.capital_nickname,
                 u.passport,
                 u.role,
                 u.active,
                 (SELECT COUNT(*) FROM warnings WHERE user_id = u.id) as adv_count
             FROM users u
             WHERE u.active = 1 AND u.passport != '0'
-            ORDER BY adv_count DESC, u.name ASC
+            ORDER BY adv_count DESC, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) ASC
         `);
         
         // Buscar grupos de TODOS de uma vez (otimizado)
@@ -3447,10 +3451,10 @@ router.get('/edit-permissions', requireAdmin, async (req, res) => {
     try {
         // Buscar membros
         const members = await getAll(`
-            SELECT id, name, passport, role
+            SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport, role
             FROM users
             WHERE active = 1 AND role != 'gerente_geral'
-            ORDER BY name ASC
+            ORDER BY COALESCE(NULLIF(TRIM(capital_nickname), ''), name) ASC
         `);
         
         // Buscar grupos de TODOS de uma vez (otimizado)
@@ -3519,7 +3523,7 @@ router.post('/edit-permissions/grant', requireAdmin, async (req, res) => {
         }
         
         // Buscar nome do membro para log
-        const member = await getOne('SELECT name FROM users WHERE id = ?', [user_id]);
+        const member = await getOne(`SELECT COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname FROM users WHERE id = ?`, [user_id]);
         console.log(`✏️ Permissão de edição concedida para ${member?.name} por ${req.session.user.name}`);
         
         res.json({ success: true, message: 'Permissão concedida!' });
@@ -3536,7 +3540,7 @@ router.post('/edit-permissions/revoke', requireAdmin, async (req, res) => {
         await runQuery(`DELETE FROM edit_permissions WHERE user_id = ?`, [user_id]);
         
         // Buscar nome do membro para log
-        const member = await getOne('SELECT name FROM users WHERE id = ?', [user_id]);
+        const member = await getOne(`SELECT COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname FROM users WHERE id = ?`, [user_id]);
         console.log(`🚫 Permissão de edição revogada de ${member?.name} por ${req.session.user.name}`);
         
         res.json({ success: true, message: 'Permissão revogada!' });
@@ -3794,8 +3798,8 @@ router.get('/role-permissions/:roleName', requireAuth, async (req, res) => {
             res.json({
                 role_name: roleName,
                 display_name: roleName,
-                permissions: ['all'],
-                can_config: true
+                permissions: [],
+                can_config: false
             });
         }
     } catch (error) {
@@ -3817,6 +3821,10 @@ router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
         // Não permitir editar permissões do super_admin (só ele mesmo pode)
         if (roleName === 'super_admin' && req.session.user.role !== 'super_admin') {
             return res.status(403).json({ error: 'Apenas o Super Admin pode alterar suas próprias permissões' });
+        }
+        
+        if (!/^[a-z0-9_]+$/.test(cleanRoleName)) {
+            return res.status(400).json({ error: 'O nome tecnico deve conter apenas letras minusculas, numeros e underscore' });
         }
         
         const permissionsJson = JSON.stringify(permissions || []);
@@ -3902,9 +3910,15 @@ router.post('/role-permissions', requireAdmin, async (req, res) => {
         }
         
         const { role_name, display_name, permissions, can_config } = req.body;
+        const cleanRoleName = String(role_name || '').trim().toLowerCase();
+        const cleanDisplayName = String(display_name || '').trim();
         
-        if (!role_name || !display_name) {
+        if (!cleanRoleName || !cleanDisplayName) {
             return res.status(400).json({ error: 'Nome do grupo e nome de exibição são obrigatórios' });
+        }
+        
+        if (!/^[a-z0-9_]+$/.test(cleanRoleName)) {
+            return res.status(400).json({ error: 'O nome tecnico deve conter apenas letras minusculas, numeros e underscore' });
         }
         
         const permissionsJson = JSON.stringify(permissions || []);
@@ -3912,9 +3926,9 @@ router.post('/role-permissions', requireAdmin, async (req, res) => {
         await runQuery(`
             INSERT INTO role_permissions (role_name, display_name, permissions, can_config)
             VALUES (?, ?, ?, ?)
-        `, [role_name, display_name, permissionsJson, can_config ? 1 : 0]);
+        `, [cleanRoleName, cleanDisplayName, permissionsJson, can_config ? 1 : 0]);
         
-        console.log(`🔐 Novo grupo ${role_name} criado por ${req.session.user.name}`);
+        console.log(`🔐 Novo grupo ${cleanRoleName} criado por ${req.session.user.name}`);
         
         res.json({ success: true, message: 'Grupo criado!' });
     } catch (error) {
@@ -3945,6 +3959,11 @@ router.delete('/role-permissions/:roleName', requireAdmin, async (req, res) => {
         const usersWithRole = await getOne('SELECT COUNT(*) as count FROM users WHERE role = ?', [roleName]);
         if (usersWithRole && usersWithRole.count > 0) {
             return res.status(400).json({ error: `Não é possível deletar. Há ${usersWithRole.count} usuário(s) com este cargo.` });
+        }
+
+        const usersWithGroup = await getOne('SELECT COUNT(*) as count FROM user_groups WHERE group_name = ?', [roleName]);
+        if (usersWithGroup && usersWithGroup.count > 0) {
+            return res.status(400).json({ error: `Nao e possivel deletar. Ha ${usersWithGroup.count} membro(s) neste grupo.` });
         }
         
         // Deletar grupo
@@ -3992,11 +4011,11 @@ router.get('/role-permissions/:roleName/members', requireAdmin, async (req, res)
         
         // Buscar todos os usuários que pertencem a este grupo (exceto usuário root - passaporte 0)
         const members = await getAll(`
-            SELECT u.id, u.name, u.passport, u.active
+            SELECT u.id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.name as original_name, u.capital_nickname, u.passport, u.active
             FROM users u
             INNER JOIN user_groups ug ON u.id = ug.user_id
             WHERE ug.group_name = ? AND u.passport != '0'
-            ORDER BY u.name
+            ORDER BY COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name)
         `, [roleName]);
         
         res.json({ members });
@@ -4020,7 +4039,7 @@ router.post('/role-permissions/:roleName/members', requireAdmin, async (req, res
         }
         
         // Verificar se o usuário existe
-        const user = await getOne('SELECT id, name FROM users WHERE id = ?', [user_id]);
+        const user = await getOne(`SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname FROM users WHERE id = ?`, [user_id]);
         if (!user) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
@@ -4063,7 +4082,7 @@ router.delete('/role-permissions/:roleName/members/:userId', requireAdmin, async
             return res.status(404).json({ error: 'Usuário não está neste grupo' });
         }
         
-        const user = await getOne('SELECT name FROM users WHERE id = ?', [userId]);
+        const user = await getOne(`SELECT COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname FROM users WHERE id = ?`, [userId]);
         
         // Remover do grupo
         await runQuery('DELETE FROM user_groups WHERE user_id = ? AND group_name = ?', [userId, roleName]);
@@ -4079,7 +4098,7 @@ router.delete('/role-permissions/:roleName/members/:userId', requireAdmin, async
 // Buscar todos os usuários disponíveis para adicionar a um grupo
 router.get('/users/available', requireAdmin, async (req, res) => {
     try {
-        const users = await getAll('SELECT id, name, passport FROM users WHERE active = 1 ORDER BY name');
+        const users = await getAll(`SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport FROM users WHERE active = 1 ORDER BY COALESCE(NULLIF(TRIM(capital_nickname), ''), name)`);
         res.json({ users });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -4147,7 +4166,7 @@ router.get('/password-resets/pending', requireAdmin, async (req, res) => {
         await ensurePasswordResetsTable();
         
         const requests = await getAll(`
-            SELECT pr.*, u.name as user_name, u.passport as user_passport
+            SELECT pr.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name, u.passport as user_passport
             FROM password_resets pr
             JOIN users u ON pr.user_id = u.id
             WHERE pr.status = 'pending'
@@ -4165,8 +4184,8 @@ router.get('/password-resets/pending', requireAdmin, async (req, res) => {
 router.get('/password-resets/all', requireAdmin, async (req, res) => {
     try {
         const requests = await getAll(`
-            SELECT pr.*, u.name as user_name, u.passport as user_passport, 
-                   a.name as processed_by_name
+            SELECT pr.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name, u.passport as user_passport, 
+                   COALESCE(NULLIF(TRIM(a.capital_nickname), ''), a.name) as processed_by_name
             FROM password_resets pr
             JOIN users u ON pr.user_id = u.id
             LEFT JOIN users a ON pr.processed_by = a.id
@@ -4188,7 +4207,7 @@ router.post('/password-resets/:id/approve', requireAdmin, async (req, res) => {
         
         // Buscar solicitação
         const request = await getOne(`
-            SELECT pr.*, u.name as user_name, u.passport as user_passport
+            SELECT pr.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name, u.passport as user_passport
             FROM password_resets pr
             JOIN users u ON pr.user_id = u.id
             WHERE pr.id = ? AND pr.status = 'pending'
@@ -4265,7 +4284,7 @@ router.post('/users/:id/reset-password', requireAdmin, async (req, res) => {
         const { new_password } = req.body;
         
         // Verificar se o usuário existe
-        const user = await getOne('SELECT id, name, passport FROM users WHERE id = ?', [id]);
+        const user = await getOne(`SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport FROM users WHERE id = ?`, [id]);
         if (!user) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
@@ -4343,7 +4362,9 @@ router.get('/competitions/ranking', requireAdmin, async (req, res) => {
         const ranking = await getAll(`
             SELECT 
                 u.id,
-                u.name,
+                COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                u.name as original_name,
+                u.capital_nickname,
                 u.passport,
                 COUNT(DISTINCT d.id) as total_farms,
                 COALESCE(SUM(di_sum.total_amount), 0) as total_materials
@@ -4357,7 +4378,7 @@ router.get('/competitions/ranking', requireAdmin, async (req, res) => {
             WHERE (d.status = 'approved' OR d.status = 'pending')
               AND d.week_start >= ?
               AND d.week_end <= ?
-            GROUP BY u.id, u.name, u.passport
+            GROUP BY u.id, u.name, u.capital_nickname, u.passport
             HAVING total_farms > 0
             ORDER BY total_farms DESC, total_materials DESC
             LIMIT 50
@@ -4447,7 +4468,7 @@ router.get('/competitions/member-details/:competitionId/:userId', requireAdmin, 
         const { competitionId, userId } = req.params;
         
         // Buscar informações do usuário
-        const user = await getOne('SELECT id, name, passport FROM users WHERE id = ?', [userId]);
+        const user = await getOne(`SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport FROM users WHERE id = ?`, [userId]);
         if (!user) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
         }
@@ -4659,7 +4680,7 @@ router.get('/extra-farms/pending', requireAdmin, async (req, res) => {
                 ef.materials,
                 ef.status,
                 ef.created_at,
-                u.name as user_name,
+                COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name,
                 u.passport as user_passport,
                 u.role as user_role,
                 u.member_slot,
@@ -4755,11 +4776,11 @@ router.get('/extra-farms/extract', requireAdmin, async (req, res) => {
                 ef.created_at,
                 ef.reviewed_at,
                 ef.reviewed_by,
-                u.name as user_name,
+                COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name,
                 u.passport as user_passport,
                 d.week_start,
                 d.week_end,
-                reviewer.name as reviewer_name
+                COALESCE(NULLIF(TRIM(reviewer.capital_nickname), ''), reviewer.name) as reviewer_name
             FROM extra_farm_requests ef
             JOIN users u ON ef.user_id = u.id
             JOIN deliveries d ON ef.delivery_id = d.id
@@ -4826,7 +4847,7 @@ router.get('/extra-farms/:id', requireAdmin, async (req, res) => {
                 ef.status,
                 ef.created_at,
                 ef.reviewed_at,
-                u.name as user_name,
+                COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as user_name,
                 u.passport as user_passport
             FROM extra_farm_requests ef
             JOIN users u ON ef.user_id = u.id
@@ -4974,7 +4995,7 @@ router.get('/week-submissions', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'userId, week_start e week_end são obrigatórios' });
         }
         const deliveries = await getAll(`
-            SELECT d.*, d.created_at as delivered_at, u.name as approved_by_name
+            SELECT d.*, d.created_at as delivered_at, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as approved_by_name
             FROM deliveries d
             LEFT JOIN users u ON d.approved_by = u.id
             WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
@@ -5053,7 +5074,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
         
         // Buscar todas as entregas da semana do membro (exceto rejeitadas - podem ter nova submissão)
         const deliveries = await getAll(`
-            SELECT d.*, u.name as member_name, u.passport
+            SELECT d.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as member_name, u.passport
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
             WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ? AND d.status != 'rejected'
@@ -5240,7 +5261,7 @@ router.get('/delivery/:deliveryId/details', requireAdmin, async (req, res) => {
         
         // Buscar entrega
         const delivery = await getOne(`
-            SELECT d.*, u.name as member_name, u.passport
+            SELECT d.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as member_name, u.passport
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
             WHERE d.id = ?
@@ -5760,7 +5781,7 @@ router.get('/member/:memberId/deliveries', requireAdmin, async (req, res) => {
         const { memberId } = req.params;
         
         // Buscar membro
-        const member = await getOne('SELECT id, name, passport, role FROM users WHERE id = ?', [memberId]);
+        const member = await getOne(`SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport, role FROM users WHERE id = ?`, [memberId]);
         if (!member) {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
@@ -5820,7 +5841,7 @@ router.get('/member/:userId/observations', requireAdmin, async (req, res) => {
         const { week_start, week_end } = req.query;
         
         const observations = await getAll(`
-            SELECT mo.*, u.name as created_by_name
+            SELECT mo.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as created_by_name
             FROM member_observations mo
             JOIN users u ON mo.created_by = u.id
             WHERE mo.user_id = ? AND mo.week_start = ? AND mo.week_end = ?
@@ -6085,11 +6106,11 @@ router.post('/weapon-stock/:id/price', requireAdmin, requireWeaponSalesAccess, a
 router.get('/weapon-sellers', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
     try {
         const users = await getAll(`
-            SELECT id, name, passport, role
+            SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport, role
             FROM users
             WHERE active = 1
               AND passport NOT IN ('admin', '0')
-            ORDER BY name ASC
+            ORDER BY COALESCE(NULLIF(TRIM(capital_nickname), ''), name) ASC
         `);
 
         const groupsMap = await getUserGroupsMap((users || []).map(u => u.id));
@@ -6115,7 +6136,7 @@ router.get('/weapon-production', requireAdmin, requireWeaponSalesAccess, async (
         await ensureWeaponSalesTable();
 
         const entries = await getAll(`
-            SELECT wpe.*, u.name AS created_by_name
+            SELECT wpe.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) AS created_by_name
             FROM weapon_production_entries wpe
             LEFT JOIN users u ON u.id = wpe.created_by
             ORDER BY wpe.production_date DESC, wpe.created_at DESC, wpe.id DESC
@@ -6216,7 +6237,7 @@ router.get('/weapon-sales', requireAdmin, requireWeaponSalesAccess, async (req, 
 
         const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
         const sales = await getAll(`
-            SELECT ws.*, u.name as created_by_name
+            SELECT ws.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as created_by_name
             FROM weapon_sales ws
             LEFT JOIN users u ON ws.created_by = u.id
             ${whereSql}
@@ -6424,11 +6445,11 @@ router.get('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (re
 
         const week = getCurrentWeek();
         const users = await getAll(`
-            SELECT id, name, passport, role, active
+            SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, passport, role, active
             FROM users
             WHERE active = 1
               AND passport NOT IN ('admin', '0')
-            ORDER BY name ASC
+            ORDER BY COALESCE(NULLIF(TRIM(capital_nickname), ''), name) ASC
         `);
 
         const userIds = (users || []).map(user => user.id);
@@ -6441,7 +6462,7 @@ router.get('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (re
         `)).filter(item => isFamilyFreeWeapon(item.weapon_name));
 
         const entries = await getAll(`
-            SELECT wf.*, u.name AS user_name, u.passport AS user_passport, c.name AS created_by_name
+            SELECT wf.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) AS user_name, u.passport AS user_passport, COALESCE(NULLIF(TRIM(c.capital_nickname), ''), c.name) AS created_by_name
             FROM weapon_freebies wf
             JOIN users u ON u.id = wf.user_id
             LEFT JOIN users c ON c.id = wf.created_by
@@ -6536,7 +6557,7 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
 
         const userPlaceholders = userIds.map(() => '?').join(',');
         const members = await getAll(
-            `SELECT id, name, active FROM users WHERE id IN (${userPlaceholders}) AND active = 1 AND passport NOT IN ('admin', '0')`,
+            `SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname, active FROM users WHERE id IN (${userPlaceholders}) AND active = 1 AND passport NOT IN ('admin', '0')`,
             userIds
         );
         const membersById = new Map((members || []).map(member => [Number(member.id), member]));

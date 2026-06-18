@@ -1734,6 +1734,9 @@
     font-weight: 600;
     margin-right: 6px;
     white-space: nowrap;
+    background: rgba(45, 212, 191, 0.16);
+    border: 1px solid rgba(45, 212, 191, 0.34);
+    color: #5eead4;
 }
 
 /* Cores específicas por cargo */

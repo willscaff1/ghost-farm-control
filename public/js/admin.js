@@ -177,8 +177,8 @@ async function loadUserPermissions(userGroups) {
     } catch (error) {
         console.error('Erro ao carregar permissões:', error);
     }
-    // Fallback para permissão total se erro
-    return { permissions: ['all'], can_config: true };
+    // Fallback seguro se houver erro ao carregar permissões
+    return { permissions: [], can_config: false };
 }
 
 // Verificar se o usuário tem acesso a uma tab

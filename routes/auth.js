@@ -41,7 +41,8 @@ router.post('/login', async (req, res) => {
         
         req.session.user = {
             id: user.id,
-            name: user.name,
+            name: user.capital_nickname || user.name,
+            original_name: user.name,
             passport: user.passport,
             email: user.email,
             role: user.role,
@@ -93,7 +94,8 @@ router.get('/me', async (req, res) => {
             // Atualizar a sessão com os grupos mais recentes
             req.session.user.groups = groups;
             req.session.user.role = groups[0] || userCheck.role; // Atualizar role também
-            req.session.user.name = userCheck.name;
+            req.session.user.name = userCheck.capital_nickname || userCheck.name;
+            req.session.user.original_name = userCheck.name;
             req.session.user.passport = userCheck.passport;
             req.session.user.email = userCheck.email;
             req.session.user.capital_nickname = userCheck.capital_nickname || null;
@@ -162,7 +164,8 @@ router.post('/capital-nickname', async (req, res) => {
 
         req.session.user = {
             ...req.session.user,
-            name: user.name,
+            name: nickname,
+            original_name: user.name,
             passport: user.passport,
             email: user.email,
             role: groups[0] || user.role,
@@ -388,7 +391,8 @@ router.put('/update-profile', async (req, res) => {
         );
         
         // Atualizar sessão
-        req.session.user.name = name.trim();
+        req.session.user.original_name = name.trim();
+        req.session.user.name = req.session.user.capital_nickname || name.trim();
         req.session.user.email = email?.trim() || null;
         
         console.log(`👤 Perfil atualizado: ${name} (ID: ${req.session.user.id})`);
