@@ -65,7 +65,12 @@ const normalizeGroupName = (groupName = '') => String(groupName)
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
 
-const isManagerByGroups = (groups = []) => groups.some(g => managerGroups.has(normalizeGroupName(g)));
+const isManagerGroupName = (groupName = '') => {
+    const normalized = normalizeGroupName(groupName);
+    return managerGroups.has(normalized) || normalized.startsWith('gerente_');
+};
+
+const isManagerByGroups = (groups = []) => groups.some(isManagerGroupName);
 
 // Separação total por cargo:
 // - Gerente (gerência/01/02) conta SOMENTE produtos marcados como 'manager'

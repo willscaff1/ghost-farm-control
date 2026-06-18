@@ -62,6 +62,11 @@ const normalizeGroupName = (groupName = '') => String(groupName)
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
 
+const isManagerGroupName = (groupName = '') => {
+    const normalized = normalizeGroupName(groupName);
+    return MANAGER_GROUPS.has(normalized) || normalized.startsWith('gerente_');
+};
+
 const getUserGroups = async (userId) => {
     try {
         const groups = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [userId]);
@@ -77,10 +82,10 @@ const getUserGroups = async (userId) => {
 
 const isManagerUser = async (userId, sessionUser) => {
     if (sessionUser && sessionUser.id === userId && Array.isArray(sessionUser.groups)) {
-        return sessionUser.groups.some(g => MANAGER_GROUPS.has(normalizeGroupName(g)));
+        return sessionUser.groups.some(isManagerGroupName);
     }
     const groups = await getUserGroups(userId);
-    return groups.some(g => MANAGER_GROUPS.has(normalizeGroupName(g)));
+    return groups.some(isManagerGroupName);
 };
 
 const resolveMaterialGoal = (material, isManager) => {
