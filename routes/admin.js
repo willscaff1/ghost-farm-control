@@ -3709,6 +3709,12 @@ const defaultRolePermissions = [
     }
 ];
 
+const protectedRoleNames = new Set([
+    ...defaultRolePermissions.map(role => role.role_name),
+    'gerente_de_vendas',
+    'gerente_de_fabricacao'
+]);
+
 // Buscar lista de tabs disponíveis
 router.get('/role-permissions/tabs', requireAdmin, async (req, res) => {
     res.json({ tabs: availableTabs });
@@ -3858,11 +3864,12 @@ router.put('/role-permissions/:roleName/rename', requireAdmin, async (req, res) 
         }
         
         const { roleName } = req.params;
+        const cleanRoleName = String(roleName || '').trim().toLowerCase();
         const { new_role_name, display_name } = req.body;
         
         // Não permitir editar super_admin
-        if (roleName === 'super_admin') {
-            return res.status(403).json({ error: 'Não é permitido renomear o grupo Super Admin' });
+        if (protectedRoleNames.has(cleanRoleName)) {
+            return res.status(403).json({ error: 'Nao e permitido renomear grupos padrao do sistema' });
         }
         
         if (!new_role_name || !display_name) {
@@ -3955,25 +3962,17 @@ router.delete('/role-permissions/:roleName', requireAdmin, async (req, res) => {
         }
         
         const { roleName } = req.params;
+        const cleanRoleName = String(roleName || '').trim().toLowerCase();
         
         // Não pode deletar super_admin
-        if (roleName === 'super_admin') {
-            return res.status(403).json({ error: 'O grupo Super Admin não pode ser deletado' });
+        if (protectedRoleNames.has(cleanRoleName)) {
+            return res.status(403).json({ error: 'Este grupo padrao do sistema nao pode ser deletado' });
         }
         
-        // Verificar se há usuários usando este grupo
-        const usersWithRole = await getOne('SELECT COUNT(*) as count FROM users WHERE role = ?', [roleName]);
-        if (usersWithRole && usersWithRole.count > 0) {
-            return res.status(400).json({ error: `Não é possível deletar. Há ${usersWithRole.count} usuário(s) com este cargo.` });
-        }
-
-        const usersWithGroup = await getOne('SELECT COUNT(*) as count FROM user_groups WHERE group_name = ?', [roleName]);
-        if (usersWithGroup && usersWithGroup.count > 0) {
-            return res.status(400).json({ error: `Nao e possivel deletar. Ha ${usersWithGroup.count} membro(s) neste grupo.` });
-        }
-        
-        // Deletar grupo
-        await runQuery('DELETE FROM role_permissions WHERE role_name = ?', [roleName]);
+        // Remover vinculos antes de deletar grupo customizado.
+        await runQuery('DELETE FROM user_groups WHERE group_name = ?', [cleanRoleName]);
+        await runQuery("UPDATE users SET role = 'member' WHERE role = ?", [cleanRoleName]);
+        await runQuery('DELETE FROM role_permissions WHERE role_name = ?', [cleanRoleName]);
         
         console.log(`🔐 Grupo ${roleName} deletado por ${req.session.user.name}`);
         
