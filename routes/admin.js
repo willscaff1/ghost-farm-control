@@ -3822,9 +3822,10 @@ router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
         
         const { roleName } = req.params;
         const { display_name, permissions, can_config } = req.body;
+        const cleanRoleName = String(roleName || '').trim().toLowerCase();
         
         // Não permitir editar permissões do super_admin (só ele mesmo pode)
-        if (roleName === 'super_admin' && req.session.user.role !== 'super_admin') {
+        if (cleanRoleName === 'super_admin' && req.session.user.role !== 'super_admin') {
             return res.status(403).json({ error: 'Apenas o Super Admin pode alterar suas próprias permissões' });
         }
         
@@ -3838,7 +3839,7 @@ router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
             UPDATE role_permissions 
             SET display_name = ?, permissions = ?, can_config = ?, updated_at = CURRENT_TIMESTAMP
             WHERE role_name = ?
-        `, [display_name, permissionsJson, can_config ? 1 : 0, roleName]);
+        `, [display_name, permissionsJson, can_config ? 1 : 0, cleanRoleName]);
         
         console.log(`🔐 Permissões do grupo ${roleName} atualizadas por ${req.session.user.name}`);
         
