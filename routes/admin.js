@@ -3709,11 +3709,7 @@ const defaultRolePermissions = [
     }
 ];
 
-const protectedRoleNames = new Set([
-    ...defaultRolePermissions.map(role => role.role_name),
-    'gerente_de_vendas',
-    'gerente_de_fabricacao'
-]);
+const protectedRoleNames = new Set(['super_admin']);
 
 // Buscar lista de tabs disponíveis
 router.get('/role-permissions/tabs', requireAdmin, async (req, res) => {
@@ -3869,7 +3865,7 @@ router.put('/role-permissions/:roleName/rename', requireAdmin, async (req, res) 
         
         // Não permitir editar super_admin
         if (protectedRoleNames.has(cleanRoleName)) {
-            return res.status(403).json({ error: 'Nao e permitido renomear grupos padrao do sistema' });
+            return res.status(403).json({ error: 'Nao e permitido renomear o grupo Super Admin' });
         }
         
         if (!new_role_name || !display_name) {
@@ -3966,7 +3962,7 @@ router.delete('/role-permissions/:roleName', requireAdmin, async (req, res) => {
         
         // Não pode deletar super_admin
         if (protectedRoleNames.has(cleanRoleName)) {
-            return res.status(403).json({ error: 'Este grupo padrao do sistema nao pode ser deletado' });
+            return res.status(403).json({ error: 'O grupo Super Admin nao pode ser deletado' });
         }
         
         // Remover vinculos antes de deletar grupo customizado.
