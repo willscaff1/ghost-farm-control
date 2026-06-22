@@ -3057,3 +3057,232 @@ h3 {
 .modal-buttons .btn-secondary:hover {
     background: #555;
 }
+
+.edit-delivery-status-note {
+    color: #c8c8dc;
+    font-size: 13px;
+}
+
+.edit-delivery-farm-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.edit-delivery-farm-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(15, 15, 26, 0.78);
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.edit-delivery-farm-card[data-farm-type="general"] {
+    grid-column: 1 / -1;
+}
+
+.edit-delivery-farm-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.edit-delivery-farm-head h4 {
+    margin: 0 0 4px;
+    color: #fff;
+    font-size: 16px;
+}
+
+.edit-delivery-farm-head span {
+    color: #9fa0b8;
+    font-size: 12px;
+}
+
+.edit-farm-status-select {
+    min-width: 140px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #202038;
+    color: #fff;
+    font-weight: 600;
+}
+
+.edit-farm-status-select option {
+    background: #202038;
+    color: #fff;
+}
+
+.edit-delivery-material-list {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.edit-delivery-material-row {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) 96px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.edit-delivery-material-icon {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: rgba(108, 92, 231, 0.16);
+    color: #fff;
+    font-weight: 700;
+}
+
+.edit-delivery-material-info {
+    min-width: 0;
+}
+
+.edit-delivery-material-info strong,
+.edit-delivery-material-info small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.edit-delivery-material-info strong {
+    color: #fff;
+    font-size: 14px;
+}
+
+.edit-delivery-material-info small {
+    color: #9293aa;
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+.edit-delivery-item-input {
+    width: 96px;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    text-align: center;
+    font-size: 15px;
+}
+
+.edit-farm-print-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 12px;
+}
+
+.edit-farm-print-title {
+    color: #d9d9ea;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.edit-farm-existing-prints,
+.edit-farm-new-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.edit-farm-screenshot,
+.edit-farm-new-thumb {
+    position: relative;
+    width: 78px;
+    height: 78px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.edit-farm-screenshot img,
+.edit-farm-new-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.edit-farm-screenshot button {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 50%;
+    background: #e74c3c;
+    color: #fff;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.edit-farm-empty {
+    margin: 0 0 8px;
+    color: #888aa0;
+    font-size: 13px;
+}
+
+.edit-farm-upload {
+    display: block;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px dashed rgba(255, 255, 255, 0.24);
+    border-radius: 10px;
+    color: #bfc0d2;
+    text-align: center;
+    cursor: pointer;
+}
+
+.edit-farm-upload input {
+    display: none;
+}
+
+.edit-farm-upload.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.edit-farm-new-preview {
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.edit-delivery-save-btn {
+    width: min(100%, 360px);
+    display: block;
+    margin: 18px auto 0;
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: #27ae60;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+@media (max-width: 780px) {
+    .edit-delivery-farm-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .edit-delivery-material-row {
+        grid-template-columns: 32px minmax(0, 1fr);
+    }
+
+    .edit-delivery-item-input {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+}

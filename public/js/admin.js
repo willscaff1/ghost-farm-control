@@ -2299,7 +2299,9 @@ function renderFarmTypeStatusChips(member) {
                     ? 'Aguardando'
                     : status === 'in_progress'
                         ? 'Em progresso'
-                        : 'Pendente';
+                        : status === 'rejected'
+                            ? 'Recusado'
+                            : 'Pendente';
             return `<span class="farm-type-status-chip ${status}">${item.label}: ${text}</span>`;
         });
     return chips.length ? `<div class="farm-type-status-chips">${chips.join('')}</div>` : '';
@@ -10172,6 +10174,68 @@ function onEditWeekChange() {
     badge.style.display = (ws !== currentEditWeekStart || we !== currentEditWeekEnd) ? 'inline' : 'none';
 }
 
+const editFarmTypeConfig = [
+    { type: 'drugs', title: 'Meta de Drogas' },
+    { type: 'weapons', title: 'Meta de Armas' },
+    { type: 'general', title: 'Meta Geral' }
+];
+
+function normalizeEditFarmType(farmType) {
+    const normalized = String(farmType || 'drugs')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    return ['drugs', 'weapons', 'general'].includes(normalized) ? normalized : 'drugs';
+}
+
+function getEditDeliveryDisplayStatus(delivery) {
+    if (!delivery) return 'not_delivered';
+    const status = String(delivery.status || 'pending').toLowerCase();
+    if (status === 'approved' && delivery.is_partial) return 'in_progress';
+    return status;
+}
+
+function getEditStatusLabel(status) {
+    const labels = {
+        approved: 'Aprovado',
+        in_progress: 'Em progresso',
+        pending: 'Aguardando',
+        rejected: 'Recusado',
+        not_delivered: 'Nao entregou'
+    };
+    return labels[status] || status || '-';
+}
+
+function getEditDeliveryFarmGroups(data) {
+    const allMaterials = data?.allMaterials || [];
+    const deliveriesWithItems = data?.deliveriesWithItems || [];
+
+    return editFarmTypeConfig.map(config => {
+        const materials = allMaterials.filter(mat => normalizeEditFarmType(mat.farm_type) === config.type);
+        if (materials.length === 0) return null;
+
+        const submissions = deliveriesWithItems.filter(sub => {
+            const items = sub.items || [];
+            return items.some(item => normalizeEditFarmType(item.farm_type) === config.type);
+        });
+        const primary = submissions[0] || null;
+
+        return {
+            ...config,
+            materials,
+            delivery: primary?.delivery || null,
+            deliveryId: primary?.delivery?.id || null,
+            items: primary?.items || [],
+            screenshots: primary?.screenshots || [],
+            submissions,
+            status: getEditDeliveryDisplayStatus(primary?.delivery || null)
+        };
+    }).filter(Boolean);
+}
+
 // Abrir modal para editar entrega existente
 // Mostra o farm correto (uma entrega por vez, não soma) e status = espelho do Status da Semana
 async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) {
@@ -10216,21 +10280,6 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) 
         currentEditWeekEnd = weekEnd;
         
         // Status = espelho do Status da Semana (prioridade: status passado pelo botão > membro da tabela > backend)
-        const memberFromTable = window.__weeklyStatusMembersFull && window.__weeklyStatusMembersFull.find(m => m.id == memberId);
-        let displayStatus = data.delivery.status;
-        if (data.delivery.status === 'approved' && data.delivery.is_partial) displayStatus = 'in_progress';
-        if (tableStatus) {
-            if (tableStatus === 'completed') displayStatus = 'approved';
-            else if (tableStatus === 'partial') displayStatus = 'in_progress';
-            else if (tableStatus === 'pending') displayStatus = 'pending';
-            else if (tableStatus === 'missing') displayStatus = 'not_delivered';
-        } else if (memberFromTable) {
-            if (memberFromTable.status === 'completed') displayStatus = 'approved';
-            else if (memberFromTable.status === 'partial') displayStatus = 'in_progress';
-            else if (memberFromTable.status === 'pending') displayStatus = 'pending';
-            else if (memberFromTable.status === 'missing') displayStatus = 'not_delivered';
-        }
-        
         // Guardar dados para troca de envio e para save
         window.__currentEditDeliveryDetailsData = {
             deliveriesWithItems,
@@ -10275,6 +10324,8 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) 
             `;
         }
         
+        const displayStatus = getEditDeliveryDisplayStatus(data.delivery);
+
         // Status (espelho da tabela)
         const statusOptions = [
             { value: 'approved', label: '✅ Completo', color: '#27ae60' },
@@ -10289,7 +10340,12 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) 
         statusSelectHtml += `</select>`;
         document.getElementById('editDeliveryStatus').innerHTML = statusSelectHtml;
         
-        renderEditDeliveryFormForEnvio(0);
+        if (envioSelEl) {
+            envioSelEl.style.display = 'none';
+            envioSelEl.innerHTML = '';
+        }
+        document.getElementById('editDeliveryStatus').innerHTML = '<span class="edit-delivery-status-note">Status separado por drogas e armas</span>';
+        renderEditDeliveryFarmGroups();
         
     } catch (error) {
         console.error('Erro ao carregar detalhes da entrega:', error);
@@ -10408,6 +10464,120 @@ function renderEditDeliveryFormForEnvio(envioIndex) {
     `;
 
     document.getElementById('editDeliveryItems').innerHTML = itemsHtml;
+}
+
+function renderEditDeliveryFarmGroups() {
+    const data = window.__currentEditDeliveryDetailsData;
+    const container = document.getElementById('editDeliveryItems');
+    if (!data || !container) return;
+
+    const groups = getEditDeliveryFarmGroups(data);
+    if (groups.length === 0) {
+        container.innerHTML = '<p style="color: #888;">Nenhuma meta de material ativa para este membro.</p>';
+        return;
+    }
+
+    const statusOptions = [
+        { value: 'approved', label: 'Aprovado' },
+        { value: 'in_progress', label: 'Em progresso' },
+        { value: 'pending', label: 'Aguardando' },
+        { value: 'rejected', label: 'Recusado' },
+        { value: 'not_delivered', label: 'Nao entregou' }
+    ];
+
+    container.innerHTML = `
+        <div class="edit-delivery-farm-grid">
+            ${groups.map(group => {
+                const deliveryId = group.deliveryId;
+                const disabledAttr = deliveryId ? '' : 'disabled';
+                const screenshotsHtml = group.screenshots.length > 0
+                    ? group.screenshots.map(s => `
+                        <div class="edit-farm-screenshot">
+                            <img src="${escapeHtml(s.screenshot_url)}" onclick="window.open('${escapeHtml(s.screenshot_url)}', '_blank')" alt="Print ${escapeHtml(group.title)}">
+                            <button type="button" onclick="removeScreenshot(${deliveryId}, ${s.id})">&times;</button>
+                        </div>
+                    `).join('')
+                    : '<p class="edit-farm-empty">Sem prints enviados</p>';
+
+                return `
+                    <section class="edit-delivery-farm-card" data-farm-type="${group.type}" data-delivery-id="${deliveryId || ''}">
+                        <div class="edit-delivery-farm-head">
+                            <div>
+                                <h4>${escapeHtml(group.title)}</h4>
+                                <span>${deliveryId ? `Envio #${deliveryId}` : 'Sem envio deste farm'}</span>
+                            </div>
+                            <select class="edit-farm-status-select" data-farm-type="${group.type}" data-delivery-id="${deliveryId || ''}" data-original="${group.status}" ${disabledAttr}>
+                                ${statusOptions.map(opt => `<option value="${opt.value}" ${group.status === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                            </select>
+                        </div>
+
+                        <div class="edit-delivery-material-list">
+                            ${group.materials.map(mat => {
+                                const existingItem = group.items.find(i => Number(i.material_id) === Number(mat.id));
+                                const currentAmount = existingItem ? (parseInt(existingItem.amount, 10) || 0) : 0;
+                                return `
+                                    <div class="edit-delivery-material-row">
+                                        <span class="edit-delivery-material-icon">${escapeHtml(mat.icon || 'C')}</span>
+                                        <div class="edit-delivery-material-info">
+                                            <strong>${escapeHtml(mat.name)}</strong>
+                                            <small>Meta: ${escapeHtml(mat.weekly_goal)}</small>
+                                        </div>
+                                        <input type="number"
+                                               class="edit-delivery-item-input"
+                                               value="${currentAmount}"
+                                               min="0"
+                                               data-delivery-id="${deliveryId || ''}"
+                                               data-material-id="${mat.id}"
+                                               data-original="${currentAmount}"
+                                               data-name="${escapeHtml(mat.name)}"
+                                               ${disabledAttr}>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <div class="edit-farm-print-section">
+                            <div class="edit-farm-print-title">Prints de ${escapeHtml(group.title)}</div>
+                            <div class="edit-farm-existing-prints">${screenshotsHtml}</div>
+                            <label class="edit-farm-upload ${deliveryId ? '' : 'disabled'}">
+                                <input type="file"
+                                       class="edit-farm-screenshot-input"
+                                       accept="image/*"
+                                       multiple
+                                       data-farm-type="${group.type}"
+                                       data-delivery-id="${deliveryId || ''}"
+                                       onchange="previewEditFarmScreenshots(this)"
+                                       ${disabledAttr}>
+                                <span>Adicionar prints</span>
+                                <div class="edit-farm-new-preview" data-preview-for="${group.type}"></div>
+                            </label>
+                        </div>
+                    </section>
+                `;
+            }).join('')}
+        </div>
+        <button type="button" class="edit-delivery-save-btn" onclick="saveAllDeliveryItems()">Salvar Alteracoes</button>
+    `;
+}
+
+function previewEditFarmScreenshots(input) {
+    const farmType = input.dataset.farmType;
+    const preview = document.querySelector(`.edit-farm-new-preview[data-preview-for="${farmType}"]`);
+    if (!preview) return;
+    preview.innerHTML = '';
+
+    if (!input.files || input.files.length === 0) return;
+
+    for (const file of input.files) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const div = document.createElement('div');
+            div.className = 'edit-farm-new-thumb';
+            div.innerHTML = `<img src="${event.target.result}" alt="Novo print">`;
+            preview.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
 // Salvar todas as alterações da entrega
@@ -10627,6 +10797,202 @@ async function saveAllDeliveryItems() {
         if (typeof loadWeeklyStatus === 'function') loadWeeklyStatus();
     } else {
         showNotification(`⚠️ ${successCount} salvas, ${errorCount} com erro`, 'warning');
+    }
+}
+
+// Versao separada por tipo de farm; sobrescreve a funcao antiga acima.
+async function saveAllDeliveryItems() {
+    const weekSel = document.getElementById('editWeekSelect');
+    let newWeekStart = currentEditWeekStart;
+    let newWeekEnd = currentEditWeekEnd;
+    if (weekSel && weekSel.value) {
+        const parts = weekSel.value.split('|');
+        newWeekStart = parts[0];
+        newWeekEnd = parts[1];
+    }
+    const weekChanged = newWeekStart !== currentEditWeekStart || newWeekEnd !== currentEditWeekEnd;
+
+    const changes = [];
+    document.querySelectorAll('.edit-delivery-item-input').forEach(input => {
+        if (!input.dataset.deliveryId) return;
+        const amount = parseInt(input.value, 10) || 0;
+        const originalAmount = parseInt(input.dataset.original, 10) || 0;
+        if (amount !== originalAmount) {
+            changes.push({
+                deliveryId: input.dataset.deliveryId,
+                materialId: parseInt(input.dataset.materialId, 10),
+                amount,
+                originalAmount,
+                materialName: input.dataset.name || 'Material',
+                input
+            });
+        }
+    });
+
+    const statusChanges = [];
+    document.querySelectorAll('.edit-farm-status-select').forEach(select => {
+        if (!select.dataset.deliveryId) return;
+        if (select.value !== select.dataset.original) {
+            statusChanges.push({
+                deliveryId: select.dataset.deliveryId,
+                farmType: select.dataset.farmType,
+                status: select.value,
+                originalStatus: select.dataset.original,
+                select
+            });
+        }
+    });
+
+    const screenshotUploads = [];
+    document.querySelectorAll('.edit-farm-screenshot-input').forEach(input => {
+        if (!input.dataset.deliveryId || !input.files || input.files.length === 0) return;
+        screenshotUploads.push({
+            deliveryId: input.dataset.deliveryId,
+            farmType: input.dataset.farmType,
+            input
+        });
+    });
+
+    if (changes.length === 0 && statusChanges.length === 0 && screenshotUploads.length === 0 && !weekChanged) {
+        showNotification('Nenhuma alteracao detectada', 'warning');
+        return;
+    }
+
+    let confirmMsg = 'CONFIRMAR ALTERACOES:\n\n';
+    if (weekChanged) {
+        confirmMsg += `SEMANA: ${currentEditWeekStart} ~ ${currentEditWeekEnd}\n -> ${newWeekStart} ~ ${newWeekEnd}\n\n`;
+    }
+    if (statusChanges.length > 0) {
+        confirmMsg += 'STATUS POR FARM:\n';
+        statusChanges.forEach(change => {
+            confirmMsg += `${change.farmType}: ${getEditStatusLabel(change.originalStatus)} -> ${getEditStatusLabel(change.status)}\n`;
+        });
+        confirmMsg += '\n';
+    }
+    if (changes.length > 0) {
+        confirmMsg += 'MATERIAIS:\n';
+        changes.forEach(change => {
+            confirmMsg += `${change.materialName}: ${change.originalAmount} -> ${change.amount}\n`;
+        });
+        confirmMsg += '\n';
+    }
+    if (screenshotUploads.length > 0) {
+        const totalFiles = screenshotUploads.reduce((sum, upload) => sum + upload.input.files.length, 0);
+        confirmMsg += `${totalFiles} novo(s) print(s) serao adicionados.\n\n`;
+    }
+    confirmMsg += 'Deseja salvar estas alteracoes?';
+
+    if (!confirm(confirmMsg)) return;
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    if (weekChanged) {
+        try {
+            const response = await fetch(`/api/admin/delivery/week-range`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    userId: currentEditUserId,
+                    old_week_start: currentEditWeekStart,
+                    old_week_end: currentEditWeekEnd,
+                    new_week_start: newWeekStart,
+                    new_week_end: newWeekEnd
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                currentEditWeekStart = newWeekStart;
+                currentEditWeekEnd = newWeekEnd;
+                successCount++;
+            } else {
+                errorCount++;
+                showNotification(`Erro ao alterar semana: ${escapeHtml(data.error)}`, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao alterar semana:', error);
+            errorCount++;
+        }
+    }
+
+    for (const change of statusChanges) {
+        try {
+            const response = await fetch(`/api/admin/delivery/${change.deliveryId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ status: change.status })
+            });
+            const data = await response.json();
+            if (data.success) {
+                change.select.dataset.original = change.status;
+                successCount++;
+            } else {
+                errorCount++;
+                showNotification(`Erro ao salvar status ${change.farmType}: ${escapeHtml(data.error)}`, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar status separado:', error);
+            errorCount++;
+        }
+    }
+
+    for (const change of changes) {
+        try {
+            const response = await fetch(`/api/admin/delivery/${change.deliveryId}/item`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ materialId: change.materialId, amount: change.amount })
+            });
+            const data = await response.json();
+            if (data.success) {
+                change.input.dataset.original = String(change.amount);
+                successCount++;
+            } else {
+                errorCount++;
+                showNotification(`Erro ao salvar ${escapeHtml(change.materialName)}: ${escapeHtml(data.error)}`, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar item:', error);
+            errorCount++;
+        }
+    }
+
+    for (const upload of screenshotUploads) {
+        const formData = new FormData();
+        for (const file of upload.input.files) {
+            formData.append('screenshots', file);
+        }
+
+        try {
+            const response = await fetch(`/api/admin/delivery/${upload.deliveryId}/screenshots`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                successCount++;
+            } else {
+                errorCount++;
+                showNotification(`Erro ao enviar prints ${upload.farmType}: ${escapeHtml(data.error)}`, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao enviar prints:', error);
+            errorCount++;
+        }
+    }
+
+    if (errorCount === 0) {
+        showNotification('Alteracoes salvas com sucesso!', 'success');
+        closeEditDeliveryModal();
+        if (typeof loadWeeklyStatus === 'function') {
+            await loadWeeklyStatus();
+        }
+    } else {
+        showNotification(`${successCount} alteracao(oes) salva(s), ${errorCount} com erro`, 'warning');
     }
 }
 

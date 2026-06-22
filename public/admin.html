@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260616sep2"><link rel="stylesheet" href="css/tables-clean.css?v=20260618groups1">
+    <link rel="stylesheet" href="css/style.css?v=20260622farmedit1">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260622farmedit1"><link rel="stylesheet" href="css/tables-clean.css?v=20260618groups1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260612theme1">
     
     
@@ -1628,7 +1628,7 @@
 
     <!-- Modal Editar Entrega (Admin) -->
     <div id="editDeliveryModal" class="modal warnings-modal" style="display: none;">
-        <div class="warnings-modal-content" style="max-width: 700px; position: relative;">
+        <div class="warnings-modal-content" style="max-width: 940px; position: relative;">
             <button class="modal-close-btn" onclick="closeEditDeliveryModal()" style="position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; line-height: 1;">&times;</button>
             <div class="warnings-modal-header" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); padding-right: 60px;">
                 <h2>✏️ Editar Entrega</h2>
@@ -1644,12 +1644,12 @@
                             <span id="editWeekChangedBadge" style="display:none; background: #e67e22; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠️ semana alterada</span>
                         </div>
                     </div>
-                    <p style="margin-bottom: 0;"><strong style="color: #aaa;">Status:</strong> <span id="editDeliveryStatus">-</span></p>
+                    <p style="margin-bottom: 0;"><strong style="color: #aaa;">Status:</strong> <span id="editDeliveryStatus">Status separado por farm abaixo</span></p>
                 </div>
                 <div id="editDeliveryEnvioSelector" style="margin-bottom: 16px; display: none;"></div>
                 
                 <!-- Seção de Screenshots -->
-                <div id="editDeliveryScreenshotsSection" style="margin-bottom: 20px;">
+                <div id="editDeliveryScreenshotsSection" style="margin-bottom: 20px; display: none;">
                     <h4 style="color: #fff; margin-bottom: 12px;">📷 Prints do Farm</h4>
                     <div id="editDeliveryExistingScreenshots" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
                     <div onclick="document.getElementById('editDeliveryScreenshotInput').click()" style="border: 2px dashed rgba(255,255,255,0.3); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#3498db'; this.style.background='rgba(52,152,219,0.1)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.3)'; this.style.background='transparent'">
@@ -1659,7 +1659,7 @@
                     </div>
                 </div>
                 
-                <div id="editDeliveryItems" style="max-height: 300px; overflow-y: auto;">
+                <div id="editDeliveryItems" style="max-height: 62vh; overflow-y: auto;">
                     <p class="loading">Carregando...</p>
                 </div>
                 <div id="editDeliveryMessage" style="margin: 15px 0; text-align: center;"></div>
@@ -1719,7 +1719,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260618groups1"></script>
+    <script src="js/admin.js?v=20260622farmedit1"></script>
     <script>
         (function () {
             const weeklyStatusSort = {

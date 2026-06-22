@@ -7170,6 +7170,12 @@ body.admin-layout {
     background: rgba(231,76,60,0.12);
 }
 
+.farm-type-status-chip.rejected {
+    color: #ff9c96;
+    background: rgba(231,76,60,0.16);
+    border-color: rgba(231,76,60,0.28);
+}
+
 .edit-delivery-farm-group {
     margin-bottom: 14px;
     padding: 12px;

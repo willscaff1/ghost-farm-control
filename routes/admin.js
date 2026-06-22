@@ -2307,8 +2307,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 const approvedByMaterial = new Map();
                 const activeByMaterial = new Map();
                 let hasPending = false;
+                let hasRejected = false;
                 for (const d of memberDeliveries) {
-                    if (d.status !== 'approved' && d.status !== 'pending') continue;
+                    if (d.status !== 'approved' && d.status !== 'pending' && d.status !== 'rejected') continue;
                     const did = d.id != null ? Number(d.id) : d.id;
                     const items = deliveryItemsMap.get(did) || deliveryItemsMap.get(d.id) || [];
                     for (const it of items) {
@@ -2316,11 +2317,14 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                         if (!mat || normalizeFarmType(mat.farm_type) !== type) continue;
                         const amount = parseInt(it.amount, 10) || 0;
                         const mid = Number(it.material_id);
-                        activeByMaterial.set(mid, (activeByMaterial.get(mid) || 0) + amount);
+                        if (d.status !== 'rejected') {
+                            activeByMaterial.set(mid, (activeByMaterial.get(mid) || 0) + amount);
+                        }
                         if (d.status === 'approved') {
                             approvedByMaterial.set(mid, (approvedByMaterial.get(mid) || 0) + amount);
                         }
                         if (d.status === 'pending') hasPending = true;
+                        if (d.status === 'rejected') hasRejected = true;
                     }
                 }
                 const complete = mats.length > 0 && mats.every(mat => {
@@ -2332,8 +2336,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 let status = 'missing';
                 if (complete) status = 'complete';
                 else if (hasPending) status = 'pending';
+                else if (hasRejected) status = 'rejected';
                 else if (approvedTotal > 0 || activeTotal > 0) status = 'in_progress';
-                farmStatusSummary[type] = { status, complete, hasPending, activeTotal, approvedTotal };
+                farmStatusSummary[type] = { status, complete, hasPending, hasRejected, activeTotal, approvedTotal };
             }
 
             if (delivery) {
@@ -5173,7 +5178,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
             SELECT d.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as member_name, u.passport
             FROM deliveries d
             JOIN users u ON d.user_id = u.id
-            WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ? AND d.status != 'rejected'
+            WHERE d.user_id = ? AND d.week_start = ? AND d.week_end = ?
             ORDER BY d.created_at DESC
         `, [userId, week_start, week_end]);
         
@@ -5515,7 +5520,7 @@ router.put('/delivery/batch-status', requireAdmin, async (req, res) => {
         const { userId, week_start, week_end, status } = req.body;
         const adminId = req.session.user.id;
 
-        const validStatuses = ['approved', 'pending', 'in_progress', 'not_delivered'];
+        const validStatuses = ['approved', 'pending', 'in_progress', 'not_delivered', 'rejected'];
         if (!status || !validStatuses.includes(status)) {
             return res.status(400).json({ error: 'Status inválido' });
         }
@@ -5616,7 +5621,7 @@ router.put('/delivery/:deliveryId/status', requireAdmin, async (req, res) => {
         const { status } = req.body;
         const adminId = req.session.user.id;
         
-        const validStatuses = ['approved', 'pending', 'in_progress', 'not_delivered'];
+        const validStatuses = ['approved', 'pending', 'in_progress', 'not_delivered', 'rejected'];
         if (!status || !validStatuses.includes(status)) {
             return res.status(400).json({ error: 'Status inválido' });
         }
@@ -5627,21 +5632,20 @@ router.put('/delivery/:deliveryId/status', requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Entrega não encontrada' });
         }
         
-        let isPartial = delivery.is_partial ? 1 : 0;
-        if (status === 'approved') {
-            isPartial = 0;
-        } else if (status === 'in_progress') {
-            isPartial = 1;
-        } else if (status === 'pending') {
-            isPartial = 0;
-        } else if (status === 'not_delivered') {
-            isPartial = 0;
-        }
+        const realStatus = status === 'in_progress' ? 'approved' : status;
+        const isPartial = status === 'in_progress' ? 1 : 0;
 
-        await runQuery(
-            'UPDATE deliveries SET status = ?, is_partial = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [status, isPartial, adminId, deliveryId]
-        );
+        if (realStatus === 'approved' || realStatus === 'rejected') {
+            await runQuery(
+                'UPDATE deliveries SET status = ?, is_partial = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [realStatus, isPartial, adminId, deliveryId]
+            );
+        } else {
+            await runQuery(
+                'UPDATE deliveries SET status = ?, is_partial = ?, approved_by = NULL, approved_at = NULL WHERE id = ?',
+                [realStatus, isPartial, deliveryId]
+            );
+        }
         
         console.log(`✏️ Admin #${adminId} alterou status da entrega #${deliveryId}: ${delivery.status} -> ${status}`);
         
