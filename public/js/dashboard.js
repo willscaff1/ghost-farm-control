@@ -10,6 +10,25 @@ let currentPaymentType = 'material'; // 'material' ou tipo de pagamento ID
 let currentPaymentTypeId = null; // ID do tipo de pagamento selecionado
 let paymentTypes = []; // Lista de tipos de pagamento carregados do banco
 let screenshotFilesDirty = []; // Screenshots para pagamento alternativo
+let farmScreenshotFiles = { drugs: [], weapons: [], general: [] };
+
+function normalizeFarmTypeClient(type) {
+    return ['weapons', 'general'].includes(type) ? type : 'drugs';
+}
+
+function getFarmTypeLabelClient(type) {
+    const normalized = normalizeFarmTypeClient(type);
+    if (normalized === 'weapons') return 'Armas';
+    if (normalized === 'general') return 'Geral';
+    return 'Drogas';
+}
+
+function getFarmTypeTitleClient(type) {
+    const normalized = normalizeFarmTypeClient(type);
+    if (normalized === 'weapons') return 'Farm de Material de Armas';
+    if (normalized === 'general') return 'Farm de Materiais';
+    return 'Farm de Material de Drogas';
+}
 
 function formatPaymentGoal(pt, value) {
     if (!pt) return String(value || 0);
@@ -981,6 +1000,83 @@ function updateProgressBars(progress) {
     `).join('');
 }
 
+// Progresso separado por tipo de farm. Esta declaracao substitui a anterior.
+function updateProgressBars(progress) {
+    const container = document.getElementById('progressBars');
+    if (!container) return;
+
+    if (!progress || progress.length === 0) {
+        container.innerHTML = `
+            <div class="progress-empty">
+                <span>Nenhum progresso ainda</span>
+            </div>
+        `;
+        return;
+    }
+
+    const canEdit = currentWeekData && currentWeekData.canEditValues;
+
+    if (currentWeekData && currentWeekData.paymentType === 'dirty_money') {
+        const amount = currentWeekData.dirtyMoneyAmount || 0;
+        let goal = 50000;
+        let paymentTypeName = 'Pagamento';
+        let paymentTypeIcon = '💰';
+        let paymentTypeUnit = 'R$';
+        if (currentWeekData.paymentTypeId && paymentTypes.length > 0) {
+            const pt = paymentTypes.find(p => p.id === currentWeekData.paymentTypeId);
+            if (pt) {
+                goal = pt.weekly_goal;
+                paymentTypeName = pt.name;
+                paymentTypeIcon = pt.icon;
+                paymentTypeUnit = pt.unit_type || 'R$';
+            }
+        }
+        const fmt = (v) => paymentTypeUnit === 'unidade' ? `${Number(v).toLocaleString('pt-BR')} un.` : `R$ ${Number(v).toLocaleString('pt-BR')}`;
+        const percentage = Math.min(100, Math.round((amount / goal) * 100));
+        const complete = amount >= goal;
+        container.innerHTML = `
+            <div class="progress-item ${complete ? 'complete' : ''}">
+                <div class="progress-header">
+                    <span class="progress-label">${paymentTypeIcon} ${paymentTypeName}</span>
+                    <span class="progress-value ${complete ? 'complete' : 'incomplete'}">
+                        ${canEdit ? `<span class="value-display editable" onclick="openEditDirtyMoneyModal(${amount}, ${goal}, '${(paymentTypeName || '').replace(/'/g, "\\'")}', '${paymentTypeIcon}', '${paymentTypeUnit}')">${fmt(amount)} / ${fmt(goal)} <span class="edit-hint">✏</span></span>` : `<span class="value-display">${fmt(amount)} / ${fmt(goal)}</span>`}
+                    </span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" style="width: ${percentage}%"></div>
+                </div>
+                <div class="progress-percentage-text">${percentage}%</div>
+            </div>
+        `;
+        return;
+    }
+
+    const groups = [
+        { type: 'drugs', title: 'Meta de Drogas', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'drugs') },
+        { type: 'weapons', title: 'Meta de Armas', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'weapons') },
+        { type: 'general', title: 'Meta Geral', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'general') }
+    ].filter(group => group.items.length > 0);
+
+    container.innerHTML = groups.map(group => `
+        <div class="progress-farm-group">
+            <div class="progress-farm-title">${group.title}</div>
+            ${group.items.map(p => `
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <span class="progress-label">${p.icon} ${p.name}</span>
+                        <span class="progress-value ${p.complete ? 'complete' : 'incomplete'}">
+                            ${canEdit ? `<span class="value-display editable" onclick="openEditValueModal(${p.material_id}, '${p.name}', '${p.icon}', ${p.current}, ${p.goal})">${p.current}/${p.goal} <span class="edit-hint">✏</span></span>` : `<span class="value-display">${p.current}/${p.goal}</span>`}
+                        </span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill ${p.complete ? 'complete' : ''}" style="width: ${p.percentage}%"></div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `).join('');
+}
+
 // Logout
 async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -1267,6 +1363,115 @@ function renderMaterialsUI() {
         } else {
             container.innerHTML = '<p class="loading-placeholder">Nenhum material disponível no momento.</p>';
         }
+}
+
+// Versao separada por tipo de farm. Esta declaracao substitui a anterior.
+function renderMaterialsUI() {
+    const container = document.getElementById('materialsInputs');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (!materialsData || materialsData.length === 0) {
+        container.innerHTML = '<p class="loading-placeholder">Nenhum material disponivel no momento.</p>';
+        return;
+    }
+
+    const groupedMaterials = [
+        { type: 'drugs', title: getFarmTypeTitleClient('drugs'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'drugs') },
+        { type: 'weapons', title: getFarmTypeTitleClient('weapons'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'weapons') },
+        { type: 'general', title: getFarmTypeTitleClient('general'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'general') }
+    ].filter(group => group.items.length > 0);
+
+    groupedMaterials.forEach(group => {
+        const groupStatus = currentWeekData?.farmTypeStatus?.[group.type] || {};
+        const groupLocked = groupStatus.status === 'pending' || groupStatus.status === 'complete';
+        const groupStatusText = groupStatus.status === 'complete'
+            ? 'Completo'
+            : groupStatus.status === 'pending'
+                ? 'Aguardando aprovacao'
+                : groupStatus.status === 'in_progress'
+                    ? 'Em progresso'
+                    : 'Aberto';
+
+        container.innerHTML += `
+            <div class="material-farm-group" data-farm-type="${group.type}">
+                <div class="material-group-header">
+                    <div class="material-group-title">${group.title}</div>
+                    <span class="material-group-status ${groupStatus.status || 'missing'}">${groupStatusText}</span>
+                </div>
+        `;
+
+        group.items.forEach(mat => {
+            const matGoal = mat.weekly_goal || 700;
+            materialsGoals[mat.id] = matGoal;
+
+            let delivered = 0;
+            if (currentWeekData && currentWeekData.approvedProgress) {
+                const progress = currentWeekData.approvedProgress.find(p => String(p.material_id) === String(mat.id));
+                if (progress) delivered = progress.current || 0;
+            }
+
+            const remaining = Math.max(0, matGoal - delivered);
+            const isComplete = remaining === 0;
+            const inputDisabled = isComplete || groupLocked;
+
+            container.innerHTML += `
+                <div class="material-card ${isComplete ? 'complete' : ''} ${groupLocked ? 'locked' : ''}">
+                    <div class="material-icon">${mat.icon}</div>
+                    <div class="material-info">
+                        <div class="material-name">${mat.name}</div>
+                        <div class="material-goal">Meta: ${matGoal}</div>
+                        ${isComplete
+                            ? `<div class="material-complete-badge">Meta completa</div>`
+                            : groupLocked
+                                ? `<div class="material-complete-badge pending">${groupStatusText}</div>`
+                                : `<div class="material-remaining">
+                                    <span class="remaining-text">Faltam: <strong>${remaining}</strong></span>
+                                    <button type="button" class="btn-fill-remaining" onclick="fillRemainingAmount(${mat.id}, ${remaining})" title="Preencher ${remaining}">
+                                        Completar meta
+                                    </button>
+                                   </div>`
+                        }
+                    </div>
+                    <input type="number"
+                           id="material-input-${mat.id}"
+                           name="material_${mat.id}"
+                           data-material-id="${mat.id}"
+                           data-farm-type="${group.type}"
+                           data-goal="${matGoal}"
+                           data-remaining="${remaining}"
+                           class="material-input material-amount-input ${inputDisabled ? 'disabled' : ''}"
+                           min="0"
+                           max="${remaining}"
+                           value="0"
+                           placeholder="${isComplete ? 'ok' : remaining}"
+                           ${inputDisabled ? 'disabled' : ''}
+                           onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                           oninput="validateMaterialInput(this, ${matGoal}); updateSubmitButton()">
+                </div>
+            `;
+        });
+
+        if (!groupLocked) {
+            container.innerHTML += `
+                <div class="farm-screenshot-block" data-farm-type="${group.type}">
+                    <label>Print do ${getFarmTypeLabelClient(group.type)} <span class="required">*</span></label>
+                    <div class="screenshots-area">
+                        <div id="screenshotsPreview_${group.type}" class="screenshots-grid"></div>
+                        <button type="button" class="btn-add-screenshot" onclick="addFarmScreenshot('${group.type}')">+ Adicionar Print</button>
+                        <input type="file" id="screenshotInput_${group.type}" accept="image/*" style="display: none;" onchange="handleFarmScreenshotSelect(event, '${group.type}')">
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML += '</div>';
+    });
+
+    const globalScreenshotArea = document.getElementById('screenshotsAddArea');
+    if (globalScreenshotArea) globalScreenshotArea.style.display = 'none';
+    setTimeout(updateSubmitButton, 100);
 }
 
 // Função para preencher automaticamente com o valor restante
@@ -1982,6 +2187,70 @@ document.getElementById('absenceForm').addEventListener('submit', async (e) => {
 // ===== SISTEMA DE SCREENSHOTS =====
 let uploadedScreenshots = []; // Array para armazenar os arquivos
 
+function addFarmScreenshot(type) {
+    const normalized = normalizeFarmTypeClient(type);
+    const input = document.getElementById(`screenshotInput_${normalized}`);
+    if (input) input.click();
+}
+
+function handleFarmScreenshotSelect(event, type) {
+    const normalized = normalizeFarmTypeClient(type);
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Arquivo muito grande! Maximo 5MB.');
+        return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+        alert('Selecione apenas imagens!');
+        return;
+    }
+
+    if (!farmScreenshotFiles[normalized]) farmScreenshotFiles[normalized] = [];
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    farmScreenshotFiles[normalized].push({ id, file });
+
+    const reader = new FileReader();
+    reader.onload = (e) => renderFarmScreenshotPreview(normalized, id, e.target.result, file.name);
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
+
+function renderFarmScreenshotPreview(type, id, dataUrl, fileName) {
+    const container = document.getElementById(`screenshotsPreview_${type}`);
+    if (!container) return;
+
+    const div = document.createElement('div');
+    div.className = 'screenshot-preview-item';
+    div.id = `screenshot-${type}-${id}`;
+    div.innerHTML = `
+        <img src="${dataUrl}" alt="${escapeHtml(fileName)}" onclick="openModal('${dataUrl}')">
+        <div class="screenshot-info">
+            <span class="screenshot-name">${fileName.length > 15 ? escapeHtml(fileName.substring(0, 12)) + '...' : escapeHtml(fileName)}</span>
+            <button type="button" class="btn-remove-screenshot" onclick="removeFarmScreenshot('${type}', ${id})" title="Remover print">x</button>
+        </div>
+    `;
+    container.appendChild(div);
+}
+
+function removeFarmScreenshot(type, id) {
+    const normalized = normalizeFarmTypeClient(type);
+    farmScreenshotFiles[normalized] = (farmScreenshotFiles[normalized] || []).filter(s => s.id !== id);
+    const element = document.getElementById(`screenshot-${normalized}-${id}`);
+    if (element) element.remove();
+}
+
+function clearFarmScreenshots(type = null) {
+    const types = type ? [normalizeFarmTypeClient(type)] : Object.keys(farmScreenshotFiles);
+    types.forEach(farmType => {
+        farmScreenshotFiles[farmType] = [];
+        const preview = document.getElementById(`screenshotsPreview_${farmType}`);
+        if (preview) preview.innerHTML = '';
+    });
+}
+
 // Abrir seletor de arquivo
 function addScreenshot() {
     document.getElementById('screenshotInput').click();
@@ -2143,6 +2412,121 @@ function showDeliveryConfirmationModal(options) {
 function closeDeliveryConfirmationModal() {
     const modal = document.getElementById('deliveryConfirmModal');
     if (modal) modal.remove();
+}
+
+const farmDeliveryForm = document.getElementById('deliveryForm');
+if (farmDeliveryForm) {
+    farmDeliveryForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const weekOffset = currentWeekOffset;
+        const messageEl = document.getElementById('formMessage');
+
+        if (!currentWeekData || !currentWeekData.canDeliver) {
+            alert('Nao e possivel entregar farm para esta semana!');
+            return;
+        }
+
+        const jobsByType = new Map();
+        document.querySelectorAll('.material-amount-input').forEach(input => {
+            if (input.disabled) return;
+            const amount = parseInt(input.value) || 0;
+            if (amount <= 0) return;
+
+            const farmType = normalizeFarmTypeClient(input.dataset.farmType);
+            if (!jobsByType.has(farmType)) jobsByType.set(farmType, []);
+            jobsByType.get(farmType).push({
+                material_id: input.dataset.materialId,
+                amount
+            });
+        });
+
+        if (jobsByType.size === 0) {
+            messageEl.textContent = 'Informe a quantidade de pelo menos um material.';
+            messageEl.className = 'form-message show error';
+            setTimeout(() => { messageEl.className = 'form-message'; }, 5000);
+            return;
+        }
+
+        const jobs = [];
+        for (const [farmType, materials] of jobsByType.entries()) {
+            const screenshots = farmScreenshotFiles[farmType] || [];
+            if (screenshots.length === 0) {
+                messageEl.textContent = `Anexe pelo menos 1 print do farm de ${getFarmTypeLabelClient(farmType)}.`;
+                messageEl.className = 'form-message show error';
+                setTimeout(() => { messageEl.className = 'form-message'; }, 5000);
+                return;
+            }
+            jobs.push({ farmType, materials, screenshots });
+        }
+
+        const materialsSummary = [];
+        jobs.forEach(job => {
+            job.materials.forEach(mat => {
+                const matInfo = materialsData.find(m => String(m.id) === String(mat.material_id));
+                materialsSummary.push({
+                    name: `${getFarmTypeLabelClient(job.farmType)} - ${matInfo ? matInfo.name : `Material ${mat.material_id}`}`,
+                    icon: matInfo ? matInfo.icon : '📦',
+                    amount: mat.amount
+                });
+            });
+        });
+
+        showDeliveryConfirmationModal({
+            type: 'meta',
+            weekLabel: currentWeekData.week.label,
+            materials: materialsSummary,
+            totalMaterials: jobs.reduce((sum, job) => sum + job.materials.reduce((s, mat) => s + mat.amount, 0), 0),
+            screenshotsCount: jobs.reduce((sum, job) => sum + job.screenshots.length, 0),
+            isFutureWeek: weekOffset > 0,
+            onConfirm: () => submitMetaFarmSeparated(jobs, weekOffset, messageEl)
+        });
+    }, true);
+}
+
+async function submitMetaFarmSeparated(jobs, weekOffset, messageEl) {
+    closeDeliveryConfirmationModal();
+
+    try {
+        for (const job of jobs) {
+            const formData = new FormData();
+            formData.append('materials', JSON.stringify(job.materials));
+            formData.append('description', `[Farm de ${getFarmTypeLabelClient(job.farmType)}] ${document.getElementById('description').value || ''}`.trim());
+            formData.append('week_offset', weekOffset);
+
+            for (const screenshot of job.screenshots) {
+                formData.append('screenshots', screenshot.file);
+            }
+
+            const response = await fetch('/api/delivery', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || `Erro ao enviar farm de ${getFarmTypeLabelClient(job.farmType)}`);
+            }
+        }
+
+        messageEl.textContent = jobs.length > 1 ? 'Farms enviados separadamente para aprovacao.' : 'Farm enviado para aprovacao.';
+        messageEl.className = 'form-message show success';
+        farmDeliveryForm.reset();
+        clearFarmScreenshots();
+        clearAllScreenshots();
+        document.querySelectorAll('.material-amount-input').forEach(input => input.value = '0');
+        loadWeekData(currentWeekOffset);
+        loadAvailableWeeks();
+        loadStats();
+        loadMyDeliveries();
+    } catch (error) {
+        messageEl.textContent = error.message || 'Erro ao enviar entrega';
+        messageEl.className = 'form-message show error';
+    }
+
+    setTimeout(() => {
+        messageEl.className = 'form-message';
+    }, 5000);
 }
 
 // Remover screenshot existente de farm pendente

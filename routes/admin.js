@@ -2292,6 +2292,49 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             
             let effectiveIsPartial = delivery?.is_partial || false;
             let effectivePaymentType = delivery?.payment_type || 'material';
+            let farmStatusSummary = {};
+
+            const applicableFarmMaterials = allMaterials
+                .filter(mat => productAppliesToRole(mat, isManager))
+                .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, weekStart));
+            const farmMaterialGroups = new Map();
+            for (const mat of applicableFarmMaterials) {
+                const type = normalizeFarmType(mat.farm_type);
+                if (!farmMaterialGroups.has(type)) farmMaterialGroups.set(type, []);
+                farmMaterialGroups.get(type).push(mat);
+            }
+            for (const [type, mats] of farmMaterialGroups.entries()) {
+                const approvedByMaterial = new Map();
+                const activeByMaterial = new Map();
+                let hasPending = false;
+                for (const d of memberDeliveries) {
+                    if (d.status !== 'approved' && d.status !== 'pending') continue;
+                    const did = d.id != null ? Number(d.id) : d.id;
+                    const items = deliveryItemsMap.get(did) || deliveryItemsMap.get(d.id) || [];
+                    for (const it of items) {
+                        const mat = applicableFarmMaterials.find(m => Number(m.id) === Number(it.material_id));
+                        if (!mat || normalizeFarmType(mat.farm_type) !== type) continue;
+                        const amount = parseInt(it.amount, 10) || 0;
+                        const mid = Number(it.material_id);
+                        activeByMaterial.set(mid, (activeByMaterial.get(mid) || 0) + amount);
+                        if (d.status === 'approved') {
+                            approvedByMaterial.set(mid, (approvedByMaterial.get(mid) || 0) + amount);
+                        }
+                        if (d.status === 'pending') hasPending = true;
+                    }
+                }
+                const complete = mats.length > 0 && mats.every(mat => {
+                    const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
+                    return (approvedByMaterial.get(Number(mat.id)) || 0) >= (parseInt(goal, 10) || 700);
+                });
+                const activeTotal = Array.from(activeByMaterial.values()).reduce((sum, value) => sum + value, 0);
+                const approvedTotal = Array.from(approvedByMaterial.values()).reduce((sum, value) => sum + value, 0);
+                let status = 'missing';
+                if (complete) status = 'complete';
+                else if (hasPending) status = 'pending';
+                else if (approvedTotal > 0 || activeTotal > 0) status = 'in_progress';
+                farmStatusSummary[type] = { status, complete, hasPending, activeTotal, approvedTotal };
+            }
 
             if (delivery) {
                 deliveryItems = (deliveryItemsMap.get(delivery.id) || [])
@@ -2451,6 +2494,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     items: [],
                     is_partial: effectiveIsPartial,
                     payment_type: effectivePaymentType,
+                    farm_status_summary: farmStatusSummary,
                     dirty_money_amount: delivery.dirty_money_amount || 0,
                     is_late_payment: isLatePayment,
                     extra_items: [],
@@ -2474,6 +2518,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     description: delivery.description,
                     items: [],
                     payment_type: delivery.payment_type || 'material',
+                    farm_status_summary: farmStatusSummary,
                     dirty_money_amount: delivery.dirty_money_amount || 0,
                     is_late_payment: isLatePayment,
                     is_partial: delivery.is_partial,
@@ -2486,6 +2531,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                         ...member,
                         ...lastRejectionInfo,
                         has_adv_applied: warningsSet.has(member.id),
+                        farm_status_summary: farmStatusSummary,
                         was_rejected: true,
                         rejected_by_name: delivery.approved_by_name,
                         rejected_at: delivery.approved_at,
@@ -2517,6 +2563,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 notDelivered.push({
                     ...member,
                     has_adv_applied: warningsSet.has(member.id),
+                    farm_status_summary: farmStatusSummary,
                     weekly_submissions: []
                 });
             }

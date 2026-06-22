@@ -135,6 +135,40 @@ const materialAppliesToFarmWeek = (material, isManager, settings = {}, weekStart
     return true;
 };
 
+const getFarmTypeSetFromItems = (items = []) => {
+    const types = new Set();
+    for (const item of items) {
+        types.add(normalizeFarmType(item.farm_type));
+    }
+    return types;
+};
+
+const getDeliveryFarmTypeSets = async (deliveryIds = []) => {
+    if (!deliveryIds.length) return new Map();
+    const placeholders = deliveryIds.map(() => '?').join(',');
+    const rows = await getAll(`
+        SELECT di.delivery_id, m.farm_type
+        FROM delivery_items di
+        JOIN materials m ON m.id = di.material_id
+        WHERE di.delivery_id IN (${placeholders})
+    `, deliveryIds);
+    const map = new Map();
+    for (const id of deliveryIds) map.set(Number(id), new Set());
+    for (const row of rows || []) {
+        const did = Number(row.delivery_id);
+        if (!map.has(did)) map.set(did, new Set());
+        map.get(did).add(normalizeFarmType(row.farm_type));
+    }
+    return map;
+};
+
+const setsOverlap = (a, b) => {
+    for (const value of a) {
+        if (b.has(value)) return true;
+    }
+    return false;
+};
+
 // Helper para calcular semana com offset (PADRONIZADO)
 const getWeekWithOffset = (offset = 0) => {
     // Usar data local sem conversão UTC
@@ -247,6 +281,8 @@ router.get('/current-week', requireAuth, async (req, res) => {
         let progress = null;
         let approvedProgress = null; // Progresso APENAS de entregas aprovadas (para calcular "faltam")
         let existingScreenshots = [];
+        let farmTypeStatus = {};
+        let weekDeliveryItemsForStatus = [];
         
         if (existingDelivery) {
             let allMaterials = [];
@@ -268,15 +304,16 @@ router.get('/current-week', requireAuth, async (req, res) => {
             if (activeDeliveryIds.length > 0) {
                 const activePlaceholders = activeDeliveryIds.map(() => '?').join(',');
                 totalDeliveryItems = await getAll(
-                    `SELECT material_id, amount FROM delivery_items WHERE delivery_id IN (${activePlaceholders})`,
+                    `SELECT delivery_id, material_id, amount FROM delivery_items WHERE delivery_id IN (${activePlaceholders})`,
                     activeDeliveryIds
                 );
+                weekDeliveryItemsForStatus = totalDeliveryItems || [];
             }
 
             if (approvedDeliveryIds.length > 0) {
                 const approvedPlaceholders = approvedDeliveryIds.map(() => '?').join(',');
                 approvedDeliveryItems = await getAll(
-                    `SELECT material_id, amount FROM delivery_items WHERE delivery_id IN (${approvedPlaceholders})`,
+                    `SELECT delivery_id, material_id, amount FROM delivery_items WHERE delivery_id IN (${approvedPlaceholders})`,
                     approvedDeliveryIds
                 );
             }
@@ -374,6 +411,53 @@ router.get('/current-week', requireAuth, async (req, res) => {
                 console.log('⚠️ Erro ao buscar screenshots:', e.message);
                 existingScreenshots = [];
             }
+        }
+
+        const sourceFarmMaterials = (materials || []).map(material => ({
+            ...material,
+            farm_type: normalizeFarmType(material.farm_type),
+            weekly_goal: resolveMaterialGoal(material, isManager)
+        }));
+        const sourceMaterialsById = new Map(sourceFarmMaterials.map(material => [Number(material.id), material]));
+        const pendingDeliveryIds = new Set(weekDeliveries.filter(d => d.status === 'pending').map(d => Number(d.id)));
+        const activeByMaterial = new Map();
+        const pendingFarmTypes = new Set();
+        for (const item of weekDeliveryItemsForStatus || []) {
+            const materialId = Number(item.material_id);
+            const amount = parseInt(item.amount, 10) || 0;
+            activeByMaterial.set(materialId, (activeByMaterial.get(materialId) || 0) + amount);
+            if (pendingDeliveryIds.has(Number(item.delivery_id))) {
+                const material = sourceMaterialsById.get(materialId);
+                if (material) pendingFarmTypes.add(normalizeFarmType(material.farm_type));
+            }
+        }
+        const approvedByMaterial = new Map((approvedProgress || []).map(item => [Number(item.material_id), parseInt(item.current, 10) || 0]));
+        const materialsByFarmType = new Map();
+        for (const material of sourceFarmMaterials) {
+            const type = normalizeFarmType(material.farm_type);
+            if (!materialsByFarmType.has(type)) materialsByFarmType.set(type, []);
+            materialsByFarmType.get(type).push(material);
+        }
+        for (const [type, typeMaterials] of materialsByFarmType.entries()) {
+            const complete = typeMaterials.length > 0 && typeMaterials.every(material => {
+                const goal = parseInt(material.weekly_goal, 10) || DEFAULT_WEEKLY_GOAL;
+                return (approvedByMaterial.get(Number(material.id)) || 0) >= goal;
+            });
+            const activeTotal = typeMaterials.reduce((sum, material) => sum + (activeByMaterial.get(Number(material.id)) || 0), 0);
+            const approvedTotal = typeMaterials.reduce((sum, material) => sum + (approvedByMaterial.get(Number(material.id)) || 0), 0);
+            const hasPending = pendingFarmTypes.has(type);
+            let status = 'missing';
+            if (complete) status = 'complete';
+            else if (hasPending) status = 'pending';
+            else if (approvedTotal > 0 || activeTotal > 0) status = 'in_progress';
+            farmTypeStatus[type] = {
+                status,
+                complete,
+                hasPending,
+                canDeliver: !complete && !hasPending,
+                activeTotal,
+                approvedTotal
+            };
         }
         
         // Determinar status para o frontend
@@ -485,6 +569,25 @@ router.get('/current-week', requireAuth, async (req, res) => {
             }
         }
         
+        if ((effectivePaymentType || 'material') === 'material' && Object.keys(farmTypeStatus).length > 0) {
+            const farmStatuses = Object.values(farmTypeStatus);
+            const hasAnyOpenFarmType = farmStatuses.some(s => s.canDeliver);
+            const allComplete = farmStatuses.every(s => s.complete);
+            const allBlockedByPending = !allComplete && farmStatuses.every(s => s.complete || s.hasPending);
+            if (hasAnyOpenFarmType) {
+                canDeliver = true;
+                isLocked = false;
+                statusMessage = 'Você pode enviar o farm que ainda está aberto.';
+            } else if (allComplete) {
+                canDeliver = settingsObj.competition_enabled === 'true';
+                isLocked = !canDeliver;
+            } else if (allBlockedByPending) {
+                canDeliver = false;
+                isLocked = true;
+                statusMessage = '⏳ Farm enviado para aprovação. Aguarde um gerente aprovar para continuar.';
+            }
+        }
+
         if (existingJustification) {
             canDeliver = false;
             statusMessage = 'Ausência justificada esta semana';
@@ -524,7 +627,8 @@ router.get('/current-week', requireAuth, async (req, res) => {
             canEditValues: canEditValues,
             paymentType: paymentType,
             paymentTypeId: paymentTypeId,
-            dirtyMoneyAmount: dirtyMoneyAmount
+            dirtyMoneyAmount: dirtyMoneyAmount,
+            farmTypeStatus
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -997,8 +1101,13 @@ router.post('/', requireAuth, (req, res) => {
 
             const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1'))
                 .filter(m => productAppliesToRole(m, isManager))
-                .filter(m => materialAppliesToFarmWeek(m, isManager, settingsObj, week_start));
+                .filter(m => materialAppliesToFarmWeek(m, isManager, settingsObj, week.start));
             const allowedMaterialIds = new Set(allMaterials.map(m => Number(m.id)));
+            const materialsById = new Map(allMaterials.map(m => [Number(m.id), m]));
+            const submittedFarmTypes = getFarmTypeSetFromItems((materialsArray || [])
+                .filter(item => (parseInt(item.amount, 10) || 0) > 0)
+                .map(item => materialsById.get(Number(item.material_id)))
+                .filter(Boolean));
 
             if (paymentType === 'material') {
                 if (allMaterials.length === 0) {
@@ -1027,13 +1136,28 @@ router.post('/', requireAuth, (req, res) => {
             // Carregar configurações para saber se competição está ativa (controla Farm Extra)
             const competitionEnabled = (settingsObj.competition_enabled || 'false') === 'true';
 
-            // Antes de tudo: regra 1 farm pendente por vez na semana
-            const existingPending = await getOne(`
-                SELECT id FROM deliveries
+            // Antes de tudo: bloquear apenas o mesmo tipo de farm pendente na semana.
+            const existingPendingDeliveries = await getAll(`
+                SELECT id, payment_type
+                FROM deliveries
                 WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'pending'
             `, [userId, week.start, week.end]);
-            if (existingPending) {
-                return res.status(400).json({ error: 'Já existe um farm aguardando aprovação para esta semana. Aguarde o gerente aprovar ou rejeitar antes de enviar outro.' });
+            if (existingPendingDeliveries && existingPendingDeliveries.length > 0) {
+                if (paymentType === 'dirty_money') {
+                    const pendingPayment = existingPendingDeliveries.find(d => (d.payment_type || 'material') === 'dirty_money');
+                    if (pendingPayment) {
+                        return res.status(400).json({ error: 'Já existe um pagamento aguardando aprovação para esta semana.' });
+                    }
+                } else {
+                    const pendingTypeSets = await getDeliveryFarmTypeSets(existingPendingDeliveries.map(d => d.id));
+                    for (const pending of existingPendingDeliveries) {
+                        if ((pending.payment_type || 'material') === 'dirty_money') continue;
+                        const pendingTypes = pendingTypeSets.get(Number(pending.id)) || new Set();
+                        if (pendingTypes.size === 0 || setsOverlap(pendingTypes, submittedFarmTypes)) {
+                            return res.status(400).json({ error: 'Já existe um farm deste tipo aguardando aprovação para esta semana.' });
+                        }
+                    }
+                }
             }
 
             // Se a semana já está concluída E competição está ativa, o novo envio vira farm extra para ranking
@@ -1045,7 +1169,36 @@ router.post('/', requireAuth, (req, res) => {
                 LIMIT 1
             `, [userId, week.start, week.end]);
 
-            if (competitionEnabled && latestCompleteApproved) {
+            let weekAlreadyComplete = false;
+            if (latestCompleteApproved) {
+                if ((latestCompleteApproved.payment_type || 'material') === 'dirty_money') {
+                    weekAlreadyComplete = true;
+                } else {
+                    const approvedDeliveries = await getAll(`
+                        SELECT id FROM deliveries
+                        WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'approved'
+                    `, [userId, week.start, week.end]);
+                    const approvedIds = (approvedDeliveries || []).map(d => d.id);
+                    const approvedByMaterial = new Map();
+                    if (approvedIds.length > 0) {
+                        const approvedPlaceholders = approvedIds.map(() => '?').join(',');
+                        const approvedItems = await getAll(
+                            `SELECT material_id, amount FROM delivery_items WHERE delivery_id IN (${approvedPlaceholders})`,
+                            approvedIds
+                        );
+                        for (const item of approvedItems || []) {
+                            const mid = Number(item.material_id);
+                            approvedByMaterial.set(mid, (approvedByMaterial.get(mid) || 0) + (parseInt(item.amount, 10) || 0));
+                        }
+                    }
+                    weekAlreadyComplete = allMaterials.length > 0 && allMaterials.every(material => {
+                        const goal = resolveMaterialGoal(material, isManager);
+                        return (approvedByMaterial.get(Number(material.id)) || 0) >= goal;
+                    });
+                }
+            }
+
+            if (competitionEnabled && latestCompleteApproved && weekAlreadyComplete) {
                 const deliveryId = latestCompleteApproved.id;
                 const extraMaterials = {};
 
@@ -1109,7 +1262,8 @@ router.post('/', requireAuth, (req, res) => {
                 });
             } else {
                 isComplete = true;
-                for (const material of allMaterials) {
+                const completionMaterials = allMaterials.filter(material => submittedFarmTypes.has(normalizeFarmType(material.farm_type)));
+                for (const material of completionMaterials) {
                     const submittedItem = materialsArray.find(i => parseInt(i.material_id) === material.id);
                     const currentAmount = submittedItem ? (parseInt(submittedItem.amount) || 0) : 0;
                     const goal = resolveMaterialGoal(material, isManager);

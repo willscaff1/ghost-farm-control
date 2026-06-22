@@ -2282,6 +2282,29 @@ async function loadWeeklyStatus() {
     }
 }
 
+function renderFarmTypeStatusChips(member) {
+    const summary = member.farm_status_summary || {};
+    const order = [
+        { key: 'drugs', label: 'Drogas' },
+        { key: 'weapons', label: 'Armas' },
+        { key: 'general', label: 'Geral' }
+    ];
+    const chips = order
+        .filter(item => summary[item.key])
+        .map(item => {
+            const status = summary[item.key].status || 'missing';
+            const text = status === 'complete'
+                ? 'Pago'
+                : status === 'pending'
+                    ? 'Aguardando'
+                    : status === 'in_progress'
+                        ? 'Em progresso'
+                        : 'Pendente';
+            return `<span class="farm-type-status-chip ${status}">${item.label}: ${text}</span>`;
+        });
+    return chips.length ? `<div class="farm-type-status-chips">${chips.join('')}</div>` : '';
+}
+
 // Renderizar tabela com filtro
 function renderWeeklyTable(filter) {
     const tbody = document.getElementById('weeklyTableBody');
@@ -2476,7 +2499,7 @@ function renderWeeklyTable(filter) {
                 <td class="slot-cell">${renderWeeklyStatusSlotCell(member)}</td>
                 <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${escapeHtml(member.name)}${member.is_late_payment ? ' ⏰' : ''}</span>${pendingExtraBadge}</td>
                 <td class="role-cell">${groupsDisplay}</td>
-                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span>${rejectionNotice}</td>
+                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span>${renderFarmTypeStatusChips(member)}${rejectionNotice}</td>
                 <td style="white-space: nowrap;">${actionHtml}</td>
             </tr>
         `;
@@ -10327,6 +10350,63 @@ function renderEditDeliveryFormForEnvio(envioIndex) {
         </button>
     `;
     
+    document.getElementById('editDeliveryItems').innerHTML = itemsHtml;
+}
+
+// Renderizacao separada por tipo de farm. Esta declaracao substitui a anterior.
+function renderEditDeliveryFormForEnvio(envioIndex) {
+    const data = window.__currentEditDeliveryDetailsData;
+    if (!data || !data.deliveriesWithItems || !data.deliveriesWithItems[envioIndex]) return;
+
+    const { delivery, items: deliveryItems, screenshots } = data.deliveriesWithItems[envioIndex];
+    const allMaterials = data.allMaterials || [];
+
+    currentEditDeliveryId = delivery.id;
+    renderExistingScreenshots(screenshots || [], currentEditDeliveryId);
+
+    const isApproved = (delivery.status || '').toLowerCase() === 'approved';
+    const itemsToShow = isApproved ? deliveryItems : [];
+    const groups = [
+        { type: 'drugs', title: 'Meta de Drogas', items: allMaterials.filter(m => (m.farm_type || 'drugs') !== 'weapons' && (m.farm_type || 'drugs') !== 'general') },
+        { type: 'weapons', title: 'Meta de Armas', items: allMaterials.filter(m => (m.farm_type || 'drugs') === 'weapons') },
+        { type: 'general', title: 'Meta Geral', items: allMaterials.filter(m => (m.farm_type || 'drugs') === 'general') }
+    ].filter(group => group.items.length > 0);
+
+    const envioTypes = new Set((deliveryItems || []).map(item => (item.farm_type || 'drugs')));
+    let itemsHtml = groups.map(group => `
+        <div class="edit-delivery-farm-group">
+            <div class="edit-delivery-farm-title">${group.title}${envioTypes.has(group.type) ? ' - este envio' : ''}</div>
+            ${group.items.map(mat => {
+                const existingItem = itemsToShow.find(i => i.material_id === mat.id || i.material_id == mat.id);
+                const currentAmount = existingItem ? (existingItem.amount || 0) : 0;
+                return `
+                    <div class="edit-delivery-item" style="display: flex; align-items: center; gap: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
+                        <span style="font-size: 24px;">${mat.icon || '📦'}</span>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: #fff;">${mat.name}</div>
+                            <div style="font-size: 12px; color: #888;">Meta: ${mat.weekly_goal}</div>
+                        </div>
+                        <input type="number"
+                               id="editItem_${mat.id}"
+                               value="${currentAmount}"
+                               min="0"
+                               style="width: 100px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; text-align: center; font-size: 16px;"
+                               data-material-id="${mat.id}"
+                               data-original="${currentAmount}"
+                               data-name="${mat.name}">
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `).join('');
+
+    itemsHtml += `
+        <button onclick="saveAllDeliveryItems()"
+                style="width: 100%; margin-top: 15px; background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
+            Salvar Alteracoes
+        </button>
+    `;
+
     document.getElementById('editDeliveryItems').innerHTML = itemsHtml;
 }
 
