@@ -1517,14 +1517,15 @@
 
 /* ========== MEMBER FARM SUBMISSION LAYOUT ========== */
 #materialsInputs.materials-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 16px;
+    align-items: start;
 }
 
 #materialsInputs .material-farm-group {
-    grid-column: 1 / -1;
+    grid-column: auto;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 12px;
     padding: 16px;
     margin: 0;
@@ -1564,7 +1565,7 @@
 #materialsInputs .material-card {
     min-height: 112px;
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) 88px;
+    grid-template-columns: 40px minmax(0, 1fr) 78px;
     align-items: center;
     gap: 12px;
     padding: 14px;
@@ -1609,7 +1610,7 @@
 }
 
 #materialsInputs .material-input {
-    width: 88px;
+    width: 78px;
     height: 42px;
     padding: 8px;
     justify-self: end;
@@ -1633,9 +1634,13 @@
 
 #materialsInputs .screenshots-area {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 1fr;
     align-items: center;
     gap: 12px;
+}
+
+#materialsInputs .btn-add-screenshot {
+    width: 100%;
 }
 
 #materialsInputs .screenshots-grid {
@@ -1696,6 +1701,10 @@
 }
 
 @media (max-width: 900px) {
+    #materialsInputs.materials-grid {
+        grid-template-columns: 1fr;
+    }
+
     #materialsInputs .material-farm-group {
         grid-template-columns: 1fr;
     }
