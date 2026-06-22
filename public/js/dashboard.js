@@ -1476,7 +1476,11 @@ function renderMaterialsUI() {
     container.innerHTML = farmGroupsHtml;
 
     const globalScreenshotArea = document.getElementById('screenshotsAddArea');
-    if (globalScreenshotArea) globalScreenshotArea.style.display = 'none';
+    if (globalScreenshotArea) {
+        const legacyPrintGroup = globalScreenshotArea.closest('.form-group');
+        if (legacyPrintGroup) legacyPrintGroup.style.display = 'none';
+        globalScreenshotArea.style.display = 'none';
+    }
     setTimeout(updateSubmitButton, 100);
 }
 
@@ -1578,6 +1582,40 @@ function updateSubmitButton() {
         btn.classList.remove('primary');
         btn.classList.add('secondary');
     }
+}
+
+// Versao separada por tipo de farm; sobrescreve o texto antigo do botao.
+function updateSubmitButton() {
+    const btn = document.getElementById('submitDeliveryBtn');
+    if (!btn) return;
+
+    const selectedFarmTypes = new Set();
+    document.querySelectorAll('.material-amount-input').forEach(input => {
+        if (input.disabled) return;
+        const amount = parseInt(input.value, 10) || 0;
+        if (amount > 0) {
+            selectedFarmTypes.add(normalizeFarmTypeClient(input.dataset.farmType));
+        }
+    });
+
+    btn.disabled = selectedFarmTypes.size === 0;
+
+    if (selectedFarmTypes.size === 0) {
+        btn.textContent = 'Informe uma meta para lancar';
+        btn.classList.remove('primary');
+        btn.classList.add('secondary');
+        return;
+    }
+
+    if (selectedFarmTypes.size === 1) {
+        const farmType = Array.from(selectedFarmTypes)[0];
+        btn.textContent = `Lancar apenas meta de ${getFarmTypeLabelClient(farmType)}`;
+    } else {
+        const orderedTypes = ['drugs', 'weapons', 'general'].filter(type => selectedFarmTypes.has(type));
+        btn.textContent = `Lancar metas de ${orderedTypes.map(getFarmTypeLabelClient).join(' e ')}`;
+    }
+    btn.classList.remove('secondary');
+    btn.classList.add('primary');
 }
 
 // ========== SELETOR DE TIPO DE PAGAMENTO ==========

@@ -1201,6 +1201,16 @@
     box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
 }
 
+#deliveryForm > .form-group:has(#screenshotsAddArea) {
+    display: none !important;
+}
+
+#submitDeliveryBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* Absence Form */
 .absence-form {
     display: flex;

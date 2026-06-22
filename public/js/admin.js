@@ -10988,9 +10988,7 @@ async function saveAllDeliveryItems() {
     if (errorCount === 0) {
         showNotification('Alteracoes salvas com sucesso!', 'success');
         closeEditDeliveryModal();
-        if (typeof loadWeeklyStatus === 'function') {
-            await loadWeeklyStatus();
-        }
+        setTimeout(() => window.location.reload(), 250);
     } else {
         showNotification(`${successCount} alteracao(oes) salva(s), ${errorCount} com erro`, 'warning');
     }
@@ -11071,6 +11069,55 @@ async function removeScreenshot(deliveryId, screenshotId) {
 }
 
 // Fechar modal de edição
+// Versao para o modal separado por Drogas/Armas.
+async function removeScreenshot(deliveryId, screenshotId) {
+    if (!confirm('Tem certeza que deseja remover este print?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/delivery/${deliveryId}/screenshot/${screenshotId}`, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Erro ao remover print');
+        }
+
+        const button = document.querySelector(`button[onclick="removeScreenshot(${deliveryId}, ${screenshotId})"]`);
+        const thumb = button ? button.closest('.edit-farm-screenshot, .edit-screenshot-item') : null;
+        if (thumb) thumb.remove();
+
+        if (currentEditUserId && currentEditWeekStart && currentEditWeekEnd) {
+            const detailsRes = await fetch(`/api/admin/week-delivery-details?userId=${currentEditUserId}&week_start=${currentEditWeekStart}&week_end=${currentEditWeekEnd}&_=${Date.now()}`, {
+                credentials: 'same-origin'
+            });
+            const detailsData = await detailsRes.json();
+            if (detailsData.success) {
+                const deliveriesWithItems = detailsData.deliveriesWithItems || [{
+                    delivery: detailsData.delivery,
+                    items: detailsData.items || [],
+                    screenshots: (detailsData.screenshots || []).filter(s => !s.delivery_id || s.delivery_id === detailsData.delivery.id)
+                }];
+                window.__currentEditDeliveryDetailsData = {
+                    deliveriesWithItems,
+                    allMaterials: detailsData.allMaterials || [],
+                    delivery_count: detailsData.delivery?.delivery_count || deliveriesWithItems.length
+                };
+                renderEditDeliveryFarmGroups();
+            }
+        }
+
+        showNotification('Print removido!', 'success');
+        if (typeof loadWeeklyStatus === 'function') loadWeeklyStatus();
+    } catch (error) {
+        console.error('Erro ao remover screenshot:', error);
+        showNotification(`${error.message}`, 'error');
+    }
+}
+
 function closeEditDeliveryModal() {
     document.getElementById('editDeliveryModal').style.display = 'none';
     currentEditDeliveryId = null;
