@@ -93,6 +93,21 @@
     margin-bottom: 8px;
 }
 .progress-week-row:last-child { margin-bottom: 0; }
+.progress-week-group {
+    margin-bottom: 14px;
+}
+.progress-week-group:last-child {
+    margin-bottom: 0;
+}
+.progress-week-group-title,
+.extract-material-group-title {
+    color: rgba(255,255,255,0.72);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    margin: 0 0 8px 0;
+}
 .progress-week-label {
     flex: 0 0 140px;
     font-size: 13px;
@@ -117,6 +132,17 @@
     text-align: right;
     font-size: 12px;
     font-weight: 600;
+}
+.extract-material-group {
+    margin-bottom: 10px;
+}
+.extract-material-group:last-child {
+    margin-bottom: 0;
+}
+.extract-material-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 /* Modal de Farm Extra Pendente */

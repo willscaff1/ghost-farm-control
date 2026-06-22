@@ -95,6 +95,16 @@ const materialAppliesToFarmSettings = (material, isManager, settings = {}) => {
     return true;
 };
 
+const MEMBER_WEAPON_FARM_START_WEEK = process.env.MEMBER_WEAPON_FARM_START_WEEK || '2026-06-22';
+
+const materialAppliesToFarmWeek = (material, isManager, settings = {}, weekStart = null) => {
+    if (!materialAppliesToFarmSettings(material, isManager, settings)) return false;
+    if (!isManager && normalizeFarmType(material.farm_type) === 'weapons' && weekStart && String(weekStart) < MEMBER_WEAPON_FARM_START_WEEK) {
+        return false;
+    }
+    return true;
+};
+
 const weeklyStatusCache = new Map();
 const WEEKLY_STATUS_CACHE_TTL_MS = parseInt(process.env.WEEKLY_STATUS_CACHE_TTL_MS, 10) || 60000;
 
@@ -939,7 +949,7 @@ router.get('/deliveries/all', requireAdmin, async (req, res) => {
             const placeholders = deliveryIds.map(() => '?').join(',');
             
             const allItems = await getAll(`
-                SELECT di.*, m.name as material_name, m.icon as material_icon, m.target_role
+                SELECT di.*, m.name as material_name, m.icon as material_icon, m.target_role, m.farm_type
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
                 WHERE di.delivery_id IN (${placeholders})
@@ -1666,15 +1676,22 @@ router.get('/materials-stats', requireAdmin, async (req, res) => {
 router.get('/materials', requireAdmin, async (req, res) => {
     try {
         let materials = await getAll('SELECT * FROM materials ORDER BY name');
+        const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings').catch(() => []);
+        const farmSettingsObj = {};
+        (settingsRows || []).forEach(s => {
+            farmSettingsObj[s.setting_key] = s.setting_value;
+        });
 
         // Se informar memberId, ajustar meta conforme cargo do membro
         if (req.query.memberId) {
             const memberId = parseInt(req.query.memberId);
+            const weekStart = req.query.week_start || null;
             if (!isNaN(memberId)) {
                 const groups = await getUserGroups(memberId);
                 const isManager = isManagerByGroups(groups);
                 materials = materials
                     .filter(m => productAppliesToRole(m, isManager))
+                    .filter(m => materialAppliesToFarmWeek(m, isManager, farmSettingsObj, weekStart))
                     .map(m => ({
                         ...m,
                         weekly_goal: isManager ? (m.manager_weekly_goal ?? m.weekly_goal) : m.weekly_goal
@@ -2279,7 +2296,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             if (delivery) {
                 deliveryItems = (deliveryItemsMap.get(delivery.id) || [])
                     .filter(item => productAppliesToRole(item, isManager))
-                    .filter(item => materialAppliesToFarmSettings(item, isManager, farmSettingsObj))
+                    .filter(item => materialAppliesToFarmWeek(item, isManager, farmSettingsObj, weekStart))
                     .map(item => ({
                         ...item,
                         weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
@@ -2320,7 +2337,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                         // Completo = TODOS os materiais do CARGO com total >= meta; senão = Em progresso
                         const applicableMaterials = allMaterials
                             .filter(mat => productAppliesToRole(mat, isManager))
-                            .filter(mat => materialAppliesToFarmSettings(mat, isManager, farmSettingsObj));
+                            .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, weekStart));
                         if (applicableMaterials.length === 0) {
                             effectiveIsPartial = sumByMaterial.size === 0;
                         } else {
@@ -2742,7 +2759,7 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
         for (let delivery of deliveries) {
             // Itens da meta principal
             delivery.items = await getAll(`
-                SELECT di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
+                SELECT di.amount, di.material_id, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role, m.farm_type
                 FROM delivery_items di
                 JOIN materials m ON di.material_id = m.id
                 WHERE di.delivery_id = ?
@@ -5039,7 +5056,7 @@ router.get('/week-submissions', requireAdmin, async (req, res) => {
         const deliveryIds = deliveries.map(d => d.id);
         const placeholders = deliveryIds.map(() => '?').join(',');
         const allItems = await getAll(`
-            SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
+            SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role, m.farm_type
             FROM delivery_items di
             JOIN materials m ON di.material_id = m.id
             WHERE di.delivery_id IN (${placeholders})
@@ -5127,7 +5144,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
         if (deliveryIds.length > 0) {
             const placeholders = deliveryIds.map(() => '?').join(',');
             allItems = await getAll(`
-                SELECT di.*, d.id as delivery_id, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
+                SELECT di.*, d.id as delivery_id, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role, m.farm_type
                 FROM delivery_items di
                 JOIN deliveries d ON di.delivery_id = d.id
                 JOIN materials m ON di.material_id = m.id
@@ -5194,9 +5211,15 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
         }));
         
         // Buscar todos os materiais para permitir adicionar novos
+        const farmSettingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings').catch(() => []);
+        const farmSettingsObj = {};
+        (farmSettingsRows || []).forEach(s => {
+            farmSettingsObj[s.setting_key] = s.setting_value;
+        });
         let allMaterials = await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name');
         allMaterials = allMaterials
             .filter(mat => productAppliesToRole(mat, isManager))
+            .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, week_start))
             .map(mat => ({
                 ...mat,
                 weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal
@@ -5308,7 +5331,7 @@ router.get('/delivery/:deliveryId/details', requireAdmin, async (req, res) => {
 
         // Buscar itens da entrega
         const items = await getAll(`
-            SELECT di.*, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
+            SELECT di.*, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role, m.farm_type
             FROM delivery_items di
             JOIN materials m ON di.material_id = m.id
             WHERE di.delivery_id = ?
@@ -5327,9 +5350,15 @@ router.get('/delivery/:deliveryId/details', requireAdmin, async (req, res) => {
         `, [deliveryId]);
         
         // Buscar todos os materiais ativos para permitir adicionar novos
+        const farmSettingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings').catch(() => []);
+        const farmSettingsObj = {};
+        (farmSettingsRows || []).forEach(s => {
+            farmSettingsObj[s.setting_key] = s.setting_value;
+        });
         let allMaterials = await getAll('SELECT * FROM materials WHERE active = 1 ORDER BY name');
         allMaterials = allMaterials
             .filter(mat => productAppliesToRole(mat, isManager))
+            .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, delivery.week_start))
             .map(mat => ({
                 ...mat,
                 weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal

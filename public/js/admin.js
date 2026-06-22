@@ -2743,7 +2743,8 @@ async function showDeliveryExtract(member) {
     // 1) Buscar todos os materiais com meta ajustada para o membro (mesmo os não entregues)
     let allMaterialsForMember = [];
     try {
-        const matsRes = await fetch(`/api/admin/materials?memberId=${member.id}`, { credentials: 'same-origin' });
+        const weekParam = week && week.start ? `&week_start=${encodeURIComponent(week.start)}` : '';
+        const matsRes = await fetch(`/api/admin/materials?memberId=${member.id}${weekParam}`, { credentials: 'same-origin' });
         if (matsRes.ok) {
             const matsData = await matsRes.json();
             allMaterialsForMember = (matsData.materials || []).filter(m => m.active === 1 || m.active === '1' || m.active === true);
@@ -2761,6 +2762,7 @@ async function showDeliveryExtract(member) {
             progressByMaterial[key] = {
                 name: mat.name,
                 icon: mat.icon || '📦',
+                farm_type: mat.farm_type || 'drugs',
                 total: 0,
                 goal: mat.weekly_goal != null ? parseInt(mat.weekly_goal, 10) || 700 : 700
             };
@@ -2778,6 +2780,7 @@ async function showDeliveryExtract(member) {
                 progressByMaterial[key] = {
                     name: item.material_name || 'Material',
                     icon: item.material_icon || '📦',
+                    farm_type: item.farm_type || 'drugs',
                     total: 0,
                     goal: item.weekly_goal != null ? parseInt(item.weekly_goal, 10) || 700 : 700
                 };
@@ -2789,6 +2792,26 @@ async function showDeliveryExtract(member) {
     // Meta batida = todos os materiais com total >= meta
     const metaBatida = Object.keys(progressByMaterial).length > 0 &&
         Object.values(progressByMaterial).every(p => (p.total || 0) >= (p.goal || 700));
+
+    const progressGroups = [
+        { title: 'Meta de Drogas', items: Object.values(progressByMaterial).filter(p => (p.farm_type || 'drugs') !== 'weapons' && (p.farm_type || 'drugs') !== 'general') },
+        { title: 'Meta de Armas', items: Object.values(progressByMaterial).filter(p => (p.farm_type || 'drugs') === 'weapons') },
+        { title: 'Meta Geral', items: Object.values(progressByMaterial).filter(p => (p.farm_type || 'drugs') === 'general') }
+    ].filter(group => group.items.length > 0);
+
+    const renderProgressRows = (items) => items.map(p => {
+        const goal = p.goal || 700;
+        const pct = goal > 0 ? Math.min(100, Math.round((p.total / goal) * 100)) : 0;
+        const cls = pct >= 100 ? 'complete' : pct >= 50 ? 'partial' : 'low';
+        return `
+        <div class="progress-week-row">
+            <span class="progress-week-label">${p.icon} ${p.name}</span>
+            <div class="progress-week-bar-wrap">
+                <div class="progress-week-bar ${cls}" style="width: ${pct}%"></div>
+            </div>
+            <span class="progress-week-value">${formatNumber(p.total)} / ${formatNumber(goal)}</span>
+        </div>`;
+    }).join('');
 
     const progressBarsHtml = false && metaBatida
         ? `
@@ -2808,19 +2831,12 @@ async function showDeliveryExtract(member) {
                 <span class="extract-section-title">📊 Progresso da semana (meta)</span>
             </div>
             <div class="extract-section-body">
-                ${Object.values(progressByMaterial).map(p => {
-                    const goal = p.goal || 700;
-                    const pct = goal > 0 ? Math.min(100, Math.round((p.total / goal) * 100)) : 0;
-                    const cls = pct >= 100 ? 'complete' : pct >= 50 ? 'partial' : 'low';
-                    return `
-                    <div class="progress-week-row">
-                        <span class="progress-week-label">${p.icon} ${p.name}</span>
-                        <div class="progress-week-bar-wrap">
-                            <div class="progress-week-bar ${cls}" style="width: ${pct}%"></div>
-                        </div>
-                        <span class="progress-week-value">${formatNumber(p.total)} / ${formatNumber(goal)}</span>
-                    </div>`;
-                }).join('')}
+                ${progressGroups.map(group => `
+                    <div class="progress-week-group">
+                        <div class="progress-week-group-title">${group.title}</div>
+                        ${renderProgressRows(group.items)}
+                    </div>
+                `).join('')}
             </div>
         </div>
         `
@@ -2835,6 +2851,26 @@ async function showDeliveryExtract(member) {
         if (s === 'rejected') return { text: '❌ Rejeitado', cls: 'rejected' };
         if (s === 'not_delivered' && submission.approved_by_name) return { text: '❌ Rejeitado', cls: 'rejected' };
         return { text: `📌 ${submission.status || 'Enviado'}`, cls: 'pending' };
+    };
+
+    const renderSubmissionMaterials = (items = []) => {
+        if (!items.length) return '<p class="no-items">Sem materiais</p>';
+        const groups = [
+            { title: 'Drogas', items: items.filter(item => (item.farm_type || 'drugs') !== 'weapons' && (item.farm_type || 'drugs') !== 'general') },
+            { title: 'Armas', items: items.filter(item => (item.farm_type || 'drugs') === 'weapons') },
+            { title: 'Geral', items: items.filter(item => (item.farm_type || 'drugs') === 'general') }
+        ].filter(group => group.items.length > 0);
+
+        return `<div class="extract-materials grouped">${groups.map(group => `
+            <div class="extract-material-group">
+                <div class="extract-material-group-title">${group.title}</div>
+                <div class="extract-material-tags">
+                    ${group.items.map(item => `
+                        <span class="extract-mat-tag">${item.material_icon || '📦'} ${item.material_name}: ${formatNumber(item.amount)}</span>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('')}</div>`;
     };
 
     const submissionsHtml = sortedSubmissions.map((submission, index) => {
@@ -2859,11 +2895,7 @@ async function showDeliveryExtract(member) {
             const amount = submission.dirty_money_amount || 0;
             contentHtml = `<div class="extract-dirty-money"><div class="dirty-value">💰 R$ ${amount.toLocaleString('pt-BR')}</div></div>`;
         } else {
-            contentHtml = submission.items && submission.items.length > 0
-                ? `<div class="extract-materials">${submission.items.map(item => `
-                    <span class="extract-mat-tag">${item.material_icon || '📦'} ${item.material_name}: ${formatNumber(item.amount)}</span>
-                `).join('')}</div>`
-                : '<p class="no-items">Sem materiais</p>';
+            contentHtml = renderSubmissionMaterials(submission.items || []);
         }
 
         let approvalInfoHtml = '';
