@@ -1515,6 +1515,217 @@
     border: 1px solid rgba(243, 156, 18, 0.2);
 }
 
+/* ========== MEMBER FARM SUBMISSION LAYOUT ========== */
+#materialsInputs.materials-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+#materialsInputs .material-farm-group {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 16px;
+    margin: 0;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+#materialsInputs .material-group-header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#materialsInputs .material-group-title {
+    grid-column: auto;
+    margin: 0;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 800;
+    text-transform: none;
+}
+
+#materialsInputs .material-group-status {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+#materialsInputs .material-card {
+    min-height: 112px;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 88px;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 10px;
+}
+
+#materialsInputs .material-icon {
+    width: 42px;
+    font-size: 1.65rem;
+}
+
+#materialsInputs .material-info {
+    min-width: 0;
+}
+
+#materialsInputs .material-name {
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+#materialsInputs .material-goal {
+    margin-top: 3px;
+    color: #9ca3af;
+}
+
+#materialsInputs .material-remaining {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+#materialsInputs .btn-fill-remaining {
+    width: fit-content;
+    min-height: 28px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    white-space: nowrap;
+}
+
+#materialsInputs .material-input {
+    width: 88px;
+    height: 42px;
+    padding: 8px;
+    justify-self: end;
+}
+
+#materialsInputs .farm-screenshot-block {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px dashed rgba(162, 155, 254, 0.35);
+    background: rgba(108, 92, 231, 0.08);
+}
+
+#materialsInputs .farm-screenshot-block label {
+    margin: 0;
+    color: #e5e7eb;
+    font-size: 0.9rem;
+}
+
+#materialsInputs .screenshots-area {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+}
+
+#materialsInputs .screenshots-grid {
+    min-height: 54px;
+    align-items: center;
+}
+
+.screenshot-preview-item {
+    width: 92px;
+    height: 92px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.24);
+}
+
+.screenshot-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.screenshot-info {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 5px 6px;
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.86));
+}
+
+.screenshot-name {
+    min-width: 0;
+    color: #fff;
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.btn-remove-screenshot {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    background: #e74c3c;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 20px;
+}
+
+@media (max-width: 900px) {
+    #materialsInputs .material-farm-group {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    #materialsInputs .material-group-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    #materialsInputs .material-card {
+        grid-template-columns: 38px minmax(0, 1fr);
+    }
+
+    #materialsInputs .material-input {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-self: stretch;
+    }
+
+    #materialsInputs .screenshots-area {
+        grid-template-columns: 1fr;
+    }
+
+    #materialsInputs .btn-add-screenshot {
+        width: 100%;
+    }
+}
+
 /* ========== DIRTY MONEY FORM ========== */
 .dirty-money-section {
     margin-bottom: 20px;
