@@ -158,6 +158,8 @@ async function checkAuth() {
 // Configurações do farm
 let farmSettings = {
     farm_materials_enabled: 'true',
+    member_drug_farm_enabled: 'true',
+    member_weapon_farm_enabled: 'true',
     farm_payment_enabled: 'true',
     farm_payment_mode: 'either',
     competition_enabled: 'false'
@@ -168,7 +170,7 @@ async function loadFarmSettings() {
     try {
         const response = await fetch('/api/delivery/farm-settings');
         const data = await response.json();
-        farmSettings = data.settings || farmSettings;
+        farmSettings = { ...farmSettings, ...(data.settings || {}) };
         
         // Agora carregar tipos de pagamento com base nas configurações
         await loadPaymentTypes();
@@ -202,7 +204,9 @@ function updatePaymentTypeSelector() {
     const container = document.querySelector('.payment-type-selector');
     if (!container) return;
     
-    const materialsEnabled = farmSettings.farm_materials_enabled === 'true';
+    const memberDrugFarmEnabled = farmSettings.member_drug_farm_enabled !== 'false';
+    const memberWeaponFarmEnabled = farmSettings.member_weapon_farm_enabled !== 'false';
+    const materialsEnabled = farmSettings.farm_materials_enabled === 'true' && (memberDrugFarmEnabled || memberWeaponFarmEnabled);
     const paymentEnabled = farmSettings.farm_payment_enabled === 'true';
     const paymentMode = farmSettings.farm_payment_mode || 'either'; // 'either' ou 'both'
     
@@ -1199,7 +1203,15 @@ function renderMaterialsUI() {
     container.innerHTML = '';
     
     if (materialsData && materialsData.length > 0) {
-        materialsData.forEach(mat => {
+        const groupedMaterials = [
+            { type: 'drugs', title: 'Farm de Material de Drogas', items: materialsData.filter(m => (m.farm_type || 'drugs') !== 'weapons' && (m.farm_type || 'drugs') !== 'general') },
+            { type: 'weapons', title: 'Farm de Material de Armas', items: materialsData.filter(m => (m.farm_type || 'drugs') === 'weapons') },
+            { type: 'general', title: 'Farm de Materiais', items: materialsData.filter(m => (m.farm_type || 'drugs') === 'general') }
+        ].filter(group => group.items.length > 0);
+
+        groupedMaterials.forEach(group => {
+            container.innerHTML += `<div class="material-group-title">${group.title}</div>`;
+            group.items.forEach(mat => {
             const matGoal = mat.weekly_goal || 700;
             materialsGoals[mat.id] = matGoal;
             
@@ -1248,6 +1260,7 @@ function renderMaterialsUI() {
                 </div>
                 `;
             });
+        });
             
             // Atualizar botão após carregar materiais
             setTimeout(updateSubmitButton, 100);

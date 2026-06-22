@@ -111,6 +111,20 @@ const productAppliesToRole = (product, isManager) => {
     return t !== 'manager';
 };
 
+const normalizeFarmType = (farmType = '') => {
+    const normalized = normalizeGroupName(farmType);
+    return ['drugs', 'weapons', 'general'].includes(normalized) ? normalized : 'drugs';
+};
+
+const materialAppliesToFarmSettings = (material, isManager, settings = {}) => {
+    if (isManager) return true;
+    if ((settings.farm_materials_enabled || 'true') !== 'true') return false;
+    const farmType = normalizeFarmType(material.farm_type);
+    if (farmType === 'weapons') return (settings.member_weapon_farm_enabled || 'true') === 'true';
+    if (farmType === 'drugs') return (settings.member_drug_farm_enabled || 'true') === 'true';
+    return true;
+};
+
 // Helper para calcular semana com offset (PADRONIZADO)
 const getWeekWithOffset = (offset = 0) => {
     // Usar data local sem conversão UTC
@@ -182,14 +196,20 @@ router.get('/current-week', requireAuth, async (req, res) => {
         const week = getWeekWithOffset(offset);
         const userId = req.session.user.id;
         const isManager = await isManagerUser(userId, req.session.user);
-
+        const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+        const settingsObj = {};
+        (settingsRows || []).forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
         let materials = [];
         try {
-            materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1');
+            materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1');
         } catch (e) {
             materials = await getAll('SELECT id, weekly_goal FROM materials WHERE active = 1');
         }
-        materials = (materials || []).filter(m => productAppliesToRole(m, isManager));
+        materials = (materials || [])
+            .filter(m => productAppliesToRole(m, isManager))
+            .filter(m => materialAppliesToFarmSettings(m, isManager, settingsObj));
 
         let paymentTypes = [];
         try {
@@ -221,12 +241,14 @@ router.get('/current-week', requireAuth, async (req, res) => {
         if (existingDelivery) {
             let allMaterials = [];
             try {
-                allMaterials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1');
+                allMaterials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1');
             } catch (e) {
                 allMaterials = await getAll('SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1');
             }
             // Apenas materiais do cargo do usuário
-            allMaterials = allMaterials.filter(m => productAppliesToRole(m, isManager));
+            allMaterials = allMaterials
+                .filter(m => productAppliesToRole(m, isManager))
+                .filter(m => materialAppliesToFarmSettings(m, isManager, settingsObj));
             const activeDeliveryIds = weekDeliveries.map(d => d.id);
             const approvedDeliveryIds = weekDeliveries.filter(d => d.status === 'approved').map(d => d.id);
 
@@ -277,6 +299,7 @@ router.get('/current-week', requireAuth, async (req, res) => {
                     material_id: material.id,
                     name: material.name,
                     icon: material.icon,
+                    farm_type: normalizeFarmType(material.farm_type),
                     current: currentAmount,
                     goal: goal,
                     percentage: Math.min(100, Math.round((currentAmount / goal) * 100)),
@@ -292,6 +315,7 @@ router.get('/current-week', requireAuth, async (req, res) => {
                     material_id: material.id,
                     name: material.name,
                     icon: material.icon,
+                    farm_type: normalizeFarmType(material.farm_type),
                     current: approvedAmount,
                     goal: goal,
                     percentage: Math.min(100, Math.round((approvedAmount / goal) * 100)),
@@ -552,8 +576,14 @@ router.put('/update-pending', requireAuth, async (req, res) => {
         
         // Atualizar cada material
         const isManager = await isManagerUser(userId, req.session.user);
-        const allowedMaterials = (await getAll('SELECT id, target_role FROM materials WHERE active = 1'))
-            .filter(m => productAppliesToRole(m, isManager));
+        const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+        const settingsObj = {};
+        (settingsRows || []).forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
+        const allowedMaterials = (await getAll('SELECT id, target_role, farm_type FROM materials WHERE active = 1'))
+            .filter(m => productAppliesToRole(m, isManager))
+            .filter(m => materialAppliesToFarmSettings(m, isManager, settingsObj));
         const allowedMaterialIds = new Set(allowedMaterials.map(m => Number(m.id)));
 
         for (const [materialId, amount] of Object.entries(materials)) {
@@ -607,11 +637,16 @@ router.get('/materials', requireAuth, async (req, res) => {
     try {
         console.log('📦 Buscando materiais...');
         const isManager = await isManagerUser(req.session.user.id, req.session.user);
+        const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+        const settingsObj = {};
+        (settingsRows || []).forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
         
         // Tenta buscar com weekly_goal, se falhar busca sem
         let materials;
         try {
-            materials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role, active FROM materials WHERE active = 1 ORDER BY name');
+            materials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type, active FROM materials WHERE active = 1 ORDER BY name');
             console.log('📦 Materiais encontrados (com weekly_goal):', materials?.length);
         } catch (e) {
             console.log('⚠️ Fallback sem weekly_goal:', e.message);
@@ -630,8 +665,10 @@ router.get('/materials', requireAuth, async (req, res) => {
         // Mostrar apenas os materiais do cargo do usuário (gerente vê gerente; membro vê membro)
         materials = materials
             .filter(m => productAppliesToRole(m, isManager))
+            .filter(m => materialAppliesToFarmSettings(m, isManager, settingsObj))
             .map(m => ({
                 ...m,
+                farm_type: normalizeFarmType(m.farm_type),
                 weekly_goal: resolveMaterialGoal(m, isManager)
             }));
 
@@ -680,6 +717,8 @@ router.get('/farm-settings', requireAuth, async (req, res) => {
         
         // Valores padrão caso não existam
         if (!settingsObj.farm_materials_enabled) settingsObj.farm_materials_enabled = 'true';
+        if (!settingsObj.member_drug_farm_enabled) settingsObj.member_drug_farm_enabled = 'true';
+        if (!settingsObj.member_weapon_farm_enabled) settingsObj.member_weapon_farm_enabled = 'true';
         if (!settingsObj.farm_payment_enabled) settingsObj.farm_payment_enabled = 'true';
         if (!settingsObj.farm_payment_mode) settingsObj.farm_payment_mode = 'either';
         if (!settingsObj.competition_enabled) settingsObj.competition_enabled = 'false';
@@ -691,6 +730,8 @@ router.get('/farm-settings', requireAuth, async (req, res) => {
         res.json({ 
             settings: {
                 farm_materials_enabled: 'true',
+                member_drug_farm_enabled: 'true',
+                member_weapon_farm_enabled: 'true',
                 farm_payment_enabled: 'true',
                 farm_payment_mode: 'either',
                 competition_enabled: 'false'
@@ -938,8 +979,15 @@ router.post('/', requireAuth, (req, res) => {
                 }
             }
 
-            const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
-                .filter(m => productAppliesToRole(m, isManager));
+            const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+            const settingsObj = {};
+            (settingsRows || []).forEach(s => {
+                settingsObj[s.setting_key] = s.setting_value;
+            });
+
+            const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1'))
+                .filter(m => productAppliesToRole(m, isManager))
+                .filter(m => materialAppliesToFarmSettings(m, isManager, settingsObj));
             const allowedMaterialIds = new Set(allMaterials.map(m => Number(m.id)));
 
             if (paymentType === 'material') {
@@ -967,11 +1015,6 @@ router.post('/', requireAuth, (req, res) => {
             }
 
             // Carregar configurações para saber se competição está ativa (controla Farm Extra)
-            const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
-            const settingsObj = {};
-            (settingsRows || []).forEach(s => {
-                settingsObj[s.setting_key] = s.setting_value;
-            });
             const competitionEnabled = (settingsObj.competition_enabled || 'false') === 'true';
 
             // Antes de tudo: regra 1 farm pendente por vez na semana
@@ -1191,8 +1234,14 @@ router.post('/pay-past-week', requireAuth, (req, res) => {
                 return res.status(400).json({ error: 'Esta semana já tem justificativa aprovada' });
             }
             let materialsArray = [];
-            const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
-                .filter(m => productAppliesToRole(m, isManager));
+            const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+            const settingsObj = {};
+            (settingsRows || []).forEach(s => {
+                settingsObj[s.setting_key] = s.setting_value;
+            });
+            const allMaterials = (await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1'))
+                .filter(m => productAppliesToRole(m, isManager))
+                .filter(m => materialAppliesToFarmSettings(m, isManager, settingsObj));
             const allowedMaterialIds = new Set(allMaterials.map(m => Number(m.id)));
 
             if (paymentType === 'material') {
@@ -1356,14 +1405,21 @@ router.get('/my', requireAuth, async (req, res) => {
     try {
         const userId = req.session.user.id;
         const isManager = await isManagerUser(userId, req.session.user);
+        const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+        const settingsObj = {};
+        (settingsRows || []).forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
 
         let materials = [];
         try {
-            materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1');
+            materials = await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1');
         } catch (e) {
             materials = await getAll('SELECT id, weekly_goal FROM materials WHERE active = 1');
         }
-        materials = (materials || []).filter(m => productAppliesToRole(m, isManager));
+        materials = (materials || [])
+            .filter(m => productAppliesToRole(m, isManager))
+            .filter(m => materialAppliesToFarmSettings(m, isManager, settingsObj));
 
         let paymentTypes = [];
         try {
@@ -1559,10 +1615,15 @@ router.post('/edit-value', requireAuth, async (req, res) => {
         const newAmount = parseInt(new_value) || 0;
         
         const isManager = await isManagerUser(userId, req.session.user);
+        const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
+        const settingsObj = {};
+        (settingsRows || []).forEach(s => {
+            settingsObj[s.setting_key] = s.setting_value;
+        });
 
         // Buscar meta do material (para verificar se completou, mas não bloqueia)
-        const materialData = await getOne('SELECT name, weekly_goal, manager_weekly_goal, target_role, active FROM materials WHERE id = ?', [material_id]);
-        if (!materialData || materialData.active === 0 || !productAppliesToRole(materialData, isManager)) {
+        const materialData = await getOne('SELECT name, weekly_goal, manager_weekly_goal, target_role, farm_type, active FROM materials WHERE id = ?', [material_id]);
+        if (!materialData || materialData.active === 0 || !productAppliesToRole(materialData, isManager) || !materialAppliesToFarmSettings(materialData, isManager, settingsObj)) {
             return res.status(400).json({ error: 'Produto de farm inválido para seu cargo' });
         }
         const materialGoal = resolveMaterialGoal(materialData || {}, isManager);
@@ -1590,8 +1651,9 @@ router.post('/edit-value', requireAuth, async (req, res) => {
         }
         
         // Verificar se completou o farm (recalcular is_partial e status)
-        const allMaterials = (await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
-            .filter(m => productAppliesToRole(m, isManager));
+        const allMaterials = (await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1'))
+            .filter(m => productAppliesToRole(m, isManager))
+            .filter(m => materialAppliesToFarmSettings(m, isManager, settingsObj));
         const deliveryItems = await getAll('SELECT material_id, amount FROM delivery_items WHERE delivery_id = ?', [existingDelivery.id]);
         
         let allComplete = true;

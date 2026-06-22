@@ -756,7 +756,7 @@
                             <span class="status-indicator off">⚪ Competição DESATIVADA</span>
                         </div>
                     </div>
-                    
+
                     <div class="settings-section">
                         <h3>📦 Farm de Materiais</h3>
                         <div class="setting-item">
@@ -766,6 +766,26 @@
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" id="farmMaterialsEnabled" onchange="updateFarmSetting('farm_materials_enabled', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Habilitar Materiais de Drogas</span>
+                                <span class="setting-description">Liga ou desliga a meta de drogas dos membros</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="memberDrugFarmEnabled" onchange="updateFarmSetting('member_drug_farm_enabled', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Habilitar Materiais de Armas</span>
+                                <span class="setting-description">Liga ou desliga a meta de armas dos membros</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="memberWeaponFarmEnabled" onchange="updateFarmSetting('member_weapon_farm_enabled', this.checked)">
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
@@ -908,11 +928,17 @@
                             <input type="text" id="matNameMembros" placeholder="Ex: Agulha, Seringa" class="goals-input goals-name">
                             <label class="goals-label">Ícone</label>
                             <select id="matIconMembros" class="goals-input goals-icon"></select>
+                            <label class="goals-label">Tipo</label>
+                            <select id="matFarmTypeMembros" class="goals-input goals-icon">
+                                <option value="drugs">Drogas</option>
+                                <option value="weapons">Armas</option>
+                            </select>
                             <label class="goals-label">Meta</label>
                             <input type="number" id="matGoalMembros" value="700" min="1" max="999999" class="goals-input goals-number">
                             <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMatMembros">➕ Adicionar ao membro</button>
                         </div>
                         <div id="matMsgMembros" class="goals-message"></div>
+                        <h5 class="goals-subsection-title">Materiais de Drogas</h5>
                         <div class="goals-table-wrap">
                             <table class="goals-table">
                                 <thead>
@@ -925,6 +951,23 @@
                                     </tr>
                                 </thead>
                                 <tbody id="goalsMaterialsBodyMembros">
+                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <h5 class="goals-subsection-title">Materiais de Armas</h5>
+                        <div class="goals-table-wrap">
+                            <table class="goals-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ícone</th>
+                                        <th>Nome</th>
+                                        <th>Meta (Membros)</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="goalsMaterialsBodyMembrosArmas">
                                     <tr><td colspan="5" class="loading">Carregando...</td></tr>
                                 </tbody>
                             </table>

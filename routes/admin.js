@@ -81,6 +81,20 @@ const productAppliesToRole = (product, isManager) => {
     return t !== 'manager';
 };
 
+const normalizeFarmType = (farmType = '') => {
+    const normalized = normalizeGroupName(farmType);
+    return ['drugs', 'weapons', 'general'].includes(normalized) ? normalized : 'drugs';
+};
+
+const materialAppliesToFarmSettings = (material, isManager, settings = {}) => {
+    if (isManager) return true;
+    if ((settings.farm_materials_enabled || 'true') !== 'true') return false;
+    const farmType = normalizeFarmType(material.farm_type);
+    if (farmType === 'weapons') return (settings.member_weapon_farm_enabled || 'true') === 'true';
+    if (farmType === 'drugs') return (settings.member_drug_farm_enabled || 'true') === 'true';
+    return true;
+};
+
 const weeklyStatusCache = new Map();
 const WEEKLY_STATUS_CACHE_TTL_MS = parseInt(process.env.WEEKLY_STATUS_CACHE_TTL_MS, 10) || 60000;
 
@@ -1795,7 +1809,7 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
 
 router.post('/materials', requireAdmin, async (req, res) => {
     try {
-        const { name, icon, weekly_goal, manager_weekly_goal, target_role } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type } = req.body;
         
         if (!name) {
             return res.status(400).json({ error: 'Nome do material é obrigatório' });
@@ -1805,14 +1819,15 @@ router.post('/materials', requireAdmin, async (req, res) => {
         const goal = parseInt(weekly_goal) || 700;
         const managerGoal = !isNaN(parseInt(manager_weekly_goal)) ? parseInt(manager_weekly_goal) : goal;
         const targetRole = ['member', 'manager', 'both'].includes(target_role) ? target_role : 'both';
+        const farmType = ['drugs', 'weapons', 'general'].includes(farm_type) ? farm_type : 'drugs';
         
         const existing = await getOne('SELECT id, active FROM materials WHERE name = ?', [trimmedName]);
         if (existing) {
             const isInactive = existing.active === 0 || existing.active === '0' || existing.active === false || existing.active == null;
             if (isInactive) {
                 await runQuery(
-                    'UPDATE materials SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ? WHERE id = ?',
-                    [icon || '📦', goal, managerGoal, targetRole, existing.id]
+                    'UPDATE materials SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ?, farm_type = ? WHERE id = ?',
+                    [icon || '📦', goal, managerGoal, targetRole, farmType, existing.id]
                 );
                 return res.json({ success: true, message: 'Material reativado e meta atualizada' });
             }
@@ -1820,8 +1835,8 @@ router.post('/materials', requireAdmin, async (req, res) => {
         }
         
         await runQuery(
-            'INSERT INTO materials (name, icon, weekly_goal, manager_weekly_goal, target_role) VALUES (?, ?, ?, ?, ?)',
-            [trimmedName, icon || '📦', goal, managerGoal, targetRole]
+            'INSERT INTO materials (name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type) VALUES (?, ?, ?, ?, ?, ?)',
+            [trimmedName, icon || '📦', goal, managerGoal, targetRole, farmType]
         );
         
         res.json({ success: true, message: 'Material adicionado' });
@@ -1838,7 +1853,7 @@ router.post('/materials', requireAdmin, async (req, res) => {
 router.put('/materials/:id', requireAdmin, async (req, res) => {
     try {
         const materialId = req.params.id;
-        const { name, icon, weekly_goal, manager_weekly_goal, target_role } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type } = req.body;
         
         const material = await getOne('SELECT * FROM materials WHERE id = ?', [materialId]);
         if (!material) {
@@ -1855,6 +1870,9 @@ router.put('/materials/:id', requireAdmin, async (req, res) => {
         const newTargetRole = ['member', 'manager', 'both'].includes(target_role)
             ? target_role
             : (material.target_role || 'both');
+        const newFarmType = ['drugs', 'weapons', 'general'].includes(farm_type)
+            ? farm_type
+            : normalizeFarmType(material.farm_type);
         
         if (newName.trim() !== (material.name || '').trim()) {
             const existing = await getOne('SELECT id FROM materials WHERE name = ? AND id != ?', [newName.trim(), materialId]);
@@ -1864,8 +1882,8 @@ router.put('/materials/:id', requireAdmin, async (req, res) => {
         }
         
         await runQuery(
-            'UPDATE materials SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ? WHERE id = ?',
-            [newName.trim(), newIcon, newGoal, newManagerGoal, newTargetRole, materialId]
+            'UPDATE materials SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ?, farm_type = ? WHERE id = ?',
+            [newName.trim(), newIcon, newGoal, newManagerGoal, newTargetRole, newFarmType, materialId]
         );
         
         res.json({ success: true, message: 'Material atualizado' });
@@ -2011,6 +2029,9 @@ router.get('/farm-settings', requireAdmin, async (req, res) => {
         settings.forEach(s => {
             settingsObj[s.setting_key] = s.setting_value;
         });
+        if (!settingsObj.farm_materials_enabled) settingsObj.farm_materials_enabled = 'true';
+        if (!settingsObj.member_drug_farm_enabled) settingsObj.member_drug_farm_enabled = 'true';
+        if (!settingsObj.member_weapon_farm_enabled) settingsObj.member_weapon_farm_enabled = 'true';
         res.json({ settings: settingsObj });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -2023,7 +2044,7 @@ router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
         const { key } = req.params;
         const { value } = req.body;
         
-        const validKeys = ['farm_materials_enabled', 'farm_payment_enabled', 'farm_payment_mode', 'competition_enabled'];
+        const validKeys = ['farm_materials_enabled', 'member_drug_farm_enabled', 'member_weapon_farm_enabled', 'farm_payment_enabled', 'farm_payment_mode', 'competition_enabled'];
         if (!validKeys.includes(key)) {
             return res.status(400).json({ error: 'Configuração inválida' });
         }
@@ -2080,7 +2101,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             allJustifications,
             allWarnings,
             allMaterials,
-            paymentTypes
+            paymentTypes,
+            farmSettingsRows
         ] = await Promise.all([
             getAll(`SELECT user_id FROM farm_whitelist`),
             getAll(`
@@ -2112,13 +2134,19 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 SELECT user_id FROM warnings 
                 WHERE week_start = ? AND week_end = ?
             `, [weekStart, weekEnd]),
-            getAll(`SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1`)
+            getAll(`SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1`)
                 .catch(() => getAll(`SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1`)),
             getAll('SELECT id, weekly_goal, manager_weekly_goal FROM payment_types')
-                .catch(() => getAll('SELECT id, weekly_goal FROM payment_types'))
+                .catch(() => getAll('SELECT id, weekly_goal FROM payment_types')),
+            getAll('SELECT setting_key, setting_value FROM farm_settings')
+                .catch(() => [])
         ]);
 
         const whitelistIds = new Set(whitelist.map(w => w.user_id));
+        const farmSettingsObj = {};
+        (farmSettingsRows || []).forEach(s => {
+            farmSettingsObj[s.setting_key] = s.setting_value;
+        });
 
         const userGroupsMap = new Map();
         for (const ug of allUserGroups) {
@@ -2159,7 +2187,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             const placeholders = deliveryIds.map(() => '?').join(',');
             [allDeliveryItems, allExtraFarms] = await Promise.all([
                 getAll(`
-                    SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role
+                    SELECT di.delivery_id, di.material_id, di.amount, m.name as material_name, m.icon as material_icon, m.weekly_goal, m.manager_weekly_goal, m.target_role, m.farm_type
                     FROM delivery_items di
                     JOIN materials m ON di.material_id = m.id
                     WHERE di.delivery_id IN (${placeholders})
@@ -2251,6 +2279,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             if (delivery) {
                 deliveryItems = (deliveryItemsMap.get(delivery.id) || [])
                     .filter(item => productAppliesToRole(item, isManager))
+                    .filter(item => materialAppliesToFarmSettings(item, isManager, farmSettingsObj))
                     .map(item => ({
                         ...item,
                         weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
@@ -2289,7 +2318,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                             }
                         }
                         // Completo = TODOS os materiais do CARGO com total >= meta; senão = Em progresso
-                        const applicableMaterials = allMaterials.filter(mat => productAppliesToRole(mat, isManager));
+                        const applicableMaterials = allMaterials
+                            .filter(mat => productAppliesToRole(mat, isManager))
+                            .filter(mat => materialAppliesToFarmSettings(mat, isManager, farmSettingsObj));
                         if (applicableMaterials.length === 0) {
                             effectiveIsPartial = sumByMaterial.size === 0;
                         } else {

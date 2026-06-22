@@ -219,6 +219,7 @@ const initializePostgres = async () => {
                 weekly_goal INTEGER DEFAULT 700,
                 manager_weekly_goal INTEGER DEFAULT 700,
                 target_role TEXT DEFAULT 'both',
+                farm_type TEXT DEFAULT 'drugs',
                 active INTEGER DEFAULT 1
             )
         `);
@@ -434,6 +435,15 @@ const initializePostgres = async () => {
             console.log('ℹ️ target_role (materials):', e.message);
         }
 
+        // Adicionar farm_type em materials (drogas/armas/geral)
+        try {
+            await pool.query(`ALTER TABLE materials ADD COLUMN IF NOT EXISTS farm_type TEXT DEFAULT 'drugs'`);
+            await pool.query(`UPDATE materials SET farm_type = 'drugs' WHERE farm_type IS NULL OR farm_type = ''`);
+            console.log('Coluna farm_type (materials) verificada/adicionada');
+        } catch (e) {
+            console.log('farm_type (materials):', e.message);
+        }
+
         // Adicionar target_role em payment_types
         try {
             await pool.query(`ALTER TABLE payment_types ADD COLUMN IF NOT EXISTS target_role TEXT DEFAULT 'both'`);
@@ -610,6 +620,8 @@ const initializePostgres = async () => {
         // Inserir configurações padrão do farm
         const defaultSettings = [
             ['farm_materials_enabled', 'true'],      // Habilitar farm de materiais
+            ['member_drug_farm_enabled', 'true'],
+            ['member_weapon_farm_enabled', 'true'],
             ['farm_payment_enabled', 'true'],        // Habilitar pagamento com dinheiro
             ['farm_payment_mode', 'either'],
             ['family_commandments_title', 'Mandamentos da Familia'],
@@ -734,6 +746,7 @@ const initializeSQLite = () => {
                     weekly_goal INTEGER DEFAULT 700,
                     manager_weekly_goal INTEGER DEFAULT 700,
                     target_role TEXT DEFAULT 'both',
+                    farm_type TEXT DEFAULT 'drugs',
                     active INTEGER DEFAULT 1
                 )
             `);
@@ -979,6 +992,9 @@ const initializeSQLite = () => {
             pool.run(`ALTER TABLE materials ADD COLUMN target_role TEXT DEFAULT 'both'`, (err) => {
                 if (!err) console.log('✅ Coluna target_role adicionada em materials (SQLite)');
             });
+            pool.run(`ALTER TABLE materials ADD COLUMN farm_type TEXT DEFAULT 'drugs'`, (err) => {
+                if (!err) console.log('Coluna farm_type adicionada em materials (SQLite)');
+            });
             pool.run(`ALTER TABLE payment_types ADD COLUMN target_role TEXT DEFAULT 'both'`, (err) => {
                 if (!err) console.log('✅ Coluna target_role adicionada em payment_types (SQLite)');
             });
@@ -996,6 +1012,7 @@ const initializeSQLite = () => {
             // Preencher metas de gerente onde estiverem vazias
             pool.run(`UPDATE materials SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
             pool.run(`UPDATE payment_types SET manager_weekly_goal = weekly_goal WHERE manager_weekly_goal IS NULL`);
+            pool.run(`UPDATE materials SET farm_type = 'drugs' WHERE farm_type IS NULL OR farm_type = ''`);
             pool.run(`UPDATE materials SET target_role = 'member' WHERE (target_role IS NULL OR target_role = 'both') AND NOT EXISTS (SELECT 1 FROM farm_settings WHERE setting_key = ? AND setting_value = 'true')`, [FARM_ROLE_SPLIT_MARKER]);
             pool.run(`UPDATE payment_types SET target_role = 'member' WHERE (target_role IS NULL OR target_role = 'both') AND NOT EXISTS (SELECT 1 FROM farm_settings WHERE setting_key = ? AND setting_value = 'true')`, [FARM_ROLE_SPLIT_MARKER]);
             pool.run(
@@ -1044,6 +1061,8 @@ const initializeSQLite = () => {
             // Inserir configurações padrão do farm
             const defaultSettings = [
                 ['farm_materials_enabled', 'true'],
+                ['member_drug_farm_enabled', 'true'],
+                ['member_weapon_farm_enabled', 'true'],
                 ['farm_payment_enabled', 'true'],
                 ['farm_payment_mode', 'either'],
                 ['family_commandments_title', 'Mandamentos da Familia'],

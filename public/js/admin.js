@@ -6257,11 +6257,13 @@ async function addGoalMaterial(side) {
     const sfx = side === 'manager' ? 'Gerentes' : 'Membros';
     const nameEl = document.getElementById('matName' + sfx);
     const iconEl = document.getElementById('matIcon' + sfx);
+    const farmTypeEl = document.getElementById('matFarmType' + sfx);
     const goalEl = document.getElementById('matGoal' + sfx);
     const msgId = 'matMsg' + sfx;
     const name = (nameEl?.value || '').trim();
     const icon = iconEl?.value || '📦';
     const goal = parseInt(goalEl?.value) || 700;
+    const farmType = side === 'manager' ? 'general' : (farmTypeEl?.value === 'weapons' ? 'weapons' : 'drugs');
 
     if (!name) { setGoalsMsg(msgId, 'Digite o nome do material/produto.', 'error'); return; }
 
@@ -6269,7 +6271,7 @@ async function addGoalMaterial(side) {
         const resp = await fetch('/api/admin/materials', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, icon, weekly_goal: goal, manager_weekly_goal: goal, target_role: side })
+            body: JSON.stringify({ name, icon, weekly_goal: goal, manager_weekly_goal: goal, target_role: side, farm_type: farmType })
         });
         const data = await resp.json();
         if (data.success) {
@@ -6339,12 +6341,14 @@ function targetRoleLabel(target) {
 
 async function loadGoalsMaterials() {
     const tbodyM = document.getElementById('goalsMaterialsBodyMembros');
+    const tbodyMW = document.getElementById('goalsMaterialsBodyMembrosArmas');
     const tbodyG = document.getElementById('goalsMaterialsBodyGerentes');
     if (!tbodyM || !tbodyG) return;
     try {
         const response = await fetch('/api/admin/materials');
         const data = await response.json();
         const all = data.materials || data || [];
+        window.goalsMaterialsById = Object.fromEntries(all.map(m => [String(m.id), m]));
         populateMaterialSelectDropdown(all);
         const inGoals = all.filter(m => m.active === 1 || m.active === true || m.active === '1');
 
@@ -6369,10 +6373,17 @@ async function loadGoalsMaterials() {
         // Cada material aparece em UMA tabela só (independentes): gerência = 'manager', resto = membros
         const gerentes = inGoals.filter(m => (m.target_role || 'both') === 'manager');
         const membros = inGoals.filter(m => (m.target_role || 'both') !== 'manager');
+        const membrosDrogas = membros.filter(m => (m.farm_type || 'drugs') !== 'weapons');
+        const membrosArmas = membros.filter(m => (m.farm_type || 'drugs') === 'weapons');
 
-        tbodyM.innerHTML = membros.length
-            ? membros.map(m => rowHtml(m, 'member')).join('')
-            : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum material para membros.</td></tr>';
+        tbodyM.innerHTML = membrosDrogas.length
+            ? membrosDrogas.map(m => rowHtml(m, 'member')).join('')
+            : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum material de drogas para membros.</td></tr>';
+        if (tbodyMW) {
+            tbodyMW.innerHTML = membrosArmas.length
+                ? membrosArmas.map(m => rowHtml(m, 'member')).join('')
+                : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum material de armas para membros.</td></tr>';
+        }
         tbodyG.innerHTML = gerentes.length
             ? gerentes.map(m => rowHtml(m, 'manager')).join('')
             : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum material para a gerência. Ex: Capofol 💊</td></tr>';
@@ -6530,7 +6541,9 @@ function targetSelectHtml(selectId, selected) {
     return `<select id="${selectId}" class="icon-select">${opts.map(o => `<option value="${o.v}" ${o.v === sel ? 'selected' : ''}>${o.t}</option>`).join('')}</select>`;
 }
 
-function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes, target) {
+function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes, target, farmType) {
+    const cachedMaterial = window.goalsMaterialsById ? window.goalsMaterialsById[String(id)] : null;
+    const normalizedFarmType = farmType || cachedMaterial?.farm_type || 'drugs';
     const normalizedTarget = target === 'manager' ? 'manager' : 'member';
     const isManagerTarget = normalizedTarget === 'manager';
     const currentGoal = isManagerTarget ? goalGerentes : goalMembros;
@@ -6556,6 +6569,15 @@ function openEditMaterialGoalsModal(id, name, icon, goalMembros, goalGerentes, t
                         <input type="hidden" id="editMatGoalsTarget" value="${normalizedTarget}">
                         <div style="font-weight:600;">${isManagerTarget ? 'Gerencia' : 'Membros'}</div>
                     </div>
+                    ${!isManagerTarget ? `
+                    <div class="form-group">
+                        <label>Tipo de farm do membro</label>
+                        <select id="editMatFarmType" class="icon-select">
+                            <option value="drugs" ${normalizedFarmType !== 'weapons' ? 'selected' : ''}>Drogas</option>
+                            <option value="weapons" ${normalizedFarmType === 'weapons' ? 'selected' : ''}>Armas</option>
+                        </select>
+                    </div>
+                    ` : ''}
                     <div class="form-group">
                         <label>${goalLabel}</label>
                         <input type="number" id="editMatGoal" value="${currentGoal}" min="1" class="edit-input" style="width:120px;">
@@ -6574,6 +6596,7 @@ async function saveMaterialGoals(id) {
     const goal = parseInt(document.getElementById('editMatGoal')?.value);
     const newIcon = document.getElementById('editMatGoalsIcon')?.value;
     const newTarget = document.getElementById('editMatGoalsTarget')?.value === 'manager' ? 'manager' : 'member';
+    const newFarmType = newTarget === 'manager' ? 'general' : (document.getElementById('editMatFarmType')?.value === 'weapons' ? 'weapons' : 'drugs');
     if (isNaN(goal) || goal < 1) {
         showNotification('Metas inválidas.', 'error');
         return;
@@ -6582,7 +6605,7 @@ async function saveMaterialGoals(id) {
         const res = await fetch(`/api/admin/materials/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ weekly_goal: goal, manager_weekly_goal: goal, icon: newIcon, target_role: newTarget })
+            body: JSON.stringify({ weekly_goal: goal, manager_weekly_goal: goal, icon: newIcon, target_role: newTarget, farm_type: newFarmType })
         });
         const data = await res.json();
         if (data.success) {
@@ -7035,11 +7058,19 @@ async function loadFarmSettings() {
         
         // Atualizar checkboxes
         const materialsEnabled = document.getElementById('farmMaterialsEnabled');
+        const memberDrugFarmEnabled = document.getElementById('memberDrugFarmEnabled');
+        const memberWeaponFarmEnabled = document.getElementById('memberWeaponFarmEnabled');
         const paymentEnabled = document.getElementById('farmPaymentEnabled');
         const competitionEnabledEl = document.getElementById('competitionEnabled');
         
         if (materialsEnabled) {
             materialsEnabled.checked = settings.farm_materials_enabled === 'true';
+        }
+        if (memberDrugFarmEnabled) {
+            memberDrugFarmEnabled.checked = settings.member_drug_farm_enabled !== 'false';
+        }
+        if (memberWeaponFarmEnabled) {
+            memberWeaponFarmEnabled.checked = settings.member_weapon_farm_enabled !== 'false';
         }
         if (paymentEnabled) {
             paymentEnabled.checked = settings.farm_payment_enabled === 'true';
