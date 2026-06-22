@@ -925,11 +925,15 @@
                         <h4 class="goals-subsection-title">👤 Metas dos Membros</h4>
                         <div class="goals-add-form">
                             <label class="goals-label">Material/Produto</label>
-                            <input type="text" id="matNameMembros" placeholder="Ex: Agulha, Seringa" class="goals-input goals-name">
-                            <label class="goals-label">Ícone</label>
-                            <select id="matIconMembros" class="goals-input goals-icon"></select>
+                            <select id="matSelectMembros" class="goals-input goals-dropdown"></select>
+                            <span id="matNewFieldsMembros" class="goals-new-name-wrap" style="display:none;">
+                                <label class="goals-label">Novo</label>
+                                <input type="text" id="matNameMembros" placeholder="Ex: Agulha, Seringa" class="goals-input goals-name">
+                                <label class="goals-label">Ícone</label>
+                                <select id="matIconMembros" class="goals-input goals-icon"></select>
+                            </span>
                             <label class="goals-label">Tipo</label>
-                            <select id="matFarmTypeMembros" class="goals-input goals-icon">
+                            <select id="matFarmTypeMembros" class="goals-input goals-dropdown goals-type">
                                 <option value="drugs">Drogas</option>
                                 <option value="weapons">Armas</option>
                             </select>
@@ -977,9 +981,13 @@
                         <h4 class="goals-subsection-title">🛡️ Metas da Gerência (01, 02, Gerentes)</h4>
                         <div class="goals-add-form">
                             <label class="goals-label">Material/Produto</label>
-                            <input type="text" id="matNameGerentes" placeholder="Ex: Capofol" class="goals-input goals-name">
-                            <label class="goals-label">Ícone</label>
-                            <select id="matIconGerentes" class="goals-input goals-icon"></select>
+                            <select id="matSelectGerentes" class="goals-input goals-dropdown"></select>
+                            <span id="matNewFieldsGerentes" class="goals-new-name-wrap" style="display:none;">
+                                <label class="goals-label">Novo</label>
+                                <input type="text" id="matNameGerentes" placeholder="Ex: Capofol" class="goals-input goals-name">
+                                <label class="goals-label">Ícone</label>
+                                <select id="matIconGerentes" class="goals-input goals-icon"></select>
+                            </span>
                             <label class="goals-label">Meta</label>
                             <input type="number" id="matGoalGerentes" value="500" min="1" max="999999" class="goals-input goals-number">
                             <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMatGerentes">➕ Adicionar à gerência</button>

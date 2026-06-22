@@ -6255,21 +6255,47 @@ function setGoalsMsg(id, text, type) {
 // Adiciona material/produto direto na seção (membro ou gerência)
 async function addGoalMaterial(side) {
     const sfx = side === 'manager' ? 'Gerentes' : 'Membros';
+    const selectEl = document.getElementById('matSelect' + sfx);
     const nameEl = document.getElementById('matName' + sfx);
     const iconEl = document.getElementById('matIcon' + sfx);
     const farmTypeEl = document.getElementById('matFarmType' + sfx);
     const goalEl = document.getElementById('matGoal' + sfx);
     const msgId = 'matMsg' + sfx;
-    const name = (nameEl?.value || '').trim();
-    const icon = iconEl?.value || '📦';
+    const selectedValue = selectEl?.value || '';
     const goal = parseInt(goalEl?.value) || 700;
     const farmType = side === 'manager' ? 'general' : (farmTypeEl?.value === 'weapons' ? 'weapons' : 'drugs');
+    let name = '';
+    let icon = '📦';
 
-    if (!name) { setGoalsMsg(msgId, 'Digite o nome do material/produto.', 'error'); return; }
+    if (!selectedValue) {
+        setGoalsMsg(msgId, 'Selecione um material no dropdown.', 'error');
+        return;
+    }
+
+    if (selectedValue === '__new__') {
+        name = (nameEl?.value || '').trim();
+        icon = iconEl?.value || '📦';
+        if (!name) {
+            setGoalsMsg(msgId, 'Digite o nome do novo material.', 'error');
+            return;
+        }
+    } else {
+        const opt = selectEl?.options[selectEl.selectedIndex];
+        name = opt?.getAttribute('data-name') || '';
+        icon = opt?.getAttribute('data-icon') || '📦';
+        if (!name) {
+            setGoalsMsg(msgId, 'Material inválido.', 'error');
+            return;
+        }
+    }
 
     try {
-        const resp = await fetch('/api/admin/materials', {
-            method: 'POST',
+        const isExisting = selectedValue !== '__new__';
+        const opt = isExisting ? selectEl?.options[selectEl.selectedIndex] : null;
+        const isInactive = opt?.getAttribute('data-active') === '0';
+        const url = isExisting && !isInactive ? `/api/admin/materials/${selectedValue}` : '/api/admin/materials';
+        const resp = await fetch(url, {
+            method: isExisting && !isInactive ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, icon, weekly_goal: goal, manager_weekly_goal: goal, target_role: side, farm_type: farmType })
         });
@@ -6277,6 +6303,8 @@ async function addGoalMaterial(side) {
         if (data.success) {
             setGoalsMsg(msgId, data.message || 'Adicionado.', 'success');
             if (nameEl) nameEl.value = '';
+            if (selectEl) selectEl.value = '';
+            handleGoalMaterialSelectChange(side);
             loadGoalsMaterials();
         } else {
             setGoalsMsg(msgId, data.error || 'Erro ao adicionar.', 'error');
@@ -6322,6 +6350,8 @@ async function addGoalPayment(side) {
 
 document.getElementById('btnAddMatMembros')?.addEventListener('click', () => addGoalMaterial('member'));
 document.getElementById('btnAddMatGerentes')?.addEventListener('click', () => addGoalMaterial('manager'));
+document.getElementById('matSelectMembros')?.addEventListener('change', () => handleGoalMaterialSelectChange('member'));
+document.getElementById('matSelectGerentes')?.addEventListener('change', () => handleGoalMaterialSelectChange('manager'));
 document.getElementById('btnAddPayMembros')?.addEventListener('click', () => addGoalPayment('member'));
 document.getElementById('btnAddPayGerentes')?.addEventListener('click', () => addGoalPayment('manager'));
 
@@ -6350,6 +6380,7 @@ async function loadGoalsMaterials() {
         const all = data.materials || data || [];
         window.goalsMaterialsById = Object.fromEntries(all.map(m => [String(m.id), m]));
         populateMaterialSelectDropdown(all);
+        populateGoalMaterialSelects(all);
         const inGoals = all.filter(m => m.active === 1 || m.active === true || m.active === '1');
 
         const rowHtml = (m, goalCol) => {
@@ -6391,6 +6422,80 @@ async function loadGoalsMaterials() {
         console.error(err);
         tbodyM.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
         tbodyG.innerHTML = '';
+    }
+}
+
+function farmTypeLabel(type) {
+    if (type === 'weapons') return 'Armas';
+    if (type === 'general') return 'Geral';
+    return 'Drogas';
+}
+
+function targetRoleShortLabel(target) {
+    if (target === 'manager') return 'Gerência';
+    if (target === 'member') return 'Membros';
+    return 'Membros';
+}
+
+function populateGoalMaterialSelects(allMaterials) {
+    const list = Array.isArray(allMaterials) ? allMaterials : [];
+    [
+        { id: 'matSelectMembros', placeholder: 'Selecione um material de membro...', side: 'member' },
+        { id: 'matSelectGerentes', placeholder: 'Selecione um material da gerência...', side: 'manager' }
+    ].forEach(config => {
+        const sel = document.getElementById(config.id);
+        if (!sel) return;
+        const selectedValue = sel.value || '';
+        sel.innerHTML = '';
+
+        const opt0 = document.createElement('option');
+        opt0.value = '';
+        opt0.textContent = config.placeholder;
+        sel.appendChild(opt0);
+
+        list.forEach(m => {
+            const opt = document.createElement('option');
+            const target = m.target_role || 'member';
+            const farmType = m.farm_type || 'drugs';
+            const active = (m.active === 1 || m.active === true || m.active === '1');
+            opt.value = m.id;
+            opt.setAttribute('data-name', m.name || '');
+            opt.setAttribute('data-icon', m.icon || '📦');
+            opt.setAttribute('data-active', active ? '1' : '0');
+            opt.setAttribute('data-target-role', target);
+            opt.setAttribute('data-farm-type', farmType);
+            opt.textContent = `${m.icon || '📦'} ${m.name || ''} · ${targetRoleShortLabel(target)}${target !== 'manager' ? ` · ${farmTypeLabel(farmType)}` : ''}${active ? '' : ' · inativo'}`;
+            sel.appendChild(opt);
+        });
+
+        const optNew = document.createElement('option');
+        optNew.value = '__new__';
+        optNew.textContent = '+ Adicionar novo material';
+        sel.appendChild(optNew);
+
+        if ([...sel.options].some(opt => opt.value === selectedValue)) {
+            sel.value = selectedValue;
+        }
+    });
+}
+
+function handleGoalMaterialSelectChange(side) {
+    const sfx = side === 'manager' ? 'Gerentes' : 'Membros';
+    const selectEl = document.getElementById('matSelect' + sfx);
+    const newFields = document.getElementById('matNewFields' + sfx);
+    const nameEl = document.getElementById('matName' + sfx);
+    const farmTypeEl = document.getElementById('matFarmType' + sfx);
+    const isNew = selectEl?.value === '__new__';
+
+    if (newFields) newFields.style.display = isNew ? 'flex' : 'none';
+    if (nameEl && !isNew) nameEl.value = '';
+
+    if (side !== 'manager' && selectEl && farmTypeEl && selectEl.value && selectEl.value !== '__new__') {
+        const opt = selectEl.options[selectEl.selectedIndex];
+        const farmType = opt?.getAttribute('data-farm-type');
+        if (farmType === 'weapons' || farmType === 'drugs') {
+            farmTypeEl.value = farmType;
+        }
     }
 }
 
