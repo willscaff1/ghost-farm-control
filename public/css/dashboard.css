@@ -1517,9 +1517,9 @@
 
 /* ========== MEMBER FARM SUBMISSION LAYOUT ========== */
 #materialsInputs.materials-grid {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
-    align-items: start;
+    align-items: stretch;
 }
 
 #materialsInputs .material-farm-group {
@@ -1532,6 +1532,10 @@
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.04);
+}
+
+#materialsInputs .material-farm-group[data-farm-type="general"] {
+    grid-column: 1 / -1;
 }
 
 #materialsInputs .material-group-header {
@@ -1563,18 +1567,18 @@
 }
 
 #materialsInputs .material-card {
-    min-height: 112px;
+    min-height: 132px;
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) 78px;
-    align-items: center;
-    gap: 12px;
-    padding: 14px;
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 12px;
     border-radius: 10px;
 }
 
 #materialsInputs .material-icon {
-    width: 42px;
-    font-size: 1.65rem;
+    width: 36px;
+    font-size: 1.45rem;
 }
 
 #materialsInputs .material-info {
@@ -1583,7 +1587,7 @@
 
 #materialsInputs .material-name {
     color: #fff;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     font-weight: 700;
     line-height: 1.2;
     overflow-wrap: anywhere;
@@ -1602,7 +1606,7 @@
 }
 
 #materialsInputs .btn-fill-remaining {
-    width: fit-content;
+    width: 100%;
     min-height: 28px;
     padding: 6px 10px;
     border-radius: 7px;
@@ -1610,10 +1614,11 @@
 }
 
 #materialsInputs .material-input {
-    width: 78px;
+    grid-column: 1 / -1;
+    width: 100%;
     height: 42px;
     padding: 8px;
-    justify-self: end;
+    justify-self: stretch;
 }
 
 #materialsInputs .farm-screenshot-block {
@@ -1700,7 +1705,7 @@
     line-height: 20px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 520px) {
     #materialsInputs.materials-grid {
         grid-template-columns: 1fr;
     }
