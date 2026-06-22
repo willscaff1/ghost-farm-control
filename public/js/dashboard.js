@@ -1383,7 +1383,7 @@ function renderMaterialsUI() {
         { type: 'general', title: getFarmTypeTitleClient('general'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'general') }
     ].filter(group => group.items.length > 0);
 
-    groupedMaterials.forEach(group => {
+    const farmGroupsHtml = groupedMaterials.map(group => {
         const groupStatus = currentWeekData?.farmTypeStatus?.[group.type] || {};
         const groupLocked = groupStatus.status === 'pending' || groupStatus.status === 'complete';
         const groupStatusText = groupStatus.status === 'complete'
@@ -1394,15 +1394,7 @@ function renderMaterialsUI() {
                     ? 'Em progresso'
                     : 'Aberto';
 
-        container.innerHTML += `
-            <div class="material-farm-group" data-farm-type="${group.type}">
-                <div class="material-group-header">
-                    <div class="material-group-title">${group.title}</div>
-                    <span class="material-group-status ${groupStatus.status || 'missing'}">${groupStatusText}</span>
-                </div>
-        `;
-
-        group.items.forEach(mat => {
+        const materialsHtml = group.items.map(mat => {
             const matGoal = mat.weekly_goal || 700;
             materialsGoals[mat.id] = matGoal;
 
@@ -1416,7 +1408,7 @@ function renderMaterialsUI() {
             const isComplete = remaining === 0;
             const inputDisabled = isComplete || groupLocked;
 
-            container.innerHTML += `
+            return `
                 <div class="material-card ${isComplete ? 'complete' : ''} ${groupLocked ? 'locked' : ''}">
                     <div class="material-icon">${mat.icon}</div>
                     <div class="material-info">
@@ -1451,10 +1443,9 @@ function renderMaterialsUI() {
                            oninput="validateMaterialInput(this, ${matGoal}); updateSubmitButton()">
                 </div>
             `;
-        });
+        }).join('');
 
-        if (!groupLocked) {
-            container.innerHTML += `
+        const screenshotsHtml = groupLocked ? '' : `
                 <div class="farm-screenshot-block" data-farm-type="${group.type}">
                     <label>Print do ${getFarmTypeLabelClient(group.type)} <span class="required">*</span></label>
                     <div class="screenshots-area">
@@ -1463,11 +1454,26 @@ function renderMaterialsUI() {
                         <input type="file" id="screenshotInput_${group.type}" accept="image/*" style="display: none;" onchange="handleFarmScreenshotSelect(event, '${group.type}')">
                     </div>
                 </div>
-            `;
-        }
+        `;
 
-        container.innerHTML += '</div>';
-    });
+        return `
+            <div class="material-farm-group" data-farm-type="${group.type}">
+                <div class="material-group-header">
+                    <div>
+                        <div class="material-group-title">${group.title}</div>
+                        <div class="material-group-subtitle">Materiais para o membro lançar</div>
+                    </div>
+                    <span class="material-group-status ${groupStatus.status || 'missing'}">${groupStatusText}</span>
+                </div>
+                <div class="farm-materials-list">
+                    ${materialsHtml}
+                </div>
+                ${screenshotsHtml}
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = farmGroupsHtml;
 
     const globalScreenshotArea = document.getElementById('screenshotsAddArea');
     if (globalScreenshotArea) globalScreenshotArea.style.display = 'none';

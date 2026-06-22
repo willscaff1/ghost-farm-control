@@ -1526,7 +1526,8 @@
     grid-column: auto;
     display: grid;
     grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-rows: auto 1fr auto;
+    gap: 14px;
     padding: 16px;
     margin: 0;
     border-radius: 12px;
@@ -1552,9 +1553,16 @@
     grid-column: auto;
     margin: 0;
     color: #fff;
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 800;
     text-transform: none;
+}
+
+#materialsInputs .material-group-subtitle {
+    margin-top: 4px;
+    color: #9ca3af;
+    font-size: 0.78rem;
+    font-weight: 600;
 }
 
 #materialsInputs .material-group-status {
@@ -1566,8 +1574,15 @@
     line-height: 1;
 }
 
+#materialsInputs .farm-materials-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-content: start;
+}
+
 #materialsInputs .material-card {
-    min-height: 132px;
+    min-height: 120px;
     display: grid;
     grid-template-columns: 36px minmax(0, 1fr);
     align-items: start;
