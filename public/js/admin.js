@@ -2472,6 +2472,48 @@ function weeklyStatusMemberMatchesSearch(member, searchTerm) {
     return haystack.includes(searchTerm);
 }
 
+function normalizeWeeklyStatusSortText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .toLowerCase();
+}
+
+function getWeeklyStatusNaturalSortValue(value) {
+    const text = normalizeWeeklyStatusSortText(value);
+    const number = parseInt(text.replace(/[^\d]/g, ''), 10);
+    return Number.isFinite(number) ? number : text;
+}
+
+function compareWeeklyStatusSortValues(a, b) {
+    if (typeof a === 'number' && typeof b === 'number') {
+        return a - b;
+    }
+    return String(a).localeCompare(String(b), 'pt-BR', {
+        numeric: true,
+        sensitivity: 'base'
+    });
+}
+
+function getWeeklyStatusMemberSortValue(member, key) {
+    switch (key) {
+        case 'passport':
+            return getWeeklyStatusNaturalSortValue(member.passport);
+        case 'slot':
+            return getWeeklyStatusNaturalSortValue(getWeeklyStatusSlotInfo(member).slot);
+        case 'member':
+            return normalizeWeeklyStatusSortText(member.name);
+        case 'role':
+            return normalizeWeeklyStatusSortText((member.groups && member.groups.length > 0 ? member.groups : [member.role]).filter(Boolean).join(' '));
+        case 'status':
+            return normalizeWeeklyStatusSortText(member.statusLabel || member.status);
+        default:
+            return normalizeWeeklyStatusSortText(member.name);
+    }
+}
+
 function setWeeklyStatusSearch(value) {
     weeklyStatusSearchTerm = value || '';
     renderWeeklyTable(currentFilter);
@@ -2578,7 +2620,8 @@ function renderWeeklyTable(filter) {
     const membersTbody = document.getElementById('weeklyMembersTableBody');
     if (!weeklyStatusData || (!legacyTbody && !managersTbody && !membersTbody)) return;
     
-    currentFilter = filter;
+    currentFilter = filter || currentFilter || 'all';
+    window.__weeklyStatusCurrentFilter = currentFilter;
     const data = weeklyStatusData;
     const weekPassed = data.weekPassed;
     
@@ -2690,8 +2733,14 @@ function renderWeeklyTable(filter) {
         allMembers = allMembers.filter(member => weeklyStatusMemberMatchesSearch(member, searchTerm));
     }
     
-    // Ordenar por nome
-    allMembers.sort((a, b) => a.name.localeCompare(b.name));
+    const sortState = window.__weeklyStatusSort || { key: 'member', direction: 'asc' };
+    allMembers.sort((a, b) => {
+        const result = compareWeeklyStatusSortValues(
+            getWeeklyStatusMemberSortValue(a, sortState.key),
+            getWeeklyStatusMemberSortValue(b, sortState.key)
+        );
+        return sortState.direction === 'desc' ? -result : result;
+    });
     
     // Guardar para o modal Editar Entrega poder usar o mesmo status da tabela
     window.__weeklyStatusMembersFull = allMembers;

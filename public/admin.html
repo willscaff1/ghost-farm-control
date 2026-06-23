@@ -1760,7 +1760,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260623weeklysplit1"></script>
+    <script src="js/admin.js?v=20260623weeklysortfix1"></script>
     <script>
         (function () {
             const weeklyStatusSort = {
@@ -1823,28 +1823,11 @@
                 });
             }
 
-            function applyWeeklyStatusSort() {
-                const bodies = Array.from(document.querySelectorAll('#weeklyTableBody, .weekly-status-body'));
-                if (bodies.length === 0) {
-                    updateWeeklySortHeaders();
-                    return;
-                }
-
-                bodies.forEach(tbody => {
-                    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length >= 6 && !row.querySelector('.loading'));
-                    if (rows.length <= 1) return;
-
-                    rows.sort((rowA, rowB) => {
-                        const result = compareValues(
-                            getWeeklyCellValue(rowA, weeklyStatusSort.key),
-                            getWeeklyCellValue(rowB, weeklyStatusSort.key)
-                        );
-                        return weeklyStatusSort.direction === 'asc' ? result : -result;
-                    });
-
-                    rows.forEach(row => tbody.appendChild(row));
-                });
-
+            function syncWeeklyStatusSort() {
+                window.__weeklyStatusSort = {
+                    key: weeklyStatusSort.key,
+                    direction: weeklyStatusSort.direction
+                };
                 updateWeeklySortHeaders();
             }
 
@@ -1856,18 +1839,21 @@
                     weeklyStatusSort.direction = 'asc';
                 }
 
-                applyWeeklyStatusSort();
+                syncWeeklyStatusSort();
+                if (typeof window.renderWeeklyTable === 'function') {
+                    window.renderWeeklyTable(window.__weeklyStatusCurrentFilter || 'all');
+                }
             };
 
             const originalRenderWeeklyTable = window.renderWeeklyTable;
             if (typeof originalRenderWeeklyTable === 'function') {
                 window.renderWeeklyTable = function () {
                     const result = originalRenderWeeklyTable.apply(this, arguments);
-                    applyWeeklyStatusSort();
+                    syncWeeklyStatusSort();
                     return result;
                 };
             }
-            updateWeeklySortHeaders();
+            syncWeeklyStatusSort();
         })();
     </script>
 </body>
