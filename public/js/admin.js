@@ -2100,16 +2100,100 @@ async function applyAdvFromHistory(member, weekStart, weekEnd) {
 }
 
 function getExtractFarmType(delivery) {
+    if (delivery.farm_group_type) return delivery.farm_group_type;
+    if ((delivery.payment_type || '').toLowerCase() === 'dirty_money') return 'dirty_money';
     const firstItem = (delivery.items || [])[0];
     return normalizeEditFarmType(firstItem?.farm_type || 'drugs');
 }
 
 function getExtractFarmTypeLabel(delivery) {
+    if (delivery.farm_group_label) return delivery.farm_group_label;
     if ((delivery.payment_type || '').toLowerCase() === 'dirty_money') return 'Dinheiro Sujo';
     const type = getExtractFarmType(delivery);
     if (type === 'weapons') return 'Armas';
     if (type === 'general') return 'Geral';
     return 'Drogas';
+}
+
+function getExtractFarmLabelByType(type, delivery = {}) {
+    if (type === 'dirty_money') return delivery.payment_type_name || 'Dinheiro Sujo';
+    if (type === 'weapons') return 'Armas';
+    if (type === 'general') return 'Geral';
+    return 'Drogas';
+}
+
+function addExtractGroupedItems(group, items = []) {
+    const materialMap = group._materialMap || new Map();
+    items.forEach(item => {
+        const key = item.material_id || item.material_name || `${item.farm_type || 'drugs'}-${materialMap.size}`;
+        const existing = materialMap.get(key) || {
+            ...item,
+            amount: 0
+        };
+        existing.amount = (parseInt(existing.amount, 10) || 0) + (parseInt(item.amount, 10) || 0);
+        materialMap.set(key, existing);
+    });
+    group._materialMap = materialMap;
+    group.items = Array.from(materialMap.values());
+}
+
+function groupExtractDeliveriesByFarmType(deliveries = []) {
+    const statusOrder = { approved: 0, pending: 1, in_progress: 2, rejected: 3, not_delivered: 4 };
+    const groups = new Map();
+
+    deliveries.forEach(delivery => {
+        const isDirtyMoney = (delivery.payment_type || '').toLowerCase() === 'dirty_money';
+        const items = delivery.items || [];
+        const entries = isDirtyMoney || items.length === 0
+            ? [{
+                type: getExtractFarmType(delivery),
+                key: `${isDirtyMoney ? 'money' : 'material'}:${delivery.payment_type_id || getExtractFarmType(delivery)}`,
+                items
+            }]
+            : Array.from(items.reduce((map, item) => {
+                const type = normalizeEditFarmType(item.farm_type || 'drugs');
+                const key = `material:${type}`;
+                if (!map.has(key)) map.set(key, { type, key, items: [] });
+                map.get(key).items.push(item);
+                return map;
+            }, new Map()).values());
+
+        entries.forEach(entry => {
+            if (!groups.has(entry.key)) {
+                groups.set(entry.key, {
+                    ...delivery,
+                    farm_group_type: entry.type,
+                    farm_group_label: getExtractFarmLabelByType(entry.type, delivery),
+                    items: [],
+                    _approvedByNames: [],
+                    _materialMap: new Map()
+                });
+            }
+
+            const group = groups.get(entry.key);
+            const currentRank = statusOrder[(group.status || '').toLowerCase()] ?? 9;
+            const deliveryRank = statusOrder[(delivery.status || '').toLowerCase()] ?? 9;
+            if (deliveryRank < currentRank) {
+                group.status = delivery.status;
+            }
+            if (delivery.status === 'approved' && delivery.approved_by_name && !group._approvedByNames.includes(delivery.approved_by_name)) {
+                group._approvedByNames.push(delivery.approved_by_name);
+            }
+            if (new Date(delivery.created_at || delivery.delivered_at || 0) > new Date(group.created_at || group.delivered_at || 0)) {
+                group.created_at = delivery.created_at;
+                group.delivered_at = delivery.delivered_at;
+            }
+            addExtractGroupedItems(group, entry.items);
+        });
+    });
+
+    return Array.from(groups.values()).map(group => {
+        const { _approvedByNames, _materialMap, ...cleanGroup } = group;
+        return {
+            ...cleanGroup,
+            approved_by_name: _approvedByNames.length ? _approvedByNames.join(', ') : cleanGroup.approved_by_name
+        };
+    });
 }
 
 function renderExtractDeliveryCards(deliveries = []) {
@@ -2118,8 +2202,9 @@ function renderExtractDeliveryCards(deliveries = []) {
     }
 
     const statusOrder = { approved: 0, pending: 1, in_progress: 2, rejected: 3, not_delivered: 4 };
-    const typeOrder = { drugs: 0, weapons: 1, general: 2 };
-    const sortedDeliveries = [...deliveries].sort((a, b) => {
+    const typeOrder = { drugs: 0, weapons: 1, general: 2, dirty_money: 3 };
+    const groupedDeliveries = groupExtractDeliveriesByFarmType(deliveries);
+    const sortedDeliveries = groupedDeliveries.sort((a, b) => {
         const statusDiff = (statusOrder[(a.status || '').toLowerCase()] ?? 9) - (statusOrder[(b.status || '').toLowerCase()] ?? 9);
         if (statusDiff !== 0) return statusDiff;
         const typeDiff = (typeOrder[getExtractFarmType(a)] ?? 9) - (typeOrder[getExtractFarmType(b)] ?? 9);
