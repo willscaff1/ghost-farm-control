@@ -2702,6 +2702,57 @@ function showDeliveryExtractById(memberId) {
     if (member) showDeliveryExtract(member);
 }
 
+function mergeWeekSubmissionsById(primary = [], secondary = []) {
+    const byId = new Map();
+    [...primary, ...secondary].forEach(sub => {
+        if (!sub || !sub.id) return;
+        const existing = byId.get(Number(sub.id)) || {};
+        const merged = { ...existing };
+        Object.entries(sub).forEach(([key, value]) => {
+            if (key === 'items' || key === 'screenshots') return;
+            if (value !== undefined && value !== null && value !== '') {
+                merged[key] = value;
+            }
+        });
+        merged.items = (sub.items && sub.items.length ? sub.items : existing.items) || [];
+        merged.screenshots = (sub.screenshots && sub.screenshots.length ? sub.screenshots : existing.screenshots) || [];
+        byId.set(Number(sub.id), merged);
+    });
+    return Array.from(byId.values());
+}
+
+async function loadWeekDeliveryDetailsAsSubmissions(member, week) {
+    if (!member?.id || !week?.start || !week?.end) return [];
+    try {
+        const res = await fetch(`/api/admin/week-delivery-details?userId=${member.id}&week_start=${encodeURIComponent(week.start)}&week_end=${encodeURIComponent(week.end)}&_=${Date.now()}`, {
+            credentials: 'same-origin'
+        });
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (!data.success || !Array.isArray(data.deliveriesWithItems)) return [];
+
+        return data.deliveriesWithItems.map(entry => ({
+            id: entry.delivery?.id,
+            status: entry.delivery?.status,
+            is_partial: entry.delivery?.is_partial,
+            delivered_at: entry.delivery?.delivered_at || entry.delivery?.created_at,
+            created_at: entry.delivery?.created_at,
+            screenshot_url: entry.delivery?.screenshot_url,
+            screenshots: entry.screenshots || [],
+            description: entry.delivery?.description,
+            items: entry.items || [],
+            payment_type: entry.delivery?.payment_type || 'material',
+            dirty_money_amount: entry.delivery?.dirty_money_amount || 0,
+            approved_by_name: entry.delivery?.approved_by_name,
+            approved_at: entry.delivery?.approved_at,
+            approval_note: entry.delivery?.approval_note
+        })).filter(sub => sub.id);
+    } catch (error) {
+        console.warn('Falha ao carregar detalhes completos da semana:', error);
+        return [];
+    }
+}
+
 function showApprovalModalById(memberId) {
     const member = getWeeklyMemberById(memberId);
     if (member) showApprovalModal(member);
@@ -2729,7 +2780,7 @@ async function showDeliveryExtract(member) {
                 : null;
     if (member.id && week && week.start && week.end) {
         try {
-            const res = await fetch(`/api/admin/week-submissions?userId=${member.id}&week_start=${encodeURIComponent(week.start)}&week_end=${encodeURIComponent(week.end)}`, { credentials: 'same-origin' });
+            const res = await fetch(`/api/admin/week-submissions?userId=${member.id}&week_start=${encodeURIComponent(week.start)}&week_end=${encodeURIComponent(week.end)}&_=${Date.now()}`, { credentials: 'same-origin' });
             if (res.ok) {
                 const data = await res.json();
                 if (data.success && Array.isArray(data.submissions)) {
@@ -2739,6 +2790,10 @@ async function showDeliveryExtract(member) {
         } catch (e) {
             console.warn('Falha ao carregar submissões da semana:', e);
         }
+    }
+    if (member.id && week && week.start && week.end) {
+        const detailedSubmissions = await loadWeekDeliveryDetailsAsSubmissions(member, week);
+        submissions = mergeWeekSubmissionsById(submissions, detailedSubmissions);
     }
     if (submissions.length === 0 && member.weekly_submissions && member.weekly_submissions.length > 0) {
         submissions = member.weekly_submissions;
@@ -2762,7 +2817,15 @@ async function showDeliveryExtract(member) {
         }];
     }
 
-    const sortedSubmissions = [...submissions].sort((a, b) => new Date(b.created_at || b.delivered_at) - new Date(a.created_at || a.delivered_at));
+    const farmTypeOrder = { drugs: 0, weapons: 1, general: 2 };
+    const statusOrder = { approved: 0, pending: 1, rejected: 2, not_delivered: 3 };
+    const sortedSubmissions = [...submissions].sort((a, b) => {
+        const statusDiff = (statusOrder[(a.status || '').toLowerCase()] ?? 9) - (statusOrder[(b.status || '').toLowerCase()] ?? 9);
+        if (statusDiff !== 0) return statusDiff;
+        const typeDiff = (farmTypeOrder[getSubmissionFarmType(a)] ?? 9) - (farmTypeOrder[getSubmissionFarmType(b)] ?? 9);
+        if (typeDiff !== 0) return typeDiff;
+        return new Date(b.created_at || b.delivered_at) - new Date(a.created_at || a.delivered_at);
+    });
 
     // Barra de progresso do farm na semana (por material) — só dentro do modal
     // 1) Buscar todos os materiais com meta ajustada para o membro (mesmo os não entregues)
@@ -2903,6 +2966,7 @@ async function showDeliveryExtract(member) {
         const status = statusLabel(submission);
         const s = (submission.status || '').toLowerCase();
         const isRejected = s === 'rejected' || (s === 'not_delivered' && submission.approved_by_name);
+        const farmLabel = isDirtyMoney ? 'Dinheiro Sujo' : getAdminFarmTypeLabel(getSubmissionFarmType(submission));
 
         let printsHtml = '';
         if (submission.screenshots && submission.screenshots.length > 0) {
@@ -2938,7 +3002,8 @@ async function showDeliveryExtract(member) {
         return `
             <div class="extract-section meta ${isRejected ? 'status-rejected' : ''}" style="margin-bottom: 16px;">
                 <div class="extract-section-header">
-                    <span class="extract-section-title">📦 Envio #${sortedSubmissions.length - index}</span>
+                    <span class="extract-section-title">Farm de ${farmLabel}</span>
+                    <span class="extract-status ${status.cls}">${status.text}</span>
                 </div>
                 <div class="extract-section-body">
                     ${contentHtml}
