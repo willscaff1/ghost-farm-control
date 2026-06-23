@@ -2537,6 +2537,10 @@ function updateWeeklyStatusSortHeaders() {
 function setWeeklyStatusSort(key) {
     if (!WEEKLY_STATUS_SORT_KEYS.has(key)) return;
 
+    weeklyStatusSearchTerm = '';
+    const searchInput = document.getElementById('weeklyStatusSearch');
+    if (searchInput) searchInput.value = '';
+
     if (weeklyStatusSortState.key === key) {
         weeklyStatusSortState.direction = weeklyStatusSortState.direction === 'asc' ? 'desc' : 'asc';
     } else {
@@ -2764,8 +2768,6 @@ function renderWeeklyTable(filter) {
         allMembers = allMembers.filter(m => m.status === currentFilter);
     }
 
-    const searchInput = document.getElementById('weeklyStatusSearch');
-    weeklyStatusSearchTerm = searchInput ? searchInput.value : weeklyStatusSearchTerm;
     const searchTerm = normalizeWeeklyStatusSearch(weeklyStatusSearchTerm);
     if (searchTerm) {
         allMembers = allMembers.filter(member => weeklyStatusMemberMatchesSearch(member, searchTerm));
