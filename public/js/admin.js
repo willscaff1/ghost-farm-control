@@ -535,10 +535,7 @@ async function loadWeekData() {
         }
         
         // Mostrar indicador de loading
-        const tbody = document.getElementById('weeklyTableBody');
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="6" class="loading">⏳</td></tr>';
-        }
+        setWeeklyStatusBodiesMessage('⏳');
         
         // Buscar semana e status em paralelo
         const weekPromise = fetch(`/api/admin/week/${selectedWeekOffset}`);
@@ -613,10 +610,7 @@ async function loadWeekData() {
         
     } catch (error) {
         console.error('Erro ao carregar dados da semana:', error);
-        const tbody = document.getElementById('weeklyTableBody');
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="6" class="loading">❌ Erro ao carregar dados</td></tr>';
-        }
+        setWeeklyStatusBodiesMessage('❌ Erro ao carregar dados');
     } finally {
         isLoadingWeek = false;
     }
@@ -2430,10 +2424,7 @@ async function loadWeeklyStatus() {
         
     } catch (error) {
         console.error('Erro ao carregar status semanal:', error);
-        const tbody = document.getElementById('weeklyTableBody');
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="6" class="loading">❌ Erro ao carregar dados</td></tr>';
-        }
+        setWeeklyStatusBodiesMessage('❌ Erro ao carregar dados');
     }
 }
 
@@ -2486,10 +2477,106 @@ function setWeeklyStatusSearch(value) {
     renderWeeklyTable(currentFilter);
 }
 
+function isWeeklyStatusManager(member) {
+    return getWeeklyStatusSlotInfo(member).type === 'manager';
+}
+
+function renderWeeklyStatusMemberRows(members) {
+    return members.map(member => {
+        const initial = member.name.charAt(0).toUpperCase();
+
+        // Exibir grupos como badges (similar à Lista de Membros)
+        let groupsDisplay = '';
+        if (member.groups && member.groups.length > 0) {
+            const displayGroups = member.groups.filter(g => g !== 'member' || member.groups.length === 1);
+            groupsDisplay = displayGroups.map(group =>
+                `<span class="role-badge badge-${roleBadgeClass(group)}">${roleNames[group] || group}</span>`
+            ).join(' ');
+        } else {
+            groupsDisplay = `<span class="no-role">${roleNames[member.role] || member.role || '-'}</span>`;
+        }
+
+        // Qualquer admin pode editar entregas
+        const canEditDeliveries = currentUser && currentUser.role && currentUser.role !== 'member';
+
+        // Montar botões de ação em linha
+        let buttons = [];
+
+        // Botão de editar sempre primeiro (se admin)
+        if (canEditDeliveries) {
+            if (member.delivery_id) {
+                buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}', '${member.status}')" style="background: #9b59b6;" title="Editar Entrega">✏️</button>`);
+            } else {
+                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', '${member.status}')" style="background: #9b59b6;" title="Criar Entrega">✏️</button>`);
+            }
+        }
+
+        // Botões específicos por status
+        switch (member.status) {
+            case 'completed':
+            case 'partial':
+                buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})">👁️</button>`);
+                break;
+            case 'pending':
+                if (member.has_justification_pending) {
+                    buttons.push(`<button class="action-btn approve" onclick="showJustificationModalById(${member.id})">📝</button>`);
+                } else {
+                    buttons.push(`<button class="action-btn approve" onclick="showApprovalModalById(${member.id})">✔️</button>`);
+                    buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})">👁️</button>`);
+                }
+                break;
+            case 'justified':
+                buttons.push(`<button class="action-btn view" onclick="showJustifiedDetailsById(${member.id})">📋</button>`);
+                break;
+            case 'missing':
+                // Se foi rejeitado, mostrar botão para ver histórico da rejeição
+                if (member.was_rejected) {
+                    buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})" title="Ver extrato">👁️</button>`);
+                }
+                break;
+        }
+
+        const actionHtml = buttons.length > 0 ? buttons.join('') : '<span class="no-action">-</span>';
+
+        // Badge de farm extra pendente
+        let pendingExtraBadge = '';
+        if (member.pending_extra && member.pending_extra.id) {
+            pendingExtraBadge = `<span class="pending-extra-badge" onclick="showPendingExtraModal(${member.pending_extra.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}')">🏆 Extra Pendente</span>`;
+        }
+        const rejectionNotice = renderLastRejectionNotice(member, true);
+
+        return `
+            <tr class="status-${member.status}">
+                <td class="passport-cell">${escapeHtml(member.passport || '-')}</td>
+                <td class="slot-cell">${renderWeeklyStatusSlotCell(member)}</td>
+                <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${escapeHtml(member.name)}${member.is_late_payment ? ' ⏰' : ''}</span>${pendingExtraBadge}</td>
+                <td class="role-cell">${groupsDisplay}</td>
+                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span>${renderFarmTypeStatusChips(member)}${rejectionNotice}</td>
+                <td style="white-space: nowrap;">${actionHtml}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function setWeeklyStatusBody(tbody, members, emptyText) {
+    if (!tbody) return;
+    tbody.innerHTML = members.length
+        ? renderWeeklyStatusMemberRows(members)
+        : `<tr><td colspan="6" class="loading">${emptyText}</td></tr>`;
+}
+
+function setWeeklyStatusBodiesMessage(message) {
+    document.querySelectorAll('#weeklyTableBody, #weeklyManagersTableBody, #weeklyMembersTableBody').forEach(tbody => {
+        tbody.innerHTML = `<tr><td colspan="6" class="loading">${message}</td></tr>`;
+    });
+}
+
 // Renderizar tabela com filtro
 function renderWeeklyTable(filter) {
-    const tbody = document.getElementById('weeklyTableBody');
-    if (!tbody || !weeklyStatusData) return;
+    const legacyTbody = document.getElementById('weeklyTableBody');
+    const managersTbody = document.getElementById('weeklyManagersTableBody');
+    const membersTbody = document.getElementById('weeklyMembersTableBody');
+    if (!weeklyStatusData || (!legacyTbody && !managersTbody && !membersTbody)) return;
     
     currentFilter = filter;
     const data = weeklyStatusData;
@@ -2609,6 +2696,22 @@ function renderWeeklyTable(filter) {
     // Guardar para o modal Editar Entrega poder usar o mesmo status da tabela
     window.__weeklyStatusMembersFull = allMembers;
     window.__weeklyStatusMembersById = new Map(allMembers.map(member => [String(member.id), member]));
+
+    const managers = allMembers.filter(isWeeklyStatusManager);
+    const members = allMembers.filter(member => !isWeeklyStatusManager(member));
+    const emptyText = searchTerm ? 'Nenhum membro encontrado para esta busca' : 'Nenhum registro encontrado com este filtro';
+
+    if (legacyTbody) {
+        setWeeklyStatusBody(legacyTbody, allMembers, emptyText);
+    }
+    setWeeklyStatusBody(managersTbody, managers, searchTerm ? 'Nenhum gerente encontrado para esta busca' : 'Nenhum gerente encontrado');
+    setWeeklyStatusBody(membersTbody, members, searchTerm ? 'Nenhum membro encontrado para esta busca' : 'Nenhum membro encontrado');
+
+    const managersCount = document.getElementById('weeklyManagersCount');
+    const membersCount = document.getElementById('weeklyMembersCount');
+    if (managersCount) managersCount.textContent = managers.length;
+    if (membersCount) membersCount.textContent = members.length;
+    return;
     
     if (allMembers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="loading">${searchTerm ? 'Nenhum membro encontrado para esta busca' : '😴 Nenhum membro encontrado com este filtro'}</td></tr>`;

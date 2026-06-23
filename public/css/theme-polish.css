@@ -619,6 +619,42 @@ button.btn,
     z-index: 1000000;
 }
 
+.weekly-status-controls-card {
+    margin-bottom: 16px;
+}
+
+.weekly-status-group-card {
+    margin-top: 16px;
+}
+
+.weekly-status-group-card .weekly-table-header {
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.weekly-group-count {
+    min-width: 34px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(108, 92, 231, 0.18);
+    border: 1px solid rgba(108, 92, 231, 0.34);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.weekly-status-managers-card {
+    border-color: rgba(99, 179, 237, 0.24);
+}
+
+.weekly-status-members-card {
+    border-color: rgba(102, 240, 163, 0.18);
+}
+
 @media (max-width: 760px) {
     .weekly-status-table .farm-type-status-chip {
         min-width: 96px;

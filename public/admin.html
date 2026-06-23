@@ -7,7 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
     <link rel="stylesheet" href="css/admin-sidebar.css?v=20260622farmedit1"><link rel="stylesheet" href="css/tables-clean.css?v=20260618groups1">
-    <link rel="stylesheet" href="css/theme-polish.css?v=20260623imagemodal1">
+    <link rel="stylesheet" href="css/theme-polish.css?v=20260623weeklysplit1">
     
     
     
@@ -328,10 +328,10 @@
                     </div>
                 </div>
                 
-                <!-- Tabela unificada de membros -->
-                <div class="card">
+                <!-- Filtros do Status da Semana -->
+                <div class="card weekly-status-controls-card">
                     <div class="weekly-table-header">
-                        <h3>👥 Todos os Membros</h3>
+                        <h3>🔎 Filtrar Status da Semana</h3>
                         <div class="weekly-status-search">
                             <span>🔍</span>
                             <input type="search" id="weeklyStatusSearch" placeholder="Buscar nome ou passaporte" oninput="setWeeklyStatusSearch(this.value)" autocomplete="off">
@@ -345,7 +345,13 @@
                             <button class="filter-btn" data-filter="justified" onclick="filterWeeklyTable('justified')">📋 Justificado</button>
                         </div>
                     </div>
-                    
+                </div>
+
+                <div class="card weekly-status-group-card weekly-status-managers-card">
+                    <div class="weekly-table-header">
+                        <h3>🧭 Meta dos Gerentes</h3>
+                        <span class="weekly-group-count" id="weeklyManagersCount">0</span>
+                    </div>
                     <div class="weekly-table-container">
                         <table class="weekly-table weekly-status-table">
                             <colgroup>
@@ -365,7 +371,38 @@
                                     <th>Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="weeklyTableBody">
+                            <tbody id="weeklyManagersTableBody" class="weekly-status-body">
+                                <tr><td colspan="6" class="loading">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card weekly-status-group-card weekly-status-members-card">
+                    <div class="weekly-table-header">
+                        <h3>👥 Meta dos Membros</h3>
+                        <span class="weekly-group-count" id="weeklyMembersCount">0</span>
+                    </div>
+                    <div class="weekly-table-container">
+                        <table class="weekly-table weekly-status-table">
+                            <colgroup>
+                                <col class="weekly-col-passport">
+                                <col class="weekly-col-slot">
+                                <col class="weekly-col-member">
+                                <col class="weekly-col-role">
+                                <col class="weekly-col-status">
+                                <col class="weekly-col-actions">
+                            </colgroup>
+                            <thead><tr>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('passport')">Passaporte <span data-weekly-sort-indicator="passport"></span></button></th>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('slot')">Slot <span data-weekly-sort-indicator="slot"></span></button></th>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('member')">Membro <span data-weekly-sort-indicator="member"></span></button></th>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('role')">Cargo <span data-weekly-sort-indicator="role"></span></button></th>
+                                    <th><button type="button" class="weekly-sort-btn" onclick="setWeeklyStatusSort('status')">Status <span data-weekly-sort-indicator="status"></span></button></th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weeklyMembersTableBody" class="weekly-status-body">
                                 <tr><td colspan="6" class="loading">Carregando...</td></tr>
                             </tbody>
                         </table>
@@ -1723,7 +1760,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260623imagemodal1"></script>
+    <script src="js/admin.js?v=20260623weeklysplit1"></script>
     <script>
         (function () {
             const weeklyStatusSort = {
@@ -1787,24 +1824,27 @@
             }
 
             function applyWeeklyStatusSort() {
-                const tbody = document.getElementById('weeklyTableBody');
-                if (!tbody) return;
-
-                const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length >= 6);
-                if (rows.length <= 1) {
+                const bodies = Array.from(document.querySelectorAll('#weeklyTableBody, .weekly-status-body'));
+                if (bodies.length === 0) {
                     updateWeeklySortHeaders();
                     return;
                 }
 
-                rows.sort((rowA, rowB) => {
-                    const result = compareValues(
-                        getWeeklyCellValue(rowA, weeklyStatusSort.key),
-                        getWeeklyCellValue(rowB, weeklyStatusSort.key)
-                    );
-                    return weeklyStatusSort.direction === 'asc' ? result : -result;
+                bodies.forEach(tbody => {
+                    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length >= 6 && !row.querySelector('.loading'));
+                    if (rows.length <= 1) return;
+
+                    rows.sort((rowA, rowB) => {
+                        const result = compareValues(
+                            getWeeklyCellValue(rowA, weeklyStatusSort.key),
+                            getWeeklyCellValue(rowB, weeklyStatusSort.key)
+                        );
+                        return weeklyStatusSort.direction === 'asc' ? result : -result;
+                    });
+
+                    rows.forEach(row => tbody.appendChild(row));
                 });
 
-                rows.forEach(row => tbody.appendChild(row));
                 updateWeeklySortHeaders();
             }
 
