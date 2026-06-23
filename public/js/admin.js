@@ -7880,17 +7880,42 @@ document.getElementById('newMemberForm').addEventListener('submit', async (e) =>
 updateNewMemberSlotVisibility();
 
 // Modal de imagem
-function openModal(src) {
-    document.getElementById('modalImage').src = src;
-    document.getElementById('imageModal').classList.add('show');
+function openModal(eventOrSrc, maybeSrc) {
+    if (eventOrSrc && typeof eventOrSrc !== 'string' && typeof eventOrSrc.stopPropagation === 'function') {
+        eventOrSrc.preventDefault?.();
+        eventOrSrc.stopPropagation();
+    }
+
+    const src = typeof eventOrSrc === 'string' ? eventOrSrc : maybeSrc;
+    const modal = document.getElementById('imageModal');
+    const image = document.getElementById('modalImage');
+    if (!modal || !image || !src) return;
+
+    image.src = src;
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+    document.body.classList.add('image-modal-open');
 }
 
 function closeModal() {
-    document.getElementById('imageModal').classList.remove('show');
+    const modal = document.getElementById('imageModal');
+    const image = document.getElementById('modalImage');
+    if (!modal) return;
+
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+    if (image) image.src = '';
+    document.body.classList.remove('image-modal-open');
 }
 
-document.getElementById('imageModal').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) {
+document.getElementById('imageModal')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget || e.target.classList.contains('modal-close')) {
+        closeModal();
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('imageModal')?.classList.contains('show')) {
         closeModal();
     }
 });
@@ -12369,7 +12394,7 @@ async function loadWeaponSales() {
                 <td>${formatWeaponSaleMoney(sale.sale_value)}</td>
                 <td>${escapeHtml(sale.buyer_name || '-')}</td>
                 <td>${escapeHtml(sale.seller_name || sale.created_by_name || '-')}</td>
-                <td>${getWeaponSaleProofSrc(sale) ? `<img src="${getWeaponSaleProofSrc(sale)}" class="delivery-screenshot" style="width:72px;height:54px;object-fit:cover;cursor:pointer;border-radius:6px;" onclick="openModal('${getWeaponSaleProofSrc(sale)}')" onerror="this.outerHTML='<span class=&quot;no-prints&quot;>Print indisponível</span>'">` : '<span class="no-prints">Sem print</span>'}</td>
+                <td>${getWeaponSaleProofSrc(sale) ? `<img src="${getWeaponSaleProofSrc(sale)}" class="delivery-screenshot" style="width:72px;height:54px;object-fit:cover;cursor:pointer;border-radius:6px;" onclick="openModal(event, '${getWeaponSaleProofSrc(sale)}')" onerror="this.outerHTML='<span class=&quot;no-prints&quot;>Print indisponível</span>'">` : '<span class="no-prints">Sem print</span>'}</td>
                 <td>
                     <button class="btn btn-danger btn-small" onclick="deleteWeaponSale(${sale.id})">Remover</button>
                 </td>
