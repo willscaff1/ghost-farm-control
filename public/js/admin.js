@@ -2341,6 +2341,12 @@ let weeklyStatusData = null;
 let currentFilter = 'all';
 let weeklyStatusSearchTerm = '';
 let weeklyStatusSortState = { key: 'member', direction: 'asc' };
+const WEEKLY_STATUS_FILTERS = new Set(['all', 'completed', 'partial', 'pending', 'missing', 'justified']);
+const WEEKLY_STATUS_SORT_KEYS = new Set(['passport', 'slot', 'member', 'role', 'status']);
+
+function normalizeWeeklyStatusFilter(filter, fallback = 'all') {
+    return WEEKLY_STATUS_FILTERS.has(filter) ? filter : fallback;
+}
 
 function getWeeklyStatusSlotInfo(member) {
     const groups = Array.isArray(member.groups) && member.groups.length > 0
@@ -2529,6 +2535,8 @@ function updateWeeklyStatusSortHeaders() {
 }
 
 function setWeeklyStatusSort(key) {
+    if (!WEEKLY_STATUS_SORT_KEYS.has(key)) return;
+
     if (weeklyStatusSortState.key === key) {
         weeklyStatusSortState.direction = weeklyStatusSortState.direction === 'asc' ? 'desc' : 'asc';
     } else {
@@ -2536,7 +2544,7 @@ function setWeeklyStatusSort(key) {
     }
 
     window.__weeklyStatusSort = weeklyStatusSortState;
-    renderWeeklyTable(currentFilter || 'all');
+    renderWeeklyTable();
 }
 
 function setWeeklyStatusSearch(value) {
@@ -2645,7 +2653,10 @@ function renderWeeklyTable(filter) {
     const membersTbody = document.getElementById('weeklyMembersTableBody');
     if (!weeklyStatusData || (!legacyTbody && !managersTbody && !membersTbody)) return;
     
-    currentFilter = filter || currentFilter || 'all';
+    const fallbackFilter = normalizeWeeklyStatusFilter(currentFilter, 'all');
+    currentFilter = filter === undefined || filter === null
+        ? fallbackFilter
+        : normalizeWeeklyStatusFilter(filter, fallbackFilter);
     window.__weeklyStatusCurrentFilter = currentFilter;
     const data = weeklyStatusData;
     const weekPassed = data.weekPassed;
@@ -2753,6 +2764,8 @@ function renderWeeklyTable(filter) {
         allMembers = allMembers.filter(m => m.status === currentFilter);
     }
 
+    const searchInput = document.getElementById('weeklyStatusSearch');
+    weeklyStatusSearchTerm = searchInput ? searchInput.value : weeklyStatusSearchTerm;
     const searchTerm = normalizeWeeklyStatusSearch(weeklyStatusSearchTerm);
     if (searchTerm) {
         allMembers = allMembers.filter(member => weeklyStatusMemberMatchesSearch(member, searchTerm));
@@ -2872,6 +2885,7 @@ function renderWeeklyTable(filter) {
 
 // Função para filtrar tabela (chamada pelos botões)
 function filterWeeklyTable(filter) {
+    filter = normalizeWeeklyStatusFilter(filter, 'all');
     // Atualizar botões ativos
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.classList.remove('active');
