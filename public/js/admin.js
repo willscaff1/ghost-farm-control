@@ -2340,6 +2340,7 @@ document.addEventListener('click', (e) => {
 let weeklyStatusData = null;
 let currentFilter = 'all';
 let weeklyStatusSearchTerm = '';
+let weeklyStatusSortState = { key: 'member', direction: 'asc' };
 
 function getWeeklyStatusSlotInfo(member) {
     const groups = Array.isArray(member.groups) && member.groups.length > 0
@@ -2512,6 +2513,30 @@ function getWeeklyStatusMemberSortValue(member, key) {
         default:
             return normalizeWeeklyStatusSortText(member.name);
     }
+}
+
+function updateWeeklyStatusSortHeaders() {
+    document.querySelectorAll('.weekly-sort-btn').forEach(button => {
+        const key = button.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+        const indicator = button.querySelector('[data-weekly-sort-indicator]');
+        if (!indicator || !key) return;
+
+        const active = weeklyStatusSortState.key === key;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-sort', active ? weeklyStatusSortState.direction : 'none');
+        indicator.textContent = active ? (weeklyStatusSortState.direction === 'asc' ? '^' : 'v') : '';
+    });
+}
+
+function setWeeklyStatusSort(key) {
+    if (weeklyStatusSortState.key === key) {
+        weeklyStatusSortState.direction = weeklyStatusSortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        weeklyStatusSortState = { key, direction: 'asc' };
+    }
+
+    window.__weeklyStatusSort = weeklyStatusSortState;
+    renderWeeklyTable(currentFilter || 'all');
 }
 
 function setWeeklyStatusSearch(value) {
@@ -2724,8 +2749,8 @@ function renderWeeklyTable(filter) {
     });
     
     // Aplicar filtro
-    if (filter !== 'all') {
-        allMembers = allMembers.filter(m => m.status === filter);
+    if (currentFilter !== 'all') {
+        allMembers = allMembers.filter(m => m.status === currentFilter);
     }
 
     const searchTerm = normalizeWeeklyStatusSearch(weeklyStatusSearchTerm);
@@ -2733,7 +2758,7 @@ function renderWeeklyTable(filter) {
         allMembers = allMembers.filter(member => weeklyStatusMemberMatchesSearch(member, searchTerm));
     }
     
-    const sortState = window.__weeklyStatusSort || { key: 'member', direction: 'asc' };
+    const sortState = weeklyStatusSortState || { key: 'member', direction: 'asc' };
     allMembers.sort((a, b) => {
         const result = compareWeeklyStatusSortValues(
             getWeeklyStatusMemberSortValue(a, sortState.key),
@@ -2760,6 +2785,7 @@ function renderWeeklyTable(filter) {
     const membersCount = document.getElementById('weeklyMembersCount');
     if (managersCount) managersCount.textContent = managers.length;
     if (membersCount) membersCount.textContent = members.length;
+    updateWeeklyStatusSortHeaders();
     return;
     
     if (allMembers.length === 0) {

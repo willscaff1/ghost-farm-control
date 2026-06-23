@@ -1760,101 +1760,11 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260623weeklysortfix1"></script>
+    <script src="js/admin.js?v=20260623weeklysortfix2"></script>
     <script>
-        (function () {
-            const weeklyStatusSort = {
-                key: 'member',
-                direction: 'asc'
-            };
-
-            function normalizeSortText(value) {
-                return String(value || '')
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
-                    .replace(/[^\w\s-]/g, '')
-                    .trim()
-                    .toLowerCase();
-            }
-
-            function naturalValue(value) {
-                const text = normalizeSortText(value);
-                const number = parseInt(text.replace(/[^\d]/g, ''), 10);
-                return Number.isFinite(number) ? number : text;
-            }
-
-            function compareValues(a, b) {
-                if (typeof a === 'number' && typeof b === 'number') {
-                    return a - b;
-                }
-                return String(a).localeCompare(String(b), 'pt-BR', {
-                    numeric: true,
-                    sensitivity: 'base'
-                });
-            }
-
-            function getWeeklyCellValue(row, key) {
-                switch (key) {
-                    case 'passport':
-                        return naturalValue(row.cells[0]?.textContent);
-                    case 'slot':
-                        return naturalValue(row.querySelector('.slot-cell strong')?.textContent || row.cells[1]?.textContent);
-                    case 'member':
-                        return normalizeSortText(row.querySelector('.member-name')?.textContent || row.cells[2]?.textContent);
-                    case 'role':
-                        return normalizeSortText(row.querySelector('.role-cell')?.textContent || row.cells[3]?.textContent);
-                    case 'status':
-                        return normalizeSortText(row.querySelector('.status-badge')?.textContent || row.cells[4]?.textContent);
-                    default:
-                        return '';
-                }
-            }
-
-            function updateWeeklySortHeaders() {
-                document.querySelectorAll('.weekly-sort-btn').forEach(button => {
-                    const key = button.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
-                    const indicator = button.querySelector('[data-weekly-sort-indicator]');
-                    if (!indicator || !key) return;
-
-                    const active = weeklyStatusSort.key === key;
-                    button.classList.toggle('active', active);
-                    button.setAttribute('aria-sort', active ? weeklyStatusSort.direction : 'none');
-                    indicator.textContent = active ? (weeklyStatusSort.direction === 'asc' ? '^' : 'v') : '';
-                });
-            }
-
-            function syncWeeklyStatusSort() {
-                window.__weeklyStatusSort = {
-                    key: weeklyStatusSort.key,
-                    direction: weeklyStatusSort.direction
-                };
-                updateWeeklySortHeaders();
-            }
-
-            window.setWeeklyStatusSort = function (key) {
-                if (weeklyStatusSort.key === key) {
-                    weeklyStatusSort.direction = weeklyStatusSort.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    weeklyStatusSort.key = key;
-                    weeklyStatusSort.direction = 'asc';
-                }
-
-                syncWeeklyStatusSort();
-                if (typeof window.renderWeeklyTable === 'function') {
-                    window.renderWeeklyTable(window.__weeklyStatusCurrentFilter || 'all');
-                }
-            };
-
-            const originalRenderWeeklyTable = window.renderWeeklyTable;
-            if (typeof originalRenderWeeklyTable === 'function') {
-                window.renderWeeklyTable = function () {
-                    const result = originalRenderWeeklyTable.apply(this, arguments);
-                    syncWeeklyStatusSort();
-                    return result;
-                };
-            }
-            syncWeeklyStatusSort();
-        })();
+        if (typeof updateWeeklyStatusSortHeaders === 'function') {
+            updateWeeklyStatusSortHeaders();
+        }
     </script>
 </body>
 </html>
