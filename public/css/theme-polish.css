@@ -361,3 +361,165 @@ button.btn,
         transition: none !important;
     }
 }
+
+/* ---------- Farm separado: alinhamento final ---------- */
+
+.weekly-status-table th:nth-child(5),
+.weekly-status-table td:nth-child(5) {
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+.weekly-status-table td:nth-child(5) > .status-badge {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 132px;
+    min-height: 30px;
+    margin: 0 auto;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.weekly-status-table .farm-type-status-chips {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.weekly-status-table .farm-type-status-chip {
+    min-width: 112px;
+    min-height: 24px;
+    justify-content: center;
+    text-align: center;
+    line-height: 1;
+    padding: 5px 9px;
+}
+
+.edit-delivery-farm-grid,
+.approval-farm-grid {
+    align-items: stretch;
+}
+
+.edit-delivery-farm-card,
+.approval-farm-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+.edit-delivery-farm-head,
+.approval-farm-head {
+    align-items: center;
+}
+
+.edit-farm-status-select {
+    text-align: center;
+}
+
+.edit-delivery-material-row {
+    min-height: 58px;
+}
+
+.edit-farm-print-section {
+    margin-top: auto;
+}
+
+.edit-farm-existing-prints,
+.edit-farm-new-preview,
+.approval-farm-card .screenshots-gallery {
+    justify-content: center;
+}
+
+.edit-farm-upload {
+    display: grid;
+    justify-items: center;
+    align-items: center;
+    min-height: 48px;
+}
+
+#materialsInputs.materials-grid {
+    align-items: stretch;
+}
+
+#materialsInputs .material-farm-group {
+    justify-items: stretch;
+}
+
+#materialsInputs .material-group-header {
+    align-items: center;
+}
+
+#materialsInputs .material-group-status {
+    min-width: 104px;
+    min-height: 25px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+}
+
+#materialsInputs .material-card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    min-height: 132px;
+}
+
+#materialsInputs .material-icon {
+    justify-self: center;
+}
+
+#materialsInputs .material-info,
+#materialsInputs .material-name,
+#materialsInputs .material-goal {
+    text-align: center;
+}
+
+#materialsInputs .farm-screenshot-block {
+    justify-items: center;
+    text-align: center;
+}
+
+#materialsInputs .farm-screenshot-block label {
+    width: 100%;
+    text-align: center;
+}
+
+#materialsInputs .screenshots-area {
+    width: 100%;
+    justify-items: center;
+}
+
+#materialsInputs .screenshots-grid {
+    width: 100%;
+    justify-content: center;
+}
+
+#materialsInputs .btn-add-screenshot {
+    width: min(100%, 240px);
+    justify-self: center;
+}
+
+#submitDeliveryBtn {
+    width: min(100%, 420px);
+    display: block;
+    margin: 18px auto 0;
+    text-align: center;
+}
+
+@media (max-width: 760px) {
+    .weekly-status-table .farm-type-status-chip {
+        min-width: 96px;
+    }
+
+    #materialsInputs .material-group-header {
+        display: grid;
+        justify-items: center;
+        text-align: center;
+    }
+}
