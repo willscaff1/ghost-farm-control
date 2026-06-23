@@ -2260,6 +2260,7 @@ document.addEventListener('click', (e) => {
 // Variável global para armazenar os dados do status semanal
 let weeklyStatusData = null;
 let currentFilter = 'all';
+let weeklyStatusSearchTerm = '';
 
 function getWeeklyStatusSlotInfo(member) {
     const groups = Array.isArray(member.groups) && member.groups.length > 0
@@ -2376,6 +2377,30 @@ function renderFarmTypeStatusChips(member) {
     return chips.length ? `<div class="farm-type-status-chips">${chips.join('')}</div>` : '';
 }
 
+function normalizeWeeklyStatusSearch(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+}
+
+function weeklyStatusMemberMatchesSearch(member, searchTerm) {
+    if (!searchTerm) return true;
+    const haystack = normalizeWeeklyStatusSearch([
+        member.name,
+        member.original_name,
+        member.capital_nickname,
+        member.passport
+    ].filter(Boolean).join(' '));
+    return haystack.includes(searchTerm);
+}
+
+function setWeeklyStatusSearch(value) {
+    weeklyStatusSearchTerm = value || '';
+    renderWeeklyTable(currentFilter);
+}
+
 // Renderizar tabela com filtro
 function renderWeeklyTable(filter) {
     const tbody = document.getElementById('weeklyTableBody');
@@ -2487,6 +2512,11 @@ function renderWeeklyTable(filter) {
     if (filter !== 'all') {
         allMembers = allMembers.filter(m => m.status === filter);
     }
+
+    const searchTerm = normalizeWeeklyStatusSearch(weeklyStatusSearchTerm);
+    if (searchTerm) {
+        allMembers = allMembers.filter(member => weeklyStatusMemberMatchesSearch(member, searchTerm));
+    }
     
     // Ordenar por nome
     allMembers.sort((a, b) => a.name.localeCompare(b.name));
@@ -2496,7 +2526,7 @@ function renderWeeklyTable(filter) {
     window.__weeklyStatusMembersById = new Map(allMembers.map(member => [String(member.id), member]));
     
     if (allMembers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="loading">😴 Nenhum membro encontrado com este filtro</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="6" class="loading">${searchTerm ? 'Nenhum membro encontrado para esta busca' : '😴 Nenhum membro encontrado com este filtro'}</td></tr>`;
         return;
     }
     

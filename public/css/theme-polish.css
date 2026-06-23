@@ -563,9 +563,52 @@ button.btn,
     text-align: center;
 }
 
+.weekly-status-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 240px;
+    max-width: 360px;
+    flex: 1 1 260px;
+    padding: 0 12px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.62);
+}
+
+.weekly-status-search span {
+    flex: 0 0 auto;
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.weekly-status-search input {
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    border: 0 !important;
+    background: transparent !important;
+    color: #fff;
+    box-shadow: none !important;
+}
+
+.weekly-status-search input::placeholder {
+    color: #94a3b8;
+}
+
+.weekly-status-search:focus-within {
+    border-color: var(--tp-accent);
+    box-shadow: var(--tp-focus-ring);
+}
+
 @media (max-width: 760px) {
     .weekly-status-table .farm-type-status-chip {
         min-width: 96px;
+    }
+
+    .weekly-status-search {
+        flex-basis: 100%;
+        max-width: none;
     }
 
     #materialsInputs .material-group-header {
