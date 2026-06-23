@@ -3286,3 +3286,60 @@ h3 {
         width: 100%;
     }
 }
+
+.approval-modal-split {
+    max-width: 980px;
+}
+
+.approval-farm-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 18px 0;
+}
+
+.approval-farm-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.045);
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.approval-farm-card.general {
+    grid-column: 1 / -1;
+}
+
+.approval-farm-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.approval-farm-head h3 {
+    margin: 0 0 4px;
+    color: #fff;
+    font-size: 17px;
+}
+
+.approval-farm-head span:not(.status-badge) {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+}
+
+.approval-card-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.approval-card-actions .btn {
+    flex: 1;
+}
+
+@media (max-width: 780px) {
+    .approval-farm-grid {
+        grid-template-columns: 1fr;
+    }
+}

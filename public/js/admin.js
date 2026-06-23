@@ -2925,7 +2925,7 @@ async function showDeliveryExtract(member) {
 
         let approvalInfoHtml = '';
         // Só mostrar "Aprovado por" quando a meta estiver toda completa (aprovado e não parcial)
-        if (metaBatida && (submission.status || '').toLowerCase() === 'approved' && !submission.is_partial && submission.approved_by_name) {
+        if ((submission.status || '').toLowerCase() === 'approved' && submission.approved_by_name) {
             approvalInfoHtml = `
                 <div class="approval-info">
                     <div class="approver">✅ Aprovado por: ${submission.approved_by_name}</div>
@@ -3213,6 +3213,227 @@ async function showApprovalModal(member) {
             </div>
         </div>
     `);
+}
+
+function getAdminSelectedWeekRange() {
+    if (selectedWeek && selectedWeek.start && selectedWeek.end) {
+        return { start: selectedWeek.start, end: selectedWeek.end };
+    }
+    if (weeklyStatusData && weeklyStatusData.week && weeklyStatusData.week.start && weeklyStatusData.week.end) {
+        return weeklyStatusData.week;
+    }
+    return typeof getCurrentWeek === 'function' ? getCurrentWeek() : null;
+}
+
+function getAdminFarmTypeLabel(farmType) {
+    const type = normalizeEditFarmType(farmType);
+    if (type === 'weapons') return 'Armas';
+    if (type === 'general') return 'Geral';
+    return 'Drogas';
+}
+
+function getSubmissionFarmType(submission) {
+    const firstItem = (submission.items || [])[0];
+    return normalizeEditFarmType(firstItem?.farm_type || 'drugs');
+}
+
+async function loadMemberWeekSubmissions(member) {
+    const week = getAdminSelectedWeekRange();
+    if (!member?.id || !week?.start || !week?.end) return [];
+
+    const response = await fetch(`/api/admin/week-submissions?userId=${member.id}&week_start=${encodeURIComponent(week.start)}&week_end=${encodeURIComponent(week.end)}&_=${Date.now()}`, {
+        credentials: 'same-origin'
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.success && Array.isArray(data.submissions) ? data.submissions : [];
+}
+
+function renderApprovalFarmCard(submission) {
+    const farmType = getSubmissionFarmType(submission);
+    const label = getAdminFarmTypeLabel(farmType);
+    const status = (submission.status || '').toLowerCase();
+    const isPending = status === 'pending';
+    const isApproved = status === 'approved';
+    const isRejected = status === 'rejected' || (status === 'not_delivered' && submission.approved_by_name);
+
+    const materialsHtml = (submission.items || []).length > 0
+        ? submission.items.map(item => `
+            <div class="extract-item">
+                <span class="item-icon">${item.material_icon || '📦'}</span>
+                <span class="item-name">${escapeHtml(item.material_name || 'Material')}</span>
+                <span class="item-amount">${formatNumber(item.amount)}</span>
+            </div>
+        `).join('')
+        : '<p class="no-items">Sem itens registrados</p>';
+
+    const screenshotsHtml = (submission.screenshots || []).length > 0
+        ? `<div class="screenshots-gallery">${submission.screenshots.map((s, idx) => `
+            <img src="${escapeHtml(s.screenshot_url)}" class="gallery-screenshot" onclick="openModal('${escapeHtml(s.screenshot_url)}')" alt="Print ${idx + 1}">
+        `).join('')}</div>`
+        : (submission.screenshot_url
+            ? `<img src="${escapeHtml(submission.screenshot_url)}" class="extract-screenshot" onclick="openModal('${escapeHtml(submission.screenshot_url)}')">`
+            : '<p class="no-screenshot">Sem prints</p>');
+
+    const approvalInfo = isApproved && submission.approved_by_name
+        ? `<div class="approval-info">
+            <div class="approver">Aprovado por: ${escapeHtml(submission.approved_by_name)}</div>
+            ${submission.approved_at ? `<div style="color: rgba(255,255,255,0.6); font-size: 12px;">${new Date(submission.approved_at).toLocaleString('pt-BR')}</div>` : ''}
+            ${submission.approval_note ? `<div class="approval-note">${escapeHtml(submission.approval_note)}</div>` : ''}
+        </div>`
+        : '';
+
+    const rejectedInfo = isRejected && submission.approved_by_name
+        ? `<div class="rejection-info">
+            <div class="rejector">Rejeitado por: <strong>${escapeHtml(submission.approved_by_name)}</strong></div>
+            ${submission.approved_at ? `<div style="color: rgba(255,255,255,0.6); font-size: 12px;">${new Date(submission.approved_at).toLocaleString('pt-BR')}</div>` : ''}
+            ${submission.approval_note ? `<div class="rejection-note">Motivo: ${escapeHtml(submission.approval_note)}</div>` : ''}
+        </div>`
+        : '';
+
+    return `
+        <section class="approval-farm-card ${farmType} ${status}" data-delivery-id="${submission.id}" data-farm-type="${farmType}">
+            <div class="approval-farm-head">
+                <div>
+                    <h3>Meta de ${label}</h3>
+                    <span>Envio #${submission.id} - ${new Date(submission.created_at || submission.delivered_at).toLocaleString('pt-BR')}</span>
+                </div>
+                <span class="status-badge ${isPending ? 'pending' : isApproved ? 'completed' : isRejected ? 'missing' : 'partial'}">
+                    ${isPending ? 'Aguardando' : isApproved ? 'Aprovado' : isRejected ? 'Recusado' : submission.status}
+                </span>
+            </div>
+            <div class="extract-items">${materialsHtml}</div>
+            <div class="extract-screenshot-container">
+                <h3>Prints (${(submission.screenshots || []).length || (submission.screenshot_url ? 1 : 0)})</h3>
+                ${screenshotsHtml}
+            </div>
+            ${approvalInfo}
+            ${rejectedInfo}
+            ${isPending ? `
+                <div class="approval-card-actions">
+                    <button class="btn btn-success" onclick="approveApprovalSubmission(${submission.id}, '${farmType}')">Aprovar ${label}</button>
+                    <button class="btn btn-danger" onclick="rejectApprovalSubmission(${submission.id}, '${farmType}')">Rejeitar ${label}</button>
+                </div>
+            ` : ''}
+        </section>
+    `;
+}
+
+// Versao agrupada: aprova Drogas e Armas no mesmo modal quando existirem os dois envios.
+async function showApprovalModal(member) {
+    const submissions = await loadMemberWeekSubmissions(member);
+    const farmSubmissions = submissions
+        .filter(sub => (sub.items || []).length > 0 || sub.payment_type !== 'dirty_money')
+        .filter(sub => ['pending', 'approved', 'rejected', 'not_delivered'].includes((sub.status || '').toLowerCase()))
+        .sort((a, b) => {
+            const order = { drugs: 0, weapons: 1, general: 2 };
+            return (order[getSubmissionFarmType(a)] ?? 9) - (order[getSubmissionFarmType(b)] ?? 9);
+        });
+
+    if (farmSubmissions.length === 0) {
+        member = await hydrateWeeklyMemberDetails(member);
+        return showActionModal(`
+            <div class="approval-modal">
+                <div class="extract-header">
+                    <h2>Aprovar Farm</h2>
+                    <span class="extract-member">${escapeHtml(member.name)}</span>
+                </div>
+                <p class="no-items">Nenhum envio de farm encontrado para esta semana.</p>
+                <div class="modal-actions approval-actions">
+                    <button class="btn btn-secondary" onclick="closeActionModal()">Fechar</button>
+                </div>
+            </div>
+        `);
+    }
+
+    window.currentApprovalFarmSubmissions = farmSubmissions;
+    const pendingSubmissions = farmSubmissions.filter(sub => (sub.status || '').toLowerCase() === 'pending');
+    const pendingTypes = pendingSubmissions.map(getSubmissionFarmType);
+    const canApproveBoth = pendingSubmissions.length > 1 && pendingTypes.includes('drugs') && pendingTypes.includes('weapons');
+    const lastRejectionHtml = renderLastRejectionNotice(member, false);
+
+    showActionModal(`
+        <div class="approval-modal approval-modal-split">
+            <div class="extract-header">
+                <h2>Aprovar Farms da Semana</h2>
+                <span class="extract-member">${escapeHtml(member.name)}</span>
+            </div>
+            <div class="approval-farm-grid">
+                ${farmSubmissions.map(renderApprovalFarmCard).join('')}
+            </div>
+            ${lastRejectionHtml}
+            <div class="approval-note-container">
+                <h3>Observacao</h3>
+                <textarea id="approvalNoteInput" class="approval-note-input" placeholder="Observacao para aprovacao ou motivo obrigatorio para rejeicao..." rows="3"></textarea>
+            </div>
+            <div class="modal-actions approval-actions">
+                ${canApproveBoth ? `<button class="btn btn-success btn-large" onclick="approveAllPendingApprovalSubmissions()">Aprovar Drogas e Armas</button>` : ''}
+                <button class="btn btn-secondary" onclick="closeActionModal()">Cancelar</button>
+            </div>
+        </div>
+    `);
+}
+
+function approveApprovalSubmission(deliveryId, farmType) {
+    const note = document.getElementById('approvalNoteInput')?.value.trim() || '';
+    showConfirmationModal(
+        'Confirmar aprovacao',
+        `Aprovar meta de <strong>${getAdminFarmTypeLabel(farmType)}</strong>?`,
+        'success',
+        () => approveApprovalDeliveries([deliveryId], note)
+    );
+}
+
+function approveAllPendingApprovalSubmissions() {
+    const pendingIds = (window.currentApprovalFarmSubmissions || [])
+        .filter(sub => (sub.status || '').toLowerCase() === 'pending')
+        .map(sub => sub.id);
+    const note = document.getElementById('approvalNoteInput')?.value.trim() || '';
+    showConfirmationModal(
+        'Confirmar aprovacao',
+        'Aprovar as metas pendentes de <strong>Drogas e Armas</strong>?',
+        'success',
+        () => approveApprovalDeliveries(pendingIds, note)
+    );
+}
+
+async function approveApprovalDeliveries(deliveryIds, approvalNote) {
+    closeConfirmationModal();
+    try {
+        for (const deliveryId of deliveryIds) {
+            const response = await fetch(`/api/admin/deliveries/${deliveryId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ approval_note: approvalNote || null })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || `Erro ao aprovar envio #${deliveryId}`);
+            }
+        }
+        weekDataCache.clear();
+        closeActionModal();
+        showNotification(deliveryIds.length > 1 ? 'Farms aprovados com sucesso!' : 'Farm aprovado com sucesso!', 'success');
+        setTimeout(() => location.reload(), 400);
+    } catch (error) {
+        showNotification(error.message || 'Erro ao aprovar farm', 'error');
+    }
+}
+
+function rejectApprovalSubmission(deliveryId, farmType) {
+    const noteInput = document.getElementById('approvalNoteInput');
+    const rejectionNote = noteInput ? noteInput.value.trim() : '';
+    if (!rejectionNote) {
+        showNotification('Informe o motivo da reprovacao.', 'warning');
+        if (noteInput) noteInput.focus();
+        return;
+    }
+    showConfirmationModal(
+        'Confirmar rejeicao',
+        `Rejeitar meta de <strong>${getAdminFarmTypeLabel(farmType)}</strong>?<br><br><small style="color: #e74c3c;">O motivo sera mostrado ao membro.</small>`,
+        'danger',
+        () => confirmRejectDeliveryFromModal(deliveryId, rejectionNote)
+    );
 }
 
 // Atualizar preview do dinheiro sujo no modal de aprovação
