@@ -2804,7 +2804,7 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
             LEFT JOIN users u ON d.approved_by = u.id
             WHERE d.user_id = ?
             ORDER BY d.week_start DESC, d.created_at DESC
-            LIMIT 10
+            LIMIT 40
         `, [memberId]);
         
         // Para cada delivery, buscar os itens e farms extras

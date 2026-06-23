@@ -512,6 +512,57 @@ button.btn,
     text-align: center;
 }
 
+.extract-farm-deliveries {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    width: 100%;
+}
+
+.extract-farm-subcard {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.extract-farm-subcard.empty {
+    display: flex;
+    justify-content: center;
+}
+
+.extract-farm-subhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.extract-farm-subtitle {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.extract-farm-subcard .extract-farm-status {
+    flex: 0 0 auto;
+}
+
+.extract-farm-subcard .extract-farm-materials {
+    justify-content: center;
+    text-align: center;
+}
+
+.extract-farm-approved-by {
+    margin-top: 8px;
+    color: #66f0a3;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+
 @media (max-width: 760px) {
     .weekly-status-table .farm-type-status-chip {
         min-width: 96px;

@@ -1370,7 +1370,7 @@ async function openMemberExtract(memberId) {
             const weekStartNorm = week.week_start.split('T')[0];
             const weekEndNorm = week.week_end.split('T')[0];
             
-            const delivery = data.deliveries.find(d => {
+            const deliveries = data.deliveries.filter(d => {
                 const dStartNorm = String(d.week_start).split('T')[0];
                 const dEndNorm = String(d.week_end).split('T')[0];
                 return dStartNorm === weekStartNorm && dEndNorm === weekEndNorm;
@@ -1384,14 +1384,20 @@ async function openMemberExtract(memberId) {
             
             if (justification) {
                 return { ...justification, type: 'justification' };
-            } else if (delivery) {
-                return { ...delivery, type: 'delivery' };
+            } else if (deliveries.length > 0) {
+                return {
+                    ...week,
+                    type: 'delivery',
+                    status: deliveries.some(d => d.status === 'approved') ? 'approved' : deliveries[0].status,
+                    deliveries
+                };
             } else {
                 return {
                     ...week,
                     type: 'delivery',
                     status: 'not_delivered',
-                    items: []
+                    items: [],
+                    deliveries: []
                 };
             }
         });
@@ -1429,9 +1435,8 @@ async function openMemberExtract(memberId) {
                     statusText = '❌ Não Entregou';
                 }
                 
-                const materials = record.items?.map(item => 
-                    `<span class="extract-farm-material">${item.material_icon || '📦'} ${item.amount}</span>`
-                ).join('') || '';
+                const recordDeliveries = record.deliveries || (record.id ? [record] : []);
+                const deliveryCardsHtml = renderExtractDeliveryCards(recordDeliveries);
                 
                 // Verificar se deve mostrar botão ADV
                 const canHaveAdv = record.status === 'rejected' || 
@@ -1464,8 +1469,9 @@ async function openMemberExtract(memberId) {
                 
                 // Botão de editar entrega (qualquer admin pode editar)
                 const canEditDeliveries = currentUser && currentUser.role && currentUser.role !== 'member';
-                const editButton = canEditDeliveries && record.id 
-                    ? `<button class="btn-edit-delivery" onclick="openEditDeliveryModal(${record.id}, ${data.member.id})" style="background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px;">✏️ Editar</button>`
+                const firstDelivery = recordDeliveries[0];
+                const editButton = canEditDeliveries && firstDelivery?.id
+                    ? `<button class="btn-edit-delivery" onclick="openEditDeliveryModal(${firstDelivery.id}, ${data.member.id})" style="background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px;">✏️ Editar</button>`
                     : '';
                 
                 // Botão para criar entrega (quando não existe)
@@ -1475,10 +1481,11 @@ async function openMemberExtract(memberId) {
                 
                 // Verificar se tem farms extras
                 let extraFarmsHtml = '';
-                if (record.extraFarms && record.extraFarms.length > 0) {
+                const extraFarms = recordDeliveries.flatMap(delivery => delivery.extraFarms || []);
+                if (extraFarms.length > 0) {
                     extraFarmsHtml = `
                         <div class="extract-extra-farms">
-                            ${record.extraFarms.map(extra => {
+                            ${extraFarms.map(extra => {
                                 let extraStatusClass = extra.status;
                                 let extraStatusText = extra.status === 'approved' ? '✅ Aprovado' : 
                                                       extra.status === 'rejected' ? '❌ Rejeitado' : '⏳ Pendente';
@@ -1508,8 +1515,8 @@ async function openMemberExtract(memberId) {
                             <div class="extract-farm-week">${weekLabel}</div>
                             <span class="extract-farm-status ${statusClass}">${statusText}</span>
                             <div class="extract-farm-section">
-                                <span class="extract-farm-section-label">📦 Meta:</span>
-                                <div class="extract-farm-materials">${materials || '<span class="extract-farm-material">-</span>'}</div>
+                                <span class="extract-farm-section-label">📦 Metas:</span>
+                                <div class="extract-farm-deliveries">${deliveryCardsHtml}</div>
                             </div>
                             ${extraFarmsHtml}
                         </div>
@@ -1657,8 +1664,8 @@ async function openPaymentHistory(memberId) {
             const weekStartNorm = week.week_start.split('T')[0];
             const weekEndNorm = week.week_end.split('T')[0];
             
-            // Verificar se existe delivery para esta semana
-            const delivery = data.deliveries.find(d => {
+            // Verificar deliveries desta semana
+            const deliveries = data.deliveries.filter(d => {
                 const dStartNorm = String(d.week_start).split('T')[0];
                 const dEndNorm = String(d.week_end).split('T')[0];
                 return dStartNorm === weekStartNorm && dEndNorm === weekEndNorm;
@@ -1673,15 +1680,21 @@ async function openPaymentHistory(memberId) {
             
             if (justification) {
                 return { ...justification, type: 'justification' };
-            } else if (delivery) {
-                return { ...delivery, type: 'delivery' };
+            } else if (deliveries.length > 0) {
+                return {
+                    ...week,
+                    type: 'delivery',
+                    status: deliveries.some(d => d.status === 'approved') ? 'approved' : deliveries[0].status,
+                    deliveries
+                };
             } else {
                 // Semana sem entrega - criar registro virtual
                 return {
                     ...week,
                     type: 'delivery',
                     status: 'not_delivered',
-                    items: []
+                    items: [],
+                    deliveries: []
                 };
             }
         });
@@ -1723,9 +1736,8 @@ async function openPaymentHistory(memberId) {
                     statusText = '❌ Não Entregou';
                 }
                 
-                const materials = record.items?.map(item => 
-                    `<span class="extract-farm-material">${item.material_icon || '📦'} ${item.amount}</span>`
-                ).join('') || '';
+                const recordDeliveries = record.deliveries || (record.id ? [record] : []);
+                const deliveryCardsHtml = renderExtractDeliveryCards(recordDeliveries);
                 
                 // Verificar se deve mostrar botão ADV
                 // Incluir in_progress/pending que já passaram da semana
@@ -1768,7 +1780,7 @@ async function openPaymentHistory(memberId) {
                         <div class="extract-farm-left">
                             <div class="extract-farm-week">${weekLabel}</div>
                             <span class="extract-farm-status ${statusClass}">${statusText}</span>
-                            <div class="extract-farm-materials">${materials || '<span class="extract-farm-material">-</span>'}</div>
+                            <div class="extract-farm-deliveries">${deliveryCardsHtml}</div>
                         </div>
                         ${advButton ? `<div class="extract-farm-actions">${advButton}</div>` : ''}
                     </div>
@@ -1915,7 +1927,7 @@ async function openPaymentHistory(memberId) {
             const weekStartNorm = week.week_start.split('T')[0];
             const weekEndNorm = week.week_end.split('T')[0];
             
-            const delivery = data.deliveries.find(d => {
+            const deliveries = data.deliveries.filter(d => {
                 const dStartNorm = String(d.week_start).split('T')[0];
                 const dEndNorm = String(d.week_end).split('T')[0];
                 return dStartNorm === weekStartNorm && dEndNorm === weekEndNorm;
@@ -1929,14 +1941,20 @@ async function openPaymentHistory(memberId) {
             
             if (justification) {
                 return { ...justification, type: 'justification' };
-            } else if (delivery) {
-                return { ...delivery, type: 'delivery' };
+            } else if (deliveries.length > 0) {
+                return {
+                    ...week,
+                    type: 'delivery',
+                    status: deliveries.some(d => d.status === 'approved') ? 'approved' : deliveries[0].status,
+                    deliveries
+                };
             } else {
                 return {
                     ...week,
                     type: 'delivery',
                     status: 'not_delivered',
-                    items: []
+                    items: [],
+                    deliveries: []
                 };
             }
         });
@@ -2006,9 +2024,8 @@ async function openPaymentHistory(memberId) {
                     return wStartNorm === recordStartNorm && wEndNorm === recordEndNorm;
                 });
                 
-                const materials = record.items?.map(item => 
-                    `<span class="payment-history-material">${item.material_icon || '📦'} ${item.amount}</span>`
-                ).join('') || '<span class="payment-history-material">-</span>';
+                const recordDeliveries = record.deliveries || (record.id ? [record] : []);
+                const materials = renderExtractDeliveryCards(recordDeliveries);
                 
                 // Só mostrar botão se a semana passou, não está pago e não tem ADV
                 const canApplyAdv = isWeekPassed && showAdvBtn && !hasAdv;
@@ -2022,7 +2039,7 @@ async function openPaymentHistory(memberId) {
                         <div class="payment-history-item-left">
                             <div class="payment-history-week">${weekLabel}</div>
                             <span class="payment-history-status ${statusClass}">${statusText}</span>
-                            <div class="payment-history-materials">${materials}</div>
+                            <div class="payment-history-materials extract-farm-deliveries">${materials}</div>
                         </div>
                         <div class="payment-history-item-actions">
                             ${advButton}
@@ -2080,6 +2097,58 @@ async function applyAdvFromHistory(member, weekStart, weekEnd) {
         console.error('Erro ao aplicar advertência:', error);
         alert(`❌ Erro: ${error.message}`);
     }
+}
+
+function getExtractFarmType(delivery) {
+    const firstItem = (delivery.items || [])[0];
+    return normalizeEditFarmType(firstItem?.farm_type || 'drugs');
+}
+
+function getExtractFarmTypeLabel(delivery) {
+    if ((delivery.payment_type || '').toLowerCase() === 'dirty_money') return 'Dinheiro Sujo';
+    const type = getExtractFarmType(delivery);
+    if (type === 'weapons') return 'Armas';
+    if (type === 'general') return 'Geral';
+    return 'Drogas';
+}
+
+function renderExtractDeliveryCards(deliveries = []) {
+    if (!deliveries.length) {
+        return '<div class="extract-farm-subcard empty"><span class="extract-farm-material">-</span></div>';
+    }
+
+    const statusOrder = { approved: 0, pending: 1, in_progress: 2, rejected: 3, not_delivered: 4 };
+    const typeOrder = { drugs: 0, weapons: 1, general: 2 };
+    const sortedDeliveries = [...deliveries].sort((a, b) => {
+        const statusDiff = (statusOrder[(a.status || '').toLowerCase()] ?? 9) - (statusOrder[(b.status || '').toLowerCase()] ?? 9);
+        if (statusDiff !== 0) return statusDiff;
+        const typeDiff = (typeOrder[getExtractFarmType(a)] ?? 9) - (typeOrder[getExtractFarmType(b)] ?? 9);
+        if (typeDiff !== 0) return typeDiff;
+        return new Date(b.created_at || b.delivered_at || b.week_start) - new Date(a.created_at || a.delivered_at || a.week_start);
+    });
+
+    return sortedDeliveries.map(delivery => {
+        const farmLabel = getExtractFarmTypeLabel(delivery);
+        const statusClass = delivery.status || 'not_delivered';
+        const statusText = getExtractStatusText(delivery.status);
+        const materials = (delivery.items || []).map(item =>
+            `<span class="extract-farm-material">${item.material_icon || '📦'} ${escapeHtml(item.material_name || '')}: ${formatNumber(item.amount || 0)}</span>`
+        ).join('');
+        const approvedBy = delivery.status === 'approved' && delivery.approved_by_name
+            ? `<div class="extract-farm-approved-by">Aprovado por: ${escapeHtml(delivery.approved_by_name)}</div>`
+            : '';
+
+        return `
+            <div class="extract-farm-subcard ${statusClass}">
+                <div class="extract-farm-subhead">
+                    <span class="extract-farm-subtitle">Farm de ${farmLabel}</span>
+                    <span class="extract-farm-status ${statusClass}">${statusText}</span>
+                </div>
+                <div class="extract-farm-materials">${materials || '<span class="extract-farm-material">-</span>'}</div>
+                ${approvedBy}
+            </div>
+        `;
+    }).join('');
 }
 
 // Fechar modal ao clicar fora
