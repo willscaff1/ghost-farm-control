@@ -2340,6 +2340,7 @@ document.addEventListener('click', (e) => {
 let weeklyStatusData = null;
 let currentFilter = 'all';
 let weeklyStatusSearchTerm = '';
+let weeklyStatusSearchUserEditing = false;
 let weeklyStatusSortState = { key: 'member', direction: 'asc' };
 const WEEKLY_STATUS_FILTERS = new Set(['all', 'completed', 'partial', 'pending', 'missing', 'justified']);
 const WEEKLY_STATUS_SORT_KEYS = new Set(['passport', 'slot', 'member', 'role', 'status']);
@@ -2538,6 +2539,7 @@ function setWeeklyStatusSort(key) {
     if (!WEEKLY_STATUS_SORT_KEYS.has(key)) return;
 
     weeklyStatusSearchTerm = '';
+    weeklyStatusSearchUserEditing = false;
     const searchInput = document.getElementById('weeklyStatusSearch');
     if (searchInput) searchInput.value = '';
 
@@ -2556,14 +2558,61 @@ function setWeeklyStatusSearch(value) {
     renderWeeklyTable(currentFilter);
 }
 
-function resetWeeklyStatusSearchField() {
+function handleWeeklyStatusSearchInput(event) {
+    const input = event.currentTarget;
+    if (!weeklyStatusSearchUserEditing) {
+        input.value = '';
+        weeklyStatusSearchTerm = '';
+        renderWeeklyTable(currentFilter);
+        return;
+    }
+
+    setWeeklyStatusSearch(input.value);
+}
+
+function clearRestoredWeeklyStatusSearch(input, shouldRender = false) {
     weeklyStatusSearchTerm = '';
+    if (input) input.value = '';
+    if (shouldRender && weeklyStatusData) renderWeeklyTable(currentFilter);
+}
+
+function resetWeeklyStatusSearchField() {
+    weeklyStatusSearchUserEditing = false;
     const input = document.getElementById('weeklyStatusSearch');
     if (!input) return;
-    input.value = '';
-    input.setAttribute('autocomplete', 'new-password');
+    clearRestoredWeeklyStatusSearch(input);
+    input.removeAttribute('name');
+    input.setAttribute('autocomplete', 'off');
     input.setAttribute('readonly', 'readonly');
-    input.addEventListener('focus', () => input.removeAttribute('readonly'), { once: true });
+    input.setAttribute('aria-autocomplete', 'none');
+
+    if (input.dataset.weeklySearchReady !== '1') {
+        const unlockSearchTyping = () => {
+            weeklyStatusSearchUserEditing = true;
+            input.removeAttribute('readonly');
+        };
+
+        input.addEventListener('focus', () => {
+            input.removeAttribute('readonly');
+            if (!weeklyStatusSearchUserEditing) {
+                setTimeout(() => clearRestoredWeeklyStatusSearch(input, true), 0);
+            }
+        });
+        input.addEventListener('keydown', unlockSearchTyping);
+        input.addEventListener('beforeinput', unlockSearchTyping);
+        input.addEventListener('paste', unlockSearchTyping);
+        input.addEventListener('input', handleWeeklyStatusSearchInput);
+        input.addEventListener('change', handleWeeklyStatusSearchInput);
+        input.dataset.weeklySearchReady = '1';
+    }
+
+    [0, 100, 300, 800, 1500, 3000].forEach(delay => {
+        setTimeout(() => {
+            if (!weeklyStatusSearchUserEditing && input.value) {
+                clearRestoredWeeklyStatusSearch(input, true);
+            }
+        }, delay);
+    });
 }
 
 if (document.readyState === 'loading') {
