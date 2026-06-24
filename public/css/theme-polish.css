@@ -596,6 +596,14 @@ button.btn,
     color: #94a3b8;
 }
 
+.weekly-status-search input:-webkit-autofill,
+.weekly-status-search input:-webkit-autofill:hover,
+.weekly-status-search input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #fff;
+    box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.92) inset !important;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
 .weekly-status-search:focus-within {
     border-color: var(--tp-accent);
     box-shadow: var(--tp-focus-ring);

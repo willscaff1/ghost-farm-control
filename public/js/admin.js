@@ -2556,6 +2556,22 @@ function setWeeklyStatusSearch(value) {
     renderWeeklyTable(currentFilter);
 }
 
+function resetWeeklyStatusSearchField() {
+    weeklyStatusSearchTerm = '';
+    const input = document.getElementById('weeklyStatusSearch');
+    if (!input) return;
+    input.value = '';
+    input.setAttribute('autocomplete', 'new-password');
+    input.setAttribute('readonly', 'readonly');
+    input.addEventListener('focus', () => input.removeAttribute('readonly'), { once: true });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', resetWeeklyStatusSearchField);
+} else {
+    resetWeeklyStatusSearchField();
+}
+
 function isWeeklyStatusManager(member) {
     return getWeeklyStatusSlotInfo(member).type === 'manager';
 }

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
     <link rel="stylesheet" href="css/admin-sidebar.css?v=20260622farmedit1"><link rel="stylesheet" href="css/tables-clean.css?v=20260618groups1">
-    <link rel="stylesheet" href="css/theme-polish.css?v=20260623weeklysplit1">
+    <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch1">
     
     
     
@@ -334,7 +334,7 @@
                         <h3>🔎 Filtrar Status da Semana</h3>
                         <div class="weekly-status-search">
                             <span>🔍</span>
-                            <input type="search" id="weeklyStatusSearch" placeholder="Buscar nome ou passaporte" oninput="setWeeklyStatusSearch(this.value)" autocomplete="off">
+                            <input type="text" id="weeklyStatusSearch" name="weekly_status_search_no_history" placeholder="Buscar nome ou passaporte" oninput="setWeeklyStatusSearch(this.value)" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-form-type="other" readonly onfocus="this.removeAttribute('readonly')">
                         </div>
                         <div class="weekly-table-filters">
                             <button class="filter-btn active" data-filter="all" onclick="filterWeeklyTable('all')">Todos</button>
@@ -1760,7 +1760,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260623weeklysortfix4"></script>
+    <script src="js/admin.js?v=20260624weeklysearch1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();
