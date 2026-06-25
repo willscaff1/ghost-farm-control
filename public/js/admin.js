@@ -12750,11 +12750,11 @@ function getWeaponFreebieType(item) {
     if (compact.includes('mtar')) return 'MTAR';
     if (compact.includes('ia2')) return 'IA2';
     if (tokens.includes('ia') || name === 'ia') return 'IA';
-    return '';
+    return 'Arma';
 }
 
 function isWeaponFreebieStockItem(item) {
-    return !!getWeaponFreebieType(item);
+    return item && item.active !== 0 && item.active !== false;
 }
 
 function updateWeaponFreebieSelectedCount() {
@@ -12843,7 +12843,7 @@ function collectWeaponFreebieAssignments() {
         const quantity = parseInt(quantityInput?.value, 10);
 
         if (!stockId) {
-            errors.push(`${memberName}: selecione IA2 ou MTAR`);
+            errors.push(`${memberName}: selecione uma arma`);
             return;
         }
 
@@ -12872,7 +12872,7 @@ function collectWeaponFreebieAssignments() {
 
 function getWeaponFreebieStockButtons(memberId, stockItems, selectedStock) {
     if (stockItems.length === 0) {
-        return '<div class="loading">Cadastre IA2 ou MTAR no estoque do Extrato de Vendas</div>';
+        return '<div class="loading">Cadastre armas ativas em Armas e Valores</div>';
     }
 
     return stockItems.map(item => {
@@ -12923,7 +12923,7 @@ function renderWeaponFreebieOptions(data) {
                 </div>
             `;
         })
-        .join('') || '<div class="loading">Cadastre IA2 ou MTAR no estoque do Extrato de Vendas</div>';
+        .join('') || '<div class="loading">Cadastre armas ativas em Armas e Valores</div>';
 
     memberChecklist.innerHTML = (data.members || [])
         .map(member => {

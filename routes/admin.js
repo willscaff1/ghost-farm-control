@@ -6571,7 +6571,7 @@ router.get('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (re
             FROM weapon_stock
             WHERE active = 1
             ORDER BY weapon_name ASC
-        `)).filter(item => isFamilyFreeWeapon(item.weapon_name));
+        `));
 
         const entries = await getAll(`
             SELECT wf.*, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) AS user_name, u.passport AS user_passport, COALESCE(NULLIF(TRIM(c.capital_nickname), ''), c.name) AS created_by_name
@@ -6687,13 +6687,13 @@ router.post('/weapon-freebies', requireAdmin, requireWeaponSalesAccess, async (r
         const invalidStocks = [];
         for (const stockId of stockIds) {
             const stock = stocksById.get(stockId);
-            if (!stock || stock.active === 0 || stock.active === false || !isFamilyFreeWeapon(stock.weapon_name)) {
+            if (!stock || stock.active === 0 || stock.active === false) {
                 invalidStocks.push(stockId);
             }
         }
 
         if (invalidStocks.length > 0) {
-            return res.status(400).json({ error: 'Uma ou mais armas selecionadas nao sao IA2/MTAR ativas do estoque' });
+            return res.status(400).json({ error: 'Uma ou mais armas selecionadas nao estao ativas no estoque' });
         }
 
         const quantityByStock = new Map();
