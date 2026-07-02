@@ -209,10 +209,38 @@ const getWeekWithOffset = (offset = 0) => {
 
 // Configuração do multer para upload de imagens (memória para produção)
 const storage = multer.memoryStorage();
+const parsePositiveInt = (value, fallback) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+const MAX_SCREENSHOT_FILES = parsePositiveInt(process.env.MAX_SCREENSHOT_FILES, 4);
+const MAX_SCREENSHOT_FILE_BYTES = parsePositiveInt(process.env.MAX_SCREENSHOT_FILE_BYTES, 1536 * 1024);
+const MAX_SCREENSHOT_TOTAL_BYTES = parsePositiveInt(process.env.MAX_SCREENSHOT_TOTAL_BYTES, 4 * 1024 * 1024);
+
+const validateScreenshotPayload = (files = []) => {
+    if (!Array.isArray(files) || files.length === 0) {
+        return { ok: true };
+    }
+
+    const totalBytes = files.reduce((sum, file) => sum + (file.size || file.buffer?.length || 0), 0);
+    if (totalBytes > MAX_SCREENSHOT_TOTAL_BYTES) {
+        return {
+            ok: false,
+            error: `Prints muito grandes. Envie no maximo ${Math.floor(MAX_SCREENSHOT_TOTAL_BYTES / 1024 / 1024)}MB por envio.`
+        };
+    }
+
+    return { ok: true };
+};
+
+const fileToDataUrl = (file) => {
+    const mimeType = file.mimetype || 'image/jpeg';
+    return `data:${mimeType};base64,${file.buffer.toString('base64')}`;
+};
 
 const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB por arquivo
+    limits: { fileSize: MAX_SCREENSHOT_FILE_BYTES },
     fileFilter: (req, file, cb) => {
         const allowedTypes = /jpeg|jpg|png|gif|webp/;
         const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -223,7 +251,7 @@ const upload = multer({
         }
         cb(new Error('Apenas imagens são permitidas'));
     }
-}).array('screenshots', 10); // Até 10 imagens
+}).array('screenshots', MAX_SCREENSHOT_FILES);
 
 // Middleware de autenticação
 const requireAuth = (req, res, next) => {
@@ -1052,6 +1080,11 @@ router.post('/', requireAuth, (req, res) => {
         }
 
         try {
+            const screenshotValidation = validateScreenshotPayload(req.files);
+            if (!screenshotValidation.ok) {
+                return res.status(400).json({ error: screenshotValidation.error });
+            }
+
             const { materials, description, week_offset, payment_type, payment_type_id, dirty_money_amount } = req.body;
             const userId = req.session.user.id;
             const isManager = await isManagerUser(userId, req.session.user);
@@ -1220,13 +1253,9 @@ router.post('/', requireAuth, (req, res) => {
                 const extraFarmId = extraResult.lastID;
 
                 for (const file of req.files) {
-                    const base64 = file.buffer.toString('base64');
-                    const mimeType = file.mimetype;
-                    const dataUrl = `data:${mimeType};base64,${base64}`;
-
                     await runQuery(
                         'INSERT INTO extra_farm_screenshots (extra_farm_id, screenshot_url) VALUES (?, ?)',
-                        [extraFarmId, dataUrl]
+                        [extraFarmId, fileToDataUrl(file)]
                     );
                 }
 
@@ -1283,15 +1312,11 @@ router.post('/', requireAuth, (req, res) => {
                 }
             }
 
-            const firstFile = req.files[0];
-            const firstBase64 = firstFile.buffer.toString('base64');
-            const firstMimeType = firstFile.mimetype;
-            const screenshot_url = `data:${firstMimeType};base64,${firstBase64}`;
             const finalDescription = isPastWeek ? '[META ATRASADA] ' + (description || '') : (description || '');
 
             const result = await runQuery(
                 'INSERT INTO deliveries (user_id, week_start, week_end, description, screenshot_url, is_partial, status, payment_type, payment_type_id, dirty_money_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [userId, week.start, week.end, finalDescription, screenshot_url, isComplete ? 0 : 1, 'pending', paymentType, paymentTypeId, dirtyMoneyAmount]
+                [userId, week.start, week.end, finalDescription, null, isComplete ? 0 : 1, 'pending', paymentType, paymentTypeId, dirtyMoneyAmount]
             );
 
             const deliveryId = result.lastID;
@@ -1309,14 +1334,10 @@ router.post('/', requireAuth, (req, res) => {
             }
 
             for (const file of req.files) {
-                const base64 = file.buffer.toString('base64');
-                const mimeType = file.mimetype;
-                const dataUrl = `data:${mimeType};base64,${base64}`;
-
                 try {
                     await runQuery(
                         'INSERT INTO delivery_screenshots (delivery_id, screenshot_url) VALUES (?, ?)',
-                        [deliveryId, dataUrl]
+                        [deliveryId, fileToDataUrl(file)]
                     );
                 } catch (screenshotError) {
                     console.error('⚠️ Erro ao salvar screenshot:', screenshotError.message);
@@ -1361,6 +1382,11 @@ router.post('/pay-past-week', requireAuth, (req, res) => {
         }
         
         try {
+            const screenshotValidation = validateScreenshotPayload(req.files);
+            if (!screenshotValidation.ok) {
+                return res.status(400).json({ error: screenshotValidation.error });
+            }
+
             const { materials, week_start, week_end, payment_type, payment_type_id, dirty_money_amount } = req.body;
             const userId = req.session.user.id;
             const isManager = await isManagerUser(userId, req.session.user);
@@ -1475,12 +1501,9 @@ router.post('/pay-past-week', requireAuth, (req, res) => {
             // Salvar screenshots
             if (req.files && req.files.length > 0) {
                 for (const file of req.files) {
-                    const base64 = file.buffer.toString('base64');
-                    const mimeType = file.mimetype || 'image/jpeg';
-                    const screenshotUrl = `data:${mimeType};base64,${base64}`;
                     await runQuery(
                         'INSERT INTO delivery_screenshots (delivery_id, screenshot_url) VALUES (?, ?)',
-                        [deliveryId, screenshotUrl]
+                        [deliveryId, fileToDataUrl(file)]
                     );
                 }
             }
