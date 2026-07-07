@@ -347,6 +347,7 @@ function showTab(tabId) {
         case 'pending': loadPendingDeliveries(); break;
         case 'password-resets': loadPasswordResets(); break;
         case 'members': loadMembers(); break; // Sempre recarregar para pegar grupos atualizados
+        case 'attendance': loadAttendance(); break;
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
         case 'family-commandments': loadFamilyCommandments(); break;
@@ -5910,6 +5911,115 @@ function updateMembersSortIndicators() {
 
 function filterMembersTable() {
     renderMembersTable();
+}
+
+// ===== SISTEMA DE PONTO =====
+let attendanceData = [];
+let attendanceFilter = 'all';
+
+async function loadAttendance() {
+    const tbody = document.getElementById('attendanceTableBody');
+    try {
+        const response = await fetch('/api/admin/attendance');
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        attendanceData = data.members || [];
+        if (data.roleNames) Object.assign(roleNames, data.roleNames);
+        renderAttendanceSummary();
+        renderAttendanceTable();
+    } catch (error) {
+        console.error('Erro ao carregar ponto:', error);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Erro ao carregar ponto</td></tr>';
+    }
+}
+
+function attendanceLoginText(m) {
+    if (m.never_logged_in) return '<span style="color:#e74c3c;font-weight:600;">Nunca logou</span>';
+    const d = m.days_since_login;
+    let label;
+    if (d === 0) label = 'Hoje';
+    else if (d === 1) label = 'Ontem';
+    else label = `${d} dias atrás`;
+    const date = m.last_login_at ? new Date(m.last_login_at).toLocaleDateString('pt-BR') : '';
+    const color = d >= 7 ? '#e74c3c' : (d >= 3 ? '#e67e22' : '#27ae60');
+    return `<span style="color:${color};font-weight:600;">${label}</span> <small style="color:var(--text-secondary);">${date}</small>`;
+}
+
+function attendanceStatusChip(status) {
+    const map = {
+        paid: ['✅ Pago', '#27ae60'],
+        partial: ['⚡ Parcial', '#f39c12'],
+        pending: ['⏳ Aguardando', '#3498db'],
+        justified: ['📋 Justificado', '#9b59b6'],
+        not_paid: ['❌ Não pago', '#e74c3c']
+    };
+    const [text, color] = map[status] || map.not_paid;
+    return `<span class="status-badge" style="background:${color};color:#fff;padding:3px 8px;border-radius:6px;font-size:12px;white-space:nowrap;">${text}</span>`;
+}
+
+function renderAttendanceSummary() {
+    const el = document.getElementById('attendanceSummary');
+    if (!el) return;
+    const total = attendanceData.length;
+    const offline = attendanceData.filter(m => m.never_logged_in || (m.days_since_login != null && m.days_since_login >= 7)).length;
+    const unpaid = attendanceData.filter(m => m.current_week_status === 'not_paid').length;
+    const never = attendanceData.filter(m => m.never_logged_in).length;
+    const card = (label, value, color) => `<div style="flex:1;min-width:130px;background:var(--card-bg,rgba(255,255,255,0.04));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;padding:12px 16px;"><div style="font-size:24px;font-weight:700;color:${color};">${value}</div><div style="font-size:12px;color:var(--text-secondary);">${label}</div></div>`;
+    el.innerHTML =
+        card('Membros ativos', total, 'var(--text-primary, #fff)') +
+        card('Sumidos (7+ dias)', offline, '#e67e22') +
+        card('Devendo farm (semana)', unpaid, '#e74c3c') +
+        card('Nunca logaram', never, '#c0392b');
+}
+
+function renderAttendanceTable() {
+    const tbody = document.getElementById('attendanceTableBody');
+    if (!tbody) return;
+    const searchTerm = document.getElementById('searchAttendance')?.value?.toLowerCase() || '';
+
+    let filtered = attendanceData.filter(m => {
+        if (!searchTerm) return true;
+        return (m.name || '').toLowerCase().includes(searchTerm) || (m.passport || '').toLowerCase().includes(searchTerm);
+    });
+
+    if (attendanceFilter === 'offline') filtered = filtered.filter(m => m.never_logged_in || (m.days_since_login != null && m.days_since_login >= 7));
+    else if (attendanceFilter === 'unpaid') filtered = filtered.filter(m => m.current_week_status === 'not_paid');
+    else if (attendanceFilter === 'never') filtered = filtered.filter(m => m.never_logged_in);
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Nenhum membro encontrado</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(m => {
+        let groups = m.groups || [];
+        if (groups.length > 1 && groups.includes('member')) groups = groups.filter(g => g !== 'member');
+        const groupsDisplay = groups.length > 0
+            ? groups.map(g => `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`).join(' ')
+            : '<span class="no-role">Membro</span>';
+        const paidColor = m.paid_weeks >= m.total_weeks ? '#27ae60' : (m.paid_weeks === 0 ? '#e74c3c' : '#f39c12');
+        return `
+            <tr>
+                <td>${escapeHtml(m.passport || '-')}</td>
+                <td>${escapeHtml(m.name || '')}</td>
+                <td>${groupsDisplay}</td>
+                <td>${attendanceLoginText(m)}</td>
+                <td>${attendanceStatusChip(m.current_week_status)}</td>
+                <td><span style="color:${paidColor};font-weight:600;">${m.paid_weeks}/${m.total_weeks}</span></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterAttendanceTable() {
+    renderAttendanceTable();
+}
+
+function filterAttendanceByStatus(type, btn) {
+    attendanceFilter = type;
+    document.querySelectorAll('#attendance-tab .members-filters .filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderAttendanceTable();
 }
 
 function filterMembersByStatus(type) {

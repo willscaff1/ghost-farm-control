@@ -524,6 +524,68 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Cartão de Resumo do Membro (ADVs + Meta da semana) */
+.member-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.member-summary-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 18px 14px;
+    text-align: center;
+    min-height: 96px;
+}
+
+.member-summary-tile.clickable {
+    cursor: pointer;
+    transition: transform .15s ease, border-color .15s ease, background .15s ease;
+}
+
+.member-summary-tile.clickable:hover {
+    transform: translateY(-2px);
+    border-color: rgba(108, 92, 231, 0.55);
+    background: rgba(108, 92, 231, 0.08);
+}
+
+.member-summary-value {
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1;
+    color: #2ecc71;
+}
+
+/* O valor da meta é textual (ex: "✅ Paga"), então fonte um pouco menor */
+.member-summary-value.meta {
+    font-size: 17px;
+    line-height: 1.2;
+}
+
+.member-summary-value.paid { color: #2ecc71; }
+.member-summary-value.unpaid { color: #e74c3c; }
+.member-summary-value.partial { color: #f39c12; }
+.member-summary-value.pending { color: #3498db; }
+.member-summary-value.justified { color: #a29bfe; }
+
+.member-summary-label {
+    font-size: 12px;
+    color: #9aa0b5;
+    line-height: 1.3;
+}
+
+@media (max-width: 480px) {
+    .member-summary-value { font-size: 26px; }
+    .member-summary-value.meta { font-size: 15px; }
+}
+
 /* Locked Panel - Farm Aprovado/Bloqueado */
 .locked-panel {
     text-align: center;

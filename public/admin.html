@@ -85,6 +85,7 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">👥 Membros</div>
                 <button class="sidebar-item" data-tab="members">📋 Lista de Membros</button>
+                <button class="sidebar-item" data-tab="attendance">🕓 Ponto</button>
                 <button class="sidebar-item" data-tab="members-overview">⚠️ Gerenciar ADV</button>
                 <button class="sidebar-item" data-tab="new-member">➕ Novo Membro</button>
             </div>
@@ -535,6 +536,43 @@
             </div>
 
             <!-- Members Tab -->
+            <div id="attendance-tab" class="tab-content">
+                <div class="card">
+                    <h2>🕓 Ponto</h2>
+                    <p class="subtitle">Quem está acessando o site e quem está pagando o farm certinho</p>
+
+                    <div class="attendance-summary" id="attendanceSummary" style="display:flex; gap:12px; flex-wrap:wrap; margin:16px 0;"></div>
+
+                    <div class="members-controls">
+                        <input type="text" id="searchAttendance" placeholder="🔍 Buscar por nome ou passaporte..." class="search-members-input" onkeyup="filterAttendanceTable()">
+                        <div class="members-filters">
+                            <button class="filter-btn active" data-att-filter="all" onclick="filterAttendanceByStatus('all', this)">Todos</button>
+                            <button class="filter-btn" data-att-filter="offline" onclick="filterAttendanceByStatus('offline', this)">💤 Sumidos (7+ dias)</button>
+                            <button class="filter-btn" data-att-filter="unpaid" onclick="filterAttendanceByStatus('unpaid', this)">❌ Devendo farm</button>
+                            <button class="filter-btn" data-att-filter="never" onclick="filterAttendanceByStatus('never', this)">🚫 Nunca logou</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="weekly-table" id="attendanceTable">
+                            <thead>
+                                <tr>
+                                    <th>Passaporte</th>
+                                    <th>Membro</th>
+                                    <th>Cargo</th>
+                                    <th>Último acesso</th>
+                                    <th>Farm da semana</th>
+                                    <th>Semanas pagas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody">
+                                <tr><td colspan="6" style="text-align:center; padding:24px;">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div id="members-tab" class="tab-content">
                 <div class="card">
                     <h2>👥 Lista de Membros</h2>
@@ -1599,7 +1637,7 @@
 
             <!-- Tab Permissões de Grupos -->
             <div id="role-permissions-tab" class="tab-content">
-                <iframe id="permissoesFrame" src="/permissoes-embed.html?v=20260618groups1" style="width:100%;height:calc(100vh - 150px);border:none;border-radius:12px;"></iframe>
+                <iframe id="permissoesFrame" src="/permissoes-embed.html?v=20260707simple2" style="width:100%;height:calc(100vh - 150px);border:none;border-radius:12px;"></iframe>
             </div>
         </main>
     </div>

@@ -69,9 +69,26 @@
         <div class="two-columns">
             <!-- Coluna Esquerda - Progresso -->
             <div class="column-left">
+                <!-- Cartão de Resumo do Membro -->
                 <div class="panel">
                     <div class="panel-header">
-                        <h2>📊 Meu Progresso</h2>
+                        <h2>🧾 Meu Resumo</h2>
+                    </div>
+                    <div class="member-summary-grid">
+                        <div class="member-summary-tile clickable" onclick="showMyWarnings()" title="Ver minhas advertências">
+                            <span class="member-summary-value" id="advSummaryValue">0</span>
+                            <span class="member-summary-label">⚠️ Minhas advertências</span>
+                        </div>
+                        <div class="member-summary-tile" id="metaSummaryTile">
+                            <span class="member-summary-value meta" id="metaSummaryValue">—</span>
+                            <span class="member-summary-label">🎯 Meta desta semana</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2 id="progressPanelTitle">📊 Meu Progresso</h2>
                     </div>
                     <div id="progressBars" class="progress-list">
                         <div class="progress-empty">Carregando...</div>

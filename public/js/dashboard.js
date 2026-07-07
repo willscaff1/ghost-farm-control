@@ -663,7 +663,12 @@ async function loadWeekData(offset = 0) {
         }
         
         weekStatus.innerHTML = `<span class="status-pill ${statusClass}">${statusHtml}</span>`;
-        
+
+        // Atualizar cartão de resumo (meta desta semana) — só reflete a semana atual
+        if (offset === 0) {
+            updateMetaSummary(data);
+        }
+
         // Atualizar barras de progresso
         updateProgressBars(data.progress);
         
@@ -1658,7 +1663,7 @@ function selectPaymentType(type, paymentTypeId = null) {
 // Atualizar exibição do progresso baseado no tipo de pagamento
 function updateProgressDisplay(type, paymentTypeId = null) {
     const progressContainer = document.getElementById('progressBars');
-    const panelHeader = document.querySelector('.column-left .panel-header h2');
+    const panelHeader = document.getElementById('progressPanelTitle');
     
     if (type !== 'material') {
         // Encontrar o tipo de pagamento
@@ -1810,20 +1815,64 @@ function updateScreenshotPreviewDirty() {
 // Carregar estatísticas simples
 async function loadStats() {
     try {
-        const response = await fetch('/api/delivery/my');
-        const data = await response.json();
-        
-        // Contar farms entregues (aprovados)
-        const farmsDelivered = data.deliveries ? data.deliveries.filter(d => d.status === 'approved').length : 0;
-        document.getElementById('farmsDelivered').textContent = farmsDelivered;
-        
-        // Buscar advertências
+        // Buscar advertências para o cartão de resumo
         const warningsRes = await fetch('/api/delivery/my-warnings');
         const warningsData = await warningsRes.json();
-        document.getElementById('warningsCount').textContent = warningsData.count || 0;
+        const advCount = warningsData.count || 0;
+
+        const advEl = document.getElementById('advSummaryValue');
+        if (advEl) {
+            advEl.textContent = advCount;
+            advEl.classList.toggle('unpaid', advCount > 0);
+            advEl.classList.toggle('paid', advCount === 0);
+        }
+
+        // Compatibilidade: se ainda existir o contador antigo, atualiza também
+        const legacyWarnings = document.getElementById('warningsCount');
+        if (legacyWarnings) legacyWarnings.textContent = advCount;
     } catch (error) {
         console.error('Erro ao carregar estatísticas:', error);
     }
+}
+
+// Atualiza o bloco "Meta desta semana" no cartão de resumo do membro
+function updateMetaSummary(data) {
+    const valueEl = document.getElementById('metaSummaryValue');
+    const tileEl = document.getElementById('metaSummaryTile');
+    if (!valueEl || !tileEl) return;
+
+    let text = '⚠️ Não paga';
+    let state = 'unpaid';
+
+    if (data && data.hasDelivery) {
+        if (data.deliveryStatus === 'approved' && !data.isPartial) {
+            text = '✅ Paga';
+            state = 'paid';
+        } else if (data.isPartial) {
+            text = '⚡ Parcial';
+            state = 'partial';
+        } else if (data.deliveryStatus === 'pending') {
+            text = '⏳ Aguardando';
+            state = 'pending';
+        } else if (data.deliveryStatus === 'rejected' || data.deliveryStatus === 'not_delivered') {
+            text = '❌ Recusada';
+            state = 'unpaid';
+        } else {
+            text = '⏳ Processando';
+            state = 'pending';
+        }
+    } else if (data && data.hasJustification) {
+        if (data.justificationStatus === 'approved') {
+            text = '📋 Justificada';
+            state = 'justified';
+        } else {
+            text = '⏳ Justif. aguardando';
+            state = 'pending';
+        }
+    }
+
+    valueEl.textContent = text;
+    valueEl.className = 'member-summary-value meta ' + state;
 }
 
 // Carregar minhas entregas
@@ -2041,15 +2090,17 @@ document.getElementById('deliveryForm').addEventListener('submit', async (e) => 
     const totalMaterials = materials.reduce((sum, m) => sum + m.amount, 0);
     const screenshotsCount = uploadedScreenshots.length; // Sempre usa novos screenshots
     
-    // Mostrar modal de confirmação
-    showDeliveryConfirmationModal({
-        type: 'meta',
-        weekLabel: currentWeekData.week.label,
-        materials: materialsSummary,
-        totalMaterials: totalMaterials,
-        screenshotsCount: screenshotsCount,
-        isFutureWeek: weekOffset > 0,
-        onConfirm: () => submitMetaFarm(materials, weekOffset, messageEl, materialInputs)
+    // Avisar se há semana anterior não paga (só na semana atual), depois confirmar
+    withUnpaidWeekWarning(weekOffset, () => {
+        showDeliveryConfirmationModal({
+            type: 'meta',
+            weekLabel: currentWeekData.week.label,
+            materials: materialsSummary,
+            totalMaterials: totalMaterials,
+            screenshotsCount: screenshotsCount,
+            isFutureWeek: weekOffset > 0,
+            onConfirm: () => submitMetaFarm(materials, weekOffset, messageEl, materialInputs)
+        });
     });
 });
 
@@ -2141,6 +2192,8 @@ document.getElementById('dirtyMoneyForm').addEventListener('submit', async (e) =
         }
     }
     
+    // Avisar se há semana anterior não paga (só na semana atual), depois enviar
+    withUnpaidWeekWarning(weekOffset, async () => {
     // Criar FormData
     const formData = new FormData();
     formData.append('payment_type', 'dirty_money'); // Tipo genérico para pagamento em dinheiro
@@ -2185,10 +2238,11 @@ document.getElementById('dirtyMoneyForm').addEventListener('submit', async (e) =
         messageEl.textContent = 'Erro de conexão';
         messageEl.className = 'form-message show error';
     }
-    
+
     setTimeout(() => {
         messageEl.className = 'form-message';
     }, 5000);
+    });
 });
 
 // Submeter justificativa de ausência
@@ -2768,6 +2822,64 @@ async function loadUnpaidWeeks() {
     } catch (error) {
         console.error('Erro ao carregar semanas não pagas:', error);
     }
+}
+
+// ===== AVISO: FARM DA SEMANA ANTERIOR NÃO PAGO =====
+// Semanas passadas ainda em aberto (offset < 0 e ainda disponíveis para pagar)
+function getUnpaidPreviousWeeks() {
+    if (!Array.isArray(availableWeeksData)) return [];
+    return availableWeeksData
+        .filter(w => w.offset < 0 && w.available === true)
+        .sort((a, b) => b.offset - a.offset); // mais recente primeiro
+}
+
+// Antes de lançar farm na semana ATUAL, avisa se há semana anterior não paga.
+function withUnpaidWeekWarning(weekOffset, proceedFn) {
+    if (parseInt(weekOffset) !== 0) return proceedFn();
+    const unpaid = getUnpaidPreviousWeeks();
+    if (unpaid.length === 0) return proceedFn();
+    showUnpaidPreviousWeekPrompt(unpaid, proceedFn);
+}
+
+function closeUnpaidWeekPrompt() {
+    const el = document.getElementById('unpaidWeekPromptOverlay');
+    if (el) el.remove();
+}
+
+function showUnpaidPreviousWeekPrompt(unpaidWeeks, onContinueCurrent) {
+    closeUnpaidWeekPrompt();
+    const week = unpaidWeeks[0];
+    const extra = unpaidWeeks.length > 1
+        ? `<p style="margin-top:8px;color:#e67e22;font-size:13px;">⚠️ Você tem ${unpaidWeeks.length} semanas anteriores em aberto. A mais recente está indicada acima.</p>`
+        : '';
+    const overlay = document.createElement('div');
+    overlay.id = 'unpaidWeekPromptOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:10000;padding:16px;';
+    overlay.innerHTML = `
+        <div style="background:var(--card-bg,#1e1e2e);color:var(--text-primary,#fff);max-width:440px;width:100%;border-radius:14px;padding:24px;border:1px solid var(--border-color,rgba(255,255,255,0.12));box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+            <h3 style="margin:0 0 12px;font-size:19px;">⚠️ Farm da semana anterior não pago</h3>
+            <p style="margin:0 0 6px;line-height:1.5;">Você ainda não pagou o farm da semana anterior:</p>
+            <p style="margin:0;font-weight:700;font-size:15px;">📅 ${escapeHtml(week.label)}</p>
+            ${extra}
+            <p style="margin:14px 0 0;line-height:1.5;">Onde você quer registrar este farm?</p>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
+                <button id="unpaidBtnPrevious" style="background:#9b59b6;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">📅 Registrar na semana anterior</button>
+                <button id="unpaidBtnCurrent" style="background:#27ae60;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">✅ Continuar na semana atual mesmo</button>
+                <button id="unpaidBtnCancel" style="background:transparent;color:var(--text-secondary,#aaa);border:1px solid var(--border-color,rgba(255,255,255,0.15));padding:10px;border-radius:8px;font-size:14px;cursor:pointer;">Cancelar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeUnpaidWeekPrompt(); });
+    document.getElementById('unpaidBtnPrevious').onclick = () => {
+        closeUnpaidWeekPrompt();
+        openPayPastWeekModal(week.start, week.end, week.label);
+    };
+    document.getElementById('unpaidBtnCurrent').onclick = () => {
+        closeUnpaidWeekPrompt();
+        onContinueCurrent();
+    };
+    document.getElementById('unpaidBtnCancel').onclick = () => closeUnpaidWeekPrompt();
 }
 
 // Abrir modal para pagar semana passada

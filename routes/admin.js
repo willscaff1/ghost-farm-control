@@ -1257,6 +1257,132 @@ router.get('/members', requireAdmin, async (req, res) => {
     }
 });
 
+// Sistema de Ponto: quem está acessando o site e quem está pagando o farm
+router.get('/attendance', requireAdmin, async (req, res) => {
+    try {
+        const roleNamesMap = await getRoleNames();
+
+        // Janela: semana atual + 3 anteriores (4 semanas)
+        const WEEKS_WINDOW = 4;
+        const weeks = [];
+        for (let i = 0; i < WEEKS_WINDOW; i++) {
+            weeks.push(getWeekWithOffset(-i));
+        }
+        const currentWeek = weeks[0];
+        const weekStarts = weeks.map(w => w.start);
+        const placeholders = weekStarts.map(() => '?').join(',');
+
+        // Membros ativos (exclui usuários de sistema)
+        const members = await getAll(`
+            SELECT u.id,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                   u.passport, u.role, u.member_slot, u.manager_slot,
+                   u.last_login_at, u.created_at
+            FROM users u
+            WHERE u.active = 1 AND u.passport NOT IN ('0', 'admin')
+            ORDER BY COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) ASC
+        `);
+
+        const memberIds = members.map(m => m.id);
+        const groupsMap = await getUserGroupsMap(memberIds);
+
+        // Entregas e justificativas aprovadas das últimas semanas (batched)
+        let deliveries = [];
+        let justifications = [];
+        if (weekStarts.length > 0) {
+            deliveries = await getAll(`
+                SELECT user_id, week_start, status, is_partial
+                FROM deliveries
+                WHERE week_start IN (${placeholders})
+            `, weekStarts);
+            justifications = await getAll(`
+                SELECT user_id, week_start
+                FROM justifications
+                WHERE status = 'approved' AND week_start IN (${placeholders})
+            `, weekStarts);
+        }
+
+        // Mapa: user -> week_start -> "paid" (aprovado completo ou justificado)
+        const paidMap = new Map(); // key `${userId}:${weekStart}` -> true
+        const bestStatusMap = new Map(); // key -> {paid, partial, pending}
+        for (const d of deliveries) {
+            const key = `${d.user_id}:${d.week_start}`;
+            const cur = bestStatusMap.get(key) || {};
+            const isApproved = d.status === 'approved';
+            const isComplete = isApproved && !(d.is_partial === 1 || d.is_partial === true);
+            if (isComplete) cur.paid = true;
+            else if (isApproved && (d.is_partial === 1 || d.is_partial === true)) cur.partial = true;
+            else if (d.status === 'pending') cur.pending = true;
+            bestStatusMap.set(key, cur);
+        }
+        for (const j of justifications) {
+            const key = `${j.user_id}:${j.week_start}`;
+            paidMap.set(key, true);
+            const cur = bestStatusMap.get(key) || {};
+            cur.justified = true;
+            bestStatusMap.set(key, cur);
+        }
+
+        const now = Date.now();
+        const result = members.map(member => {
+            const groups = groupsMap.get(member.id) || (member.role ? [member.role] : []);
+
+            // Status da semana atual
+            const curKey = `${member.id}:${currentWeek.start}`;
+            const curStatus = bestStatusMap.get(curKey) || {};
+            let currentWeekStatus = 'not_paid';
+            if (curStatus.paid || curStatus.justified) currentWeekStatus = curStatus.justified && !curStatus.paid ? 'justified' : 'paid';
+            else if (curStatus.partial) currentWeekStatus = 'partial';
+            else if (curStatus.pending) currentWeekStatus = 'pending';
+
+            // Quantas das últimas semanas foram pagas (completo ou justificado)
+            let paidWeeks = 0;
+            for (const w of weeks) {
+                const k = `${member.id}:${w.start}`;
+                const s = bestStatusMap.get(k) || {};
+                if (s.paid || s.justified) paidWeeks++;
+            }
+
+            // Dias desde o último login
+            let daysSinceLogin = null;
+            let neverLoggedIn = true;
+            if (member.last_login_at) {
+                neverLoggedIn = false;
+                const loginTime = new Date(member.last_login_at).getTime();
+                if (!Number.isNaN(loginTime)) {
+                    daysSinceLogin = Math.floor((now - loginTime) / (24 * 60 * 60 * 1000));
+                }
+            }
+
+            return {
+                id: member.id,
+                name: member.name,
+                passport: member.passport,
+                role: member.role,
+                groups,
+                member_slot: member.member_slot,
+                manager_slot: member.manager_slot,
+                last_login_at: member.last_login_at,
+                never_logged_in: neverLoggedIn,
+                days_since_login: daysSinceLogin,
+                current_week_status: currentWeekStatus,
+                paid_weeks: paidWeeks,
+                total_weeks: WEEKS_WINDOW
+            };
+        });
+
+        res.json({
+            members: result,
+            roleNames: roleNamesMap,
+            weeksWindow: WEEKS_WINDOW,
+            currentWeek: { start: currentWeek.start, end: currentWeek.end, label: currentWeek.label }
+        });
+    } catch (error) {
+        console.error('Erro ao carregar ponto:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Ativar/Desativar membro
 router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
     try {

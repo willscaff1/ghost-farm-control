@@ -440,6 +440,52 @@ db.initialize().then(async () => {
         }
     }
 
+    // Garante que TODOS os gerentes possam editar o status da entrega (aba Status da Semana)
+    // e acessar o novo sistema de Ponto. Idempotente e roda a cada boot.
+    async function updateManagerFarmPermissions() {
+        try {
+            const { runQuery, getAll } = require('./database/db');
+            const baseGroups = ['super_admin', 'gerente_geral', '01', '02'];
+            const permsToGrant = ['weekly-status', 'attendance'];
+            const roles = await getAll('SELECT * FROM role_permissions');
+            let updated = 0;
+
+            for (const role of roles) {
+                const permissions = JSON.parse(role.permissions || '[]');
+                if (permissions.includes('all')) continue;
+
+                const roleName = String(role.role_name || '');
+                const isManager = baseGroups.includes(roleName) ||
+                    roleName.startsWith('gerente_') ||
+                    role.can_config === 1 ||
+                    role.can_config === true;
+                if (!isManager) continue;
+
+                let changed = false;
+                for (const perm of permsToGrant) {
+                    if (!permissions.includes(perm)) {
+                        permissions.push(perm);
+                        changed = true;
+                    }
+                }
+
+                if (changed) {
+                    await runQuery(
+                        'UPDATE role_permissions SET permissions = ? WHERE role_name = ?',
+                        [JSON.stringify(permissions), roleName]
+                    );
+                    updated++;
+                }
+            }
+
+            if (updated > 0) {
+                console.log(`Gerentes: permissao de editar status e ponto atualizada (${updated} grupos)`);
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar permissoes de gerentes (status/ponto):', error.message);
+        }
+    }
+
     // Função para migrar farms in_progress para pending (novo fluxo de aprovação)
     async function migrateInProgressToPending() {
         try {
@@ -852,6 +898,9 @@ db.initialize().then(async () => {
 
         // Atualizar permissoes dos mandamentos da familia
         await updateFamilyCommandmentsPermissions();
+
+        // Garantir que todos os gerentes editem status da entrega e vejam o Ponto
+        await updateManagerFarmPermissions();
         
         // Migrar farms in_progress para pending (novo fluxo de aprovação)
         await migrateInProgressToPending();
