@@ -1515,47 +1515,55 @@
 /* ========== PAYMENT TYPE SELECTOR ========== */
 .payment-type-selector {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-bottom: 20px;
-    padding: 5px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 12px;
+    padding: 6px;
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 14px;
 }
 
 .payment-type-btn {
-    flex: 1;
+    flex: 1 1 120px;
+    min-width: 108px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: 6px;
+    padding: 12px 10px;
     background: transparent;
     border: 2px solid transparent;
-    border-radius: 10px;
-    color: #888;
-    font-size: 14px;
-    font-weight: 500;
+    border-radius: 11px;
+    color: #9aa0b5;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 .payment-type-btn:hover {
     background: rgba(255, 255, 255, 0.05);
-    color: #aaa;
+    color: #cfd2e0;
 }
 
 .payment-type-btn.active {
-    background: linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(74, 144, 226, 0.1));
-    border-color: #4a90e2;
-    color: #4a90e2;
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.28), rgba(108, 92, 231, 0.12));
+    border-color: #6c5ce7;
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(108, 92, 231, 0.25);
 }
 
 .payment-type-btn .payment-icon {
-    font-size: 18px;
+    font-size: 22px;
+    line-height: 1;
 }
 
 .payment-type-btn .payment-label {
-    font-weight: 600;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 /* Payment Type Button Disabled */
@@ -1589,7 +1597,7 @@
 
 /* ========== MEMBER FARM SUBMISSION LAYOUT ========== */
 #materialsInputs.materials-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 16px;
     align-items: stretch;
 }
@@ -1654,30 +1662,48 @@
 }
 
 #materialsInputs .material-card {
-    min-height: 120px;
+    min-height: 0;
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr);
-    align-items: start;
-    gap: 10px;
-    padding: 12px;
-    border-radius: 10px;
-    align-content: start;
+    grid-template-columns: 46px minmax(0, 1fr) 96px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+#materialsInputs .material-card:hover {
+    border-color: rgba(108, 92, 231, 0.4);
+    background: rgba(108, 92, 231, 0.06);
+}
+
+#materialsInputs .material-card.complete {
+    border-color: rgba(46, 204, 113, 0.4);
+    background: rgba(46, 204, 113, 0.08);
 }
 
 #materialsInputs .material-icon {
-    width: 36px;
-    font-size: 1.45rem;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: rgba(108, 92, 231, 0.14);
+    border-radius: 11px;
 }
 
 #materialsInputs .material-info {
     display: grid;
-    gap: 6px;
+    gap: 3px;
     min-width: 0;
 }
 
 #materialsInputs .material-name {
     color: #fff;
-    font-size: 0.88rem;
+    font-size: 0.92rem;
     font-weight: 700;
     line-height: 1.2;
     overflow-wrap: anywhere;
@@ -1686,37 +1712,39 @@
 #materialsInputs .material-goal {
     margin-top: 0;
     color: #9ca3af;
+    font-size: 0.76rem;
 }
 
 #materialsInputs .material-remaining {
-    grid-column: 1 / -1;
+    display: flex;
     align-items: center;
-    flex-direction: column;
     gap: 8px;
-    margin-top: 4px;
-    text-align: center;
+    margin-top: 2px;
+    flex-wrap: wrap;
 }
 
 #materialsInputs .remaining-text {
-    width: 100%;
-    text-align: center;
+    color: #f39c12;
+    font-size: 0.78rem;
 }
 
 #materialsInputs .btn-fill-remaining {
-    width: min(100%, 170px);
-    min-height: 32px;
-    padding: 7px 12px;
-    border-radius: 8px;
-    justify-self: center;
+    min-height: 26px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
     white-space: nowrap;
 }
 
 #materialsInputs .material-input {
-    grid-column: 1 / -1;
-    width: min(100%, 170px);
-    height: 42px;
+    grid-column: auto;
+    width: 100%;
+    height: 46px;
     padding: 8px;
-    justify-self: center;
+    justify-self: stretch;
+    text-align: center;
+    font-size: 1.05rem;
+    font-weight: 700;
 }
 
 #materialsInputs .farm-screenshot-block {

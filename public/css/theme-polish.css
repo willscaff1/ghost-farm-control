@@ -464,10 +464,11 @@ button.btn,
 }
 
 #materialsInputs .material-card {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    text-align: center;
-    min-height: 132px;
+    grid-template-columns: 46px minmax(0, 1fr) 96px;
+    justify-items: stretch;
+    text-align: left;
+    min-height: 0;
+    align-items: center;
 }
 
 #materialsInputs .material-icon {
@@ -477,7 +478,18 @@ button.btn,
 #materialsInputs .material-info,
 #materialsInputs .material-name,
 #materialsInputs .material-goal {
-    text-align: center;
+    text-align: left;
+}
+
+@media (max-width: 600px) {
+    #materialsInputs .material-card {
+        grid-template-columns: 44px minmax(0, 1fr);
+        row-gap: 10px;
+    }
+    #materialsInputs .material-input {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+    }
 }
 
 #materialsInputs .farm-screenshot-block {
