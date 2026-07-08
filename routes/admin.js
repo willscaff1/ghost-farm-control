@@ -1066,10 +1066,19 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
             const amount = delivery.dirty_money_amount || 0;
             metaAtingida = amount >= goal;
         } else {
-            items = await getAll('SELECT di.*, m.weekly_goal, m.manager_weekly_goal, m.target_role FROM delivery_items di JOIN materials m ON di.material_id = m.id WHERE di.delivery_id = ?', [deliveryId]);
+            items = await getAll('SELECT di.*, m.weekly_goal, m.manager_weekly_goal, m.target_role, m.farm_type FROM delivery_items di JOIN materials m ON di.material_id = m.id WHERE di.delivery_id = ?', [deliveryId]);
             items = items.filter(item => productAppliesToRole(item, isManager));
-            const materials = (await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role FROM materials WHERE active = 1'))
-                .filter(m => productAppliesToRole(m, isManager));
+
+            // Tipos de farm presentes NESTA entrega (drugs/weapons/general).
+            // Só checamos a meta dos materiais desses tipos — senão uma entrega só de
+            // um tipo (ex: drogas) apareceria "em progresso" por não conter os outros.
+            const deliveryFarmTypes = new Set(
+                items.filter(i => (parseInt(i.amount, 10) || 0) > 0).map(i => normalizeFarmType(i.farm_type))
+            );
+
+            const materials = (await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1'))
+                .filter(m => productAppliesToRole(m, isManager))
+                .filter(m => deliveryFarmTypes.size === 0 || deliveryFarmTypes.has(normalizeFarmType(m.farm_type)));
 
             for (const mat of materials) {
                 const item = items.find(i => i.material_id === mat.id);
