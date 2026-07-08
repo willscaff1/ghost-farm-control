@@ -508,12 +508,18 @@ router.post('/request-password-reset', async (req, res) => {
 
         console.log(`🔐 Solicitação de recuperação de senha: ${user.name} (${passportUpper}) - Código: ${resetCode} - Email: ${emailSent ? user.email : 'não enviado'}`);
 
+        if (!emailSent) {
+            return res.status(503).json({
+                error: !emailConfigured
+                    ? 'A recuperação de senha por email está indisponível no momento. Tente novamente mais tarde.'
+                    : 'Não conseguimos enviar o email agora. Tente novamente em instantes.'
+            });
+        }
+
         res.json({
             success: true,
-            emailSent,
-            message: emailSent
-                ? `Enviamos um código de recuperação para o seu email (${emailService.maskEmail(user.email)}). Confira a caixa de entrada e o spam.`
-                : 'Solicitação enviada! Peça o código de recuperação a um administrador e use-o para definir sua nova senha.'
+            emailSent: true,
+            message: `Enviamos um código de recuperação para o seu email (${emailService.maskEmail(user.email)}). Confira a caixa de entrada e o spam.`
         });
     } catch (error) {
         console.error('Erro ao solicitar recuperação:', error);

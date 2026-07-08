@@ -345,7 +345,6 @@ function showTab(tabId) {
         case 'members-overview': loadMembersOverview(); break;
         case 'absences': loadJustifications(); break;
         case 'pending': loadPendingDeliveries(); break;
-        case 'password-resets': loadPasswordResets(); break;
         case 'members': loadMembers(); break; // Sempre recarregar para pegar grupos atualizados
         case 'attendance': loadAttendance(); break;
         case 'new-member': break;
@@ -9454,22 +9453,6 @@ function processNotificationsWithData(pendingData, justData, passwordData, statu
                 time: formatTimeAgo(j.created_at),
                 action: 'absences',
                 userId: j.user_id
-            });
-        });
-    }
-    
-    // Notificações de recuperação de senha pendentes
-    if (passwordData.requests && passwordData.requests.length > 0) {
-        passwordData.requests.forEach(r => {
-            adminNotifications.push({
-                id: `password_${r.id}`,
-                type: 'warning',
-                icon: '🔑',
-                title: 'Recuperação de Senha',
-                message: `${r.user_name} (${r.user_passport}) solicitou nova senha`,
-                time: formatTimeAgo(r.requested_at),
-                action: 'password-resets',
-                userId: r.user_id
             });
         });
     }
