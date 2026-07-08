@@ -461,7 +461,8 @@ router.post('/request-password-reset', async (req, res) => {
             console.log('Tabela password_resets já existe ou erro:', tableError.message);
         }
         
-        const canEmail = !!user.email && emailService.isEmailConfigured();
+        const emailConfigured = emailService.isEmailConfigured();
+        const hasEmail = !!(user.email && String(user.email).trim());
 
         // Reaproveita a solicitação pendente (reenviando o mesmo código) em vez de bloquear
         const existingRequest = await getOne(
@@ -484,9 +485,19 @@ router.post('/request-password-reset', async (req, res) => {
             );
         }
 
+        // Sem email cadastrado, mas o envio está disponível → pedir um email (modal no front)
+        if (!hasEmail && emailConfigured) {
+            console.log(`🔐 Recuperação: ${user.name} (${passportUpper}) sem email — solicitando cadastro de email`);
+            return res.json({
+                success: true,
+                needsEmail: true,
+                message: 'Você ainda não tem email cadastrado. Informe um email para receber o código de recuperação.'
+            });
+        }
+
         // Tentar enviar por email (se o membro tiver email e o envio estiver configurado)
         let emailSent = false;
-        if (canEmail) {
+        if (hasEmail && emailConfigured) {
             try {
                 await emailService.sendPasswordResetEmail(user.email, user.name, resetCode);
                 emailSent = true;
@@ -506,6 +517,78 @@ router.post('/request-password-reset', async (req, res) => {
         });
     } catch (error) {
         console.error('Erro ao solicitar recuperação:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Cadastrar email de recuperação (para quem não tem email) e enviar o código
+router.post('/set-recovery-email', async (req, res) => {
+    try {
+        const { passport, email } = req.body;
+
+        if (!passport || !email) {
+            return res.status(400).json({ error: 'Passaporte e email são obrigatórios' });
+        }
+
+        const emailTrim = String(email).trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+            return res.status(400).json({ error: 'Informe um email válido' });
+        }
+
+        if (!emailService.isEmailConfigured()) {
+            return res.status(400).json({ error: 'O envio de email não está disponível. Peça o código a um administrador.' });
+        }
+
+        const passportUpper = passport.toUpperCase().trim();
+        const user = await getOne('SELECT id, name, active, email FROM users WHERE passport = ?', [passportUpper]);
+        if (!user) {
+            return res.status(404).json({ error: 'Passaporte não encontrado' });
+        }
+        if (user.active === 0 || user.active === false) {
+            return res.status(403).json({ error: 'Usuário desativado. Entre em contato com um administrador.' });
+        }
+
+        // Segurança: só permite definir email se a conta ainda não tiver um (evita sequestro de conta)
+        if (user.email && String(user.email).trim()) {
+            return res.status(400).json({ error: 'Este passaporte já tem um email cadastrado. O código vai para esse email. Se você não tem acesso a ele, fale com um administrador.' });
+        }
+
+        // Salva o email informado na conta
+        await runQuery('UPDATE users SET email = ? WHERE id = ?', [emailTrim, user.id]);
+
+        // Pega/cria o código pendente
+        const pending = await getOne(
+            'SELECT id, reset_code FROM password_resets WHERE user_id = ? AND status = ?',
+            [user.id, 'pending']
+        );
+        let resetCode;
+        if (pending && pending.reset_code) {
+            resetCode = pending.reset_code;
+        } else if (pending) {
+            resetCode = String(Math.floor(100000 + Math.random() * 900000));
+            await runQuery('UPDATE password_resets SET reset_code = ? WHERE id = ?', [resetCode, pending.id]);
+        } else {
+            resetCode = String(Math.floor(100000 + Math.random() * 900000));
+            await runQuery('INSERT INTO password_resets (user_id, status, reset_code) VALUES (?, ?, ?)', [user.id, 'pending', resetCode]);
+        }
+
+        // Envia o código para o email informado
+        try {
+            await emailService.sendPasswordResetEmail(emailTrim, user.name, resetCode);
+        } catch (mailErr) {
+            console.error('Falha ao enviar email (set-recovery-email):', mailErr.message);
+            return res.status(500).json({ error: 'Não conseguimos enviar o email agora. Tente novamente em instantes ou peça o código a um administrador.' });
+        }
+
+        console.log(`🔐 Email de recuperação cadastrado: ${user.name} (${passportUpper}) -> ${emailTrim} - Código enviado`);
+
+        res.json({
+            success: true,
+            emailSent: true,
+            message: `Email cadastrado! Enviamos um código para ${emailService.maskEmail(emailTrim)}. Confira a caixa de entrada e o spam.`
+        });
+    } catch (error) {
+        console.error('Erro ao cadastrar email de recuperação:', error);
         res.status(500).json({ error: error.message });
     }
 });

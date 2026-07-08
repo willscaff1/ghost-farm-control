@@ -72,6 +72,30 @@
                 </div>
             </div>
 
+            <!-- Passo intermediário: cadastrar email de recuperação (quem não tem) -->
+            <div id="recoveryStepEmail" style="display:none;">
+                <div class="recovery-header">
+                    <div class="recovery-step-indicator">
+                        <span class="step-num done">&#10003;</span>
+                        <span class="step-line filled"></span>
+                        <span class="step-num active">2</span>
+                    </div>
+                    <h2>Cadastrar Email</h2>
+                    <p>Você ainda não tem email cadastrado. Informe um email válido para receber o código de recuperação.</p>
+                </div>
+                <form id="recoveryEmailForm" class="recovery-body">
+                    <div class="form-group">
+                        <label for="recoveryEmail">Seu Email</label>
+                        <input type="email" id="recoveryEmail" required placeholder="voce@exemplo.com">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Enviar Código</button>
+                    <div id="recoveryMessageEmail" class="recovery-msg"></div>
+                </form>
+                <div class="recovery-footer">
+                    <a href="#" onclick="showStep1(); return false;"><span>&larr;</span> Voltar</a>
+                </div>
+            </div>
+
             <!-- Passo 2: Usar código para trocar senha -->
             <div id="recoveryStep2" style="display:none;">
                 <div class="recovery-header">
@@ -127,21 +151,33 @@
             showStep1();
         }
 
+        let recoveryPassportValue = '';
+
         function closeRecoveryModal() {
             document.getElementById('recoveryModal').style.display = 'none';
             clearMsgs();
             document.getElementById('recoveryForm').reset();
+            document.getElementById('recoveryEmailForm').reset();
             document.getElementById('resetCodeForm').reset();
         }
 
         function showStep1() {
             document.getElementById('recoveryStep1').style.display = 'block';
+            document.getElementById('recoveryStepEmail').style.display = 'none';
+            document.getElementById('recoveryStep2').style.display = 'none';
+            clearMsgs();
+        }
+
+        function showStepEmail() {
+            document.getElementById('recoveryStep1').style.display = 'none';
+            document.getElementById('recoveryStepEmail').style.display = 'block';
             document.getElementById('recoveryStep2').style.display = 'none';
             clearMsgs();
         }
 
         function showStep2() {
             document.getElementById('recoveryStep1').style.display = 'none';
+            document.getElementById('recoveryStepEmail').style.display = 'none';
             document.getElementById('recoveryStep2').style.display = 'block';
             clearMsgs();
         }
@@ -164,9 +200,15 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    showMsg(msgEl, data.message || 'Código gerado!', 'success');
+                    recoveryPassportValue = passport;
                     document.getElementById('resetPassport').value = passport;
-                    setTimeout(() => showStep2(), data.emailSent ? 2500 : 1500);
+                    if (data.needsEmail) {
+                        showMsg(msgEl, data.message || 'Informe um email para receber o código.', 'success');
+                        setTimeout(() => showStepEmail(), 1200);
+                    } else {
+                        showMsg(msgEl, data.message || 'Código gerado!', 'success');
+                        setTimeout(() => showStep2(), data.emailSent ? 2500 : 1500);
+                    }
                 } else {
                     showMsg(msgEl, data.error || 'Erro ao solicitar', 'error');
                 }
@@ -175,6 +217,39 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Solicitar Código';
+            }
+        });
+
+        // Passo intermediário: cadastrar email e enviar código
+        document.getElementById('recoveryEmailForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('recoveryEmail').value.trim();
+            const passport = recoveryPassportValue || document.getElementById('recoveryPassport').value;
+            const msgEl = document.getElementById('recoveryMessageEmail');
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+
+            try {
+                const res = await fetch('/api/auth/set-recovery-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ passport, email })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showMsg(msgEl, data.message || 'Código enviado!', 'success');
+                    document.getElementById('resetPassport').value = passport;
+                    setTimeout(() => showStep2(), 2500);
+                } else {
+                    showMsg(msgEl, data.error || 'Erro ao cadastrar email', 'error');
+                }
+            } catch {
+                showMsg(msgEl, 'Erro de conexão com o servidor', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enviar Código';
             }
         });
 
