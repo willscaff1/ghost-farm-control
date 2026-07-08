@@ -5919,6 +5919,7 @@ function filterMembersTable() {
 // ===== SISTEMA DE PONTO =====
 let attendanceData = [];
 let attendanceFilter = 'all';
+let attendanceSort = { column: 'status', direction: 'asc' };
 
 async function loadAttendance() {
     const tbody = document.getElementById('attendanceTableBody');
@@ -5936,7 +5937,7 @@ async function loadAttendance() {
     }
 }
 
-// Coluna "Último login" — mostra a data e há quanto tempo
+// Coluna "Último login" — mostra data, hora e há quanto tempo
 function attendanceLoginText(m) {
     if (m.never_logged_in) return '<span style="color:#e74c3c;font-weight:600;">Nunca logou</span>';
     const d = m.days_since_login;
@@ -5946,8 +5947,9 @@ function attendanceLoginText(m) {
     else rel = `há ${d} dias`;
     const dt = m.last_login_at ? new Date(m.last_login_at) : null;
     const dateStr = dt ? dt.toLocaleDateString('pt-BR') : '';
+    const timeStr = dt ? dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
     const color = d >= 7 ? '#e74c3c' : (d >= 3 ? '#e67e22' : '#27ae60');
-    return `<div style="line-height:1.35;"><span style="font-weight:600;">${dateStr}</span><br><small style="color:${color};">${rel}</small></div>`;
+    return `<div style="line-height:1.35;"><span style="font-weight:600;">${dateStr}${timeStr ? ' ' + timeStr : ''}</span><br><small style="color:${color};">${rel}</small></div>`;
 }
 
 // Coluna "Status" — online/offline agora
@@ -6008,16 +6010,22 @@ function renderAttendanceTable() {
         return attendancePassesFilter(m);
     });
 
-    // Organizar: online primeiro, depois quem acessou mais recentemente
+    // Ordenar pela coluna escolhida (clique no cabeçalho)
+    const dir = attendanceSort.direction === 'asc' ? 1 : -1;
     filtered.sort((a, b) => {
+        const va = attendanceSortValue(a, attendanceSort.column);
+        const vb = attendanceSortValue(b, attendanceSort.column);
+        if (va < vb) return -1 * dir;
+        if (va > vb) return 1 * dir;
+        // desempate estável: online primeiro, depois nome
         if (!!b.online !== !!a.online) return b.online ? 1 : -1;
-        const da = a.never_logged_in ? Infinity : (a.days_since_login ?? Infinity);
-        const db = b.never_logged_in ? Infinity : (b.days_since_login ?? Infinity);
-        return da - db;
+        return (a.name || '').toLowerCase() < (b.name || '').toLowerCase() ? -1 : 1;
     });
 
+    updateAttendanceSortIndicators();
+
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Nenhum membro encontrado</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Nenhum membro encontrado</td></tr>';
         return;
     }
 
@@ -6034,10 +6042,49 @@ function renderAttendanceTable() {
                 <td>${groupsDisplay}</td>
                 <td>${attendanceOnlineChip(m)}</td>
                 <td>${attendanceLoginText(m)}</td>
-                <td>${attendanceStatusChip(m.current_week_status)}</td>
             </tr>
         `;
     }).join('');
+}
+
+// Valor usado para ordenar cada coluna
+function attendanceSortValue(m, col) {
+    switch (col) {
+        case 'passaporte': return parseInt(m.passport, 10) || 999999;
+        case 'membro': return (m.name || '').toLowerCase();
+        case 'cargo': {
+            let g = (m.groups || []).filter(x => x !== 'member');
+            const key = g[0] || (m.groups || [])[0] || 'member';
+            return (roleNames[key] || key).toLowerCase();
+        }
+        case 'status': return m.online ? 0 : 1; // online primeiro (asc)
+        case 'ultimo_login': return m.never_logged_in ? Infinity : (m.days_since_login ?? Infinity);
+        default: return 0;
+    }
+}
+
+// Clique no cabeçalho: ordena / inverte a direção
+function sortAttendance(column) {
+    if (attendanceSort.column === column) {
+        attendanceSort.direction = attendanceSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        attendanceSort.column = column;
+        attendanceSort.direction = 'asc';
+    }
+    renderAttendanceTable();
+}
+
+// Mostra a setinha (▲/▼) na coluna ativa
+function updateAttendanceSortIndicators() {
+    const ths = document.querySelectorAll('#attendanceTable thead th.sortable');
+    ths.forEach(th => {
+        const arrow = th.querySelector('.sort-arrow');
+        if (!arrow) return;
+        const onclick = th.getAttribute('onclick') || '';
+        arrow.textContent = onclick.includes(`'${attendanceSort.column}'`)
+            ? (attendanceSort.direction === 'asc' ? ' ▲' : ' ▼')
+            : '';
+    });
 }
 
 function filterAttendanceTable() {

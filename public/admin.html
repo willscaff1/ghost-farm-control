@@ -560,16 +560,15 @@
                         <table class="weekly-table" id="attendanceTable">
                             <thead>
                                 <tr>
-                                    <th>Passaporte</th>
-                                    <th>Membro</th>
-                                    <th>Cargo</th>
-                                    <th>Status</th>
-                                    <th>Último login</th>
-                                    <th>Farm da semana</th>
+                                    <th class="sortable" onclick="sortAttendance('passaporte')">Passaporte <span class="sort-arrow"></span></th>
+                                    <th class="sortable" onclick="sortAttendance('membro')">Membro <span class="sort-arrow"></span></th>
+                                    <th class="sortable" onclick="sortAttendance('cargo')">Cargo <span class="sort-arrow"></span></th>
+                                    <th class="sortable" onclick="sortAttendance('status')">Status <span class="sort-arrow"></span></th>
+                                    <th class="sortable" onclick="sortAttendance('ultimo_login')">Último login <span class="sort-arrow"></span></th>
                                 </tr>
                             </thead>
                             <tbody id="attendanceTableBody">
-                                <tr><td colspan="6" style="text-align:center; padding:24px;">Carregando...</td></tr>
+                                <tr><td colspan="5" style="text-align:center; padding:24px;">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1801,7 +1800,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260707ponto3"></script>
+    <script src="js/admin.js?v=20260707ponto4"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();
