@@ -405,6 +405,7 @@ const initializePostgres = async () => {
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS manager_slot TEXT`);
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS capital_nickname TEXT`);
             await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP`);
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP`);
             console.log('Colunas de slot dos usuarios verificadas/adicionadas');
         } catch (e) {
             console.log('slots dos usuarios:', e.message);
@@ -968,6 +969,9 @@ const initializeSQLite = () => {
             });
             pool.run(`ALTER TABLE users ADD COLUMN last_login_at DATETIME`, (err) => {
                 if (!err) console.log('Coluna last_login_at adicionada (SQLite)');
+            });
+            pool.run(`ALTER TABLE users ADD COLUMN last_seen_at DATETIME`, (err) => {
+                if (!err) console.log('Coluna last_seen_at adicionada (SQLite)');
             });
 
             pool.run(`ALTER TABLE deliveries ADD COLUMN payment_type TEXT DEFAULT 'material'`, (err) => {

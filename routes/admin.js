@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
+const { runQuery, getOne, getAll, getCurrentWeek, dbType } = require('../database/db');
 const {
     getCommandmentsReport,
     saveCommandments
@@ -1273,15 +1273,28 @@ router.get('/attendance', requireAdmin, async (req, res) => {
         const placeholders = weekStarts.map(() => '?').join(',');
 
         // Membros ativos (exclui usuários de sistema)
+        // Tempo desde o último acesso/login calculado NO BANCO (evita bug de fuso do JS)
+        const secsSeen = dbType === 'postgres'
+            ? 'EXTRACT(EPOCH FROM (NOW() - u.last_seen_at))'
+            : "(strftime('%s','now') - strftime('%s', u.last_seen_at))";
+        const secsLogin = dbType === 'postgres'
+            ? 'EXTRACT(EPOCH FROM (NOW() - u.last_login_at))'
+            : "(strftime('%s','now') - strftime('%s', u.last_login_at))";
+
         const members = await getAll(`
             SELECT u.id,
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
                    u.passport, u.role, u.member_slot, u.manager_slot,
-                   u.last_login_at, u.created_at
+                   u.last_login_at, u.last_seen_at, u.created_at,
+                   ${secsSeen} AS seconds_since_seen,
+                   ${secsLogin} AS seconds_since_login
             FROM users u
             WHERE u.active = 1 AND u.passport NOT IN ('0', 'admin')
             ORDER BY COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) ASC
         `);
+
+        // Considera "online" quem teve atividade nos últimos 3 minutos (180s)
+        const ONLINE_WINDOW_SECONDS = 3 * 60;
 
         const memberIds = members.map(m => m.id);
         const groupsMap = await getUserGroupsMap(memberIds);
@@ -1357,15 +1370,22 @@ router.get('/attendance', requireAdmin, async (req, res) => {
                 if (s.paid || s.justified) paidWeeks++;
             }
 
-            // Dias desde o último login
+            // Dias desde o último login (segundos vindos do banco)
             let daysSinceLogin = null;
             let neverLoggedIn = true;
-            if (member.last_login_at) {
+            if (member.last_login_at && member.seconds_since_login != null) {
                 neverLoggedIn = false;
-                const loginTime = new Date(member.last_login_at).getTime();
-                if (!Number.isNaN(loginTime)) {
-                    daysSinceLogin = Math.floor((now - loginTime) / (24 * 60 * 60 * 1000));
-                }
+                const secs = Math.max(0, parseFloat(member.seconds_since_login) || 0);
+                daysSinceLogin = Math.floor(secs / (24 * 60 * 60));
+            }
+
+            // Online agora? (atividade recente, segundos vindos do banco)
+            let online = false;
+            let minutesSinceSeen = null;
+            if (member.last_seen_at && member.seconds_since_seen != null) {
+                const secs = Math.max(0, parseFloat(member.seconds_since_seen) || 0);
+                online = secs <= ONLINE_WINDOW_SECONDS;
+                minutesSinceSeen = Math.floor(secs / 60);
             }
 
             return {
@@ -1377,6 +1397,9 @@ router.get('/attendance', requireAdmin, async (req, res) => {
                 member_slot: member.member_slot,
                 manager_slot: member.manager_slot,
                 last_login_at: member.last_login_at,
+                last_seen_at: member.last_seen_at,
+                online,
+                minutes_since_seen: minutesSinceSeen,
                 never_logged_in: neverLoggedIn,
                 days_since_login: daysSinceLogin,
                 current_week_status: currentWeekStatus,

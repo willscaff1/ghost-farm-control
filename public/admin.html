@@ -547,9 +547,12 @@
                         <input type="text" id="searchAttendance" placeholder="🔍 Buscar por nome ou passaporte..." class="search-members-input" onkeyup="filterAttendanceTable()">
                         <div class="members-filters">
                             <button class="filter-btn active" data-att-filter="all" onclick="filterAttendanceByStatus('all', this)">Todos</button>
-                            <button class="filter-btn" data-att-filter="offline" onclick="filterAttendanceByStatus('offline', this)">💤 Sumidos (7+ dias)</button>
-                            <button class="filter-btn" data-att-filter="unpaid" onclick="filterAttendanceByStatus('unpaid', this)">❌ Devendo farm</button>
+                            <button class="filter-btn" data-att-filter="online" onclick="filterAttendanceByStatus('online', this)">🟢 Online</button>
+                            <button class="filter-btn" data-att-filter="today" onclick="filterAttendanceByStatus('today', this)">📅 Hoje</button>
+                            <button class="filter-btn" data-att-filter="d3" onclick="filterAttendanceByStatus('d3', this)">⏳ 3+ dias</button>
+                            <button class="filter-btn" data-att-filter="d7" onclick="filterAttendanceByStatus('d7', this)">💤 7+ dias</button>
                             <button class="filter-btn" data-att-filter="never" onclick="filterAttendanceByStatus('never', this)">🚫 Nunca logou</button>
+                            <button class="filter-btn" data-att-filter="unpaid" onclick="filterAttendanceByStatus('unpaid', this)">❌ Devendo farm</button>
                         </div>
                     </div>
 
@@ -560,9 +563,9 @@
                                     <th>Passaporte</th>
                                     <th>Membro</th>
                                     <th>Cargo</th>
-                                    <th>Último acesso</th>
+                                    <th>Status</th>
+                                    <th>Último login</th>
                                     <th>Farm da semana</th>
-                                    <th>Semanas pagas</th>
                                 </tr>
                             </thead>
                             <tbody id="attendanceTableBody">
@@ -1798,7 +1801,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260707ponto2"></script>
+    <script src="js/admin.js?v=20260707ponto3"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

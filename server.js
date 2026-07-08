@@ -54,6 +54,23 @@ app.use((req, res, next) => {
     next();
 });
 
+// Rastreio de "online": atualiza last_seen_at do usuário logado, no máximo 1x/min
+const lastSeenWrites = new Map(); // userId -> timestamp do último write
+app.use((req, res, next) => {
+    const u = req.session && req.session.user;
+    if (u && u.id) {
+        const now = Date.now();
+        const last = lastSeenWrites.get(u.id) || 0;
+        if (now - last > 60 * 1000) {
+            lastSeenWrites.set(u.id, now);
+            const { runQuery } = require('./database/db');
+            runQuery('UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?', [u.id])
+                .catch(() => {});
+        }
+    }
+    next();
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 
