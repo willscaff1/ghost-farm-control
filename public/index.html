@@ -57,7 +57,7 @@
                         <span class="step-num">2</span>
                     </div>
                     <h2>Recuperar Senha</h2>
-                    <p>Digite seu passaporte abaixo. Depois, peça o código de recuperação a um administrador.</p>
+                    <p>Digite seu passaporte. Se você tiver email cadastrado, enviaremos o código pra ele. Caso contrário, peça o código a um administrador.</p>
                 </div>
                 <form id="recoveryForm" class="recovery-body">
                     <div class="form-group">
@@ -81,7 +81,7 @@
                         <span class="step-num active">2</span>
                     </div>
                     <h2>Definir Nova Senha</h2>
-                    <p>Informe o código de 6 dígitos que o administrador forneceu e escolha sua nova senha.</p>
+                    <p>Informe o código de 6 dígitos (enviado ao seu email ou fornecido por um administrador) e escolha sua nova senha.</p>
                 </div>
                 <form id="resetCodeForm" class="recovery-body">
                     <div class="form-group">
@@ -164,9 +164,9 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    showMsg(msgEl, 'Código gerado! Peça a um administrador.', 'success');
+                    showMsg(msgEl, data.message || 'Código gerado!', 'success');
                     document.getElementById('resetPassport').value = passport;
-                    setTimeout(() => showStep2(), 1500);
+                    setTimeout(() => showStep2(), data.emailSent ? 2500 : 1500);
                 } else {
                     showMsg(msgEl, data.error || 'Erro ao solicitar', 'error');
                 }

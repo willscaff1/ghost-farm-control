@@ -6,6 +6,7 @@ const {
     getUserCommandmentStatus,
     recordCommandmentResponse
 } = require('../services/familyCommandments');
+const emailService = require('../services/email');
 
 const router = express.Router();
 
@@ -416,7 +417,7 @@ router.post('/request-password-reset', async (req, res) => {
         const passportUpper = passport.toUpperCase().trim();
         
         // Verificar se o usuário existe (sem filtrar por active primeiro)
-        const user = await getOne('SELECT id, name, active FROM users WHERE passport = ?', [passportUpper]);
+        const user = await getOne('SELECT id, name, active, email FROM users WHERE passport = ?', [passportUpper]);
         if (!user) {
             return res.status(404).json({ error: 'Passaporte não encontrado' });
         }
@@ -460,30 +461,48 @@ router.post('/request-password-reset', async (req, res) => {
             console.log('Tabela password_resets já existe ou erro:', tableError.message);
         }
         
-        // Verificar se já tem uma solicitação pendente
+        const canEmail = !!user.email && emailService.isEmailConfigured();
+
+        // Reaproveita a solicitação pendente (reenviando o mesmo código) em vez de bloquear
         const existingRequest = await getOne(
-            'SELECT id FROM password_resets WHERE user_id = ? AND status = ?',
+            'SELECT id, reset_code FROM password_resets WHERE user_id = ? AND status = ?',
             [user.id, 'pending']
         );
-        
+
+        let resetCode;
         if (existingRequest) {
-            return res.status(400).json({ error: 'Você já tem uma solicitação de recuperação pendente. Aguarde a aprovação de um administrador.' });
+            resetCode = existingRequest.reset_code;
+            if (!resetCode) {
+                resetCode = String(Math.floor(100000 + Math.random() * 900000));
+                await runQuery('UPDATE password_resets SET reset_code = ? WHERE id = ?', [resetCode, existingRequest.id]);
+            }
+        } else {
+            resetCode = String(Math.floor(100000 + Math.random() * 900000));
+            await runQuery(
+                'INSERT INTO password_resets (user_id, status, reset_code) VALUES (?, ?, ?)',
+                [user.id, 'pending', resetCode]
+            );
         }
-        
-        // Gerar código de 6 dígitos
-        const resetCode = String(Math.floor(100000 + Math.random() * 900000));
-        
-        // Criar solicitação com código
-        await runQuery(
-            'INSERT INTO password_resets (user_id, status, reset_code) VALUES (?, ?, ?)',
-            [user.id, 'pending', resetCode]
-        );
-        
-        console.log(`🔐 Solicitação de recuperação de senha: ${user.name} (${passportUpper}) - Código: ${resetCode}`);
-        
-        res.json({ 
-            success: true, 
-            message: 'Solicitação enviada! Peça o código de recuperação a um administrador e use-o para definir sua nova senha.' 
+
+        // Tentar enviar por email (se o membro tiver email e o envio estiver configurado)
+        let emailSent = false;
+        if (canEmail) {
+            try {
+                await emailService.sendPasswordResetEmail(user.email, user.name, resetCode);
+                emailSent = true;
+            } catch (mailErr) {
+                console.error('Falha ao enviar email de recuperação:', mailErr.message);
+            }
+        }
+
+        console.log(`🔐 Solicitação de recuperação de senha: ${user.name} (${passportUpper}) - Código: ${resetCode} - Email: ${emailSent ? user.email : 'não enviado'}`);
+
+        res.json({
+            success: true,
+            emailSent,
+            message: emailSent
+                ? `Enviamos um código de recuperação para o seu email (${emailService.maskEmail(user.email)}). Confira a caixa de entrada e o spam.`
+                : 'Solicitação enviada! Peça o código de recuperação a um administrador e use-o para definir sua nova senha.'
         });
     } catch (error) {
         console.error('Erro ao solicitar recuperação:', error);
