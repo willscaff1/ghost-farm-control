@@ -774,6 +774,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
             case 'members':
                 loadMembers();
                 break;
+            case 'attendance':
+                loadAttendance();
+                break;
             case 'new-member':
                 // Nada a carregar, apenas mostrar o formulário
                 break;

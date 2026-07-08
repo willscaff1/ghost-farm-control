@@ -1302,11 +1302,25 @@ router.get('/attendance', requireAdmin, async (req, res) => {
             `, weekStarts);
         }
 
+        // No PostgreSQL, colunas DATE voltam como objeto Date; no SQLite, como string.
+        // Normaliza sempre para 'YYYY-MM-DD' para as chaves baterem nos dois bancos.
+        const toISODate = (v) => {
+            if (!v) return '';
+            if (typeof v === 'string') return v.slice(0, 10);
+            if (v instanceof Date) {
+                const y = v.getFullYear();
+                const m = String(v.getMonth() + 1).padStart(2, '0');
+                const d = String(v.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+            return String(v).slice(0, 10);
+        };
+
         // Mapa: user -> week_start -> "paid" (aprovado completo ou justificado)
         const paidMap = new Map(); // key `${userId}:${weekStart}` -> true
         const bestStatusMap = new Map(); // key -> {paid, partial, pending}
         for (const d of deliveries) {
-            const key = `${d.user_id}:${d.week_start}`;
+            const key = `${d.user_id}:${toISODate(d.week_start)}`;
             const cur = bestStatusMap.get(key) || {};
             const isApproved = d.status === 'approved';
             const isComplete = isApproved && !(d.is_partial === 1 || d.is_partial === true);
@@ -1316,7 +1330,7 @@ router.get('/attendance', requireAdmin, async (req, res) => {
             bestStatusMap.set(key, cur);
         }
         for (const j of justifications) {
-            const key = `${j.user_id}:${j.week_start}`;
+            const key = `${j.user_id}:${toISODate(j.week_start)}`;
             paidMap.set(key, true);
             const cur = bestStatusMap.get(key) || {};
             cur.justified = true;
@@ -1328,7 +1342,7 @@ router.get('/attendance', requireAdmin, async (req, res) => {
             const groups = groupsMap.get(member.id) || (member.role ? [member.role] : []);
 
             // Status da semana atual
-            const curKey = `${member.id}:${currentWeek.start}`;
+            const curKey = `${member.id}:${toISODate(currentWeek.start)}`;
             const curStatus = bestStatusMap.get(curKey) || {};
             let currentWeekStatus = 'not_paid';
             if (curStatus.paid || curStatus.justified) currentWeekStatus = curStatus.justified && !curStatus.paid ? 'justified' : 'paid';
@@ -1338,7 +1352,7 @@ router.get('/attendance', requireAdmin, async (req, res) => {
             // Quantas das últimas semanas foram pagas (completo ou justificado)
             let paidWeeks = 0;
             for (const w of weeks) {
-                const k = `${member.id}:${w.start}`;
+                const k = `${member.id}:${toISODate(w.start)}`;
                 const s = bestStatusMap.get(k) || {};
                 if (s.paid || s.justified) paidWeeks++;
             }
