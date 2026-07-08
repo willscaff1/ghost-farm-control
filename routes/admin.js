@@ -8,6 +8,7 @@ const {
     getCommandmentsReport,
     saveCommandments
 } = require('../services/familyCommandments');
+const emailService = require('../services/email');
 
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
 
@@ -1417,6 +1418,29 @@ router.get('/attendance', requireAdmin, async (req, res) => {
     } catch (error) {
         console.error('Erro ao carregar ponto:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Testar envio de email (para conferir a configuração de recuperação de senha)
+router.post('/test-email', requireAdmin, async (req, res) => {
+    try {
+        const to = String((req.body && req.body.to) || '').trim() || (req.session.user && req.session.user.email) || '';
+        if (!to) {
+            return res.status(400).json({ error: 'Informe um email para enviar o teste' });
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+            return res.status(400).json({ error: 'Email inválido' });
+        }
+        if (!emailService.isEmailConfigured()) {
+            return res.status(400).json({ error: 'Email ainda não configurado. Defina as variáveis EMAIL_USER e EMAIL_PASS no servidor (Railway) e tente de novo.' });
+        }
+
+        await emailService.sendTestEmail(to);
+        console.log(`📧 Email de teste enviado para ${to} por ${req.session.user?.name}`);
+        res.json({ success: true, message: `Email de teste enviado para ${to}. Confira a caixa de entrada e o spam.` });
+    } catch (error) {
+        console.error('Falha no teste de email:', error.message);
+        res.status(500).json({ error: 'Falha ao enviar: ' + error.message });
     }
 });
 

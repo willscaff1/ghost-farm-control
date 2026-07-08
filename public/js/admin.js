@@ -6097,6 +6097,34 @@ function filterAttendanceByStatus(type, btn) {
     renderAttendanceTable();
 }
 
+// Testar envio de email (Config. do Farm)
+async function testEmailSend() {
+    const input = document.getElementById('testEmailInput');
+    const btn = document.getElementById('testEmailBtn');
+    const result = document.getElementById('testEmailResult');
+    const to = (input?.value || '').trim();
+    if (!to) { if (result) result.innerHTML = '<span style="color:#e67e22;">Digite um email para testar.</span>'; return; }
+    if (btn) { btn.disabled = true; btn.dataset.orig = btn.textContent; btn.textContent = 'Enviando...'; }
+    if (result) result.innerHTML = '<span style="color:#9aa0b5;">Enviando email de teste...</span>';
+    try {
+        const res = await fetch('/api/admin/test-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            result.innerHTML = `<span style="color:#27ae60;font-weight:600;">✅ ${escapeHtml(data.message || 'Enviado!')}</span>`;
+        } else {
+            result.innerHTML = `<span style="color:#e74c3c;font-weight:600;">❌ ${escapeHtml(data.error || 'Não foi possível enviar.')}</span>`;
+        }
+    } catch (e) {
+        result.innerHTML = '<span style="color:#e74c3c;font-weight:600;">❌ Erro de conexão ao testar.</span>';
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.orig || '📤 Testar Email'; }
+    }
+}
+
 function filterMembersByStatus(type) {
     membersStatusFilter = type;
     

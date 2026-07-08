@@ -98,4 +98,26 @@ async function sendPasswordResetEmail(to, name, code) {
     });
 }
 
-module.exports = { isEmailConfigured, sendPasswordResetEmail, maskEmail };
+async function sendTestEmail(to) {
+    const t = getTransporter();
+    if (!t) throw new Error('Email não configurado (defina EMAIL_USER/EMAIL_PASS ou SMTP_* no servidor)');
+    return await t.sendMail({
+        from: `"Ghosts Farm Control" <${getFromAddress()}>`,
+        to,
+        subject: '✅ Teste de email - Ghosts Farm Control',
+        text: 'Funcionou! Este é um email de teste do Ghosts Farm Control. Se você recebeu isto, o envio de emails (e a recuperação de senha) está funcionando.',
+        html: `
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:460px;margin:0 auto;background:#12121f;border-radius:14px;overflow:hidden;border:1px solid #2a2a4a;">
+                <div style="background:linear-gradient(135deg,#27ae60,#1e8449);padding:20px 24px;">
+                    <div style="font-size:18px;font-weight:800;color:#fff;">✅ Email funcionando!</div>
+                </div>
+                <div style="padding:22px 24px;color:#e5e7eb;line-height:1.5;">
+                    <p style="margin:0 0 10px;">Este é um <b>email de teste</b> do 👻 Ghosts Farm Control.</p>
+                    <p style="margin:0;color:#9aa0b5;font-size:14px;">Se você recebeu esta mensagem, o envio de emails está configurado corretamente e a recuperação de senha por email vai funcionar.</p>
+                </div>
+            </div>
+        `
+    });
+}
+
+module.exports = { isEmailConfigured, sendPasswordResetEmail, sendTestEmail, maskEmail };

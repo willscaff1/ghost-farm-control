@@ -814,7 +814,17 @@
                 <div class="card">
                     <h2>🎛️ Configurações do Farm</h2>
                     <p class="subtitle">Configure quais tipos de pagamento estão habilitados e se o membro precisa pagar um ou outro</p>
-                    
+
+                    <div class="settings-section">
+                        <h3>📧 Recuperação por Email</h3>
+                        <p class="setting-description" style="margin-bottom:12px;">Teste se o envio de emails está funcionando. Digite um email seu, clique em testar — se o email chegar, a recuperação de senha está 100% funcionando.</p>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                            <input type="email" id="testEmailInput" placeholder="seu-email@exemplo.com" style="flex:1; min-width:220px; padding:10px 12px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:8px; color:#fff;">
+                            <button id="testEmailBtn" onclick="testEmailSend()" style="padding:10px 18px; border:none; border-radius:8px; background:#6c5ce7; color:#fff; font-weight:600; cursor:pointer;">📤 Testar Email</button>
+                        </div>
+                        <div id="testEmailResult" style="margin-top:12px; font-size:14px; line-height:1.5;"></div>
+                    </div>
+
                     <div class="settings-section competition-section">
                         <h3>🏆 Competição Semanal (Ranking)</h3>
                         <div class="setting-item">
@@ -1794,7 +1804,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260707ponto5"></script>
+    <script src="js/admin.js?v=20260707ponto6"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();
