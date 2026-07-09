@@ -3,95 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grupos e Permissões</title>
-    <link rel="stylesheet" href="css/theme-polish.css?v=20260612theme1">
+    <title>Grupos e Cargos</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #12121f; color: #fff; padding: 20px; }
-        h2 { margin-bottom: 4px; font-size: 22px; }
-        .subtitle { color: #8f93a8; margin-bottom: 18px; font-size: 14px; }
-        .toolbar { display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; align-items: center; }
-        .btn { border: none; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 600; padding: 11px 18px; color: #fff; transition: filter .15s ease, transform .1s ease; }
-        .btn:hover { filter: brightness(1.1); }
-        .btn:active { transform: translateY(1px); }
-        .btn-primary { background: #6c5ce7; }
-        .btn-ghost { background: #22223a; }
-        .btn-danger { background: #e74c3c; }
-        .btn-sm { padding: 8px 14px; font-size: 13px; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #12121f;
+            color: #e8e9f0;
+            padding: 18px;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+        .head { margin-bottom: 18px; }
+        .head h2 { font-size: 20px; font-weight: 700; letter-spacing: .2px; }
+        .head p { color: #8a8ea3; font-size: 13px; margin-top: 3px; }
+
+        .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
         .spacer { flex: 1; }
 
-        /* Grid de grupos */
-        .groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-        .group-card { background: linear-gradient(145deg, #1c1c2e, #232338); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
-        .group-top { display: flex; align-items: center; gap: 12px; }
-        .group-avatar { width: 44px; height: 44px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; background: rgba(108,92,231,0.16); border: 1px solid rgba(108,92,231,0.4); flex: 0 0 auto; }
-        .group-names { min-width: 0; flex: 1; }
-        .group-names b { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .group-names small { color: #8f93a8; font-size: 12px; }
-        .lvl-badge { font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
-        .lvl-membro { background: rgba(149,165,166,0.2); color: #bdc3c7; }
-        .lvl-gerente { background: rgba(46,204,113,0.18); color: #2ecc71; }
-        .lvl-admin { background: rgba(241,196,15,0.18); color: #f1c40f; }
-        .lvl-custom { background: rgba(52,152,219,0.18); color: #3498db; }
-        .group-meta { display: flex; align-items: center; gap: 8px; color: #9aa0b5; font-size: 13px; }
-        .group-actions { display: flex; gap: 8px; }
-        .group-actions .btn { flex: 1; }
+        .btn { font-family: inherit; border: none; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 600; padding: 10px 16px; color: #fff; transition: filter .15s ease, transform .08s ease; white-space: nowrap; }
+        .btn:hover { filter: brightness(1.12); }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: #6c5ce7; }
+        .btn-ghost { background: #23233a; color: #cfd2e2; }
+        .btn-danger { background: #e74c3c; }
+        .btn-sm { padding: 8px 13px; font-size: 13px; }
 
-        .loading, .error, .empty { text-align: center; padding: 40px; color: #8f93a8; }
+        /* Lista de grupos (linhas — mais limpo que cards grandes) */
+        .groups-list { display: flex; flex-direction: column; gap: 8px; }
+        .group-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 11px 16px;
+            background: #191926;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            transition: border-color .15s ease, background .15s ease;
+        }
+        .group-row:hover { border-color: rgba(108,92,231,0.4); background: #1c1c2c; }
+        .g-avatar { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 19px; background: rgba(108,92,231,0.14); border: 1px solid rgba(108,92,231,0.3); flex: 0 0 auto; }
+        .g-info { flex: 1 1 180px; min-width: 0; }
+        .g-name { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .g-id { display: block; font-size: 12px; color: #74778c; margin-top: 1px; }
+        .g-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; flex: 0 0 auto; }
+        .lvl-membro { background: rgba(149,165,166,0.18); color: #b9c0c9; }
+        .lvl-gerente { background: rgba(46,204,113,0.16); color: #2ecc71; }
+        .lvl-admin { background: rgba(241,196,15,0.16); color: #f1c40f; }
+        .lvl-custom { background: rgba(52,152,219,0.16); color: #4aa3e0; }
+        .g-count { font-size: 13px; color: #8a8ea3; white-space: nowrap; flex: 0 0 auto; min-width: 78px; }
+        .g-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+
+        .loading, .error, .empty { text-align: center; padding: 40px; color: #8a8ea3; }
         .error { color: #ff6b6b; }
 
         /* Modal */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 9999; align-items: center; justify-content: center; padding: 16px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(6,6,12,0.7); z-index: 9999; align-items: center; justify-content: center; padding: 16px; }
         .modal.show { display: flex; }
-        .modal-content { background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 26px; max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto; }
-        .modal-content h3 { font-size: 20px; margin-bottom: 4px; }
-        .modal-content .modal-sub { color: #8f93a8; font-size: 13px; margin-bottom: 20px; }
-        .field { margin-bottom: 18px; }
-        .field label { display: block; color: #b6bacb; margin-bottom: 7px; font-size: 13px; }
-        .field input[type="text"] { width: 100%; padding: 12px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 8px; color: #fff; font-size: 15px; }
+        .modal-card {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1b1b29; border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 16px; padding: 24px; max-width: 540px; width: 100%;
+            max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .modal-card h3 { font-size: 18px; font-weight: 700; }
+        .modal-card .sub { color: #8a8ea3; font-size: 13px; margin: 3px 0 20px; }
+
+        .field { margin-bottom: 16px; }
+        .field label { display: block; color: #b3b7c9; margin-bottom: 7px; font-size: 13px; font-weight: 600; }
+        .field input[type="text"] { font-family: inherit; width: 100%; padding: 11px 12px; background: #101019; border: 1px solid #2c2c44; border-radius: 9px; color: #fff; font-size: 14px; }
         .field input[type="text"]:focus { outline: none; border-color: #6c5ce7; }
-        .field small { color: #6c6f82; font-size: 12px; display: block; margin-top: 5px; }
+        .field .hint { color: #6c6f82; font-size: 12px; margin-top: 6px; }
 
-        /* Seletor de nível */
-        .levels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .level-opt { display: flex; gap: 10px; align-items: flex-start; padding: 12px; background: #0f0f1a; border: 2px solid #2a2a4a; border-radius: 10px; cursor: pointer; transition: border-color .15s ease; }
-        .level-opt:hover { border-color: #44446a; }
-        .level-opt.active { border-color: #6c5ce7; background: rgba(108,92,231,0.1); }
-        .level-opt input { margin-top: 3px; }
-        .level-opt .lv-title { font-weight: 700; font-size: 14px; }
-        .level-opt .lv-desc { color: #8f93a8; font-size: 12px; margin-top: 2px; }
+        /* Níveis */
+        .levels { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+        .level-opt { display: flex; gap: 9px; align-items: flex-start; padding: 11px; background: #101019; border: 2px solid #2c2c44; border-radius: 10px; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+        .level-opt:hover { border-color: #43436a; }
+        .level-opt.active { border-color: #6c5ce7; background: rgba(108,92,231,0.12); }
+        .level-opt input { margin-top: 2px; accent-color: #6c5ce7; }
+        .lv-title { font-weight: 700; font-size: 13.5px; display: block; }
+        .lv-desc { color: #8a8ea3; font-size: 12px; margin-top: 2px; display: block; }
 
-        /* Grid de tabs (personalizado) */
-        .custom-box { margin-top: 16px; padding: 16px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 10px; }
+        .custom-box { margin-top: 14px; padding: 15px; background: #101019; border: 1px solid #2c2c44; border-radius: 10px; }
         .custom-box .cfg-row { margin-bottom: 12px; }
-        .custom-box .cfg-row label { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; color: #fff; }
-        .tabs-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-        .tab-label { display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 7px; cursor: pointer; font-size: 12px; }
-        .tab-label:hover { border-color: #44446a; }
-        .tab-label input { cursor: pointer; }
+        .custom-box .cfg-row label { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; color: #e8e9f0; font-size: 13.5px; }
+        .custom-box .cfg-row input, .tab-label input { accent-color: #6c5ce7; }
+        .custom-hint { color: #8a8ea3; font-size: 12px; margin-bottom: 10px; }
+        .tabs-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+        .tab-label { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; background: #191926; border: 1px solid #2c2c44; border-radius: 8px; cursor: pointer; font-size: 12.5px; }
+        .tab-label:hover { border-color: #43436a; }
 
-        .modal-actions { display: flex; gap: 10px; justify-content: space-between; margin-top: 24px; }
+        .modal-actions { display: flex; gap: 10px; align-items: center; margin-top: 22px; }
 
         /* Membros */
-        .member-search { width: 100%; padding: 12px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 8px; color: #fff; margin-bottom: 14px; }
+        .member-search { font-family: inherit; width: 100%; padding: 11px 12px; background: #101019; border: 1px solid #2c2c44; border-radius: 9px; color: #fff; font-size: 14px; margin-bottom: 12px; }
         .member-search:focus { outline: none; border-color: #6c5ce7; }
-        .section-title { color: #b6bacb; font-size: 13px; font-weight: 700; margin: 6px 0 10px; display: flex; align-items: center; gap: 8px; }
-        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; min-height: 20px; }
-        .chip { display: inline-flex; align-items: center; gap: 8px; background: rgba(108,92,231,0.16); border: 1px solid rgba(108,92,231,0.4); border-radius: 999px; padding: 6px 8px 6px 12px; font-size: 13px; }
-        .chip button { background: rgba(231,76,60,0.85); border: none; color: #fff; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 13px; line-height: 1; }
+        .section-title { color: #b3b7c9; font-size: 13px; font-weight: 700; margin: 4px 0 10px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; min-height: 16px; }
+        .chip { display: inline-flex; align-items: center; gap: 9px; background: #23233a; border: 1px solid rgba(108,92,231,0.35); border-radius: 999px; padding: 6px 8px 6px 13px; font-size: 13px; }
+        .chip button { font-family: inherit; background: rgba(231,76,60,0.9); border: none; color: #fff; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0; }
         .chip button:hover { background: #e74c3c; }
         .add-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-        .add-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #0f0f1a; border: 1px solid #22223a; border-radius: 8px; cursor: pointer; }
+        .add-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #101019; border: 1px solid #23233a; border-radius: 9px; cursor: pointer; transition: border-color .12s ease, background .12s ease; }
         .add-item:hover { border-color: #6c5ce7; background: rgba(108,92,231,0.08); }
-        .add-item .ai-name { font-weight: 600; font-size: 14px; }
-        .add-item .ai-pass { color: #8f93a8; font-size: 12px; }
-        .add-item .ai-plus { color: #6c5ce7; font-weight: 800; font-size: 18px; }
-        .muted { color: #6c6f82; font-size: 13px; font-style: italic; padding: 10px 0; }
+        .ai-name { font-weight: 600; font-size: 14px; }
+        .ai-pass { color: #8a8ea3; font-size: 12.5px; }
+        .ai-plus { color: #a89bff; font-weight: 800; font-size: 18px; }
+        .muted { color: #6c6f82; font-size: 13px; font-style: italic; padding: 8px 0; }
+
+        @media (max-width: 560px) {
+            .levels { grid-template-columns: 1fr; }
+            .group-row { flex-wrap: wrap; }
+            .g-count { min-width: 0; }
+            .g-actions { flex: 1 1 100%; }
+            .g-actions .btn { flex: 1; }
+        }
     </style>
 </head>
 <body>
-    <h2>🔐 Grupos e Cargos</h2>
-    <p class="subtitle">Crie grupos, defina o nível de acesso (gerente, admin) e coloque os membros dentro.</p>
+    <div class="head">
+        <h2>🔐 Grupos e Cargos</h2>
+        <p>Defina o nível de acesso de cada cargo e coloque os membros dentro.</p>
+    </div>
 
     <div class="toolbar">
         <button class="btn btn-primary" onclick="openEditModal(null)">➕ Novo Grupo</button>
@@ -103,14 +134,14 @@
 
     <!-- Modal Editar/Criar Grupo -->
     <div id="editModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-card">
             <h3 id="editTitle">Editar Grupo</h3>
-            <p class="modal-sub" id="editSub"></p>
+            <p class="sub" id="editSub"></p>
 
             <div class="field" id="roleNameField" style="display:none;">
                 <label>Identificador do grupo (sem espaços) *</label>
                 <input type="text" id="fRoleName" placeholder="ex: gerente_vendas">
-                <small>Só letras minúsculas, números e underline (_). Não muda depois.</small>
+                <div class="hint">Só letras minúsculas, números e underline (_). Não muda depois.</div>
             </div>
 
             <div class="field">
@@ -127,12 +158,12 @@
                 <div class="cfg-row">
                     <label><input type="checkbox" id="fCanConfig"> ⚙️ Pode abrir as Configurações</label>
                 </div>
-                <div style="color:#8f93a8;font-size:12px;margin-bottom:10px;">Marque exatamente o que este grupo pode ver:</div>
+                <div class="custom-hint">Marque exatamente o que este grupo pode ver:</div>
                 <div class="tabs-grid" id="customTabs"></div>
             </div>
 
             <div class="modal-actions">
-                <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteCurrentGroup()" style="display:none;">🗑️ Excluir grupo</button>
+                <button class="btn btn-danger btn-sm" id="deleteBtn" onclick="deleteCurrentGroup()" style="display:none;">🗑️ Excluir</button>
                 <div class="spacer"></div>
                 <button class="btn btn-ghost" onclick="closeEditModal()">Cancelar</button>
                 <button class="btn btn-primary" onclick="saveGroup()">💾 Salvar</button>
@@ -142,14 +173,14 @@
 
     <!-- Modal Membros -->
     <div id="membersModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-card">
             <h3>👥 Membros do grupo</h3>
-            <p class="modal-sub" id="membersSub"></p>
+            <p class="sub" id="membersSub"></p>
 
             <div class="section-title">No grupo (<span id="inCount">0</span>)</div>
             <div class="chips" id="inChips"></div>
 
-            <div class="section-title">➕ Adicionar membro</div>
+            <div class="section-title">Adicionar membro</div>
             <input type="text" class="member-search" id="addSearch" placeholder="🔍 Buscar por nome ou passaporte..." oninput="renderMembersModal()">
             <div class="add-list" id="addList"></div>
 
@@ -161,15 +192,14 @@
     </div>
 
     <script>
-        // ===== Presets de nível =====
         var GERENTE_PRESET = ['weekly-status','weekly-ranking','pending','absences','members','members-panel','members-overview','members-adv','new-member','ranking','all-deliveries','weekly-report','materials-stats','goals','manager-goals','attendance'];
         var CONFIG_TABS = ['farm-settings','manage-materials','manage-payment-types','role-permissions','edit-permissions','whitelist','family-commandments','weapon-catalog'];
 
         var LEVELS = [
             { id: 'membro', title: '👤 Membro', desc: 'Só entrega o farm. Sem painel.' },
-            { id: 'gerente', title: '🛡️ Gerente', desc: 'Aprova farms, vê status, membros e ranking.' },
-            { id: 'admin', title: '⚡ Admin Total', desc: 'Acesso a tudo, inclusive configurações.' },
-            { id: 'custom', title: '⚙️ Personalizado', desc: 'Escolhe manualmente cada permissão.' }
+            { id: 'gerente', title: '🛡️ Gerente', desc: 'Aprova farms, vê status e ranking.' },
+            { id: 'admin', title: '⚡ Admin Total', desc: 'Acesso a tudo, com configurações.' },
+            { id: 'custom', title: '⚙️ Personalizado', desc: 'Escolhe cada permissão na mão.' }
         ];
 
         var GROUP_ICONS = {
@@ -181,10 +211,10 @@
 
         var roles = [];
         var tabs = [];
-        var members = [];          // todos os usuários com .groups
+        var members = [];
         var selectedLevel = 'gerente';
-        var editingRole = null;    // null = criando
-        var membersGroup = null;   // grupo aberto no modal de membros
+        var editingRole = null;
+        var membersGroup = null;
 
         function escapeHtml(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
         function iconFor(r){ return GROUP_ICONS[r.role_name] || '👥'; }
@@ -200,7 +230,7 @@
         function levelBadge(lv){
             var map = { membro:['Membro','lvl-membro'], gerente:['Gerente','lvl-gerente'], admin:['Admin Total','lvl-admin'], custom:['Personalizado','lvl-custom'] };
             var m = map[lv] || map.custom;
-            return '<span class="lvl-badge '+m[1]+'">'+m[0]+'</span>';
+            return '<span class="g-badge '+m[1]+'">'+m[0]+'</span>';
         }
         function uniqueTabs(){
             var seen = {}, out = [];
@@ -211,9 +241,8 @@
             return members.filter(function(m){ return (m.groups||[]).indexOf(roleName) >= 0; }).length;
         }
 
-        // ===== Carregamento =====
         function loadAll(){
-            Promise.all([
+            return Promise.all([
                 fetch('/api/admin/role-permissions').then(function(r){return r.json();}),
                 fetch('/api/admin/members').then(function(r){return r.json();})
             ]).then(function(res){
@@ -223,29 +252,38 @@
                 tabs = data.availableTabs || [];
                 members = (res[1] && res[1].members) || [];
                 renderGroups();
+                if (membersGroup) renderMembersModal();
             }).catch(function(err){
                 document.getElementById('container').innerHTML = '<div class="error">Erro ao carregar: '+escapeHtml(err.message)+'</div>';
             });
         }
 
+        // Recarrega só a lista de membros (após adicionar/remover) mantendo os modais
+        function refreshMembers(){
+            return fetch('/api/admin/members').then(function(r){return r.json();}).then(function(res){
+                members = (res && res.members) || [];
+                renderGroups();
+                if (membersGroup) renderMembersModal();
+            });
+        }
+
         function renderGroups(){
             if (roles.length === 0){ document.getElementById('container').innerHTML = '<div class="empty">Nenhum grupo ainda. Clique em “Novo Grupo”.</div>'; return; }
-            var html = '<div class="groups-grid">';
+            var html = '<div class="groups-list">';
             for (var i=0;i<roles.length;i++){
                 var r = roles[i];
                 var lv = levelOf(r);
                 var count = memberCount(r.role_name);
-                html += '<div class="group-card">';
-                html += '  <div class="group-top">';
-                html += '    <span class="group-avatar">'+iconFor(r)+'</span>';
-                html += '    <span class="group-names"><b>'+escapeHtml(r.display_name)+'</b><small>'+escapeHtml(r.role_name)+'</small></span>';
-                html += '    '+levelBadge(lv);
-                html += '  </div>';
-                html += '  <div class="group-meta">👤 '+count+' membro'+(count===1?'':'s')+'</div>';
-                html += '  <div class="group-actions">';
-                html += '    <button class="btn btn-ghost btn-sm" onclick="openMembersModal(\''+escapeHtml(r.role_name)+'\')">👥 Membros</button>';
-                html += '    <button class="btn btn-primary btn-sm" onclick="openEditModal(\''+escapeHtml(r.role_name)+'\')">✏️ Editar</button>';
-                html += '  </div>';
+                var rn = escapeHtml(r.role_name);
+                html += '<div class="group-row">';
+                html += '  <span class="g-avatar">'+iconFor(r)+'</span>';
+                html += '  <span class="g-info"><span class="g-name">'+escapeHtml(r.display_name)+'</span><span class="g-id">'+rn+'</span></span>';
+                html += '  '+levelBadge(lv);
+                html += '  <span class="g-count">👤 '+count+' membro'+(count===1?'':'s')+'</span>';
+                html += '  <span class="g-actions">';
+                html += '    <button class="btn btn-ghost btn-sm" onclick="openMembersModal(\''+rn+'\')">👥 Membros</button>';
+                html += '    <button class="btn btn-primary btn-sm" onclick="openEditModal(\''+rn+'\')">✏️ Editar</button>';
+                html += '  </span>';
                 html += '</div>';
             }
             html += '</div>';
@@ -297,7 +335,6 @@
             document.getElementById('fCanConfig').checked = isNew ? false : !!editingRole.can_config;
             renderCustomTabs(isNew ? [] : (editingRole.permissions || []));
 
-            // Grupos protegidos: não pode excluir
             var canDelete = !isNew && PROTECTED.indexOf(editingRole.role_name) < 0;
             document.getElementById('deleteBtn').style.display = canDelete ? 'inline-block' : 'none';
 
@@ -309,7 +346,6 @@
             if (selectedLevel === 'membro') return { permissions: [], can_config: 0 };
             if (selectedLevel === 'gerente') return { permissions: GERENTE_PRESET.slice(), can_config: 0 };
             if (selectedLevel === 'admin') return { permissions: ['all'], can_config: 1 };
-            // custom
             var checked = document.querySelectorAll('.ctab:checked');
             var perms = [];
             for (var i=0;i<checked.length;i++) perms.push(checked[i].getAttribute('data-tab'));
@@ -392,26 +428,13 @@
             document.getElementById('addList').innerHTML = list;
         }
 
-        function localSetGroup(userId, roleName, add){
-            for (var i=0;i<members.length;i++){
-                if (members[i].id === userId){
-                    var g = members[i].groups || [];
-                    var idx = g.indexOf(roleName);
-                    if (add && idx < 0) g.push(roleName);
-                    if (!add && idx >= 0) g.splice(idx,1);
-                    members[i].groups = g;
-                    break;
-                }
-            }
-        }
-
         function addMember(userId){
             if (!membersGroup) return;
             var rn = membersGroup.role_name;
             fetch('/api/admin/role-permissions/' + rn + '/members', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: userId }) })
                 .then(function(r){return r.json();})
                 .then(function(d){
-                    if (d.success){ localSetGroup(userId, rn, true); renderMembersModal(); renderGroups(); }
+                    if (d.success){ refreshMembers(); }
                     else alert('Erro: ' + (d.error || 'falha ao adicionar'));
                 })
                 .catch(function(e){ alert('Erro: ' + e.message); });
@@ -422,7 +445,7 @@
             fetch('/api/admin/role-permissions/' + rn + '/members/' + userId, { method:'DELETE' })
                 .then(function(r){return r.json();})
                 .then(function(d){
-                    if (d.success){ localSetGroup(userId, rn, false); renderMembersModal(); renderGroups(); }
+                    if (d.success){ refreshMembers(); }
                     else alert('Erro: ' + (d.error || 'falha ao remover'));
                 })
                 .catch(function(e){ alert('Erro: ' + e.message); });
@@ -436,7 +459,6 @@
                 .catch(function(e){ alert('Erro: ' + e.message); });
         }
 
-        // Fechar modal ao clicar fora
         document.addEventListener('click', function(e){
             if (e.target.classList && e.target.classList.contains('modal')) e.target.classList.remove('show');
         });

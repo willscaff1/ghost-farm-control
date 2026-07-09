@@ -4372,20 +4372,28 @@ router.delete('/role-permissions/:roleName/members/:userId', requireAdmin, async
         }
         
         const { roleName, userId } = req.params;
-        
-        // Verificar se o usuário está no grupo
+
+        // O membro pode estar no grupo por dois caminhos: pela tabela user_groups
+        // OU pelo cargo legado users.role. Precisamos tratar os dois, senão a
+        // remoção "não funciona" para quem entrou pelo cargo antigo.
         const membership = await getOne('SELECT id FROM user_groups WHERE user_id = ? AND group_name = ?', [userId, roleName]);
-        if (!membership) {
+        const user = await getOne(`SELECT role, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name FROM users WHERE id = ?`, [userId]);
+        const roleMatches = !!user && user.role === roleName;
+
+        if (!membership && !roleMatches) {
             return res.status(404).json({ error: 'Usuário não está neste grupo' });
         }
-        
-        const user = await getOne(`SELECT COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, name as original_name, capital_nickname FROM users WHERE id = ?`, [userId]);
-        
-        // Remover do grupo
-        await runQuery('DELETE FROM user_groups WHERE user_id = ? AND group_name = ?', [userId, roleName]);
-        
+
+        // Remove da tabela de grupos (se houver linha) e/ou zera o cargo legado
+        if (membership) {
+            await runQuery('DELETE FROM user_groups WHERE user_id = ? AND group_name = ?', [userId, roleName]);
+        }
+        if (roleMatches) {
+            await runQuery('UPDATE users SET role = ? WHERE id = ?', ['member', userId]);
+        }
+
         console.log(`👥 Usuário ${user?.name || userId} removido do grupo ${roleName} por ${req.session.user.name}`);
-        
+
         res.json({ success: true, message: 'Usuário removido do grupo com sucesso!' });
     } catch (error) {
         res.status(500).json({ error: error.message });
