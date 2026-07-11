@@ -6091,6 +6091,87 @@ router.post('/delivery/create-manual', requireAdmin, async (req, res) => {
     }
 });
 
+// Lançar o farm do membro separado por tipo (drogas/armas/geral) — 1 entrega por tipo.
+// Os prints de cada tipo sobem depois em /delivery/:id/screenshots usando o id retornado.
+router.post('/delivery/launch-for-member', requireAdmin, async (req, res) => {
+    try {
+        const { userId, weekStart, weekEnd, farms } = req.body;
+        const adminId = req.session.user.id;
+
+        if (!userId || !weekStart || !weekEnd || !Array.isArray(farms)) {
+            return res.status(400).json({ error: 'Dados incompletos' });
+        }
+
+        const targetGroups = await getUserGroups(userId);
+        const isManager = isManagerByGroups(targetGroups);
+        const allMaterials = (await getAll('SELECT id, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1'))
+            .filter(m => productAppliesToRole(m, isManager));
+        const allowedIds = new Set(allMaterials.map(m => Number(m.id)));
+
+        // Tipos que estão sendo lançados (têm ao menos um item > 0 e válido)
+        const typesToLaunch = new Set();
+        for (const f of farms) {
+            const t = normalizeFarmType(f.farmType);
+            const hasItems = (f.items || []).some(i => (parseInt(i.amount, 10) || 0) > 0 && allowedIds.has(Number(i.materialId)));
+            if (hasItems) typesToLaunch.add(t);
+        }
+        if (typesToLaunch.size === 0) {
+            return res.status(400).json({ error: 'Informe pelo menos um material em algum tipo de farm' });
+        }
+
+        // Substituir entregas existentes desses tipos na semana (evita duplicar)
+        const weekDeliveries = await getAll('SELECT id FROM deliveries WHERE user_id = ? AND week_start = ? AND week_end = ?', [userId, weekStart, weekEnd]);
+        for (const del of weekDeliveries) {
+            const its = await getAll('SELECT m.farm_type FROM delivery_items di JOIN materials m ON di.material_id = m.id WHERE di.delivery_id = ?', [del.id]);
+            const delTypes = new Set(its.map(i => normalizeFarmType(i.farm_type)));
+            const overlaps = delTypes.size === 0 || [...delTypes].some(t => typesToLaunch.has(t));
+            if (overlaps) {
+                try { await runQuery('DELETE FROM extra_farm_screenshots WHERE extra_farm_id IN (SELECT id FROM extra_farm_requests WHERE delivery_id = ?)', [del.id]); } catch (e) {}
+                try { await runQuery('DELETE FROM extra_farm_requests WHERE delivery_id = ?', [del.id]); } catch (e) {}
+                await runQuery('DELETE FROM delivery_screenshots WHERE delivery_id = ?', [del.id]);
+                await runQuery('DELETE FROM delivery_items WHERE delivery_id = ?', [del.id]);
+                await runQuery('DELETE FROM deliveries WHERE id = ?', [del.id]);
+            }
+        }
+
+        const created = [];
+        for (const f of farms) {
+            const type = normalizeFarmType(f.farmType);
+            const items = (f.items || [])
+                .filter(i => (parseInt(i.amount, 10) || 0) > 0 && allowedIds.has(Number(i.materialId)))
+                .map(i => ({ materialId: Number(i.materialId), amount: parseInt(i.amount, 10) }));
+            if (items.length === 0) continue;
+
+            // Completo se todos os materiais do tipo batem a meta; senão, "em progresso" (parcial)
+            const typeMaterials = allMaterials.filter(m => normalizeFarmType(m.farm_type) === type);
+            let complete = typeMaterials.length > 0;
+            for (const mat of typeMaterials) {
+                const it = items.find(i => i.materialId === Number(mat.id));
+                const amount = it ? it.amount : 0;
+                const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
+                if (amount < goal) { complete = false; break; }
+            }
+            const isPartial = complete ? 0 : 1;
+
+            const result = await runQuery(
+                'INSERT INTO deliveries (user_id, week_start, week_end, description, status, is_partial, approved_by, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+                [userId, weekStart, weekEnd, 'Lançado pelo gerente', 'approved', isPartial, adminId]
+            );
+            const deliveryId = result.lastID;
+            for (const it of items) {
+                await runQuery('INSERT INTO delivery_items (delivery_id, material_id, amount) VALUES (?, ?, ?)', [deliveryId, it.materialId, it.amount]);
+            }
+            created.push({ type, deliveryId, isPartial, complete });
+        }
+
+        console.log(`🎯 Gerente #${adminId} lançou farm do membro #${userId} (${created.map(c => c.type).join(', ')})`);
+        res.json({ success: true, created });
+    } catch (error) {
+        console.error('❌ Erro ao lançar farm do membro:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Buscar entregas de um membro para edição
 router.get('/member/:memberId/deliveries', requireAdmin, async (req, res) => {
     try {

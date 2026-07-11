@@ -12137,14 +12137,10 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
             { value: 'pending', label: '⏳ Aguardando', color: '#f39c12' },
             { value: 'not_delivered', label: '🚫 Não Entregou', color: '#e74c3c' }
         ];
-        const defaultStatus = (tableStatus === 'missing') ? 'not_delivered' : 'approved';
-        let statusSelectHtml = `<select id="createDeliveryStatus" style="padding: 10px 15px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.3); background: #2d2d44; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; min-width: 180px;">`;
-        for (const opt of statusOptions) {
-            const selected = (opt.value === defaultStatus) ? ' selected' : '';
-            statusSelectHtml += `<option value="${opt.value}"${selected} style="background: #2d2d44; color: #fff; padding: 10px;">${opt.label}</option>`;
-        }
-        statusSelectHtml += `</select>`;
-        document.getElementById('createDeliveryStatusContainer').innerHTML = statusSelectHtml;
+        const statusLine = document.getElementById('createDeliveryStatusContainer');
+        if (statusLine && statusLine.closest('p')) statusLine.closest('p').style.display = 'none';
+        const staticShots = document.getElementById('createDeliveryScreenshotsSection');
+        if (staticShots) staticShots.style.display = 'none';
         
         // Buscar materiais
         const matsRes = await fetch(`/api/admin/materials?memberId=${memberId}`, {
@@ -12158,44 +12154,47 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
         const activeMats = materials.filter(m => m.active === 1);
         const ftOf = (m) => { const t = (m.farm_type || 'drugs'); return (t === 'weapons' || t === 'general') ? t : 'drugs'; };
         const createGroups = [
-            { type: 'drugs',   title: '🍃 Farm de Drogas', color: '#2ecc71', items: activeMats.filter(m => ftOf(m) === 'drugs') },
-            { type: 'weapons', title: '🔫 Farm de Armas',  color: '#e67e22', items: activeMats.filter(m => ftOf(m) === 'weapons') },
-            { type: 'general', title: '📦 Farm Geral',     color: '#3498db', items: activeMats.filter(m => ftOf(m) === 'general') }
+            { type: 'drugs',   title: '🍃 Farm de Drogas', printLabel: 'Print das Drogas', color: '#2ecc71', items: activeMats.filter(m => ftOf(m) === 'drugs') },
+            { type: 'weapons', title: '🔫 Farm de Armas',  printLabel: 'Print das Armas',  color: '#e67e22', items: activeMats.filter(m => ftOf(m) === 'weapons') },
+            { type: 'general', title: '📦 Farm Geral',     printLabel: 'Print do Farm',     color: '#3498db', items: activeMats.filter(m => ftOf(m) === 'general') }
         ].filter(g => g.items.length > 0);
-        const showGroupTitles = createGroups.length > 1;
+        window.__launchGroups = createGroups.map(g => g.type);
 
-        const matRow = (mat) => `
-            <div class="create-delivery-item" style="display: flex; align-items: center; gap: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
-                <span style="font-size: 24px;">${mat.icon || '📦'}</span>
-                <div style="flex: 1;">
-                    <div style="font-weight: 600; color: #fff;">${mat.name}</div>
-                    <div style="font-size: 12px; color: #888;">Meta: ${mat.weekly_goal}</div>
+        const sectionHtml = (group) => `
+            <div class="launch-section" data-type="${group.type}" style="border: 1px solid ${group.color}44; border-radius: 12px; padding: 14px; margin-bottom: 16px; background: rgba(255,255,255,0.02);">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+                    <div style="color:${group.color}; font-weight:700; font-size:15px;">${group.title}</div>
+                    <div style="font-size:12px; color:#9aa0b5;"><span id="lfPct_${group.type}">0%</span> da meta</div>
                 </div>
-                <input type="number"
-                       id="createItem_${mat.id}"
-                       value="0"
-                       min="0"
-                       style="width: 100px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; text-align: center; font-size: 16px;"
-                       data-material-id="${mat.id}"
-                       data-name="${mat.name}">
+                <div style="height:8px; border-radius:99px; background:rgba(255,255,255,0.08); overflow:hidden; margin-bottom:14px;">
+                    <div id="lfBar_${group.type}" style="height:100%; width:0%; background:${group.color}; transition:width .2s ease;"></div>
+                </div>
+                ${group.items.map(mat => `
+                    <div style="display:flex; align-items:center; gap:12px; padding:10px; background:rgba(255,255,255,0.04); border-radius:8px; margin-bottom:8px;">
+                        <span style="font-size:22px;">${mat.icon || '📦'}</span>
+                        <div style="flex:1;">
+                            <div style="font-weight:600; color:#fff;">${mat.name}</div>
+                            <div style="font-size:12px; color:#888;">Meta: ${mat.weekly_goal}</div>
+                        </div>
+                        <input type="number" min="0" value="0"
+                               data-launch-type="${group.type}" data-material-id="${mat.id}" data-goal="${mat.weekly_goal || 0}"
+                               oninput="updateLaunchProgress('${group.type}')"
+                               style="width:100px; padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.1); color:#fff; text-align:center; font-size:16px;">
+                    </div>
+                `).join('')}
+                <div style="margin-top:12px;">
+                    <div style="font-size:13px; color:#cfd2e2; margin-bottom:6px;">📷 ${group.printLabel}</div>
+                    <div onclick="document.getElementById('lfPrint_${group.type}').click()" style="border:2px dashed rgba(255,255,255,0.25); border-radius:10px; padding:14px; text-align:center; cursor:pointer;">
+                        <input type="file" id="lfPrint_${group.type}" multiple accept="image/*" style="display:none;" onchange="previewLaunchScreens('${group.type}')">
+                        <div id="lfPrintPreview_${group.type}" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:8px;"></div>
+                        <span style="color:#888; font-size:13px;">Clique para adicionar print</span>
+                    </div>
+                </div>
             </div>
         `;
 
-        let itemsHtml = '';
-        for (const group of createGroups) {
-            if (showGroupTitles) {
-                itemsHtml += `<div style="margin: 16px 0 10px; padding-bottom: 7px; border-bottom: 2px solid ${group.color}33; color: ${group.color}; font-weight: 700; font-size: 14px;">${group.title}</div>`;
-            }
-            itemsHtml += group.items.map(matRow).join('');
-        }
-
-        // Botão de salvar
-        itemsHtml += `
-            <button onclick="submitCreateDelivery()"
-                    style="width: 100%; margin-top: 15px; background: #9b59b6; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
-                💾 Lançar Farm do Membro
-            </button>
-        `;
+        let itemsHtml = createGroups.map(sectionHtml).join('');
+        itemsHtml += `<button onclick="submitLaunchForMember()" style="width:100%; margin-top:6px; background:#9b59b6; color:#fff; border:none; padding:13px 20px; border-radius:8px; cursor:pointer; font-size:16px; font-weight:700;">🎯 Lançar Farm do Membro</button>`;
 
         document.getElementById('createDeliveryItems').innerHTML = itemsHtml;
         
@@ -12318,6 +12317,99 @@ function closeCreateDeliveryModal() {
     currentCreateMemberId = null;
     currentCreateWeekStart = null;
     currentCreateWeekEnd = null;
+}
+
+// ===== Lançar farm do membro (separado por tipo) =====
+// Progresso por tipo (soma das quantidades / soma das metas)
+function updateLaunchProgress(type) {
+    const inputs = [...document.querySelectorAll(`[data-launch-type="${type}"]`)];
+    let sum = 0, goalSum = 0;
+    inputs.forEach(i => { sum += parseInt(i.value) || 0; goalSum += parseInt(i.dataset.goal) || 0; });
+    const pct = goalSum > 0 ? Math.min(100, Math.round((sum / goalSum) * 100)) : 0;
+    const bar = document.getElementById('lfBar_' + type);
+    const pctEl = document.getElementById('lfPct_' + type);
+    if (bar) bar.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+}
+
+// Preview dos prints de cada tipo
+function previewLaunchScreens(type) {
+    const input = document.getElementById('lfPrint_' + type);
+    const preview = document.getElementById('lfPrintPreview_' + type);
+    if (!input || !preview) return;
+    preview.innerHTML = '';
+    for (const file of input.files) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'width:70px;height:70px;border-radius:8px;overflow:hidden;border:2px solid #27ae60;';
+            div.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+            preview.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Enviar: cria uma entrega por tipo e sobe os prints de cada uma
+async function submitLaunchForMember() {
+    if (!currentCreateMemberId || !currentCreateWeekStart || !currentCreateWeekEnd) {
+        showNotification('Dados incompletos', 'error');
+        return;
+    }
+    const types = window.__launchGroups || ['drugs', 'weapons', 'general'];
+    const farms = [];
+    const filesByType = {};
+    for (const type of types) {
+        const inputs = [...document.querySelectorAll(`[data-launch-type="${type}"]`)];
+        const items = inputs
+            .map(i => ({ materialId: parseInt(i.dataset.materialId), amount: parseInt(i.value) || 0 }))
+            .filter(i => i.amount > 0);
+        const fileInput = document.getElementById('lfPrint_' + type);
+        const files = fileInput ? [...fileInput.files] : [];
+        if (items.length > 0) {
+            farms.push({ farmType: type, items });
+            filesByType[type] = files;
+        }
+    }
+    if (farms.length === 0) {
+        showNotification('Preencha ao menos um material', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/delivery/launch-for-member', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                userId: currentCreateMemberId,
+                weekStart: currentCreateWeekStart,
+                weekEnd: currentCreateWeekEnd,
+                farms
+            })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Erro ao lançar farm');
+
+        // Subir os prints de cada tipo na entrega correspondente
+        for (const c of (data.created || [])) {
+            const files = filesByType[c.type] || [];
+            if (files.length && c.deliveryId) {
+                const fd = new FormData();
+                files.forEach(f => fd.append('screenshots', f));
+                try {
+                    await fetch(`/api/admin/delivery/${c.deliveryId}/screenshots`, { method: 'POST', credentials: 'same-origin', body: fd });
+                } catch (e) { console.error('Erro ao enviar prints:', e); }
+            }
+        }
+
+        showNotification('✅ Farm lançado com sucesso!', 'success');
+        closeCreateDeliveryModal();
+        if (typeof loadWeeklyStatus === 'function') loadWeeklyStatus();
+    } catch (error) {
+        console.error('Erro ao lançar farm do membro:', error);
+        showNotification('Erro: ' + error.message, 'error');
+    }
 }
 
 // ==================== FIM EDIÇÃO DE ENTREGAS ====================
