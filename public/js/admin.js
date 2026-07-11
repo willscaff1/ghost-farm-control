@@ -12154,34 +12154,49 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
         
         const materials = matsData.materials || matsData;
         
-        let itemsHtml = '';
-        for (const mat of materials.filter(m => m.active === 1)) {
-            itemsHtml += `
-                <div class="create-delivery-item" style="display: flex; align-items: center; gap: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
-                    <span style="font-size: 24px;">${mat.icon || '📦'}</span>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600; color: #fff;">${mat.name}</div>
-                        <div style="font-size: 12px; color: #888;">Meta: ${mat.weekly_goal}</div>
-                    </div>
-                    <input type="number" 
-                           id="createItem_${mat.id}" 
-                           value="0" 
-                           min="0" 
-                           style="width: 100px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; text-align: center; font-size: 16px;"
-                           data-material-id="${mat.id}"
-                           data-name="${mat.name}">
+        // Agrupar materiais por tipo de farm (Drogas / Armas / Geral)
+        const activeMats = materials.filter(m => m.active === 1);
+        const ftOf = (m) => { const t = (m.farm_type || 'drugs'); return (t === 'weapons' || t === 'general') ? t : 'drugs'; };
+        const createGroups = [
+            { type: 'drugs',   title: '🍃 Farm de Drogas', color: '#2ecc71', items: activeMats.filter(m => ftOf(m) === 'drugs') },
+            { type: 'weapons', title: '🔫 Farm de Armas',  color: '#e67e22', items: activeMats.filter(m => ftOf(m) === 'weapons') },
+            { type: 'general', title: '📦 Farm Geral',     color: '#3498db', items: activeMats.filter(m => ftOf(m) === 'general') }
+        ].filter(g => g.items.length > 0);
+        const showGroupTitles = createGroups.length > 1;
+
+        const matRow = (mat) => `
+            <div class="create-delivery-item" style="display: flex; align-items: center; gap: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
+                <span style="font-size: 24px;">${mat.icon || '📦'}</span>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; color: #fff;">${mat.name}</div>
+                    <div style="font-size: 12px; color: #888;">Meta: ${mat.weekly_goal}</div>
                 </div>
-            `;
+                <input type="number"
+                       id="createItem_${mat.id}"
+                       value="0"
+                       min="0"
+                       style="width: 100px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; text-align: center; font-size: 16px;"
+                       data-material-id="${mat.id}"
+                       data-name="${mat.name}">
+            </div>
+        `;
+
+        let itemsHtml = '';
+        for (const group of createGroups) {
+            if (showGroupTitles) {
+                itemsHtml += `<div style="margin: 16px 0 10px; padding-bottom: 7px; border-bottom: 2px solid ${group.color}33; color: ${group.color}; font-weight: 700; font-size: 14px;">${group.title}</div>`;
+            }
+            itemsHtml += group.items.map(matRow).join('');
         }
-        
-        // Adicionar botão de salvar (igual ao estilo do modal de editar)
+
+        // Botão de salvar
         itemsHtml += `
-            <button onclick="submitCreateDelivery()" 
+            <button onclick="submitCreateDelivery()"
                     style="width: 100%; margin-top: 15px; background: #9b59b6; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">
-                💾 Criar Entrega
+                💾 Lançar Farm do Membro
             </button>
         `;
-        
+
         document.getElementById('createDeliveryItems').innerHTML = itemsHtml;
         
     } catch (error) {
