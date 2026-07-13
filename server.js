@@ -471,9 +471,13 @@ db.initialize().then(async () => {
                 const permissions = JSON.parse(role.permissions || '[]');
                 if (permissions.includes('all')) continue;
 
-                const roleName = String(role.role_name || '');
+                const roleName = String(role.role_name || '').toLowerCase();
+                // Qualquer grupo de gerência/liderança (alinhado com o requireAdmin do backend)
                 const isManager = baseGroups.includes(roleName) ||
-                    roleName.startsWith('gerente_') ||
+                    roleName.includes('gerente') ||
+                    roleName.includes('lider') ||
+                    roleName.includes('admin') ||
+                    roleName === '01' || roleName === '02' ||
                     role.can_config === 1 ||
                     role.can_config === true;
                 if (!isManager) continue;
