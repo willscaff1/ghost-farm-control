@@ -12154,9 +12154,9 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
         const activeMats = materials.filter(m => m.active === 1);
         const ftOf = (m) => { const t = (m.farm_type || 'drugs'); return (t === 'weapons' || t === 'general') ? t : 'drugs'; };
         const createGroups = [
-            { type: 'drugs',   title: '🍃 Farm de Drogas', printLabel: 'Print das Drogas', color: '#2ecc71', items: activeMats.filter(m => ftOf(m) === 'drugs') },
-            { type: 'weapons', title: '🔫 Farm de Armas',  printLabel: 'Print das Armas',  color: '#e67e22', items: activeMats.filter(m => ftOf(m) === 'weapons') },
-            { type: 'general', title: '📦 Farm Geral',     printLabel: 'Print do Farm',     color: '#3498db', items: activeMats.filter(m => ftOf(m) === 'general') }
+            { type: 'drugs',   title: '🍃 Farm de Drogas', printLabel: 'Print das Drogas', launchLabel: 'Drogas', color: '#2ecc71', items: activeMats.filter(m => ftOf(m) === 'drugs') },
+            { type: 'weapons', title: '🔫 Farm de Armas',  printLabel: 'Print das Armas',  launchLabel: 'Armas',  color: '#e67e22', items: activeMats.filter(m => ftOf(m) === 'weapons') },
+            { type: 'general', title: '📦 Farm Geral',     printLabel: 'Print do Farm',     launchLabel: 'Geral',  color: '#3498db', items: activeMats.filter(m => ftOf(m) === 'general') }
         ].filter(g => g.items.length > 0);
         window.__launchGroups = createGroups.map(g => g.type);
 
@@ -12190,14 +12190,21 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
                         <span style="color:#888; font-size:13px;">Clique para adicionar print</span>
                     </div>
                 </div>
+                <button id="lfBtn_${group.type}" onclick="launchSingleType('${group.type}')" disabled
+                        style="width:100%; margin-top:14px; background:${group.color}; color:#fff; border:none; padding:11px; border-radius:8px; font-size:14px; font-weight:700; opacity:0.45; cursor:not-allowed;">
+                    ✅ Lançar ${group.launchLabel} (completo + print)
+                </button>
             </div>
         `;
 
         let itemsHtml = createGroups.map(sectionHtml).join('');
-        itemsHtml += `<button onclick="submitLaunchForMember()" style="width:100%; margin-top:6px; background:#9b59b6; color:#fff; border:none; padding:13px 20px; border-radius:8px; cursor:pointer; font-size:16px; font-weight:700;">🎯 Lançar Farm do Membro</button>`;
+        if (createGroups.length > 1) {
+            itemsHtml += `<button id="lfBtnAll" onclick="launchFarm(window.__launchGroups)" disabled style="width:100%; margin-top:6px; background:#9b59b6; color:#fff; border:none; padding:13px 20px; border-radius:8px; cursor:not-allowed; font-size:16px; font-weight:700; opacity:0.45;">🎯 Lançar os 2 (tudo completo + prints)</button>`;
+        }
 
         document.getElementById('createDeliveryItems').innerHTML = itemsHtml;
-        
+        updateLaunchButtons();
+
     } catch (error) {
         console.error('Erro ao preparar criação:', error);
         document.getElementById('createDeliveryItems').innerHTML = `<p style="color: #ff7675;">❌ ${error.message}</p>`;
@@ -12330,6 +12337,7 @@ function updateLaunchProgress(type) {
     const pctEl = document.getElementById('lfPct_' + type);
     if (bar) bar.style.width = pct + '%';
     if (pctEl) pctEl.textContent = pct + '%';
+    updateLaunchButtons();
 }
 
 // Preview dos prints de cada tipo
@@ -12337,6 +12345,7 @@ function previewLaunchScreens(type) {
     const input = document.getElementById('lfPrint_' + type);
     const preview = document.getElementById('lfPrintPreview_' + type);
     if (!input || !preview) return;
+    updateLaunchButtons();
     preview.innerHTML = '';
     for (const file of input.files) {
         const reader = new FileReader();
@@ -12350,13 +12359,54 @@ function previewLaunchScreens(type) {
     }
 }
 
+// Um tipo está "completo" quando todos os materiais dele batem a meta
+function typeIsComplete(type) {
+    const inputs = [...document.querySelectorAll(`[data-launch-type="${type}"]`)];
+    if (inputs.length === 0) return false;
+    return inputs.every(i => (parseInt(i.value) || 0) >= (parseInt(i.dataset.goal) || 0));
+}
+function typeHasPrint(type) {
+    const fi = document.getElementById('lfPrint_' + type);
+    return !!(fi && fi.files && fi.files.length > 0);
+}
+
+// Habilita o botão de cada tipo (completo + print) e o botão "Lançar os 2" (todos prontos)
+function updateLaunchButtons() {
+    const types = window.__launchGroups || [];
+    let allReady = types.length > 0;
+    types.forEach(type => {
+        const ready = typeIsComplete(type) && typeHasPrint(type);
+        if (!ready) allReady = false;
+        const btn = document.getElementById('lfBtn_' + type);
+        if (btn) {
+            btn.disabled = !ready;
+            btn.style.opacity = ready ? '1' : '0.45';
+            btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+        }
+    });
+    const allBtn = document.getElementById('lfBtnAll');
+    if (allBtn) {
+        allBtn.disabled = !allReady;
+        allBtn.style.opacity = allReady ? '1' : '0.45';
+        allBtn.style.cursor = allReady ? 'pointer' : 'not-allowed';
+    }
+}
+
+// Lançar só um tipo
+function launchSingleType(type) { return launchFarm([type]); }
+
 // Enviar: cria uma entrega por tipo e sobe os prints de cada uma
-async function submitLaunchForMember() {
+async function launchFarm(typesToLaunch) {
     if (!currentCreateMemberId || !currentCreateWeekStart || !currentCreateWeekEnd) {
         showNotification('Dados incompletos', 'error');
         return;
     }
-    const types = window.__launchGroups || ['drugs', 'weapons', 'general'];
+    const types = (typesToLaunch && typesToLaunch.length) ? typesToLaunch : (window.__launchGroups || ['drugs', 'weapons', 'general']);
+    // Só lança tipos completos e com print
+    for (const type of types) {
+        if (!typeIsComplete(type)) { showNotification('Complete a meta do farm antes de lançar', 'warning'); return; }
+        if (!typeHasPrint(type)) { showNotification('Adicione o print do farm antes de lançar', 'warning'); return; }
+    }
     const farms = [];
     const filesByType = {};
     for (const type of types) {
