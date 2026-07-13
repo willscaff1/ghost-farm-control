@@ -93,8 +93,11 @@ router.get('/me', async (req, res) => {
             }
             
             // Atualizar a sessão com os grupos mais recentes
+            // role = primeiro grupo QUE NÃO SEJA 'member' (senão gerentes promovidos,
+            // que têm 'member' antes na lista, ficariam com role 'member' e sem permissão)
+            const primaryRole = groups.find(g => g && g !== 'member') || groups[0] || userCheck.role;
             req.session.user.groups = groups;
-            req.session.user.role = groups[0] || userCheck.role; // Atualizar role também
+            req.session.user.role = primaryRole; // Atualizar role também
             req.session.user.name = userCheck.capital_nickname || userCheck.name;
             req.session.user.original_name = userCheck.name;
             req.session.user.passport = userCheck.passport;
@@ -103,11 +106,11 @@ router.get('/me', async (req, res) => {
             
             const commandments = await getUserCommandmentStatus(req.session.user.id);
 
-            res.json({ 
+            res.json({
                 user: {
                     ...req.session.user,
                     groups: groups,
-                    role: groups[0] || userCheck.role,
+                    role: primaryRole,
                     commandments_required: commandments.requiresAcceptance,
                     requires_capital_nickname: !commandments.requiresAcceptance && needsCapitalNickname(userCheck, groups)
                 }

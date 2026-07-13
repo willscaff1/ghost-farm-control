@@ -1465,7 +1465,10 @@ async function openMemberExtract(memberId) {
                     : (hasAdv && canHaveAdv ? `<span class="extract-adv-applied">⚠️ ADV JÁ APLICADA</span>` : '');
                 
                 // Botão de editar entrega (qualquer admin pode editar)
-                const canEditDeliveries = currentUser && currentUser.role && currentUser.role !== 'member';
+                const canEditDeliveries = currentUser && (
+            (Array.isArray(currentUser.groups) && currentUser.groups.some(g => g && g !== 'member')) ||
+            (currentUser.role && currentUser.role !== 'member')
+        );
                 const firstDelivery = recordDeliveries[0];
                 const editButton = canEditDeliveries && firstDelivery?.id
                     ? `<button class="btn-edit-delivery" onclick="openEditDeliveryModal(${firstDelivery.id}, ${data.member.id})" style="background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px;">✏️ Editar</button>`
@@ -2644,7 +2647,10 @@ function renderWeeklyStatusMemberRows(members) {
         }
 
         // Qualquer admin pode editar entregas
-        const canEditDeliveries = currentUser && currentUser.role && currentUser.role !== 'member';
+        const canEditDeliveries = currentUser && (
+            (Array.isArray(currentUser.groups) && currentUser.groups.some(g => g && g !== 'member')) ||
+            (currentUser.role && currentUser.role !== 'member')
+        );
 
         // Montar botões de ação em linha
         let buttons = [];
@@ -2892,7 +2898,10 @@ function renderWeeklyTable(filter) {
         }
         
         // Qualquer admin pode editar entregas
-        const canEditDeliveries = currentUser && currentUser.role && currentUser.role !== 'member';
+        const canEditDeliveries = currentUser && (
+            (Array.isArray(currentUser.groups) && currentUser.groups.some(g => g && g !== 'member')) ||
+            (currentUser.role && currentUser.role !== 'member')
+        );
         
         // Montar botões de ação em linha
         let buttons = [];
