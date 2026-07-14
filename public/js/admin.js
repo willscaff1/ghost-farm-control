@@ -11449,7 +11449,7 @@ function renderEditDeliveryFarmGroups() {
         <div class="edit-delivery-farm-grid">
             ${groups.map(group => {
                 const deliveryId = group.deliveryId;
-                const disabledAttr = deliveryId ? '' : 'disabled';
+                const disabledAttr = ''; // gerentes podem editar/lançar tudo, mesmo sem envio
                 const screenshotsHtml = group.screenshots.length > 0
                     ? group.screenshots.map(s => `
                         <div class="edit-farm-screenshot">
