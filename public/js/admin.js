@@ -11487,10 +11487,10 @@ function renderEditDeliveryFarmGroups() {
                                                value="${currentAmount}"
                                                min="0"
                                                data-delivery-id="${deliveryId || ''}"
+                                               data-farm-type="${group.type}"
                                                data-material-id="${mat.id}"
                                                data-original="${currentAmount}"
-                                               data-name="${escapeHtml(mat.name)}"
-                                               ${disabledAttr}>
+                                               data-name="${escapeHtml(mat.name)}">
                                     </div>
                                 `;
                             }).join('')}
@@ -11499,15 +11499,14 @@ function renderEditDeliveryFarmGroups() {
                         <div class="edit-farm-print-section">
                             <div class="edit-farm-print-title">Prints de ${escapeHtml(group.title)}</div>
                             <div class="edit-farm-existing-prints">${screenshotsHtml}</div>
-                            <label class="edit-farm-upload ${deliveryId ? '' : 'disabled'}">
+                            <label class="edit-farm-upload">
                                 <input type="file"
                                        class="edit-farm-screenshot-input"
                                        accept="image/*"
                                        multiple
                                        data-farm-type="${group.type}"
                                        data-delivery-id="${deliveryId || ''}"
-                                       onchange="previewEditFarmScreenshots(this)"
-                                       ${disabledAttr}>
+                                       onchange="previewEditFarmScreenshots(this)">
                                 <span>Adicionar prints</span>
                                 <div class="edit-farm-new-preview" data-preview-for="${group.type}"></div>
                             </label>
@@ -11813,7 +11812,26 @@ async function saveAllDeliveryItems() {
         });
     });
 
-    if (changes.length === 0 && statusChanges.length === 0 && screenshotUploads.length === 0 && !weekChanged) {
+    // Tipos de farm SEM entrega (ex: armas nao lancadas) mas com quantidades preenchidas -> lancar
+    const newFarmsByType = {};
+    document.querySelectorAll('.edit-delivery-item-input').forEach(input => {
+        if (input.dataset.deliveryId) return; // ja tem entrega (tratado em 'changes')
+        const amount = parseInt(input.value, 10) || 0;
+        if (amount <= 0) return;
+        const ft = input.dataset.farmType;
+        if (!ft) return;
+        if (!newFarmsByType[ft]) newFarmsByType[ft] = [];
+        newFarmsByType[ft].push({ materialId: parseInt(input.dataset.materialId, 10), amount });
+    });
+    const newFarmScreenshots = {};
+    document.querySelectorAll('.edit-farm-screenshot-input').forEach(input => {
+        if (input.dataset.deliveryId) return; // entrega existente e tratada em screenshotUploads
+        if (!input.files || input.files.length === 0) return;
+        newFarmScreenshots[input.dataset.farmType] = [...input.files];
+    });
+    const newFarms = Object.keys(newFarmsByType).map(ft => ({ farmType: ft, items: newFarmsByType[ft] }));
+
+    if (changes.length === 0 && statusChanges.length === 0 && screenshotUploads.length === 0 && newFarms.length === 0 && !weekChanged) {
         showNotification('Nenhuma alteracao detectada', 'warning');
         return;
     }
@@ -11839,6 +11857,14 @@ async function saveAllDeliveryItems() {
     if (screenshotUploads.length > 0) {
         const totalFiles = screenshotUploads.reduce((sum, upload) => sum + upload.input.files.length, 0);
         confirmMsg += `${totalFiles} novo(s) print(s) serao adicionados.\n\n`;
+    }
+    if (newFarms.length > 0) {
+        confirmMsg += 'LANCAR FARM QUE FALTOU:\n';
+        newFarms.forEach(f => {
+            const label = f.farmType === 'weapons' ? 'Armas' : (f.farmType === 'general' ? 'Geral' : 'Drogas');
+            confirmMsg += `${label}: ${f.items.length} material(is)\n`;
+        });
+        confirmMsg += '\n';
     }
     confirmMsg += 'Deseja salvar estas alteracoes?';
 
@@ -11941,6 +11967,43 @@ async function saveAllDeliveryItems() {
             }
         } catch (error) {
             console.error('Erro ao enviar prints:', error);
+            errorCount++;
+        }
+    }
+
+    // Lancar os tipos de farm que faltavam (sem entrega) com quantidades + prints
+    if (newFarms.length > 0) {
+        try {
+            const res = await fetch('/api/admin/delivery/launch-for-member', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    userId: currentEditUserId,
+                    weekStart: currentEditWeekStart,
+                    weekEnd: currentEditWeekEnd,
+                    farms: newFarms
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                successCount++;
+                for (const c of (data.created || [])) {
+                    const files = newFarmScreenshots[c.type] || [];
+                    if (files.length && c.deliveryId) {
+                        const fd = new FormData();
+                        files.forEach(f => fd.append('screenshots', f));
+                        try {
+                            await fetch(`/api/admin/delivery/${c.deliveryId}/screenshots`, { method: 'POST', credentials: 'same-origin', body: fd });
+                        } catch (e) { console.error('Erro ao enviar prints do lancamento:', e); }
+                    }
+                }
+            } else {
+                errorCount++;
+                showNotification(`Erro ao lancar farm que faltou: ${escapeHtml(data.error || '')}`, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao lancar farm que faltou:', error);
             errorCount++;
         }
     }
