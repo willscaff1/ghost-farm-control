@@ -929,6 +929,15 @@ db.initialize().then(async () => {
         // Esconder materiais padrão antigos e impedir que voltem após reinício
         await deactivateLegacyDefaultMaterials();
 
+        // Zerar slots de baú de membros DESATIVADOS (libera os slots)
+        try {
+            const { runQuery: rqSlots } = require('./database/db');
+            const rSlots = await rqSlots("UPDATE users SET member_slot = NULL, manager_slot = NULL WHERE active = 0 AND (member_slot IS NOT NULL OR manager_slot IS NOT NULL)");
+            if (rSlots && rSlots.changes) console.log(`🧹 Slots liberados de ${rSlots.changes} membro(s) desativado(s)`);
+        } catch (slotErr) {
+            console.error('⚠️ Erro ao zerar slots de desativados:', slotErr.message);
+        }
+
         // One-shot: aprovar semana 08-14/06 e zerar semana 15-21/06
         await bulkWeekOps_2026_06();
 
