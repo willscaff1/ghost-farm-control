@@ -1469,9 +1469,15 @@ router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
         }
         
         const newStatus = member.active ? 0 : 1;
-        await runQuery('UPDATE users SET active = ? WHERE id = ?', [newStatus, memberId]);
-        
-        res.json({ success: true, message: newStatus ? 'Membro ativado' : 'Membro desativado' });
+
+        if (newStatus === 0) {
+            // Ao DESATIVAR, libera os slots de baú cadastrados (member e manager)
+            await runQuery('UPDATE users SET active = 0, member_slot = NULL, manager_slot = NULL WHERE id = ?', [memberId]);
+        } else {
+            await runQuery('UPDATE users SET active = 1 WHERE id = ?', [memberId]);
+        }
+
+        res.json({ success: true, message: newStatus ? 'Membro ativado' : 'Membro desativado (slot liberado)' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
