@@ -1520,10 +1520,15 @@ router.post('/members/:id/role', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Não é possível alterar este usuário' });
         }
         
-        await runQuery('UPDATE users SET role = ? WHERE id = ?', [role, memberId]);
-        
+        if (role === 'member') {
+            // Rebaixado para membro: libera o slot de gerente que ele ocupava
+            await runQuery('UPDATE users SET role = ?, manager_slot = NULL WHERE id = ?', [role, memberId]);
+        } else {
+            await runQuery('UPDATE users SET role = ? WHERE id = ?', [role, memberId]);
+        }
+
         const roleNamesMap = await getRoleNames();
-        res.json({ success: true, message: `Cargo alterado para ${roleNamesMap[role] || role}` });
+        res.json({ success: true, message: `Cargo alterado para ${roleNamesMap[role] || role}${role === 'member' ? ' (slot de gerente liberado)' : ''}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -4395,7 +4400,8 @@ router.delete('/role-permissions/:roleName/members/:userId', requireAdmin, async
             await runQuery('DELETE FROM user_groups WHERE user_id = ? AND group_name = ?', [userId, roleName]);
         }
         if (roleMatches) {
-            await runQuery('UPDATE users SET role = ? WHERE id = ?', ['member', userId]);
+            // Vira membro comum: libera o slot de gerente que ocupava
+            await runQuery('UPDATE users SET role = ?, manager_slot = NULL WHERE id = ?', ['member', userId]);
         }
 
         console.log(`👥 Usuário ${user?.name || userId} removido do grupo ${roleName} por ${req.session.user.name}`);
