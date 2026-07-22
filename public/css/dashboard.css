@@ -525,6 +525,26 @@
 }
 
 /* Cartão de Resumo do Membro (ADVs + Meta da semana) */
+.member-greeting {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #dfe1ee;
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    background: rgba(108, 92, 231, 0.10);
+    border: 1px solid rgba(108, 92, 231, 0.25);
+    border-radius: 10px;
+}
+
+.member-greeting:empty {
+    display: none;
+}
+
+.member-greeting.paid {
+    background: rgba(46, 204, 113, 0.10);
+    border-color: rgba(46, 204, 113, 0.32);
+}
+
 .member-summary-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

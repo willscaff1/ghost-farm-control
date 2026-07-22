@@ -6273,6 +6273,13 @@ function openEditMemberModal(id, name, passport, email) {
     document.getElementById('editMemberSlot').value = selectedMember?.member_slot || '';
     document.getElementById('editManagerSlot').value = selectedMember?.manager_slot || '';
     document.getElementById('editMemberPassword').value = '';
+
+    // Data de criação da conta (discreto)
+    const createdEl = document.getElementById('editMemberCreatedAt');
+    if (createdEl) {
+        const c = selectedMember?.created_at;
+        createdEl.textContent = c ? `Conta criada em ${new Date(c).toLocaleDateString('pt-BR')}` : '';
+    }
     
     // Verificar se pode alterar cargos
     const canChange = canChangeRoles();

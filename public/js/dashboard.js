@@ -1916,6 +1916,34 @@ function updateMetaSummary(data) {
 
     valueEl.textContent = text;
     valueEl.className = 'member-summary-value meta ' + state;
+
+    updateMemberGreeting(data, state);
+}
+
+// Saudação personalizada: vulgo + situação da meta (paga ou dias restantes)
+function updateMemberGreeting(data, state) {
+    const el = document.getElementById('memberGreeting');
+    if (!el) return;
+    const nome = (currentUser && (currentUser.capital_nickname || currentUser.name)) || 'membro';
+    const paid = state === 'paid' || state === 'justified';
+
+    if (paid) {
+        el.classList.add('paid');
+        el.innerHTML = `Olá <b>${escapeHtml(nome)}</b>, parabéns! 🎉 Você já pagou a sua meta desta semana.`;
+        return;
+    }
+
+    el.classList.remove('paid');
+    let msg = 'não esqueça de pagar a sua meta desta semana.';
+    if (data && data.week && data.week.end) {
+        const end = new Date(data.week.end + 'T23:59:59');
+        const now = new Date();
+        const days = Math.ceil((end - now) / (24 * 60 * 60 * 1000));
+        if (days <= 0) msg = 'hoje é o <b>último dia</b> para pagar a sua meta! ⏰';
+        else if (days === 1) msg = 'falta <b>1 dia</b> para você pagar a sua meta. ⏳';
+        else msg = `faltam <b>${days} dias</b> para você pagar a sua meta. ⏳`;
+    }
+    el.innerHTML = `Olá <b>${escapeHtml(nome)}</b>, ${msg}`;
 }
 
 // Carregar minhas entregas
