@@ -77,7 +77,7 @@ router.get('/me', async (req, res) => {
     if (req.session.user) {
         try {
             const [userCheck, userGroups] = await Promise.all([
-                getOne('SELECT id, name, passport, email, active, role, capital_nickname FROM users WHERE id = ?', [req.session.user.id]),
+                getOne('SELECT id, name, passport, email, active, role, capital_nickname, member_slot, manager_slot, created_at FROM users WHERE id = ?', [req.session.user.id]),
                 getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [req.session.user.id])
             ]);
             
@@ -103,6 +103,9 @@ router.get('/me', async (req, res) => {
             req.session.user.passport = userCheck.passport;
             req.session.user.email = userCheck.email;
             req.session.user.capital_nickname = userCheck.capital_nickname || null;
+            req.session.user.member_slot = userCheck.member_slot || null;
+            req.session.user.manager_slot = userCheck.manager_slot || null;
+            req.session.user.created_at = userCheck.created_at || null;
             
             const commandments = await getUserCommandmentStatus(req.session.user.id);
 

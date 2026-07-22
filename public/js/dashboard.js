@@ -90,6 +90,48 @@ async function loadRoleNames() {
     }
 }
 
+// Saudação por horário + slot do membro no resumo
+function renderWelcomeAndSlot(user) {
+    if (!user) return;
+
+    // Saudação amigável pelo horário
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+    const vulgo = user.capital_nickname || user.name || 'membro';
+    const greetEl = document.getElementById('welcomeGreeting');
+    const nameEl = document.getElementById('welcomeName');
+    if (greetEl) greetEl.textContent = greeting;
+    if (nameEl) nameEl.textContent = vulgo;
+
+    // Determina o slot correto conforme o cargo
+    const managerRoles = ['super_admin', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
+    const groups = (user.groups && user.groups.length) ? user.groups : (user.role ? [user.role] : []);
+    const isManager = groups.some(g => managerRoles.includes(g) || String(g || '').startsWith('gerente_'));
+    const slot = isManager ? user.manager_slot : user.member_slot;
+    const slotLabel = isManager ? '📦 Baú da Gerência' : '📦 Baú dos Membros';
+    const slotText = (slot !== null && slot !== undefined && String(slot).trim() !== '') ? `#${String(slot).trim()}` : null;
+
+    // Tile no "Meu Resumo"
+    const tileValue = document.getElementById('slotSummaryValue');
+    const tileLabel = document.getElementById('slotSummaryLabel');
+    if (tileValue) tileValue.textContent = slotText || '—';
+    if (tileLabel) tileLabel.textContent = slotLabel;
+
+    // Chip no banner de boas-vindas (só aparece se tiver slot)
+    const welcomeSlot = document.getElementById('welcomeSlot');
+    const welcomeSlotLabel = document.getElementById('welcomeSlotLabel');
+    const welcomeSlotValue = document.getElementById('welcomeSlotValue');
+    if (welcomeSlot && welcomeSlotValue) {
+        if (slotText) {
+            if (welcomeSlotLabel) welcomeSlotLabel.textContent = isManager ? 'Baú da Gerência' : 'Baú dos Membros';
+            welcomeSlotValue.textContent = slotText;
+            welcomeSlot.style.display = '';
+        } else {
+            welcomeSlot.style.display = 'none';
+        }
+    }
+}
+
 // Verifica autenticação
 async function checkAuth() {
     try {
@@ -116,6 +158,7 @@ async function checkAuth() {
 
             currentUser = data.user;
             document.getElementById('userName').textContent = currentUser.name;
+            renderWelcomeAndSlot(currentUser);
             if (typeof ensureCapitalNicknameModal === 'function') {
                 ensureCapitalNicknameModal(currentUser);
             }
