@@ -5746,6 +5746,14 @@ function renderMemberSlotCell(member) {
     return `<div class="member-slot-cell"><div class="slot-line"><strong>${label}:</strong> ${slot ? escapeHtml(String(slot)) : '-'}</div></div>`;
 }
 
+// Chave de ordenação por slot: ordem natural (B2 antes de B10) e vazios por último
+function memberSlotSortKey(member) {
+    const slot = memberUsesManagerSlot(member) ? member.manager_slot : member.member_slot;
+    const s = (slot || '').toString().trim().toUpperCase();
+    if (!s) return '￿'; // sem slot vai para o fim
+    return s.replace(/\d+/g, n => n.padStart(8, '0'));
+}
+
 async function loadMembers() {
     try {
         const response = await fetch('/api/admin/members');
@@ -5815,6 +5823,10 @@ function renderMembersTable() {
             case 'role':
                 valA = roleNames[a.role] || a.role;
                 valB = roleNames[b.role] || b.role;
+                break;
+            case 'slot':
+                valA = memberSlotSortKey(a);
+                valB = memberSlotSortKey(b);
                 break;
             default:
                 valA = a.name.toLowerCase();
