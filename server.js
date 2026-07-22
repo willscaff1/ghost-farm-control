@@ -938,6 +938,20 @@ db.initialize().then(async () => {
             console.error('⚠️ Erro ao zerar slots de desativados:', slotErr.message);
         }
 
+        // Remover permissões/grupos de gerência de membros DESATIVADOS (backlog).
+        // Quem está desativado não deve continuar aparecendo como gerente em
+        // "Permissões e Grupos": vira membro comum.
+        try {
+            const { runQuery: rqPerms } = require('./database/db');
+            const rGrp = await rqPerms("DELETE FROM user_groups WHERE group_name != 'member' AND user_id IN (SELECT id FROM users WHERE active = 0 AND role != 'super_admin' AND passport != '0')");
+            const rRole = await rqPerms("UPDATE users SET role = 'member' WHERE active = 0 AND role != 'member' AND role != 'super_admin' AND passport != '0'");
+            const nGrp = (rGrp && rGrp.changes) || 0;
+            const nRole = (rRole && rRole.changes) || 0;
+            if (nGrp || nRole) console.log(`🧹 Permissões de gerente liberadas de desativados (grupos: ${nGrp}, cargos: ${nRole})`);
+        } catch (permErr) {
+            console.error('⚠️ Erro ao remover permissões de gerente de desativados:', permErr.message);
+        }
+
         // One-shot: aprovar semana 08-14/06 e zerar semana 15-21/06
         await bulkWeekOps_2026_06();
 

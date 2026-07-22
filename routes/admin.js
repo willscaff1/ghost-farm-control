@@ -1471,13 +1471,21 @@ router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
         const newStatus = member.active ? 0 : 1;
 
         if (newStatus === 0) {
-            // Ao DESATIVAR, libera os slots de baú cadastrados (member e manager)
-            await runQuery('UPDATE users SET active = 0, member_slot = NULL, manager_slot = NULL WHERE id = ?', [memberId]);
+            // Ao DESATIVAR: libera os slots de baú (member e manager) E remove
+            // as permissões/grupos de gerência, pra não continuar aparecendo como
+            // gerente em "Permissões e Grupos". Vira membro comum.
+            const isSuper = member.role === 'super_admin' || member.passport === '0';
+            if (isSuper) {
+                await runQuery('UPDATE users SET active = 0, member_slot = NULL, manager_slot = NULL WHERE id = ?', [memberId]);
+            } else {
+                await runQuery("UPDATE users SET active = 0, role = 'member', member_slot = NULL, manager_slot = NULL WHERE id = ?", [memberId]);
+                await runQuery("DELETE FROM user_groups WHERE user_id = ? AND group_name != 'member'", [memberId]);
+            }
         } else {
             await runQuery('UPDATE users SET active = 1 WHERE id = ?', [memberId]);
         }
 
-        res.json({ success: true, message: newStatus ? 'Membro ativado' : 'Membro desativado (slot liberado)' });
+        res.json({ success: true, message: newStatus ? 'Membro ativado' : 'Membro desativado (slot e permissões de gerente liberados)' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -1521,14 +1529,16 @@ router.post('/members/:id/role', requireAdmin, async (req, res) => {
         }
         
         if (role === 'member') {
-            // Rebaixado para membro: libera o slot de gerente que ele ocupava
-            await runQuery('UPDATE users SET role = ?, manager_slot = NULL WHERE id = ?', [role, memberId]);
+            // Rebaixado para membro: libera os slots (member e manager) que ocupava
+            // E remove de todos os grupos de gerência (some de "Permissões e Grupos").
+            await runQuery('UPDATE users SET role = ?, member_slot = NULL, manager_slot = NULL WHERE id = ?', [role, memberId]);
+            await runQuery("DELETE FROM user_groups WHERE user_id = ? AND group_name != 'member'", [memberId]);
         } else {
             await runQuery('UPDATE users SET role = ? WHERE id = ?', [role, memberId]);
         }
 
         const roleNamesMap = await getRoleNames();
-        res.json({ success: true, message: `Cargo alterado para ${roleNamesMap[role] || role}${role === 'member' ? ' (slot de gerente liberado)' : ''}` });
+        res.json({ success: true, message: `Cargo alterado para ${roleNamesMap[role] || role}${role === 'member' ? ' (slot e permissões de gerente liberados)' : ''}` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
