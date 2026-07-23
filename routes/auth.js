@@ -6,11 +6,38 @@ const {
     getUserCommandmentStatus,
     recordCommandmentResponse
 } = require('../services/familyCommandments');
-const emailService = require('../services/email');
-
 const router = express.Router();
 
+// Senha temporária aplicada quando o membro clica em "Esqueci minha senha".
+// Ao logar com ela, o sistema obriga a definir uma nova.
+const TEMP_PASSWORD = 'senha123';
+const MIN_PASSWORD_LENGTH = 6;
+
 const systemPassports = new Set(['0', 'admin']);
+
+function clientIp(req) {
+    return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+        || req.socket?.remoteAddress
+        || '';
+}
+
+// Registra toda tentativa de reset — é o extrato que o super admin consulta
+async function logPasswordReset({ userId, passport, userName, success, reason, ip }) {
+    try {
+        await runQuery(
+            'INSERT INTO password_reset_log (user_id, passport_tried, user_name, success, reason, ip) VALUES (?, ?, ?, ?, ?, ?)',
+            [userId || null, String(passport || ''), userName || null, success ? 1 : 0, reason || null, ip || null]
+        );
+    } catch (e) {
+        console.error('⚠️ Falha ao gravar log de reset de senha:', e.message);
+    }
+}
+
+function mustChangePassword(user, typedPassword) {
+    if (user.must_change_password === 1 || user.must_change_password === true) return true;
+    // Rede de segurança: se a senha atual é a temporária, força a troca de qualquer jeito
+    return typedPassword === TEMP_PASSWORD;
+}
 
 function needsCapitalNickname(user = {}) {
     const passport = String(user.passport || '').trim().toLowerCase();
@@ -39,7 +66,18 @@ router.post('/login', async (req, res) => {
         if (!validPassword) {
             return res.status(401).json({ error: 'Senha incorreta' });
         }
-        
+
+        // Entrou com a senha temporária (ou está marcado): troca obrigatória antes de
+        // criar a sessão. Nada de logar de fato enquanto a senha for a padrão.
+        if (mustChangePassword(user, password)) {
+            return res.json({
+                success: false,
+                mustChangePassword: true,
+                passport: user.passport,
+                message: 'Sua senha foi redefinida. Escolha uma nova senha para continuar.'
+            });
+        }
+
         req.session.user = {
             id: user.id,
             name: user.capital_nickname || user.name,
@@ -411,247 +449,113 @@ router.put('/update-profile', async (req, res) => {
     }
 });
 
-// Solicitar recuperação de senha (qualquer pessoa pode solicitar)
+// "Esqueci minha senha": redefine a senha para a temporária.
+// Qualquer pessoa pode solicitar informando o passaporte; toda tentativa fica no extrato.
 router.post('/request-password-reset', async (req, res) => {
+    const ip = clientIp(req);
+    const passportRaw = req.body?.passport;
+
     try {
-        const { passport } = req.body;
-        
-        if (!passport) {
+        if (!passportRaw) {
             return res.status(400).json({ error: 'Passaporte é obrigatório' });
         }
-        
-        const passportUpper = passport.toUpperCase().trim();
-        
-        // Verificar se o usuário existe (sem filtrar por active primeiro)
-        const user = await getOne('SELECT id, name, active, email FROM users WHERE passport = ?', [passportUpper]);
-        if (!user) {
-            return res.status(404).json({ error: 'Passaporte não encontrado' });
-        }
-        
-        // Verificar se o usuário está desativado
-        if (user.active === 0 || user.active === false) {
-            return res.status(403).json({ error: 'Usuário desativado. Entre em contato com um administrador.' });
-        }
-        
-        // Garantir que a tabela existe (PostgreSQL em produção pode não ter ainda)
-        const isPostgres = process.env.DATABASE_URL ? true : false;
-        try {
-            if (isPostgres) {
-                await runQuery(`
-                    CREATE TABLE IF NOT EXISTS password_resets (
-                        id SERIAL PRIMARY KEY,
-                        user_id INTEGER NOT NULL REFERENCES users(id),
-                        status TEXT DEFAULT 'pending',
-                        new_password TEXT,
-                        requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        processed_by INTEGER REFERENCES users(id),
-                        processed_at TIMESTAMP
-                    )
-                `);
-            } else {
-                await runQuery(`
-                    CREATE TABLE IF NOT EXISTS password_resets (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER NOT NULL,
-                        status TEXT DEFAULT 'pending',
-                        new_password TEXT,
-                        requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        processed_by INTEGER,
-                        processed_at DATETIME,
-                        FOREIGN KEY (user_id) REFERENCES users(id),
-                        FOREIGN KEY (processed_by) REFERENCES users(id)
-                    )
-                `);
-            }
-        } catch (tableError) {
-            console.log('Tabela password_resets já existe ou erro:', tableError.message);
-        }
-        
-        const emailConfigured = emailService.isEmailConfigured();
-        const hasEmail = !!(user.email && String(user.email).trim());
 
-        // Reaproveita a solicitação pendente (reenviando o mesmo código) em vez de bloquear
-        const existingRequest = await getOne(
-            'SELECT id, reset_code FROM password_resets WHERE user_id = ? AND status = ?',
-            [user.id, 'pending']
+        const passportUpper = String(passportRaw).toUpperCase().trim();
+
+        const user = await getOne(
+            'SELECT id, name, capital_nickname, active FROM users WHERE passport = ?',
+            [passportUpper]
         );
 
-        let resetCode;
-        if (existingRequest) {
-            resetCode = existingRequest.reset_code;
-            if (!resetCode) {
-                resetCode = String(Math.floor(100000 + Math.random() * 900000));
-                await runQuery('UPDATE password_resets SET reset_code = ? WHERE id = ?', [resetCode, existingRequest.id]);
-            }
-        } else {
-            resetCode = String(Math.floor(100000 + Math.random() * 900000));
-            await runQuery(
-                'INSERT INTO password_resets (user_id, status, reset_code) VALUES (?, ?, ?)',
-                [user.id, 'pending', resetCode]
-            );
-        }
-
-        // Sem email cadastrado, mas o envio está disponível → pedir um email (modal no front)
-        if (!hasEmail && emailConfigured) {
-            console.log(`🔐 Recuperação: ${user.name} (${passportUpper}) sem email — solicitando cadastro de email`);
-            return res.json({
-                success: true,
-                needsEmail: true,
-                message: 'Você ainda não tem email cadastrado. Informe um email para receber o código de recuperação.'
-            });
-        }
-
-        // Tentar enviar por email (se o membro tiver email e o envio estiver configurado)
-        let emailSent = false;
-        if (hasEmail && emailConfigured) {
-            try {
-                await emailService.sendPasswordResetEmail(user.email, user.name, resetCode);
-                emailSent = true;
-            } catch (mailErr) {
-                console.error('Falha ao enviar email de recuperação:', mailErr.message);
-            }
-        }
-
-        console.log(`🔐 Solicitação de recuperação de senha: ${user.name} (${passportUpper}) - Código: ${resetCode} - Email: ${emailSent ? user.email : 'não enviado'}`);
-
-        if (!emailSent) {
-            return res.status(503).json({
-                error: !emailConfigured
-                    ? 'A recuperação de senha por email está indisponível no momento. Tente novamente mais tarde.'
-                    : 'Não conseguimos enviar o email agora. Tente novamente em instantes.'
-            });
-        }
-
-        res.json({
-            success: true,
-            emailSent: true,
-            message: `Enviamos um código de recuperação para o seu email (${emailService.maskEmail(user.email)}). Confira a caixa de entrada e o spam.`
-        });
-    } catch (error) {
-        console.error('Erro ao solicitar recuperação:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Cadastrar email de recuperação (para quem não tem email) e enviar o código
-router.post('/set-recovery-email', async (req, res) => {
-    try {
-        const { passport, email } = req.body;
-
-        if (!passport || !email) {
-            return res.status(400).json({ error: 'Passaporte e email são obrigatórios' });
-        }
-
-        const emailTrim = String(email).trim();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
-            return res.status(400).json({ error: 'Informe um email válido' });
-        }
-
-        if (!emailService.isEmailConfigured()) {
-            return res.status(400).json({ error: 'O envio de email não está disponível. Peça o código a um administrador.' });
-        }
-
-        const passportUpper = passport.toUpperCase().trim();
-        const user = await getOne('SELECT id, name, active, email FROM users WHERE passport = ?', [passportUpper]);
         if (!user) {
+            await logPasswordReset({
+                passport: passportUpper, success: false, reason: 'Passaporte não encontrado', ip
+            });
             return res.status(404).json({ error: 'Passaporte não encontrado' });
         }
+
         if (user.active === 0 || user.active === false) {
+            await logPasswordReset({
+                userId: user.id, passport: passportUpper, userName: user.name,
+                success: false, reason: 'Usuário desativado', ip
+            });
             return res.status(403).json({ error: 'Usuário desativado. Entre em contato com um administrador.' });
         }
 
-        // Segurança: só permite definir email se a conta ainda não tiver um (evita sequestro de conta)
-        if (user.email && String(user.email).trim()) {
-            return res.status(400).json({ error: 'Este passaporte já tem um email cadastrado. O código vai para esse email. Se você não tem acesso a ele, fale com um administrador.' });
-        }
-
-        // Salva o email informado na conta
-        await runQuery('UPDATE users SET email = ? WHERE id = ?', [emailTrim, user.id]);
-
-        // Pega/cria o código pendente
-        const pending = await getOne(
-            'SELECT id, reset_code FROM password_resets WHERE user_id = ? AND status = ?',
-            [user.id, 'pending']
+        const hashed = bcrypt.hashSync(TEMP_PASSWORD, 10);
+        await runQuery(
+            'UPDATE users SET password = ?, must_change_password = 1 WHERE id = ?',
+            [hashed, user.id]
         );
-        let resetCode;
-        if (pending && pending.reset_code) {
-            resetCode = pending.reset_code;
-        } else if (pending) {
-            resetCode = String(Math.floor(100000 + Math.random() * 900000));
-            await runQuery('UPDATE password_resets SET reset_code = ? WHERE id = ?', [resetCode, pending.id]);
-        } else {
-            resetCode = String(Math.floor(100000 + Math.random() * 900000));
-            await runQuery('INSERT INTO password_resets (user_id, status, reset_code) VALUES (?, ?, ?)', [user.id, 'pending', resetCode]);
-        }
 
-        // Envia o código para o email informado
-        try {
-            await emailService.sendPasswordResetEmail(emailTrim, user.name, resetCode);
-        } catch (mailErr) {
-            console.error('Falha ao enviar email (set-recovery-email):', mailErr.message);
-            return res.status(500).json({ error: 'Não conseguimos enviar o email agora. Tente novamente em instantes ou peça o código a um administrador.' });
-        }
+        await logPasswordReset({
+            userId: user.id, passport: passportUpper, userName: user.name,
+            success: true, reason: 'Senha redefinida para a temporária', ip
+        });
 
-        console.log(`🔐 Email de recuperação cadastrado: ${user.name} (${passportUpper}) -> ${emailTrim} - Código enviado`);
+        console.log(`🔐 Reset de senha: ${user.name} (${passportUpper}) — senha temporária aplicada`);
 
         res.json({
             success: true,
-            emailSent: true,
-            message: `Email cadastrado! Enviamos um código para ${emailService.maskEmail(emailTrim)}. Confira a caixa de entrada e o spam.`
+            tempPassword: TEMP_PASSWORD,
+            message: `Pronto! Sua senha agora é "${TEMP_PASSWORD}". Entre com ela que o sistema vai pedir para você criar uma nova.`
         });
     } catch (error) {
-        console.error('Erro ao cadastrar email de recuperação:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Erro ao redefinir senha:', error);
+        await logPasswordReset({
+            passport: String(passportRaw || ''), success: false, reason: `Erro: ${error.message}`, ip
+        });
+        res.status(500).json({ error: 'Não foi possível redefinir a senha agora. Tente novamente.' });
     }
 });
 
-// Usar código de recuperação para definir nova senha
-router.post('/reset-password-with-code', async (req, res) => {
+// Troca obrigatória depois de entrar com a senha temporária
+router.post('/complete-password-change', async (req, res) => {
     try {
-        const { passport, code, newPassword } = req.body;
-        
-        if (!passport || !code || !newPassword) {
-            return res.status(400).json({ error: 'Passaporte, código e nova senha são obrigatórios' });
+        const { passport, currentPassword, newPassword, confirmPassword } = req.body || {};
+
+        if (!passport || !currentPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ error: 'Preencha todos os campos' });
         }
-        
-        if (newPassword.length < 6) {
-            return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres' });
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ error: 'As senhas não coincidem' });
         }
-        
-        const passportUpper = passport.toUpperCase().trim();
-        const codeClean = code.trim();
-        
-        const user = await getOne('SELECT id, name, active FROM users WHERE passport = ?', [passportUpper]);
+
+        if (String(newPassword).length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({ error: `A nova senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres` });
+        }
+
+        if (newPassword === TEMP_PASSWORD) {
+            return res.status(400).json({ error: 'Escolha uma senha diferente da temporária' });
+        }
+
+        const passportUpper = String(passport).toUpperCase().trim();
+        const user = await getOne('SELECT id, name, active, password FROM users WHERE passport = ?', [passportUpper]);
+
         if (!user) {
             return res.status(404).json({ error: 'Passaporte não encontrado' });
         }
-        
         if (user.active === 0 || user.active === false) {
             return res.status(403).json({ error: 'Usuário desativado' });
         }
-        
-        const resetRequest = await getOne(
-            'SELECT id FROM password_resets WHERE user_id = ? AND status = ? AND reset_code = ?',
-            [user.id, 'pending', codeClean]
-        );
-        
-        if (!resetRequest) {
-            return res.status(400).json({ error: 'Código inválido ou expirado' });
+
+        // Confere a senha atual de novo: sem isso qualquer um trocaria a senha de qualquer um
+        if (!bcrypt.compareSync(currentPassword, user.password)) {
+            return res.status(401).json({ error: 'Senha atual incorreta' });
         }
-        
-        const hashedPassword = bcrypt.hashSync(newPassword, 10);
-        await runQuery('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
-        
+
+        const hashed = bcrypt.hashSync(newPassword, 10);
         await runQuery(
-            'UPDATE password_resets SET status = ?, processed_at = CURRENT_TIMESTAMP WHERE id = ?',
-            ['used', resetRequest.id]
+            'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?',
+            [hashed, user.id]
         );
-        
-        console.log(`🔐 Senha redefinida via código para ${user.name} (${passportUpper})`);
-        
-        res.json({ success: true, message: 'Senha redefinida com sucesso! Faça login com sua nova senha.' });
+
+        console.log(`🔐 Senha trocada após reset: ${user.name} (${passportUpper})`);
+
+        res.json({ success: true, message: 'Senha alterada! Faça login com a nova senha.' });
     } catch (error) {
-        console.error('Erro ao resetar senha com código:', error);
+        console.error('Erro ao trocar senha:', error);
         res.status(500).json({ error: error.message });
     }
 });

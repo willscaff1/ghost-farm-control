@@ -29,7 +29,15 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         });
         
         const data = await response.json();
-        
+
+        // Entrou com a senha padrão: não cria sessão, abre a troca obrigatória
+        if (data.mustChangePassword) {
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+            window.openMustChangeModal(data.passport || passport, password, data.message);
+            return;
+        }
+
         if (data.success) {
             messageEl.textContent = 'Login realizado! Redirecionando...';
             messageEl.className = 'message show success';

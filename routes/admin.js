@@ -709,6 +709,41 @@ const requireSuperAdmin = (req, res, next) => {
     next();
 };
 
+// Extrato de solicitações de reset de senha — só super admin
+router.get('/password-reset-log', requireSuperAdmin, async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit, 10) || 300, 1000);
+
+        const rows = await getAll(`
+            SELECT l.id, l.passport_tried, l.user_name, l.success, l.reason, l.ip, l.created_at,
+                   u.capital_nickname, u.role
+            FROM password_reset_log l
+            LEFT JOIN users u ON u.id = l.user_id
+            ORDER BY l.created_at DESC, l.id DESC
+            LIMIT ${limit}
+        `);
+
+        const entries = (rows || []).map(r => ({
+            id: r.id,
+            passport: r.passport_tried,
+            name: r.capital_nickname || r.user_name || null,
+            role: r.role || null,
+            success: r.success === 1 || r.success === true,
+            reason: r.reason,
+            ip: r.ip,
+            created_at: r.created_at
+        }));
+
+        const total = entries.length;
+        const ok = entries.filter(e => e.success).length;
+
+        res.json({ entries, summary: { total, success: ok, failed: total - ok } });
+    } catch (error) {
+        console.error('Erro ao carregar extrato de reset de senha:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ENDPOINT TEMPORÁRIO - Limpar todos os dados exceto usuários
 // Em produção, exige variável de ambiente explícita e confirmação forte no corpo
 router.post('/reset-all-data', requireSuperAdmin, async (req, res) => {

@@ -48,90 +48,45 @@
         <div class="modal-content recovery-modal">
             <button class="modal-close-btn" onclick="closeRecoveryModal()">&times;</button>
 
-            <!-- Passo 1: Solicitar código -->
             <div id="recoveryStep1">
                 <div class="recovery-header">
-                    <div class="recovery-step-indicator">
-                        <span class="step-num active">1</span>
-                        <span class="step-line"></span>
-                        <span class="step-num">2</span>
-                    </div>
                     <h2>Recuperar Senha</h2>
-                    <p>Digite seu passaporte e enviaremos um código de recuperação para o seu email. Se você ainda não tiver um email cadastrado, vamos pedir um.</p>
+                    <p>Digite seu passaporte. Sua senha volta para a padrão e, ao entrar com ela, o sistema pede para você criar uma nova.</p>
                 </div>
                 <form id="recoveryForm" class="recovery-body">
                     <div class="form-group">
                         <label for="recoveryPassport">Passaporte</label>
                         <input type="text" id="recoveryPassport" required placeholder="Ex: ABC123">
                     </div>
-                    <button type="submit" class="btn btn-primary btn-block">Solicitar Código</button>
+                    <button type="submit" class="btn btn-primary btn-block">Redefinir minha senha</button>
                     <div id="recoveryMessage1" class="recovery-msg"></div>
                 </form>
-                <div class="recovery-footer">
-                    <a href="#" onclick="showStep2(); return false;">Já tenho um código <span>&rarr;</span></a>
-                </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Passo intermediário: cadastrar email de recuperação (quem não tem) -->
-            <div id="recoveryStepEmail" style="display:none;">
+    <!-- Troca obrigatória de senha (após entrar com a senha padrão) -->
+    <div id="mustChangeModal" class="modal" style="display:none;">
+        <div class="modal-content recovery-modal">
+            <div id="mustChangeStep">
                 <div class="recovery-header">
-                    <div class="recovery-step-indicator">
-                        <span class="step-num done">&#10003;</span>
-                        <span class="step-line filled"></span>
-                        <span class="step-num active">2</span>
-                    </div>
-                    <h2>Cadastrar Email</h2>
-                    <p>Você ainda não tem email cadastrado. Informe um email válido para receber o código de recuperação.</p>
+                    <h2>Criar Nova Senha</h2>
+                    <p id="mustChangeIntro">Sua senha está com o valor padrão. Escolha uma nova senha para continuar.</p>
                 </div>
-                <form id="recoveryEmailForm" class="recovery-body">
-                    <div class="form-group">
-                        <label for="recoveryEmail">Seu Email</label>
-                        <input type="email" id="recoveryEmail" required placeholder="voce@exemplo.com">
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">Enviar Código</button>
-                    <div id="recoveryMessageEmail" class="recovery-msg"></div>
-                </form>
-                <div class="recovery-footer">
-                    <a href="#" onclick="showStep1(); return false;"><span>&larr;</span> Voltar</a>
-                </div>
-            </div>
-
-            <!-- Passo 2: Usar código para trocar senha -->
-            <div id="recoveryStep2" style="display:none;">
-                <div class="recovery-header">
-                    <div class="recovery-step-indicator">
-                        <span class="step-num done">&#10003;</span>
-                        <span class="step-line filled"></span>
-                        <span class="step-num active">2</span>
-                    </div>
-                    <h2>Definir Nova Senha</h2>
-                    <p>Informe o código de 6 dígitos que enviamos ao seu email e escolha sua nova senha.</p>
-                </div>
-                <form id="resetCodeForm" class="recovery-body">
-                    <div class="form-group">
-                        <label for="resetPassport">Passaporte</label>
-                        <input type="text" id="resetPassport" required placeholder="Ex: ABC123">
-                    </div>
-                    <div class="form-group">
-                        <label for="resetCode">Código de 6 Dígitos</label>
-                        <input type="text" id="resetCode" class="recovery-code-input" required placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
-                    </div>
+                <form id="mustChangeForm" class="recovery-body">
                     <div class="recovery-password-row">
                         <div class="form-group">
-                            <label for="resetNewPassword">Nova Senha</label>
-                            <input type="password" id="resetNewPassword" required placeholder="Mínimo 6 caracteres" minlength="6">
+                            <label for="mcNewPassword">Nova Senha</label>
+                            <input type="password" id="mcNewPassword" required placeholder="Mínimo 6 caracteres" minlength="6" autocomplete="new-password">
                         </div>
                         <div class="form-group">
-                            <label for="resetConfirmPassword">Confirmar</label>
-                            <input type="password" id="resetConfirmPassword" required placeholder="Repita a senha" minlength="6">
+                            <label for="mcConfirmPassword">Confirmar</label>
+                            <input type="password" id="mcConfirmPassword" required placeholder="Repita a senha" minlength="6" autocomplete="new-password">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-block">Redefinir Senha</button>
-                    <div id="recoveryMessage2" class="recovery-msg"></div>
+                    <button type="submit" class="btn btn-primary btn-block">Salvar nova senha</button>
+                    <div id="mustChangeMessage" class="recovery-msg"></div>
                 </form>
-                <div class="recovery-footer">
-                    <a href="#" onclick="showStep1(); return false;"><span>&larr;</span> Voltar</a>
-                </div>
             </div>
         </div>
     </div>
@@ -148,48 +103,23 @@
 
         function showRecoveryModal() {
             document.getElementById('recoveryModal').style.display = 'flex';
-            showStep1();
+            clearMsgs();
         }
-
-        let recoveryPassportValue = '';
 
         function closeRecoveryModal() {
             document.getElementById('recoveryModal').style.display = 'none';
-            clearMsgs();
             document.getElementById('recoveryForm').reset();
-            document.getElementById('recoveryEmailForm').reset();
-            document.getElementById('resetCodeForm').reset();
-        }
-
-        function showStep1() {
-            document.getElementById('recoveryStep1').style.display = 'block';
-            document.getElementById('recoveryStepEmail').style.display = 'none';
-            document.getElementById('recoveryStep2').style.display = 'none';
             clearMsgs();
         }
 
-        function showStepEmail() {
-            document.getElementById('recoveryStep1').style.display = 'none';
-            document.getElementById('recoveryStepEmail').style.display = 'block';
-            document.getElementById('recoveryStep2').style.display = 'none';
-            clearMsgs();
-        }
-
-        function showStep2() {
-            document.getElementById('recoveryStep1').style.display = 'none';
-            document.getElementById('recoveryStepEmail').style.display = 'none';
-            document.getElementById('recoveryStep2').style.display = 'block';
-            clearMsgs();
-        }
-
-        // Passo 1
+        // "Esqueci minha senha": zera para a senha padrão
         document.getElementById('recoveryForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const passport = document.getElementById('recoveryPassport').value;
             const msgEl = document.getElementById('recoveryMessage1');
             const btn = e.target.querySelector('button');
             btn.disabled = true;
-            btn.textContent = 'Solicitando...';
+            btn.textContent = 'Redefinindo...';
 
             try {
                 const res = await fetch('/api/auth/request-password-reset', {
@@ -200,100 +130,91 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    recoveryPassportValue = passport;
-                    document.getElementById('resetPassport').value = passport;
-                    if (data.needsEmail) {
-                        showMsg(msgEl, data.message || 'Informe um email para receber o código.', 'success');
-                        setTimeout(() => showStepEmail(), 1200);
-                    } else {
-                        showMsg(msgEl, data.message || 'Código gerado!', 'success');
-                        setTimeout(() => showStep2(), data.emailSent ? 2500 : 1500);
-                    }
+                    showMsg(msgEl, data.message || 'Senha redefinida!', 'success');
+                    // Já deixa o login preenchido para o membro só digitar a senha padrão
+                    document.getElementById('passport').value = passport;
+                    setTimeout(() => closeRecoveryModal(), 4000);
                 } else {
-                    showMsg(msgEl, data.error || 'Erro ao solicitar', 'error');
+                    showMsg(msgEl, data.error || 'Erro ao redefinir', 'error');
                 }
             } catch {
                 showMsg(msgEl, 'Erro de conexão com o servidor', 'error');
             } finally {
                 btn.disabled = false;
-                btn.textContent = 'Solicitar Código';
-            }
-        });
-
-        // Passo intermediário: cadastrar email e enviar código
-        document.getElementById('recoveryEmailForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('recoveryEmail').value.trim();
-            const passport = recoveryPassportValue || document.getElementById('recoveryPassport').value;
-            const msgEl = document.getElementById('recoveryMessageEmail');
-            const btn = e.target.querySelector('button');
-            btn.disabled = true;
-            btn.textContent = 'Enviando...';
-
-            try {
-                const res = await fetch('/api/auth/set-recovery-email', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ passport, email })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    showMsg(msgEl, data.message || 'Código enviado!', 'success');
-                    document.getElementById('resetPassport').value = passport;
-                    setTimeout(() => showStep2(), 2500);
-                } else {
-                    showMsg(msgEl, data.error || 'Erro ao cadastrar email', 'error');
-                }
-            } catch {
-                showMsg(msgEl, 'Erro de conexão com o servidor', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Enviar Código';
-            }
-        });
-
-        // Passo 2
-        document.getElementById('resetCodeForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const passport = document.getElementById('resetPassport').value;
-            const code = document.getElementById('resetCode').value;
-            const newPassword = document.getElementById('resetNewPassword').value;
-            const confirmPassword = document.getElementById('resetConfirmPassword').value;
-            const msgEl = document.getElementById('recoveryMessage2');
-            const btn = e.target.querySelector('button');
-
-            if (newPassword.length < 6) { showMsg(msgEl, 'A senha deve ter pelo menos 6 caracteres', 'error'); return; }
-            if (newPassword !== confirmPassword) { showMsg(msgEl, 'As senhas não coincidem', 'error'); return; }
-
-            btn.disabled = true;
-            btn.textContent = 'Redefinindo...';
-
-            try {
-                const res = await fetch('/api/auth/reset-password-with-code', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ passport, code, newPassword })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    showMsg(msgEl, 'Senha redefinida! Redirecionando...', 'success');
-                    document.getElementById('resetCodeForm').reset();
-                    setTimeout(() => closeRecoveryModal(), 2000);
-                } else {
-                    showMsg(msgEl, data.error || 'Erro ao redefinir senha', 'error');
-                }
-            } catch {
-                showMsg(msgEl, 'Erro de conexão com o servidor', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Redefinir Senha';
+                btn.textContent = 'Redefinir minha senha';
             }
         });
 
         document.getElementById('recoveryModal').addEventListener('click', (e) => {
             if (e.target.id === 'recoveryModal') closeRecoveryModal();
+        });
+
+        // Troca obrigatória de senha — login.js chama isto quando o login
+        // responde mustChangePassword
+        window.__pendingChange = null;
+
+        window.openMustChangeModal = function (passport, currentPassword, message) {
+            window.__pendingChange = { passport: passport, currentPassword: currentPassword };
+            if (message) document.getElementById('mustChangeIntro').textContent = message;
+            document.getElementById('mustChangeModal').style.display = 'flex';
+            document.getElementById('mcNewPassword').focus();
+        };
+
+        document.getElementById('mustChangeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgEl = document.getElementById('mustChangeMessage');
+            const newPassword = document.getElementById('mcNewPassword').value;
+            const confirmPassword = document.getElementById('mcConfirmPassword').value;
+            const btn = e.target.querySelector('button');
+
+            if (newPassword.length < 6) { showMsg(msgEl, 'A senha deve ter pelo menos 6 caracteres', 'error'); return; }
+            if (newPassword !== confirmPassword) { showMsg(msgEl, 'As senhas não coincidem', 'error'); return; }
+            if (!window.__pendingChange) { showMsg(msgEl, 'Sessão expirada. Faça o login de novo.', 'error'); return; }
+
+            btn.disabled = true;
+            btn.textContent = 'Salvando...';
+
+            try {
+                const res = await fetch('/api/auth/complete-password-change', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        passport: window.__pendingChange.passport,
+                        currentPassword: window.__pendingChange.currentPassword,
+                        newPassword: newPassword,
+                        confirmPassword: confirmPassword
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showMsg(msgEl, 'Senha alterada! Entrando...', 'success');
+                    const pending = window.__pendingChange;
+                    window.__pendingChange = null;
+
+                    // Entra direto com a senha nova
+                    const login = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ passport: pending.passport, password: newPassword })
+                    });
+                    const loginData = await login.json();
+
+                    if (loginData.success) {
+                        window.location.href = isAdminRole(loginData.user.role) ? '/admin' : '/dashboard';
+                    } else {
+                        showMsg(msgEl, 'Senha alterada! Faça login com ela.', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                } else {
+                    showMsg(msgEl, data.error || 'Erro ao trocar a senha', 'error');
+                }
+            } catch {
+                showMsg(msgEl, 'Erro de conexão com o servidor', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Salvar nova senha';
+            }
         });
     </script>
 </body>

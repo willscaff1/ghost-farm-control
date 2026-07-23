@@ -131,6 +131,53 @@ app.get('/family-commandments', (req, res) => {
 // Initialize database and start server
 db.initialize().then(async () => {
     // Função para criar tabela de farm extra se não existir
+    // Reset de senha simples: flag de troca obrigatória + extrato das solicitações
+    async function createPasswordResetLog() {
+        try {
+            const { runQuery } = require('./database/db');
+            const isPostgres = process.env.DATABASE_URL ? true : false;
+
+            // ADD COLUMN falha se já existe — try próprio
+            try {
+                await runQuery('ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0');
+                console.log('✅ Coluna users.must_change_password criada');
+            } catch (e) { /* já existe */ }
+
+            if (isPostgres) {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS password_reset_log (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER,
+                        passport_tried TEXT NOT NULL,
+                        user_name TEXT,
+                        success INTEGER DEFAULT 0,
+                        reason TEXT,
+                        ip TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+            } else {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS password_reset_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER,
+                        passport_tried TEXT NOT NULL,
+                        user_name TEXT,
+                        success INTEGER DEFAULT 0,
+                        reason TEXT,
+                        ip TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+            }
+
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_password_reset_log_created ON password_reset_log (created_at)');
+            console.log('✅ Tabela password_reset_log criada/verificada');
+        } catch (error) {
+            console.error('⚠️ Erro ao criar password_reset_log:', error.message);
+        }
+    }
+
     async function createExtraFarmTable() {
         try {
             const { runQuery, getAll } = require('./database/db');
@@ -902,6 +949,9 @@ db.initialize().then(async () => {
             console.log('✅ Migração v2.0.0 concluída!');
         }
         
+        // Extrato de reset de senha + flag de troca obrigatória
+        await createPasswordResetLog();
+
         // Criar tabela de farm extra se não existir
         await createExtraFarmTable();
         

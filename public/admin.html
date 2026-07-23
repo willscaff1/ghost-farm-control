@@ -103,6 +103,7 @@
                 <button class="sidebar-item" data-tab="goals">🎯 Metas (Membros e Gerentes)</button>
                 <button class="sidebar-item" data-tab="whitelist">🛡️ Whitelist (Isentos)</button>
                 <button class="sidebar-item" data-tab="role-permissions">🔐 Permissões de Grupos</button>
+                <button class="sidebar-item" data-tab="password-reset-log" style="display:none;">🔑 Resets de Senha</button>
             </div>
         </aside>
 
@@ -530,6 +531,43 @@
             </div>
 
             <!-- Members Tab -->
+            <!-- Extrato de resets de senha (somente super admin) -->
+            <div id="password-reset-log-tab" class="tab-content">
+                <div class="card">
+                    <h2>🔑 Resets de Senha</h2>
+                    <p class="subtitle">Quem pediu "Esqueci minha senha" e se deu certo — visível apenas para o super admin</p>
+
+                    <div class="attendance-summary" id="resetLogSummary" style="display:flex; gap:12px; flex-wrap:wrap; margin:16px 0;"></div>
+
+                    <div class="members-controls">
+                        <input type="text" id="searchResetLog" placeholder="🔍 Buscar por passaporte ou nome..." class="search-members-input" onkeyup="renderResetLogTable()">
+                        <div class="members-filters">
+                            <button class="filter-btn active" data-reset-filter="all" onclick="filterResetLog('all', this)">Todos</button>
+                            <button class="filter-btn" data-reset-filter="success" onclick="filterResetLog('success', this)">✅ Sucesso</button>
+                            <button class="filter-btn" data-reset-filter="failed" onclick="filterResetLog('failed', this)">❌ Falha</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="weekly-table" id="resetLogTable">
+                            <thead>
+                                <tr>
+                                    <th>Data e hora</th>
+                                    <th>Passaporte</th>
+                                    <th>Membro</th>
+                                    <th>Resultado</th>
+                                    <th>Detalhe</th>
+                                    <th>IP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resetLogTableBody">
+                                <tr><td colspan="6" style="text-align:center; padding:24px;">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div id="attendance-tab" class="tab-content">
                 <div class="card">
                     <h2>🕓 Ponto</h2>
@@ -1800,7 +1838,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260723ponto1"></script>
+    <script src="js/admin.js?v=20260723reset1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

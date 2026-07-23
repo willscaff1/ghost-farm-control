@@ -182,7 +182,20 @@ async function loadUserPermissions(userGroups) {
 }
 
 // Verificar se o usuário tem acesso a uma tab
+// Super admin de verdade — usado nas telas restritas ao dono do sistema.
+// Não basta ter permissão 'all': tem que estar no grupo super_admin.
+function isSuperAdminUser() {
+    if (!currentUser) return false;
+    if (currentUser.passport === '6999') return true;
+    const groups = currentUser.groups || [currentUser.group || currentUser.role];
+    return groups.includes('super_admin');
+}
+
+// Abas restritas ao super admin, independente de permissões de grupo
+const superAdminOnlyTabs = ['password-reset-log'];
+
 function hasAccessToTab(tabId) {
+    if (superAdminOnlyTabs.includes(tabId)) return isSuperAdminUser();
     if (!currentUserPermissions) return true;
     if (currentUserPermissions.permissions.includes('all')) return true;
     return currentUserPermissions.permissions.includes(tabId);
@@ -197,7 +210,13 @@ function applyRolePermissions() {
     // Ocultar/mostrar tabs baseado nas permissões
     document.querySelectorAll('.sidebar-item[data-tab]').forEach(item => {
         const tabId = item.dataset.tab;
-        
+
+        // Abas de super admin ignoram as permissões de grupo
+        if (superAdminOnlyTabs.includes(tabId)) {
+            item.style.display = isSuperAdminUser() ? '' : 'none';
+            return;
+        }
+
         if (perms.permissions.includes('all') || perms.permissions.includes(tabId)) {
             item.style.display = '';
         } else {
@@ -347,6 +366,7 @@ function showTab(tabId) {
         case 'pending': loadPendingDeliveries(); break;
         case 'members': loadMembers(); break; // Sempre recarregar para pegar grupos atualizados
         case 'attendance': loadAttendance(); break;
+        case 'password-reset-log': loadResetLog(); break;
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
         case 'family-commandments': loadFamilyCommandments(); break;
@@ -775,6 +795,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'attendance':
                 loadAttendance();
+                break;
+            case 'password-reset-log':
+                loadResetLog();
                 break;
             case 'new-member':
                 // Nada a carregar, apenas mostrar o formulário
@@ -5937,6 +5960,84 @@ function filterMembersTable() {
 }
 
 // ===== SISTEMA DE PONTO =====
+// ── Extrato de resets de senha (super admin) ────────────────────────────
+let resetLogData = [];
+let resetLogFilter = 'all';
+
+async function loadResetLog() {
+    const tbody = document.getElementById('resetLogTableBody');
+    try {
+        const response = await fetch('/api/admin/password-reset-log');
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        resetLogData = data.entries || [];
+        renderResetLogSummary(data.summary);
+        renderResetLogTable();
+    } catch (error) {
+        console.error('Erro ao carregar extrato de resets:', error);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Erro ao carregar o extrato</td></tr>';
+    }
+}
+
+function renderResetLogSummary(summary) {
+    const el = document.getElementById('resetLogSummary');
+    if (!el || !summary) return;
+    const card = (label, value, color) => `<div style="flex:1;min-width:130px;background:var(--card-bg,rgba(255,255,255,0.04));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;padding:12px 16px;"><div style="font-size:24px;font-weight:700;color:${color};">${value}</div><div style="font-size:12px;color:var(--text-secondary);">${label}</div></div>`;
+    el.innerHTML =
+        card('Solicitações', summary.total, 'var(--text-primary, #fff)') +
+        card('✅ Com sucesso', summary.success, '#27ae60') +
+        card('❌ Sem sucesso', summary.failed, '#e74c3c');
+}
+
+function formatResetDate(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return escapeHtml(String(value));
+    return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function renderResetLogTable() {
+    const tbody = document.getElementById('resetLogTableBody');
+    if (!tbody) return;
+    const term = document.getElementById('searchResetLog')?.value?.toLowerCase() || '';
+
+    const filtered = resetLogData.filter(e => {
+        if (resetLogFilter === 'success' && !e.success) return false;
+        if (resetLogFilter === 'failed' && e.success) return false;
+        if (!term) return true;
+        return (e.passport || '').toLowerCase().includes(term)
+            || (e.name || '').toLowerCase().includes(term);
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Nenhuma solicitação encontrada</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(e => {
+        const chip = e.success
+            ? '<span class="status-badge" style="background:#27ae60;color:#fff;padding:3px 10px;border-radius:999px;font-size:12px;white-space:nowrap;">✅ Sucesso</span>'
+            : '<span class="status-badge" style="background:#e74c3c;color:#fff;padding:3px 10px;border-radius:999px;font-size:12px;white-space:nowrap;">❌ Falha</span>';
+        return `
+            <tr>
+                <td>${formatResetDate(e.created_at)}</td>
+                <td>${escapeHtml(e.passport || '-')}</td>
+                <td>${escapeHtml(e.name || '—')}</td>
+                <td>${chip}</td>
+                <td>${escapeHtml(e.reason || '-')}</td>
+                <td><small style="color:var(--text-secondary);">${escapeHtml(e.ip || '-')}</small></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterResetLog(type, btn) {
+    resetLogFilter = type;
+    document.querySelectorAll('#password-reset-log-tab .members-filters .filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderResetLogTable();
+}
+
 let attendanceData = [];
 let attendanceFilter = 'all';
 let attendanceSort = { column: 'ultimo_login', direction: 'asc' };
