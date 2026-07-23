@@ -1267,26 +1267,13 @@ router.get('/members', requireAdmin, async (req, res) => {
     }
 });
 
-// Sistema de Ponto: quem está acessando o site e quem está pagando o farm
+// Sistema de Ponto: último login de cada membro
 router.get('/attendance', requireAdmin, async (req, res) => {
     try {
         const roleNamesMap = await getRoleNames();
 
-        // Janela: semana atual + 3 anteriores (4 semanas)
-        const WEEKS_WINDOW = 4;
-        const weeks = [];
-        for (let i = 0; i < WEEKS_WINDOW; i++) {
-            weeks.push(getWeekWithOffset(-i));
-        }
-        const currentWeek = weeks[0];
-        const weekStarts = weeks.map(w => w.start);
-        const placeholders = weekStarts.map(() => '?').join(',');
-
         // Membros ativos (exclui usuários de sistema)
-        // Tempo desde o último acesso/login calculado NO BANCO (evita bug de fuso do JS)
-        const secsSeen = dbType === 'postgres'
-            ? 'EXTRACT(EPOCH FROM (NOW() - u.last_seen_at))'
-            : "(strftime('%s','now') - strftime('%s', u.last_seen_at))";
+        // Tempo desde o último login calculado NO BANCO (evita bug de fuso do JS)
         const secsLogin = dbType === 'postgres'
             ? 'EXTRACT(EPOCH FROM (NOW() - u.last_login_at))'
             : "(strftime('%s','now') - strftime('%s', u.last_login_at))";
@@ -1294,92 +1281,16 @@ router.get('/attendance', requireAdmin, async (req, res) => {
         const members = await getAll(`
             SELECT u.id,
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
-                   u.passport, u.role, u.member_slot, u.manager_slot,
-                   u.last_login_at, u.last_seen_at, u.created_at,
-                   ${secsSeen} AS seconds_since_seen,
+                   u.passport, u.role, u.last_login_at,
                    ${secsLogin} AS seconds_since_login
             FROM users u
             WHERE u.active = 1 AND u.passport NOT IN ('0', 'admin')
             ORDER BY COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) ASC
         `);
 
-        // Considera "online" quem teve atividade nos últimos 3 minutos (180s)
-        const ONLINE_WINDOW_SECONDS = 3 * 60;
+        const groupsMap = await getUserGroupsMap(members.map(m => m.id));
 
-        const memberIds = members.map(m => m.id);
-        const groupsMap = await getUserGroupsMap(memberIds);
-
-        // Entregas e justificativas aprovadas das últimas semanas (batched)
-        let deliveries = [];
-        let justifications = [];
-        if (weekStarts.length > 0) {
-            deliveries = await getAll(`
-                SELECT user_id, week_start, status, is_partial
-                FROM deliveries
-                WHERE week_start IN (${placeholders})
-            `, weekStarts);
-            justifications = await getAll(`
-                SELECT user_id, week_start
-                FROM justifications
-                WHERE status = 'approved' AND week_start IN (${placeholders})
-            `, weekStarts);
-        }
-
-        // No PostgreSQL, colunas DATE voltam como objeto Date; no SQLite, como string.
-        // Normaliza sempre para 'YYYY-MM-DD' para as chaves baterem nos dois bancos.
-        const toISODate = (v) => {
-            if (!v) return '';
-            if (typeof v === 'string') return v.slice(0, 10);
-            if (v instanceof Date) {
-                const y = v.getFullYear();
-                const m = String(v.getMonth() + 1).padStart(2, '0');
-                const d = String(v.getDate()).padStart(2, '0');
-                return `${y}-${m}-${d}`;
-            }
-            return String(v).slice(0, 10);
-        };
-
-        // Mapa: user -> week_start -> "paid" (aprovado completo ou justificado)
-        const paidMap = new Map(); // key `${userId}:${weekStart}` -> true
-        const bestStatusMap = new Map(); // key -> {paid, partial, pending}
-        for (const d of deliveries) {
-            const key = `${d.user_id}:${toISODate(d.week_start)}`;
-            const cur = bestStatusMap.get(key) || {};
-            const isApproved = d.status === 'approved';
-            const isComplete = isApproved && !(d.is_partial === 1 || d.is_partial === true);
-            if (isComplete) cur.paid = true;
-            else if (isApproved && (d.is_partial === 1 || d.is_partial === true)) cur.partial = true;
-            else if (d.status === 'pending') cur.pending = true;
-            bestStatusMap.set(key, cur);
-        }
-        for (const j of justifications) {
-            const key = `${j.user_id}:${toISODate(j.week_start)}`;
-            paidMap.set(key, true);
-            const cur = bestStatusMap.get(key) || {};
-            cur.justified = true;
-            bestStatusMap.set(key, cur);
-        }
-
-        const now = Date.now();
         const result = members.map(member => {
-            const groups = groupsMap.get(member.id) || (member.role ? [member.role] : []);
-
-            // Status da semana atual
-            const curKey = `${member.id}:${toISODate(currentWeek.start)}`;
-            const curStatus = bestStatusMap.get(curKey) || {};
-            let currentWeekStatus = 'not_paid';
-            if (curStatus.paid || curStatus.justified) currentWeekStatus = curStatus.justified && !curStatus.paid ? 'justified' : 'paid';
-            else if (curStatus.partial) currentWeekStatus = 'partial';
-            else if (curStatus.pending) currentWeekStatus = 'pending';
-
-            // Quantas das últimas semanas foram pagas (completo ou justificado)
-            let paidWeeks = 0;
-            for (const w of weeks) {
-                const k = `${member.id}:${toISODate(w.start)}`;
-                const s = bestStatusMap.get(k) || {};
-                if (s.paid || s.justified) paidWeeks++;
-            }
-
             // Dias desde o último login (segundos vindos do banco)
             let daysSinceLogin = null;
             let neverLoggedIn = true;
@@ -1389,41 +1300,19 @@ router.get('/attendance', requireAdmin, async (req, res) => {
                 daysSinceLogin = Math.floor(secs / (24 * 60 * 60));
             }
 
-            // Online agora? (atividade recente, segundos vindos do banco)
-            let online = false;
-            let minutesSinceSeen = null;
-            if (member.last_seen_at && member.seconds_since_seen != null) {
-                const secs = Math.max(0, parseFloat(member.seconds_since_seen) || 0);
-                online = secs <= ONLINE_WINDOW_SECONDS;
-                minutesSinceSeen = Math.floor(secs / 60);
-            }
-
             return {
                 id: member.id,
                 name: member.name,
                 passport: member.passport,
                 role: member.role,
-                groups,
-                member_slot: member.member_slot,
-                manager_slot: member.manager_slot,
+                groups: groupsMap.get(member.id) || (member.role ? [member.role] : []),
                 last_login_at: member.last_login_at,
-                last_seen_at: member.last_seen_at,
-                online,
-                minutes_since_seen: minutesSinceSeen,
                 never_logged_in: neverLoggedIn,
-                days_since_login: daysSinceLogin,
-                current_week_status: currentWeekStatus,
-                paid_weeks: paidWeeks,
-                total_weeks: WEEKS_WINDOW
+                days_since_login: daysSinceLogin
             };
         });
 
-        res.json({
-            members: result,
-            roleNames: roleNamesMap,
-            weeksWindow: WEEKS_WINDOW,
-            currentWeek: { start: currentWeek.start, end: currentWeek.end, label: currentWeek.label }
-        });
+        res.json({ members: result, roleNames: roleNamesMap });
     } catch (error) {
         console.error('Erro ao carregar ponto:', error);
         res.status(500).json({ error: error.message });

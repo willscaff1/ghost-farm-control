@@ -533,20 +533,16 @@
             <div id="attendance-tab" class="tab-content">
                 <div class="card">
                     <h2>🕓 Ponto</h2>
-                    <p class="subtitle">Quem está acessando o site e quem está pagando o farm certinho</p>
-
-                    <div class="attendance-summary" id="attendanceSummary" style="display:flex; gap:12px; flex-wrap:wrap; margin:16px 0;"></div>
+                    <p class="subtitle">Último login de cada membro</p>
 
                     <div class="members-controls">
                         <input type="text" id="searchAttendance" placeholder="🔍 Buscar por nome ou passaporte..." class="search-members-input" onkeyup="filterAttendanceTable()">
                         <div class="members-filters">
                             <button class="filter-btn active" data-att-filter="all" onclick="filterAttendanceByStatus('all', this)">Todos</button>
-                            <button class="filter-btn" data-att-filter="online" onclick="filterAttendanceByStatus('online', this)">🟢 Online</button>
                             <button class="filter-btn" data-att-filter="today" onclick="filterAttendanceByStatus('today', this)">📅 Hoje</button>
                             <button class="filter-btn" data-att-filter="d3" onclick="filterAttendanceByStatus('d3', this)">⏳ 3+ dias</button>
                             <button class="filter-btn" data-att-filter="d7" onclick="filterAttendanceByStatus('d7', this)">💤 7+ dias</button>
                             <button class="filter-btn" data-att-filter="never" onclick="filterAttendanceByStatus('never', this)">🚫 Nunca logou</button>
-                            <button class="filter-btn" data-att-filter="unpaid" onclick="filterAttendanceByStatus('unpaid', this)">❌ Devendo farm</button>
                         </div>
                     </div>
 
@@ -557,12 +553,11 @@
                                     <th class="sortable" onclick="sortAttendance('passaporte')">Passaporte <span class="sort-arrow"></span></th>
                                     <th class="sortable" onclick="sortAttendance('membro')">Membro <span class="sort-arrow"></span></th>
                                     <th class="sortable" onclick="sortAttendance('cargo')">Cargo <span class="sort-arrow"></span></th>
-                                    <th class="sortable" onclick="sortAttendance('status')">Status <span class="sort-arrow"></span></th>
                                     <th class="sortable" onclick="sortAttendance('ultimo_login')">Último login <span class="sort-arrow"></span></th>
                                 </tr>
                             </thead>
                             <tbody id="attendanceTableBody">
-                                <tr><td colspan="5" style="text-align:center; padding:24px;">Carregando...</td></tr>
+                                <tr><td colspan="4" style="text-align:center; padding:24px;">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1805,7 +1800,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260722slotsort1"></script>
+    <script src="js/admin.js?v=20260723ponto1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

@@ -5939,7 +5939,7 @@ function filterMembersTable() {
 // ===== SISTEMA DE PONTO =====
 let attendanceData = [];
 let attendanceFilter = 'all';
-let attendanceSort = { column: 'status', direction: 'asc' };
+let attendanceSort = { column: 'ultimo_login', direction: 'asc' };
 
 async function loadAttendance() {
     const tbody = document.getElementById('attendanceTableBody');
@@ -5949,11 +5949,10 @@ async function loadAttendance() {
         const data = await response.json();
         attendanceData = data.members || [];
         if (data.roleNames) Object.assign(roleNames, data.roleNames);
-        renderAttendanceSummary();
         renderAttendanceTable();
     } catch (error) {
         console.error('Erro ao carregar ponto:', error);
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Erro ao carregar ponto</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;">Erro ao carregar ponto</td></tr>';
     }
 }
 
@@ -5972,50 +5971,13 @@ function attendanceLoginText(m) {
     return `<div style="line-height:1.35;"><span style="font-weight:600;">${dateStr}${timeStr ? ' ' + timeStr : ''}</span><br><small style="color:${color};">${rel}</small></div>`;
 }
 
-// Coluna "Status" — online/offline agora
-function attendanceOnlineChip(m) {
-    if (m.online) {
-        return `<span class="status-badge" style="background:#27ae60;color:#fff;padding:3px 10px;border-radius:999px;font-size:12px;white-space:nowrap;">🟢 Online</span>`;
-    }
-    return `<span class="status-badge" style="background:rgba(149,165,166,0.25);color:#bdc3c7;padding:3px 10px;border-radius:999px;font-size:12px;white-space:nowrap;">⚪ Offline</span>`;
-}
-
-function attendanceStatusChip(status) {
-    const map = {
-        paid: ['✅ Pago', '#27ae60'],
-        partial: ['⚡ Parcial', '#f39c12'],
-        pending: ['⏳ Aguardando', '#3498db'],
-        justified: ['📋 Justificado', '#9b59b6'],
-        not_paid: ['❌ Não pago', '#e74c3c']
-    };
-    const [text, color] = map[status] || map.not_paid;
-    return `<span class="status-badge" style="background:${color};color:#fff;padding:3px 8px;border-radius:6px;font-size:12px;white-space:nowrap;">${text}</span>`;
-}
-
-function renderAttendanceSummary() {
-    const el = document.getElementById('attendanceSummary');
-    if (!el) return;
-    const total = attendanceData.length;
-    const online = attendanceData.filter(m => m.online).length;
-    const unpaid = attendanceData.filter(m => m.current_week_status === 'not_paid').length;
-    const away = attendanceData.filter(m => m.never_logged_in || (m.days_since_login != null && m.days_since_login >= 7)).length;
-    const card = (label, value, color) => `<div style="flex:1;min-width:130px;background:var(--card-bg,rgba(255,255,255,0.04));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;padding:12px 16px;"><div style="font-size:24px;font-weight:700;color:${color};">${value}</div><div style="font-size:12px;color:var(--text-secondary);">${label}</div></div>`;
-    el.innerHTML =
-        card('Membros ativos', total, 'var(--text-primary, #fff)') +
-        card('🟢 Online agora', online, '#27ae60') +
-        card('Devendo farm (semana)', unpaid, '#e74c3c') +
-        card('Sumidos (7+ dias)', away, '#e67e22');
-}
-
 function attendancePassesFilter(m) {
     const d = m.days_since_login;
     switch (attendanceFilter) {
-        case 'online': return !!m.online;
         case 'today': return !m.never_logged_in && d === 0;
         case 'd3': return !m.never_logged_in && d != null && d >= 3;
         case 'd7': return !m.never_logged_in && d != null && d >= 7;
         case 'never': return !!m.never_logged_in;
-        case 'unpaid': return m.current_week_status === 'not_paid';
         default: return true;
     }
 }
@@ -6037,15 +5999,14 @@ function renderAttendanceTable() {
         const vb = attendanceSortValue(b, attendanceSort.column);
         if (va < vb) return -1 * dir;
         if (va > vb) return 1 * dir;
-        // desempate estável: online primeiro, depois nome
-        if (!!b.online !== !!a.online) return b.online ? 1 : -1;
+        // desempate estável: nome
         return (a.name || '').toLowerCase() < (b.name || '').toLowerCase() ? -1 : 1;
     });
 
     updateAttendanceSortIndicators();
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Nenhum membro encontrado</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;">Nenhum membro encontrado</td></tr>';
         return;
     }
 
@@ -6060,7 +6021,6 @@ function renderAttendanceTable() {
                 <td>${escapeHtml(m.passport || '-')}</td>
                 <td>${escapeHtml(m.name || '')}</td>
                 <td>${groupsDisplay}</td>
-                <td>${attendanceOnlineChip(m)}</td>
                 <td>${attendanceLoginText(m)}</td>
             </tr>
         `;
@@ -6077,7 +6037,6 @@ function attendanceSortValue(m, col) {
             const key = g[0] || (m.groups || [])[0] || 'member';
             return (roleNames[key] || key).toLowerCase();
         }
-        case 'status': return m.online ? 0 : 1; // online primeiro (asc)
         case 'ultimo_login': return m.never_logged_in ? Infinity : (m.days_since_login ?? Infinity);
         default: return 0;
     }
