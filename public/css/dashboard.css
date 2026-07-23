@@ -2594,3 +2594,46 @@
     .welcome-banner { flex-direction: column; align-items: flex-start; }
     .welcome-slot { width: 100%; justify-content: center; }
 }
+
+/* Badge do cargo ao lado do nome no cabeçalho (dashboard não carrega tables-clean.css) */
+.user-role-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    white-space: nowrap;
+    vertical-align: middle;
+    margin: 0 4px;
+    /* padrão (membro / cargo desconhecido) */
+    background: rgba(107, 114, 128, 0.2);
+    border: 1px solid rgba(107, 114, 128, 0.4);
+    color: #9ca3af;
+}
+.user-role-badge.badge-super_admin {
+    background: rgba(147, 51, 234, 0.2); border: 1px solid rgba(147, 51, 234, 0.4); color: #c084fc;
+}
+.user-role-badge.badge-01 {
+    background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5;
+}
+.user-role-badge.badge-02 {
+    background: rgba(249, 115, 22, 0.2); border: 1px solid rgba(249, 115, 22, 0.4); color: #fdba74;
+}
+.user-role-badge.badge-gerente_geral {
+    background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd;
+}
+.user-role-badge.badge-gerente_farm {
+    background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.4); color: #86efac;
+}
+.user-role-badge.badge-gerente_acao,
+.user-role-badge.badge-gerente_recrutamento,
+.user-role-badge.badge-gerente_encomendas,
+.user-role-badge.badge-gerente_vendas,
+.user-role-badge.badge-gerente_de_vendas,
+.user-role-badge.badge-gerente_de_fabricacao {
+    background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.4); color: #c4b5fd;
+}
+.user-role-badge.badge-member {
+    background: rgba(107, 114, 128, 0.2); border: 1px solid rgba(107, 114, 128, 0.4); color: #9ca3af;
+}

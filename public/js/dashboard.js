@@ -61,6 +61,33 @@ function normalizeRoleName(role) {
         .replace(/^_+|_+$/g, '');
 }
 
+// Rótulos padrão (membro não acessa o endpoint de nomes de grupos → roleNames fica vazio)
+const DEFAULT_ROLE_LABELS = {
+    member: 'Membro',
+    '01': '01',
+    '02': '02',
+    super_admin: 'Super Admin',
+    gerente_geral: 'Gerente Geral',
+    gerente_farm: 'Gerente de Farm',
+    gerente_acao: 'Gerente de Ação',
+    gerente_recrutamento: 'Gerente de Recrutamento',
+    gerente_encomendas: 'Gerente de Encomendas',
+    gerente_vendas: 'Gerente de Vendas',
+    gerente_de_vendas: 'Gerente de Vendas',
+    gerente_de_fabricacao: 'Gerente de Fabricação'
+};
+
+// Preenche a badge do cargo ao lado do nome, no cabeçalho
+function renderUserRoleBadge(role) {
+    const el = document.getElementById('userRoleBadge');
+    if (!el) return;
+    const key = normalizeRoleName(role) || 'member';
+    const label = roleNames[role] || roleNames[key] || DEFAULT_ROLE_LABELS[key] || role || 'Membro';
+    el.textContent = label;
+    el.className = 'user-role-badge role-badge badge-' + key;
+    el.style.display = '';
+}
+
 const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
 // Nomes de exibição dos grupos (carregados dinamicamente do banco)
@@ -174,6 +201,10 @@ async function checkAuth() {
             // Dropdown info
             document.getElementById('dropdownUserName').textContent = currentUser.name;
             document.getElementById('dropdownUserRole').textContent = roleNames[primaryRole] || primaryRole;
+
+            // Badge do cargo ao lado do nome (cabeçalho) — cargo real: 1o grupo que não seja "member"
+            const badgeRole = userGroups.find(g => g && g !== 'member') || data.user.role || 'member';
+            renderUserRoleBadge(badgeRole);
             
             // Mostrar link de admin se tiver qualquer grupo que não seja apenas "member"
             // Ou se tiver role antigo de gerente/admin
