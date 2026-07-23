@@ -77,6 +77,77 @@ const DEFAULT_ROLE_LABELS = {
     gerente_de_fabricacao: 'Gerente de Fabricação'
 };
 
+// Cores das badges por cargo (mesma paleta do painel admin)
+const ROLE_BADGE_COLORS = {
+    super_admin:            { bg: 'rgba(147,51,234,0.2)',  bd: 'rgba(147,51,234,0.4)',  fg: '#c084fc' },
+    '01':                   { bg: 'rgba(239,68,68,0.2)',   bd: 'rgba(239,68,68,0.4)',   fg: '#fca5a5' },
+    '02':                   { bg: 'rgba(249,115,22,0.2)',  bd: 'rgba(249,115,22,0.4)',  fg: '#fdba74' },
+    gerente_geral:          { bg: 'rgba(59,130,246,0.2)',  bd: 'rgba(59,130,246,0.4)',  fg: '#93c5fd' },
+    gerente_farm:           { bg: 'rgba(34,197,94,0.2)',   bd: 'rgba(34,197,94,0.4)',   fg: '#86efac' },
+    _gerente:               { bg: 'rgba(168,85,247,0.2)',  bd: 'rgba(168,85,247,0.4)',  fg: '#c4b5fd' },
+    member:                 { bg: 'rgba(107,114,128,0.2)', bd: 'rgba(107,114,128,0.4)', fg: '#9ca3af' }
+};
+
+function roleBadgeColor(roleKey) {
+    if (ROLE_BADGE_COLORS[roleKey]) return ROLE_BADGE_COLORS[roleKey];
+    if (String(roleKey).startsWith('gerente')) return ROLE_BADGE_COLORS._gerente;
+    return ROLE_BADGE_COLORS.member;
+}
+
+// Carrega e mostra o card lateral com a hierarquia da família
+async function loadFamilyHierarchy() {
+    const el = document.getElementById('hierarchyContent');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/delivery/family-hierarchy');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        renderFamilyHierarchy(data.leadership || [], data.members || []);
+    } catch (error) {
+        console.error('Erro ao carregar hierarquia:', error);
+        el.innerHTML = '<div class="hierarchy-empty">Não foi possível carregar a hierarquia.</div>';
+    }
+}
+
+function hierarchyItemHtml(m, withBadge) {
+    const key = normalizeRoleName(m.role) || 'member';
+    const c = roleBadgeColor(key);
+    const badge = withBadge
+        ? `<span class="hierarchy-role-badge" style="background:${c.bg};border:1px solid ${c.bd};color:${c.fg};">${escapeHtml(m.roleLabel || '')}</span>`
+        : '';
+    const vulgo = m.vulgo ? `<div class="hierarchy-vulgo">🏷️ ${escapeHtml(m.vulgo)}</div>` : '';
+    return `
+        <div class="hierarchy-item">
+            <span class="hierarchy-passport">${escapeHtml(m.passport || '-')}</span>
+            <div class="hierarchy-info">
+                <div class="hierarchy-name">${escapeHtml(m.name || '')}</div>
+                ${vulgo}
+            </div>
+            ${badge}
+        </div>`;
+}
+
+function renderFamilyHierarchy(leadership, members) {
+    const el = document.getElementById('hierarchyContent');
+    if (!el) return;
+
+    if (leadership.length === 0 && members.length === 0) {
+        el.innerHTML = '<div class="hierarchy-empty">Nenhum membro cadastrado.</div>';
+        return;
+    }
+
+    let html = '';
+    if (leadership.length > 0) {
+        html += '<div class="hierarchy-section-title">Liderança</div>';
+        html += leadership.map(m => hierarchyItemHtml(m, true)).join('');
+    }
+    if (members.length > 0) {
+        html += `<div class="hierarchy-section-title">Membros (${members.length})</div>`;
+        html += members.map(m => hierarchyItemHtml(m, false)).join('');
+    }
+    el.innerHTML = html;
+}
+
 // Preenche a badge do cargo ao lado do nome, no cabeçalho
 function renderUserRoleBadge(role) {
     const el = document.getElementById('userRoleBadge');
@@ -186,6 +257,7 @@ async function checkAuth() {
             currentUser = data.user;
             document.getElementById('userName').textContent = currentUser.name;
             renderWelcomeAndSlot(currentUser);
+            loadFamilyHierarchy();
             if (typeof ensureCapitalNicknameModal === 'function') {
                 ensureCapitalNicknameModal(currentUser);
             }

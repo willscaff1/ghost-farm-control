@@ -663,6 +663,81 @@ router.get('/current-week', requireAuth, async (req, res) => {
     }
 });
 
+// Hierarquia da família — para o card lateral no dashboard do membro.
+// Ordem: 01, 02, gerente geral, demais gerentes e, abaixo, os membros.
+router.get('/family-hierarchy', requireAuth, async (req, res) => {
+    try {
+        const users = await getAll(`
+            SELECT id, name, passport, capital_nickname, role, member_slot, manager_slot
+            FROM users
+            WHERE active = 1 AND passport NOT IN ('0', 'admin')
+        `);
+
+        const groups = await getAll('SELECT user_id, group_name FROM user_groups');
+        const roles = await getAll('SELECT role_name, display_name FROM role_permissions');
+
+        const labelByRole = {};
+        for (const r of roles) labelByRole[r.role_name] = r.display_name;
+
+        const groupsByUser = new Map();
+        for (const g of groups) {
+            if (!groupsByUser.has(g.user_id)) groupsByUser.set(g.user_id, []);
+            groupsByUser.get(g.user_id).push(g.group_name);
+        }
+
+        const DEFAULT_LABELS = {
+            member: 'Membro', '01': '01', '02': '02', super_admin: 'Super Admin',
+            gerente_geral: 'Gerente Geral', gerente_farm: 'Gerente de Farm',
+            gerente_acao: 'Gerente de Ação', gerente_recrutamento: 'Gerente de Recrutamento',
+            gerente_encomendas: 'Gerente de Encomendas', gerente_vendas: 'Gerente de Vendas',
+            gerente_de_vendas: 'Gerente de Vendas', gerente_de_fabricacao: 'Gerente de Fabricação'
+        };
+
+        // Posição na hierarquia (menor = mais alto)
+        const rankOf = (role) => {
+            if (role === 'super_admin') return 0;
+            if (role === '01') return 1;
+            if (role === '02') return 2;
+            if (role === 'gerente_geral') return 3;
+            if (String(role).startsWith('gerente')) return 4;
+            return 9; // membro
+        };
+
+        const list = users.map(u => {
+            const ug = groupsByUser.get(u.id) || (u.role ? [u.role] : []);
+            const primaryRole = ug.find(g => g && g !== 'member') || u.role || 'member';
+            const rank = rankOf(primaryRole);
+            const isLeader = rank < 9;
+            const slot = isLeader ? u.manager_slot : u.member_slot;
+            return {
+                passport: u.passport,
+                name: u.name,
+                vulgo: u.capital_nickname || null,
+                role: primaryRole,
+                roleLabel: labelByRole[primaryRole] || DEFAULT_LABELS[primaryRole] || primaryRole,
+                slot: (slot !== null && slot !== undefined && String(slot).trim() !== '') ? String(slot).trim() : null,
+                tier: isLeader ? 'lideranca' : 'membro',
+                _rank: rank
+            };
+        });
+
+        list.sort((a, b) => {
+            if (a._rank !== b._rank) return a._rank - b._rank;
+            return (a.vulgo || a.name || '').toLowerCase().localeCompare((b.vulgo || b.name || '').toLowerCase());
+        });
+
+        list.forEach(m => delete m._rank);
+
+        res.json({
+            leadership: list.filter(m => m.tier === 'lideranca'),
+            members: list.filter(m => m.tier === 'membro')
+        });
+    } catch (error) {
+        console.error('Erro ao carregar hierarquia da família:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Deletar screenshot de farm pendente
 router.delete('/screenshot/:screenshotId', requireAuth, async (req, res) => {
     try {
