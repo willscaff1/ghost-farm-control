@@ -416,32 +416,58 @@ router.post('/change-password', async (req, res) => {
     }
 });
 
-// Atualizar perfil do usuário (nome e email)
+// Atualizar perfil do usuário (nome, vulgo, email e, opcionalmente, nova senha).
+// Cargo, slot e passaporte NÃO são alteráveis aqui — só um admin muda.
 router.put('/update-profile', async (req, res) => {
     try {
         if (!req.session.user) {
             return res.status(401).json({ error: 'Não autenticado' });
         }
-        
-        const { name, email } = req.body;
-        
+
+        const { name, email, capital_nickname, newPassword } = req.body;
+
         if (!name || name.trim().length === 0) {
             return res.status(400).json({ error: 'Nome é obrigatório' });
         }
-        
-        // Atualizar dados do usuário
+
+        const nickname = String(capital_nickname || '').trim().replace(/\s+/g, ' ');
+        if (nickname && (nickname.length < 2 || nickname.length > 40)) {
+            return res.status(400).json({ error: 'O vulgo deve ter entre 2 e 40 caracteres' });
+        }
+
+        const nickToSave = nickname || null;
+
+        // Atualizar nome, vulgo e email
         await runQuery(
-            'UPDATE users SET name = ?, email = ? WHERE id = ?',
-            [name.trim(), email?.trim() || null, req.session.user.id]
+            'UPDATE users SET name = ?, capital_nickname = ?, email = ? WHERE id = ?',
+            [name.trim(), nickToSave, email?.trim() || null, req.session.user.id]
         );
-        
+
+        // Nova senha (opcional): só troca se veio preenchida
+        if (newPassword !== undefined && newPassword !== null && String(newPassword).length > 0) {
+            if (String(newPassword).length < 6) {
+                return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres' });
+            }
+            const hashed = bcrypt.hashSync(String(newPassword), 10);
+            await runQuery(
+                'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?',
+                [hashed, req.session.user.id]
+            );
+        }
+
         // Atualizar sessão
         req.session.user.original_name = name.trim();
-        req.session.user.name = req.session.user.capital_nickname || name.trim();
+        req.session.user.capital_nickname = nickToSave;
+        req.session.user.name = nickToSave || name.trim();
         req.session.user.email = email?.trim() || null;
-        
+
+        // O vulgo entrou/mudou → limpa o cache do status semanal (mostra o vulgo novo)
+        if (typeof global.__clearWeeklyStatusCache === 'function') {
+            global.__clearWeeklyStatusCache();
+        }
+
         console.log(`👤 Perfil atualizado: ${name} (ID: ${req.session.user.id})`);
-        
+
         res.json({ success: true, message: 'Dados atualizados com sucesso!' });
     } catch (error) {
         console.error('Erro ao atualizar perfil:', error);

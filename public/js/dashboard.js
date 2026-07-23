@@ -3284,10 +3284,31 @@ document.addEventListener('click', function(e) {
 
 // Mostrar modal de editar perfil
 function showEditProfile() {
-    // Preencher campos com dados atuais
-    document.getElementById('editName').value = currentUser.name || '';
+    // Campos editáveis — nome completo é o original_name (não o vulgo)
+    document.getElementById('editName').value = currentUser.original_name || currentUser.name || '';
+    document.getElementById('editCapitalNickname').value = currentUser.capital_nickname || '';
     document.getElementById('editEmail').value = currentUser.email || '';
+    document.getElementById('editNewPassword').value = '';
+
+    // Campos opacos (só admin altera)
     document.getElementById('editPassport').value = currentUser.passport || '';
+
+    const groups = (currentUser.groups && currentUser.groups.length)
+        ? currentUser.groups
+        : (currentUser.role ? [currentUser.role] : []);
+    const badgeRole = groups.find(g => g && g !== 'member') || currentUser.role || 'member';
+    const roleKey = normalizeRoleName(badgeRole) || 'member';
+    document.getElementById('editRoleDisplay').value =
+        roleNames[badgeRole] || roleNames[roleKey] || DEFAULT_ROLE_LABELS[roleKey] || badgeRole || 'Membro';
+
+    // Slot conforme o cargo (mesma regra do banner de boas-vindas)
+    const managerRoles = ['super_admin', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
+    const isManager = groups.some(g => managerRoles.includes(g) || String(g || '').startsWith('gerente_'));
+    const slot = isManager ? currentUser.manager_slot : currentUser.member_slot;
+    document.getElementById('editSlotLabel').innerHTML = isManager ? '🛡️ Slot (Baú da Gerência)' : '📦 Slot (Baú dos Membros)';
+    const slotVal = (slot !== null && slot !== undefined && String(slot).trim() !== '') ? `#${String(slot).trim()}` : '—';
+    document.getElementById('editSlotDisplay').value = slotVal;
+
     document.getElementById('editProfileMessage').innerHTML = '';
     document.getElementById('editProfileModal').classList.add('show');
 }
@@ -3302,35 +3323,50 @@ document.getElementById('editProfileForm').addEventListener('submit', async func
     e.preventDefault();
     
     const name = document.getElementById('editName').value.trim();
+    const capitalNickname = document.getElementById('editCapitalNickname').value.trim();
     const email = document.getElementById('editEmail').value.trim();
+    const newPassword = document.getElementById('editNewPassword').value;
     const messageEl = document.getElementById('editProfileMessage');
-    
+
     // Validações
     if (!name) {
         messageEl.innerHTML = '<span class="error">O nome é obrigatório</span>';
         return;
     }
-    
+    if (capitalNickname && (capitalNickname.length < 2 || capitalNickname.length > 40)) {
+        messageEl.innerHTML = '<span class="error">O vulgo deve ter entre 2 e 40 caracteres</span>';
+        return;
+    }
+    if (newPassword && newPassword.length < 6) {
+        messageEl.innerHTML = '<span class="error">A nova senha deve ter pelo menos 6 caracteres</span>';
+        return;
+    }
+
     try {
         messageEl.innerHTML = '<span class="loading">Salvando alterações...</span>';
-        
+
         const response = await fetch('/api/auth/update-profile', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email })
+            body: JSON.stringify({ name, capital_nickname: capitalNickname, email, newPassword: newPassword || undefined })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             messageEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
-            
-            // Atualizar dados locais
-            currentUser.name = name;
+
+            // Atualizar dados locais e a UI (nome exibido = vulgo, senão nome completo)
+            currentUser.original_name = name;
+            currentUser.capital_nickname = capitalNickname || null;
             currentUser.email = email;
-            document.getElementById('userName').textContent = name;
-            document.getElementById('dropdownUserName').textContent = name;
-            
+            const displayName = capitalNickname || name;
+            currentUser.name = displayName;
+            document.getElementById('userName').textContent = displayName;
+            document.getElementById('dropdownUserName').textContent = displayName;
+            renderWelcomeAndSlot(currentUser);
+            document.getElementById('editNewPassword').value = '';
+
             setTimeout(() => {
                 closeEditProfileModal();
             }, 2000);

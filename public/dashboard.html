@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260723rolebadge1">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260723editprofile1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -338,18 +338,39 @@
             </div>
             <div class="warnings-modal-body">
                 <form id="editProfileForm" class="change-password-form">
+                    <!-- Campos que só um administrador altera (opacos) -->
                     <div class="form-group">
-                        <label for="editName">Nome Completo</label>
+                        <label for="editPassport">🎫 Passaporte</label>
+                        <input type="text" id="editPassport" readonly class="profile-field-locked">
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="editRoleDisplay">👔 Cargo</label>
+                            <input type="text" id="editRoleDisplay" readonly class="profile-field-locked">
+                        </div>
+                        <div class="form-group">
+                            <label id="editSlotLabel" for="editSlotDisplay">📦 Slot</label>
+                            <input type="text" id="editSlotDisplay" readonly class="profile-field-locked">
+                        </div>
+                    </div>
+                    <small style="color: #888; font-size: 12px; display:block; margin: -6px 0 12px;">Passaporte, cargo e slot só um administrador altera.</small>
+
+                    <!-- Campos que o membro edita -->
+                    <div class="form-group">
+                        <label for="editName">👤 Nome Completo</label>
                         <input type="text" id="editName" placeholder="Seu nome completo" required>
                     </div>
                     <div class="form-group">
-                        <label for="editEmail">Email <span style="color: #888; font-size: 12px;">(opcional)</span></label>
+                        <label for="editCapitalNickname"># Vulgo na Capital</label>
+                        <input type="text" id="editCapitalNickname" maxlength="40" placeholder="Seu vulgo na Capital">
+                    </div>
+                    <div class="form-group">
+                        <label for="editEmail">📧 Email <span style="color: #888; font-size: 12px;">(opcional)</span></label>
                         <input type="email" id="editEmail" placeholder="seu.email@exemplo.com">
                     </div>
                     <div class="form-group">
-                        <label for="editPassport">Passaporte</label>
-                        <input type="text" id="editPassport" placeholder="Passaporte" readonly style="background: rgba(255,255,255,0.05); cursor: not-allowed;">
-                        <small style="color: #888; font-size: 12px;">O passaporte não pode ser alterado aqui. Entre em contato com um administrador.</small>
+                        <label for="editNewPassword">🔒 Nova Senha <span style="color: #888; font-size: 12px;">(deixe em branco para manter)</span></label>
+                        <input type="password" id="editNewPassword" placeholder="••••••••" minlength="6" autocomplete="new-password">
                     </div>
                     <div id="editProfileMessage" class="form-message"></div>
                     <button type="submit" class="btn-primary" style="width: 100%; margin-top: 15px;">💾 Salvar Alterações</button>
@@ -417,6 +438,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260723rolebadge1"></script>
+    <script src="js/dashboard.js?v=20260723editprofile1"></script>
 </body>
 </html>

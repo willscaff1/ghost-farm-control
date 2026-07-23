@@ -2637,3 +2637,19 @@
 .user-role-badge.badge-member {
     background: rgba(107, 114, 128, 0.2); border: 1px solid rgba(107, 114, 128, 0.4); color: #9ca3af;
 }
+
+/* Editar Meus Dados — campos opacos (só admin altera) e linha de 2 colunas */
+.profile-field-locked {
+    background: rgba(255,255,255,0.05) !important;
+    color: #9ca3af !important;
+    cursor: not-allowed;
+    opacity: .65;
+}
+.change-password-form .form-row-2 {
+    display: flex;
+    gap: 12px;
+}
+.change-password-form .form-row-2 .form-group {
+    flex: 1;
+    min-width: 0;
+}
