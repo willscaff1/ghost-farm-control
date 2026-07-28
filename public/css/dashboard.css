@@ -2832,3 +2832,10 @@
 .hierarchy-role-badge.elite-badge {
     background:rgba(168,85,247,0.2); border:1px solid rgba(168,85,247,0.45); color:#c4b5fd;
 }
+
+/* Badge Elite alinhada na hierarquia (a do cargo base fica livre) */
+.hierarchy-role-badge.elite-badge {
+    min-width:64px;
+    text-align:center;
+    flex-shrink:0;
+}

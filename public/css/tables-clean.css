@@ -2317,3 +2317,12 @@ tr.status-rejected {
     border:1px solid rgba(168,85,247,0.45) !important;
     color:#c4b5fd !important;
 }
+
+/* Badge Elite com largura fixa: alinha em coluna e a badge do cargo
+   base começa sempre no mesmo ponto em todas as linhas. */
+.rank-badges .badge-elite {
+    display:inline-block;
+    min-width:74px;
+    text-align:center;
+    margin-right:4px;
+}
