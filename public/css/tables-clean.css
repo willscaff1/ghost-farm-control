@@ -2319,10 +2319,13 @@ tr.status-rejected {
 }
 
 /* Badge Elite com largura fixa: alinha em coluna e a badge do cargo
-   base começa sempre no mesmo ponto em todas as linhas. */
-.rank-badges .badge-elite {
+   base começa sempre no mesmo ponto — vale no ranking e no status da semana. */
+.rank-badges .badge-elite,
+.role-cell .badge-elite {
     display:inline-block;
-    min-width:74px;
+    min-width:88px;
     text-align:center;
-    margin-right:4px;
+    margin-right:6px;
 }
+/* Badges sempre lado a lado, sem quebrar linha */
+.rank-badges, .role-cell { white-space:nowrap; }

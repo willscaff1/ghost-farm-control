@@ -182,6 +182,33 @@ async function loadUserPermissions(userGroups) {
 }
 
 // Verificar se o usuário tem acesso a uma tab
+// Badges de cargo padronizadas (usadas no ranking e no status da semana).
+// Regra: Elite sempre na frente e alinhada. Membro + Elite mostra só Elite
+// (Membro é o cargo padrão, não acrescenta nada); gerente + Elite mostra os dois.
+function renderRoleBadgesHtml(groups, fallbackRole) {
+    let list = Array.isArray(groups) ? groups.slice() : [];
+    if (list.length === 0 && fallbackRole) list = [fallbackRole];
+
+    const isElite = list.includes('elite');
+    let roles = list.filter(g => g && g !== 'elite');
+    // 'member' só aparece se for o único cargo
+    if (roles.length > 1) roles = roles.filter(g => g !== 'member');
+
+    const eliteBadge = isElite ? '<span class="role-badge badge-elite">⚔️ Elite</span>' : '';
+
+    // Membro + Elite: a badge de Membro não agrega, fica só Elite
+    if (isElite && (roles.length === 0 || (roles.length === 1 && roles[0] === 'member'))) {
+        return eliteBadge;
+    }
+
+    if (roles.length === 0) roles = ['member'];
+    const roleBadges = roles
+        .map(g => `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`)
+        .join('');
+
+    return eliteBadge + roleBadges;
+}
+
 // Super admin de verdade — usado nas telas restritas ao dono do sistema.
 // Não basta ter permissão 'all': tem que estar no grupo super_admin.
 function isSuperAdminUser() {
@@ -2687,16 +2714,8 @@ function renderWeeklyStatusMemberRows(members) {
     return members.map(member => {
         const initial = member.name.charAt(0).toUpperCase();
 
-        // Exibir grupos como badges (similar à Lista de Membros)
-        let groupsDisplay = '';
-        if (member.groups && member.groups.length > 0) {
-            const displayGroups = member.groups.filter(g => g !== 'member' || member.groups.length === 1);
-            groupsDisplay = displayGroups.map(group =>
-                `<span class="role-badge badge-${roleBadgeClass(group)}">${roleNames[group] || group}</span>`
-            ).join(' ');
-        } else {
-            groupsDisplay = `<span class="no-role">${roleNames[member.role] || member.role || '-'}</span>`;
-        }
+        // Badges lado a lado: Elite na frente, depois o cargo
+        const groupsDisplay = renderRoleBadgesHtml(member.groups, member.role);
 
         // Qualquer admin pode editar entregas
         const canEditDeliveries = (typeof hasAccessToTab === 'function' && hasAccessToTab('weekly-status')) || (currentUser && (
@@ -6322,17 +6341,11 @@ async function loadEliteRanking() {
         const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 
         // Passaporte e nome em colunas separadas, Elite separado de quem só participou
-        // Elite entra na frente (é o cargo que coloca a pessoa nesse ranking),
-        // seguida do cargo base dela — ex: "⚔️ Elite / Membro".
+        // Elite na frente e alinhada; membro+elite mostra só Elite
         const rankBadges = (r, isEliteTable) => {
-            let groups = (r.groups || []).filter(g => g !== 'elite');
-            if (groups.length > 1) groups = groups.filter(g => g !== 'member');
-            if (groups.length === 0) groups = ['member'];
-            const roleBadges = groups.map(g =>
-                `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`).join(' ');
-            return isEliteTable
-                ? `<span class="role-badge badge-elite">⚔️ Elite</span> ${roleBadges}`
-                : roleBadges;
+            const groups = (r.groups || []).slice();
+            if (isEliteTable && !groups.includes('elite')) groups.push('elite');
+            return renderRoleBadgesHtml(groups, 'member');
         };
 
         const rankRows = (rows, vazio, eliteOnly) => rows.length === 0
