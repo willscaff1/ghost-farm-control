@@ -2351,16 +2351,25 @@ tr.status-rejected {
     color:#c4b5fd !important;
 }
 
+/* Coluna de cargo: badges em linha, com respiro fixo entre elas.
+   O flex garante o espaçamento igual em todas as linhas. */
+.rank-badges, .role-cell {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
 /* Badge Elite com largura fixa: as badges do cargo base começam
    sempre no mesmo ponto, linha a linha. */
 .rank-badges .badge-elite,
 .role-cell .badge-elite {
-    display:inline-block;
     min-width:82px;
     text-align:center;
-    margin-right:6px;
+    flex-shrink:0;
 }
-/* Badges compactas na coluna de cargo para não estourar a largura */
+/* Badges compactas na coluna de cargo, sem margem (o gap já separa) */
 .rank-badges .role-badge, .role-cell .role-badge {
-    padding:4px 9px; font-size:11.5px; margin-right:4px;
+    padding:5px 11px;
+    font-size:11.5px;
+    margin-right:0;
 }
