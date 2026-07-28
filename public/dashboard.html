@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260723exemptlock1">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260723elitev2">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -143,14 +143,27 @@
                     <form id="eliteActionForm" enctype="multipart/form-data">
                         <div class="form-group">
                             <label>Qual ação você puxou? <span class="required">*</span></label>
-                            <input type="text" id="eliteActionName" name="action_name" placeholder="Ex: Assalto ao banco central" required>
+                            <select id="eliteActionType" name="action_type_id" required>
+                                <option value="">Selecione a ação...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Resultado <span class="required">*</span></label>
+                            <div class="elite-result-toggle">
+                                <label class="elite-result-opt win">
+                                    <input type="radio" name="elite_result" value="win"> 🏆 Vitória
+                                </label>
+                                <label class="elite-result-opt loss">
+                                    <input type="radio" name="elite_result" value="loss"> 💀 Derrota
+                                </label>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Observações <span class="optional">(opcional)</span></label>
                             <input type="text" id="eliteActionDesc" name="description" placeholder="Detalhes da ação">
                         </div>
                         <div class="form-group">
-                            <label>Quem da Elite participou? <span class="optional">(opcional)</span></label>
+                            <label>Quem participou? <span class="optional">(qualquer membro ativo)</span></label>
                             <div id="eliteParticipants" class="elite-participants"></div>
                         </div>
                         <div class="form-group">
@@ -495,6 +508,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260723exemptlock1"></script>
+    <script src="js/dashboard.js?v=20260723elitev2"></script>
 </body>
 </html>

@@ -195,7 +195,7 @@ function isSuperAdminUser() {
 const superAdminOnlyTabs = ['password-reset-log'];
 
 // Abas restritas aos aprovadores de ações da Elite: 01, 02, gerente geral (+ super admin)
-const eliteApproverTabs = ['elite-actions'];
+const eliteApproverTabs = ['elite-actions', 'elite-catalog', 'elite-ranking'];
 const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
 function isEliteApproverUser() {
     if (!currentUser) return false;
@@ -385,6 +385,8 @@ function showTab(tabId) {
         case 'attendance': loadAttendance(); break;
         case 'password-reset-log': loadResetLog(); break;
         case 'elite-actions': loadEliteActionsAdmin(); break;
+        case 'elite-catalog': loadEliteTypes(); break;
+        case 'elite-ranking': loadEliteRanking(); break;
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
         case 'family-commandments': loadFamilyCommandments(); break;
@@ -819,6 +821,12 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'elite-actions':
                 loadEliteActionsAdmin();
+                break;
+            case 'elite-catalog':
+                loadEliteTypes();
+                break;
+            case 'elite-ranking':
+                loadEliteRanking();
                 break;
             case 'new-member':
                 // Nada a carregar, apenas mostrar o formulário
@@ -6089,10 +6097,15 @@ function renderEliteActionsAdmin(actions) {
         const proof = a.proof_url
             ? `<a href="${a.proof_url}" target="_blank" rel="noopener"><img src="${a.proof_url}" class="elite-proof-thumb" alt="print"></a>`
             : '<span style="color:#e74c3c;">Sem print</span>';
+        const resultTag = a.result === 'win'
+            ? '<span class="status-badge" style="background:#27ae60;color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">🏆 Vitória</span>'
+            : a.result === 'loss'
+                ? '<span class="status-badge" style="background:#e74c3c;color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">💀 Derrota</span>'
+                : '';
         return `
             <div class="elite-admin-card">
                 <div class="elite-admin-main">
-                    <div class="elite-admin-title">${escapeHtml(a.action_name)}</div>
+                    <div class="elite-admin-title">${escapeHtml(a.action_name)}${resultTag}</div>
                     ${a.description ? `<div class="elite-admin-desc">${escapeHtml(a.description)}</div>` : ''}
                     <div class="elite-admin-meta">Registrou: <strong>${escapeHtml(a.registered_by_name)}</strong> <small>${escapeHtml(a.registered_by_passport || '')}</small> · ${when}</div>
                     <div class="elite-admin-parts">👥 ${parts}</div>
@@ -6135,6 +6148,142 @@ async function rejectEliteAction(id) {
             showNotification(data.error || 'Erro ao rejeitar', 'error');
         }
     } catch { showNotification('Erro de conexão', 'error'); }
+}
+
+// ===== Cadastro de tipos de ação (catálogo) =====
+async function loadEliteTypes() {
+    const tbody = document.getElementById('eliteTypesBody');
+    if (!tbody) return;
+    try {
+        const res = await fetch('/api/admin/elite/action-types');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const types = data.types || [];
+        if (types.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:24px;">Nenhuma ação cadastrada ainda.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = types.map(t => `
+            <tr>
+                <td>${escapeHtml(t.name)}</td>
+                <td>${t.active
+                    ? '<span class="status-badge" style="background:#27ae60;color:#fff;padding:3px 10px;border-radius:999px;font-size:12px;">Ativa</span>'
+                    : '<span class="status-badge" style="background:rgba(149,165,166,0.25);color:#bdc3c7;padding:3px 10px;border-radius:999px;font-size:12px;">Inativa</span>'}</td>
+                <td>
+                    <button class="btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="toggleEliteType(${t.id})">${t.active ? '🚫 Desativar' : '✅ Ativar'}</button>
+                    <button class="btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="renameEliteType(${t.id}, '${escapeHtml(t.name).replace(/'/g, "\\'")}')">✏️ Renomear</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        console.error('Erro ao carregar catálogo:', e);
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:24px;">Erro ao carregar</td></tr>';
+    }
+}
+
+async function addEliteType() {
+    const input = document.getElementById('eliteTypeName');
+    const msg = document.getElementById('eliteTypeMsg');
+    const name = (input?.value || '').trim();
+    if (!name) {
+        if (msg) { msg.textContent = 'Informe o nome da ação'; msg.className = 'goals-message error'; }
+        return;
+    }
+    try {
+        const res = await fetch('/api/admin/elite/action-types', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+            input.value = '';
+            if (msg) { msg.textContent = '✅ Ação cadastrada'; msg.className = 'goals-message success'; }
+            loadEliteTypes();
+        } else {
+            if (msg) { msg.textContent = data.error || 'Erro ao cadastrar'; msg.className = 'goals-message error'; }
+        }
+    } catch {
+        if (msg) { msg.textContent = 'Erro de conexão'; msg.className = 'goals-message error'; }
+    }
+}
+
+async function toggleEliteType(id) {
+    try {
+        const res = await fetch(`/api/admin/elite/action-types/${id}/toggle`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) loadEliteTypes();
+        else showNotification(data.error || 'Erro', 'error');
+    } catch { showNotification('Erro de conexão', 'error'); }
+}
+
+async function renameEliteType(id, currentName) {
+    const name = prompt('Novo nome da ação:', currentName);
+    if (!name || !name.trim() || name.trim() === currentName) return;
+    try {
+        const res = await fetch(`/api/admin/elite/action-types/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim() })
+        });
+        const data = await res.json();
+        if (data.success) loadEliteTypes();
+        else showNotification(data.error || 'Erro', 'error');
+    } catch { showNotification('Erro de conexão', 'error'); }
+}
+
+// ===== Ranking Elite (geral) =====
+async function loadEliteRanking() {
+    const pBody = document.getElementById('eliteRankParticipation');
+    const aBody = document.getElementById('eliteRankActions');
+    const totalsEl = document.getElementById('eliteRankingTotals');
+    try {
+        const res = await fetch('/api/admin/elite/rankings');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+
+        if (totalsEl && data.totals) {
+            const card = (label, value, color) => `<div style="flex:1;min-width:130px;background:var(--card-bg,rgba(255,255,255,0.04));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;padding:12px 16px;"><div style="font-size:24px;font-weight:700;color:${color};">${value}</div><div style="font-size:12px;color:var(--text-secondary);">${label}</div></div>`;
+            totalsEl.innerHTML =
+                card('⚔️ Ações aprovadas', data.totals.total, 'var(--text-primary, #fff)') +
+                card('🏆 Vitórias', data.totals.wins, '#27ae60') +
+                card('💀 Derrotas', data.totals.losses, '#e74c3c');
+        }
+
+        const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+
+        if (pBody) {
+            const rows = data.participation || [];
+            pBody.innerHTML = rows.length === 0
+                ? '<tr><td colspan="5" style="text-align:center;padding:24px;">Nenhuma participação ainda.</td></tr>'
+                : rows.map((r, i) => `
+                    <tr>
+                        <td>${medal(i)}</td>
+                        <td>${escapeHtml(r.name)} <small style="color:var(--text-secondary);">${escapeHtml(r.passport || '')}</small></td>
+                        <td><strong>${r.participations}</strong></td>
+                        <td style="color:#27ae60;">${r.wins}</td>
+                        <td style="color:#e74c3c;">${r.losses}</td>
+                    </tr>`).join('');
+        }
+
+        if (aBody) {
+            const rows = data.actionsPulled || [];
+            aBody.innerHTML = rows.length === 0
+                ? '<tr><td colspan="5" style="text-align:center;padding:24px;">Nenhuma ação aprovada ainda.</td></tr>'
+                : rows.map((r, i) => `
+                    <tr>
+                        <td>${medal(i)}</td>
+                        <td>${escapeHtml(r.name)}</td>
+                        <td><strong>${r.pulls}</strong></td>
+                        <td style="color:#27ae60;">${r.wins}</td>
+                        <td style="color:#e74c3c;">${r.losses}</td>
+                    </tr>`).join('');
+        }
+    } catch (e) {
+        console.error('Erro ao carregar ranking Elite:', e);
+        if (pBody) pBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Erro ao carregar</td></tr>';
+        if (aBody) aBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Erro ao carregar</td></tr>';
+    }
 }
 
 // Meta da Elite (página de Metas)

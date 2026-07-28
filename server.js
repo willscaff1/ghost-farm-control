@@ -273,6 +273,48 @@ db.initialize().then(async () => {
         }
     }
 
+    // Catálogo de tipos de ação + colunas de resultado/tipo (roda em todo boot, idempotente)
+    async function createEliteCatalog() {
+        try {
+            const { runQuery } = require('./database/db');
+            const isPostgres = process.env.DATABASE_URL ? true : false;
+
+            if (isPostgres) {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS elite_action_types (
+                        id SERIAL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        active INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+            } else {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS elite_action_types (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        active INTEGER DEFAULT 1,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+            }
+
+            // Colunas novas em elite_actions (ADD COLUMN falha se já existe -> try próprio)
+            try {
+                await runQuery(`ALTER TABLE elite_actions ADD COLUMN result TEXT`);
+                console.log('✅ Coluna elite_actions.result criada');
+            } catch (e) { /* já existe */ }
+            try {
+                await runQuery(`ALTER TABLE elite_actions ADD COLUMN action_type_id INTEGER`);
+                console.log('✅ Coluna elite_actions.action_type_id criada');
+            } catch (e) { /* já existe */ }
+
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_elite_action_types_active ON elite_action_types (active)');
+        } catch (error) {
+            console.error('⚠️ Erro ao criar catálogo da Elite:', error.message);
+        }
+    }
+
     async function createExtraFarmTable() {
         try {
             const { runQuery, getAll } = require('./database/db');
@@ -1049,6 +1091,8 @@ db.initialize().then(async () => {
 
         // Trilha Elite: grupo, tabelas de ações e meta padrão
         await createEliteTables();
+        // Catálogo de tipos de ação + colunas result/action_type_id (idempotente)
+        await createEliteCatalog();
 
         // Criar tabela de farm extra se não existir
         await createExtraFarmTable();

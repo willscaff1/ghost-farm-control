@@ -2772,3 +2772,18 @@
 /* ===== Aviso de meta isenta (trava o registro) ===== */
 #lockedMessage .meta-exempt-banner-text { font-size:15px; line-height:1.5; }
 .locked-panel .locked-icon { font-size:44px; }
+
+/* ===== Seletor Vitória/Derrota (registro Elite) ===== */
+#eliteActionType { width:100%; padding:10px 12px; border-radius:10px; }
+.elite-result-toggle { display:flex; gap:10px; }
+.elite-result-opt {
+    flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:10px; border-radius:10px; cursor:pointer; font-weight:600; font-size:14px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+}
+.elite-result-opt.win:has(input:checked) { background:rgba(39,174,96,0.2); border-color:#27ae60; }
+.elite-result-opt.loss:has(input:checked) { background:rgba(231,76,60,0.2); border-color:#e74c3c; }
+.elite-result-opt input { accent-color:#a855f7; }
+.elite-result-tag { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; margin-left:6px; }
+.elite-result-tag.win { background:#27ae60; color:#fff; }
+.elite-result-tag.loss { background:#e74c3c; color:#fff; }

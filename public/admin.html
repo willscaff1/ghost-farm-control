@@ -80,6 +80,8 @@
                 <button class="sidebar-item" data-tab="pending">🕐 Farms</button>
                 <button class="sidebar-item" data-tab="absences">📝 Justificativas</button>
                 <button class="sidebar-item" data-tab="elite-actions" style="display:none;">⚔️ Ações Elite</button>
+                <button class="sidebar-item" data-tab="elite-catalog" style="display:none;">📝 Cadastro de Ações</button>
+                <button class="sidebar-item" data-tab="elite-ranking" style="display:none;">🏆 Ranking Elite</button>
             </div>
 
             <div class="sidebar-section">
@@ -539,6 +541,63 @@
                     <p class="subtitle">Ações pendentes de aprovação. Aprovar conta a ação para quem registrou e para os participantes marcados.</p>
                     <div id="eliteActionsAdminList" class="elite-admin-list">
                         <div style="text-align:center; padding:24px;">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cadastro de tipos de ação (aprovadores da Elite) -->
+            <div id="elite-catalog-tab" class="tab-content">
+                <div class="card">
+                    <h2>📝 Cadastro de Ações</h2>
+                    <p class="subtitle">As ações cadastradas aqui aparecem no dropdown de quem registra a ação na Elite.</p>
+                    <div class="goals-add-form">
+                        <label class="goals-label">Nome da ação</label>
+                        <input type="text" id="eliteTypeName" placeholder="Ex: Assalto ao banco central" class="goals-input goals-name">
+                        <button type="button" class="btn btn-primary goals-btn-add" onclick="addEliteType()">➕ Cadastrar</button>
+                    </div>
+                    <div id="eliteTypeMsg" class="goals-message"></div>
+                    <div class="table-container">
+                        <table class="weekly-table" id="eliteTypesTable">
+                            <thead>
+                                <tr><th>Ação</th><th>Status</th><th>Ações</th></tr>
+                            </thead>
+                            <tbody id="eliteTypesBody">
+                                <tr><td colspan="3" style="text-align:center;padding:24px;">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ranking da Elite (geral) -->
+            <div id="elite-ranking-tab" class="tab-content">
+                <div class="card">
+                    <h2>🏆 Ranking Elite</h2>
+                    <p class="subtitle">Acumulado geral (só ações aprovadas).</p>
+                    <div class="attendance-summary" id="eliteRankingTotals" style="display:flex; gap:12px; flex-wrap:wrap; margin:16px 0;"></div>
+
+                    <h3 style="margin-top:8px;">👥 Quem mais participou</h3>
+                    <div class="table-container">
+                        <table class="weekly-table">
+                            <thead>
+                                <tr><th>#</th><th>Membro</th><th>Participações</th><th>Vitórias</th><th>Derrotas</th></tr>
+                            </thead>
+                            <tbody id="eliteRankParticipation">
+                                <tr><td colspan="5" style="text-align:center;padding:24px;">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 style="margin-top:20px;">⚔️ Ações mais puxadas</h3>
+                    <div class="table-container">
+                        <table class="weekly-table">
+                            <thead>
+                                <tr><th>#</th><th>Ação</th><th>Puxadas</th><th>Vitórias</th><th>Derrotas</th></tr>
+                            </thead>
+                            <tbody id="eliteRankActions">
+                                <tr><td colspan="5" style="text-align:center;padding:24px;">Carregando...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1881,7 +1940,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260723elite1"></script>
+    <script src="js/admin.js?v=20260723elitev2"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

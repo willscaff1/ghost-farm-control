@@ -238,12 +238,25 @@ function renderEliteStatus(data, offset) {
     if (txt) txt.textContent = `${approved} / ${goal} ações aprovadas`;
     if (pend) pend.textContent = pending > 0 ? `${pending} aguardando` : '';
 
-    // Participantes (seletor)
+    // Dropdown de tipos de ação (catálogo)
+    const typeSel = document.getElementById('eliteActionType');
+    if (typeSel) {
+        const types = data.actionTypes || [];
+        const current = typeSel.value;
+        typeSel.innerHTML = '<option value="">Selecione a ação...</option>' +
+            types.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+        if (current) typeSel.value = current;
+        if (types.length === 0) {
+            typeSel.innerHTML = '<option value="">Nenhuma ação cadastrada — fale com um gerente</option>';
+        }
+    }
+
+    // Participantes: qualquer membro ativo
     const partBox = document.getElementById('eliteParticipants');
     if (partBox) {
-        const members = data.eliteMembers || [];
+        const members = data.participantsOptions || [];
         partBox.innerHTML = members.length === 0
-            ? '<span class="elite-empty">Nenhum outro membro da Elite.</span>'
+            ? '<span class="elite-empty">Nenhum membro ativo disponível.</span>'
             : members.map(m => `
                 <label class="elite-participant">
                     <input type="checkbox" value="${m.id}">
@@ -265,12 +278,14 @@ function renderEliteStatus(data, offset) {
                         ? '<span class="elite-badge no">❌ Rejeitada</span>'
                         : '<span class="elite-badge wait">⏳ Aguardando</span>';
                 const who = a.is_mine ? 'Você' : escapeHtml(a.registered_by_name || '');
+                const resultTag = a.result === 'win' ? '<span class="elite-result-tag win">🏆 Vitória</span>'
+                    : a.result === 'loss' ? '<span class="elite-result-tag loss">💀 Derrota</span>' : '';
                 const parts = (a.participants || []).length ? `<div class="elite-action-parts">👥 ${a.participants.map(escapeHtml).join(', ')}</div>` : '';
                 const note = a.status === 'rejected' && a.review_note ? `<div class="elite-action-note">Motivo: ${escapeHtml(a.review_note)}</div>` : '';
                 return `
                     <div class="elite-action-item">
                         <div class="elite-action-top">
-                            <span class="elite-action-name">${escapeHtml(a.action_name)}</span>
+                            <span class="elite-action-name">${escapeHtml(a.action_name)} ${resultTag}</span>
                             ${st}
                         </div>
                         <div class="elite-action-meta">Registrou: ${who}</div>
@@ -286,17 +301,20 @@ async function submitEliteAction(e) {
     e.preventDefault();
     const msg = document.getElementById('eliteFormMessage');
     const btn = document.getElementById('eliteSubmitBtn');
-    const name = document.getElementById('eliteActionName').value.trim();
+    const typeId = document.getElementById('eliteActionType').value;
     const desc = document.getElementById('eliteActionDesc').value.trim();
     const proof = document.getElementById('eliteProof').files[0];
+    const resultEl = document.querySelector('input[name="elite_result"]:checked');
 
-    if (!name) { showEliteMsg(msg, 'Diga qual ação você puxou', 'error'); return; }
+    if (!typeId) { showEliteMsg(msg, 'Escolha qual ação você puxou', 'error'); return; }
+    if (!resultEl) { showEliteMsg(msg, 'Marque se foi vitória ou derrota', 'error'); return; }
     if (!proof) { showEliteMsg(msg, 'Anexe o print da ação ou do dinheiro', 'error'); return; }
 
     const participants = Array.from(document.querySelectorAll('#eliteParticipants input:checked')).map(c => parseInt(c.value, 10));
 
     const fd = new FormData();
-    fd.append('action_name', name);
+    fd.append('action_type_id', typeId);
+    fd.append('result', resultEl.value);
     fd.append('description', desc);
     fd.append('participants', JSON.stringify(participants));
     fd.append('proof', proof);

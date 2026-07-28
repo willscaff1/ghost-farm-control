@@ -786,7 +786,7 @@ router.get('/elite/status', requireAuth, async (req, res) => {
 
         // Ações da semana em que o usuário é registrante OU participante
         const actions = await getAll(`
-            SELECT DISTINCT a.id, a.action_name, a.description, a.proof_url, a.status,
+            SELECT DISTINCT a.id, a.action_name, a.description, a.proof_url, a.status, a.result,
                    a.registered_by, a.created_at, a.reviewed_at, a.review_note,
                    COALESCE(NULLIF(TRIM(ru.capital_nickname), ''), ru.name) as registered_by_name
             FROM elite_actions a
@@ -820,6 +820,7 @@ router.get('/elite/status', requireAuth, async (req, res) => {
             description: a.description,
             proof_url: a.proof_url,
             status: a.status,
+            result: a.result || null,
             registered_by_name: a.registered_by_name,
             is_mine: a.registered_by === userId,
             participants: partMap.get(a.id) || [],
@@ -830,14 +831,18 @@ router.get('/elite/status', requireAuth, async (req, res) => {
         const approvedCount = weeklyActions.filter(a => a.status === 'approved').length;
         const pendingCount = weeklyActions.filter(a => a.status === 'pending').length;
 
-        // Outros Elite para o seletor de participantes
-        const eliteMembers = await getAll(`
-            SELECT DISTINCT u.id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.capital_nickname
-            FROM users u
-            JOIN user_groups g ON g.user_id = u.id
-            WHERE g.group_name = 'elite' AND u.active = 1 AND u.id != ?
+        // Participantes: qualquer membro ativo pode participar (Elite ou não)
+        const activeMembers = await getAll(`
+            SELECT id, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name, capital_nickname, passport
+            FROM users
+            WHERE active = 1 AND passport NOT IN ('0', 'admin') AND id != ?
             ORDER BY name
         `, [userId]);
+
+        // Tipos de ação ativos para o dropdown "qual ação você puxou"
+        const actionTypes = await getAll(`
+            SELECT id, name FROM elite_action_types WHERE active = 1 ORDER BY name
+        `);
 
         res.json({
             goal,
@@ -845,7 +850,8 @@ router.get('/elite/status', requireAuth, async (req, res) => {
             pendingCount,
             week: { start: week.start, end: week.end, label: week.label },
             weeklyActions,
-            eliteMembers: eliteMembers.map(m => ({ id: m.id, name: m.name, vulgo: m.capital_nickname || null }))
+            actionTypes: actionTypes.map(t => ({ id: t.id, name: t.name })),
+            participantsOptions: activeMembers.map(m => ({ id: m.id, name: m.name, vulgo: m.capital_nickname || null, passport: m.passport }))
         });
     } catch (error) {
         console.error('Erro no status da Elite:', error);
@@ -865,16 +871,30 @@ router.post('/elite/action', requireAuth, (req, res) => {
                 return res.status(403).json({ error: 'Acesso restrito à Elite' });
             }
 
-            const actionName = String(req.body.action_name || '').trim();
             const description = String(req.body.description || '').trim();
-            if (!actionName) {
-                return res.status(400).json({ error: 'Diga qual ação você puxou' });
+
+            // Tipo de ação vem do catálogo (dropdown)
+            const actionTypeId = parseInt(req.body.action_type_id, 10);
+            if (!actionTypeId) {
+                return res.status(400).json({ error: 'Escolha qual ação você puxou' });
             }
+            const actionType = await getOne('SELECT id, name, active FROM elite_action_types WHERE id = ?', [actionTypeId]);
+            if (!actionType || !(actionType.active === 1 || actionType.active === true)) {
+                return res.status(400).json({ error: 'Ação inválida ou desativada' });
+            }
+            const actionName = actionType.name;
+
+            // Resultado informado por quem puxou
+            const resultValue = String(req.body.result || '').trim().toLowerCase();
+            if (!['win', 'loss'].includes(resultValue)) {
+                return res.status(400).json({ error: 'Informe se a ação foi vitória ou derrota' });
+            }
+
             if (!req.file) {
                 return res.status(400).json({ error: 'Anexe o print da ação ou do dinheiro' });
             }
 
-            // Participantes marcados (ids), validados como Elite ativos
+            // Participantes marcados (ids) — qualquer membro ativo pode participar
             let participantIds = [];
             try {
                 const raw = req.body.participants;
@@ -886,9 +906,8 @@ router.post('/elite/action', requireAuth, (req, res) => {
             if (participantIds.length > 0) {
                 const ph = participantIds.map(() => '?').join(',');
                 const rows = await getAll(`
-                    SELECT DISTINCT u.id FROM users u
-                    JOIN user_groups g ON g.user_id = u.id
-                    WHERE g.group_name = 'elite' AND u.active = 1 AND u.id IN (${ph})
+                    SELECT id FROM users
+                    WHERE active = 1 AND passport NOT IN ('0', 'admin') AND id IN (${ph})
                 `, participantIds);
                 validParticipants = rows.map(r => r.id).filter(id => id !== userId);
             }
@@ -897,9 +916,9 @@ router.post('/elite/action', requireAuth, (req, res) => {
             const proofUrl = fileToDataUrl(req.file);
 
             const result = await runQuery(
-                `INSERT INTO elite_actions (registered_by, week_start, week_end, action_name, description, proof_url, status)
-                 VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-                [userId, week.start, week.end, actionName, description || null, proofUrl]
+                `INSERT INTO elite_actions (registered_by, week_start, week_end, action_name, action_type_id, description, proof_url, result, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+                [userId, week.start, week.end, actionName, actionTypeId, description || null, proofUrl, resultValue]
             );
             const actionId = result.lastID;
 

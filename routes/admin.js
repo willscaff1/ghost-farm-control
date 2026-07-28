@@ -772,7 +772,7 @@ router.get('/password-reset-log', requireSuperAdmin, async (req, res) => {
 router.get('/elite/actions/pending', requireAdmin, requireEliteApprover, async (req, res) => {
     try {
         const actions = await getAll(`
-            SELECT a.id, a.action_name, a.description, a.proof_url, a.status, a.created_at,
+            SELECT a.id, a.action_name, a.description, a.proof_url, a.status, a.result, a.created_at,
                    a.registered_by,
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as registered_by_name,
                    u.passport as registered_by_passport
@@ -804,6 +804,7 @@ router.get('/elite/actions/pending', requireAdmin, requireEliteApprover, async (
                 action_name: a.action_name,
                 description: a.description,
                 proof_url: a.proof_url,
+                result: a.result || null,
                 created_at: a.created_at,
                 registered_by_name: a.registered_by_name,
                 registered_by_passport: a.registered_by_passport,
@@ -871,6 +872,126 @@ router.post('/elite/actions/:id/reject', requireAdmin, requireEliteApprover, asy
         res.json({ success: true, message: 'Ação rejeitada' });
     } catch (error) {
         console.error('Erro ao rejeitar ação Elite:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ===== Catálogo de tipos de ação (cadastro no admin) =====
+router.get('/elite/action-types', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const types = await getAll('SELECT id, name, active FROM elite_action_types ORDER BY active DESC, name');
+        res.json({ types: types.map(t => ({ id: t.id, name: t.name, active: t.active === 1 || t.active === true })) });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/elite/action-types', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const name = String(req.body?.name || '').trim();
+        if (!name) return res.status(400).json({ error: 'Informe o nome da ação' });
+        const exists = await getOne('SELECT id FROM elite_action_types WHERE LOWER(name) = LOWER(?)', [name]);
+        if (exists) return res.status(400).json({ error: 'Já existe uma ação com esse nome' });
+        await runQuery('INSERT INTO elite_action_types (name, active) VALUES (?, 1)', [name]);
+        res.json({ success: true, message: 'Ação cadastrada' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/elite/action-types/:id', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const name = String(req.body?.name || '').trim();
+        if (!name) return res.status(400).json({ error: 'Informe o nome da ação' });
+        await runQuery('UPDATE elite_action_types SET name = ? WHERE id = ?', [name, req.params.id]);
+        res.json({ success: true, message: 'Ação atualizada' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/elite/action-types/:id/toggle', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const t = await getOne('SELECT active FROM elite_action_types WHERE id = ?', [req.params.id]);
+        if (!t) return res.status(404).json({ error: 'Ação não encontrada' });
+        const next = (t.active === 1 || t.active === true) ? 0 : 1;
+        await runQuery('UPDATE elite_action_types SET active = ? WHERE id = ?', [next, req.params.id]);
+        res.json({ success: true, active: next === 1 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/elite/action-types/:id', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        await runQuery('DELETE FROM elite_action_types WHERE id = ?', [req.params.id]);
+        res.json({ success: true, message: 'Ação removida' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ===== Rankings da Elite (geral, só ações aprovadas) =====
+router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const winExpr = "SUM(CASE WHEN a.result = 'win' THEN 1 ELSE 0 END)";
+        const lossExpr = "SUM(CASE WHEN a.result = 'loss' THEN 1 ELSE 0 END)";
+
+        // Quem mais participou (inclui quem puxou, pois entra como participante)
+        const participation = await getAll(`
+            SELECT u.id,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                   u.passport,
+                   COUNT(*) as participations,
+                   ${winExpr} as wins,
+                   ${lossExpr} as losses
+            FROM elite_action_participants p
+            JOIN elite_actions a ON a.id = p.action_id AND a.status = 'approved'
+            JOIN users u ON u.id = p.user_id
+            GROUP BY u.id, name, u.passport
+            ORDER BY participations DESC, wins DESC
+        `);
+
+        // Ações mais puxadas (por tipo, pelo nome registrado)
+        const actionsPulled = await getAll(`
+            SELECT a.action_name as name,
+                   COUNT(*) as pulls,
+                   ${winExpr} as wins,
+                   ${lossExpr} as losses
+            FROM elite_actions a
+            WHERE a.status = 'approved'
+            GROUP BY a.action_name
+            ORDER BY pulls DESC
+        `);
+
+        // Totais gerais de vitórias/derrotas
+        const totalsRow = await getOne(`
+            SELECT COUNT(*) as total,
+                   ${winExpr} as wins,
+                   ${lossExpr} as losses
+            FROM elite_actions a
+            WHERE a.status = 'approved'
+        `);
+
+        res.json({
+            participation: participation.map(r => ({
+                name: r.name, passport: r.passport,
+                participations: Number(r.participations) || 0,
+                wins: Number(r.wins) || 0, losses: Number(r.losses) || 0
+            })),
+            actionsPulled: actionsPulled.map(r => ({
+                name: r.name,
+                pulls: Number(r.pulls) || 0,
+                wins: Number(r.wins) || 0, losses: Number(r.losses) || 0
+            })),
+            totals: {
+                total: Number(totalsRow?.total) || 0,
+                wins: Number(totalsRow?.wins) || 0,
+                losses: Number(totalsRow?.losses) || 0
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao carregar rankings da Elite:', error);
         res.status(500).json({ error: error.message });
     }
 });
