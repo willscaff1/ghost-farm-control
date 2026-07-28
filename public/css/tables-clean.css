@@ -2233,3 +2233,12 @@ tr.status-rejected {
     .elite-admin-card { grid-template-columns:1fr; }
     .elite-admin-actions { flex-direction:row; }
 }
+
+/* Chip de progresso da Elite no status semanal */
+.elite-progress-chip {
+    display:inline-block; margin-left:8px;
+    font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px;
+    background:rgba(168,85,247,0.2); border:1px solid rgba(168,85,247,0.4); color:#c4b5fd;
+    white-space:nowrap;
+}
+.elite-progress-chip.done { background:rgba(39,174,96,0.2); border-color:rgba(39,174,96,0.45); color:#86efac; }

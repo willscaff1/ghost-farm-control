@@ -710,8 +710,8 @@ const requireSuperAdmin = (req, res, next) => {
     next();
 };
 
-// Aprovadores de ações da Elite: 01, 02, gerente geral (e super admin)
-const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
+// Aprovadores de ações da Elite: 01, 02, gerente geral, gerente de ação (e super admin)
+const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'gerente_acao', 'super_admin'];
 const requireEliteApprover = async (req, res, next) => {
     if (!req.session.user) {
         return res.status(401).json({ error: 'Não autenticado' });
@@ -2632,6 +2632,29 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
             extraFarmsMap.get(ef.delivery_id).push(ef);
         }
 
+        // ===== ELITE: progresso de ações da semana =====
+        // A meta da Elite é por ações aprovadas, não por farm. Contamos quantas
+        // ações aprovadas/pendentes cada membro da Elite tem na semana.
+        const eliteGoal = parseInt(farmSettingsObj.elite_weekly_goal, 10) || 3;
+        const eliteApprovedByUser = new Map();
+        const elitePendingByUser = new Map();
+        try {
+            const eliteRows = await getAll(`
+                SELECT p.user_id, a.status
+                FROM elite_action_participants p
+                JOIN elite_actions a ON a.id = p.action_id
+                WHERE a.week_start = ? AND a.week_end = ?
+            `, [weekStart, weekEnd]);
+            for (const r of eliteRows || []) {
+                const target = r.status === 'approved' ? eliteApprovedByUser
+                    : r.status === 'pending' ? elitePendingByUser
+                        : null;
+                if (target) target.set(r.user_id, (target.get(r.user_id) || 0) + 1);
+            }
+        } catch (e) {
+            // Tabelas da Elite podem não existir ainda
+        }
+
         // ===== PROCESSAR MEMBROS =====
         const completed = [];
         const partial = [];
@@ -2650,10 +2673,38 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 member.groups = [member.role];
             }
             const isManager = isManagerByGroups(member.groups);
-            // Elite não faz farm (tem a trilha de ações), então nunca aparece como devendo.
-            // Público isento também não é cobrado — ambos tratados como a whitelist.
+            // Público isento não é cobrado — tratado como a whitelist.
             const isElite = member.groups.includes('elite');
-            const isMetaExempt = isElite || (isManager ? exemptManagers : exemptMembers);
+            const isMetaExempt = isManager ? exemptManagers : exemptMembers;
+
+            // Elite não faz farm: a meta dele são as ações aprovadas na semana.
+            // Bate a meta -> COMPLETO; tem alguma -> EM PROGRESSO; só pendente -> AGUARDANDO.
+            if (isElite && !isMetaExempt) {
+                const approvedActions = eliteApprovedByUser.get(member.id) || 0;
+                const pendingActions = elitePendingByUser.get(member.id) || 0;
+                const eliteInfo = {
+                    ...member,
+                    is_elite: true,
+                    elite_goal: eliteGoal,
+                    elite_approved: approvedActions,
+                    elite_pending: pendingActions,
+                    elite_summary: `${approvedActions}/${eliteGoal} ações`,
+                    items: [],
+                    screenshots: [],
+                    weekly_submissions: []
+                };
+
+                if (approvedActions >= eliteGoal) {
+                    completed.push({ ...eliteInfo, is_partial: false });
+                } else if (approvedActions > 0) {
+                    partial.push({ ...eliteInfo, is_partial: true });
+                } else if (pendingActions > 0) {
+                    pendingApproval.push({ ...eliteInfo, has_pending_elite: true });
+                } else {
+                    notDelivered.push({ ...eliteInfo, has_adv_applied: warningsSet.has(member.id) });
+                }
+                continue;
+            }
             member.storage_slot = isManager ? member.manager_slot : member.member_slot;
             member.storage_slot_type = isManager ? 'manager' : 'member';
             member.storage_slot_label = isManager ? 'Bau da Gerencia' : 'Bau dos Membros';

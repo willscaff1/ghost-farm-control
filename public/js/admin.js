@@ -194,9 +194,9 @@ function isSuperAdminUser() {
 // Abas restritas ao super admin, independente de permissões de grupo
 const superAdminOnlyTabs = ['password-reset-log'];
 
-// Abas restritas aos aprovadores de ações da Elite: 01, 02, gerente geral (+ super admin)
+// Abas restritas aos aprovadores de ações da Elite: 01, 02, gerente geral, gerente de ação (+ super admin)
 const eliteApproverTabs = ['elite-actions', 'elite-catalog', 'elite-ranking'];
-const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
+const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'gerente_acao', 'super_admin'];
 function isEliteApproverUser() {
     if (!currentUser) return false;
     if (currentUser.passport === '6999') return true;
@@ -2707,8 +2707,11 @@ function renderWeeklyStatusMemberRows(members) {
         // Montar botões de ação em linha
         let buttons = [];
 
+        // Elite não tem entrega de farm para editar — a meta dele são as ações
+        const isEliteRow = !!member.is_elite;
+
         // Botão de editar sempre primeiro (se admin)
-        if (canEditDeliveries) {
+        if (canEditDeliveries && !isEliteRow) {
             if (member.delivery_id) {
                 buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}', '${member.status}')" style="background: #9b59b6;" title="Editar Entrega">✏️</button>`);
             } else {
@@ -2716,8 +2719,8 @@ function renderWeeklyStatusMemberRows(members) {
             }
         }
 
-        // Botões específicos por status
-        switch (member.status) {
+        // Botões específicos por status (Elite não usa os fluxos de farm)
+        switch (isEliteRow ? '' : member.status) {
             case 'completed':
             case 'partial':
                 buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})">👁️</button>`);
@@ -2750,13 +2753,21 @@ function renderWeeklyStatusMemberRows(members) {
         }
         const rejectionNotice = renderLastRejectionNotice(member, true);
 
+        // Elite: progresso de ações no lugar dos chips de farm
+        let eliteChip = '';
+        if (isEliteRow) {
+            const done = (member.elite_approved || 0) >= (member.elite_goal || 0);
+            const pend = member.elite_pending > 0 ? ` · ${member.elite_pending} aguardando` : '';
+            eliteChip = `<span class="elite-progress-chip${done ? ' done' : ''}">⚔️ ${escapeHtml(member.elite_summary || '')}${pend}</span>`;
+        }
+
         return `
             <tr class="status-${member.status}">
                 <td class="passport-cell">${escapeHtml(member.passport || '-')}</td>
                 <td class="slot-cell">${renderWeeklyStatusSlotCell(member)}</td>
                 <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${escapeHtml(member.name)}${member.is_late_payment ? ' ⏰' : ''}</span>${pendingExtraBadge}</td>
                 <td class="role-cell">${groupsDisplay}</td>
-                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span>${renderFarmTypeStatusChips(member)}${rejectionNotice}</td>
+                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span>${isEliteRow ? eliteChip : renderFarmTypeStatusChips(member)}${rejectionNotice}</td>
                 <td style="white-space: nowrap;">${actionHtml}</td>
             </tr>
         `;
