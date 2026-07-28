@@ -2305,27 +2305,39 @@ tr.status-rejected {
     background:rgba(168,85,247,0.22); color:#c4b5fd;
     padding:1px 9px; border-radius:999px; vertical-align:middle;
 }
-.rank-table .rank-pos { width:52px; text-align:center; font-weight:700; }
-.rank-table .rank-passport {
-    width:110px; font-weight:700; color:#cbd0e0;
-    font-variant-numeric:tabular-nums; white-space:nowrap;
-}
-.rank-table .rank-name { font-weight:600; }
-.rank-table .rank-badges { white-space:nowrap; }
+/* Larguras fixas por coluna: sem isso o navegador redistribui a tabela
+   conforme o conteúdo e as colunas dançam entre as duas tabelas. */
+.rank-table { table-layout:fixed; width:100%; }
+.rank-table th, .rank-table td { padding:10px 12px; vertical-align:middle; }
+.rank-table .rank-pos      { width:56px;  text-align:center; font-weight:700; }
+.rank-table .rank-passport { width:104px; font-weight:700; color:#cbd0e0; font-variant-numeric:tabular-nums; }
+.rank-table .rank-name     { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rank-table .rank-badges   { width:250px; }
+/* colunas numéricas (participações / vitórias / derrotas) */
+.rank-table th:nth-child(n+5), .rank-table td:nth-child(n+5) { width:96px; text-align:center; }
+
+/* Tabela de ações mais puxadas: # | Ação | Puxadas | Vitórias | Derrotas */
+.rank-table-actions { table-layout:fixed; width:100%; }
+.rank-table-actions th, .rank-table-actions td { padding:10px 12px; }
+.rank-table-actions th:first-child, .rank-table-actions td:first-child { width:56px; text-align:center; }
+.rank-table-actions th:nth-child(n+3), .rank-table-actions td:nth-child(n+3) { width:104px; text-align:center; }
+
 .role-badge.badge-elite {
     background:rgba(168,85,247,0.22) !important;
     border:1px solid rgba(168,85,247,0.45) !important;
     color:#c4b5fd !important;
 }
 
-/* Badge Elite com largura fixa: alinha em coluna e a badge do cargo
-   base começa sempre no mesmo ponto — vale no ranking e no status da semana. */
+/* Badge Elite com largura fixa: as badges do cargo base começam
+   sempre no mesmo ponto, linha a linha. */
 .rank-badges .badge-elite,
 .role-cell .badge-elite {
     display:inline-block;
-    min-width:88px;
+    min-width:82px;
     text-align:center;
     margin-right:6px;
 }
-/* Badges sempre lado a lado, sem quebrar linha */
-.rank-badges, .role-cell { white-space:nowrap; }
+/* Badges compactas na coluna de cargo para não estourar a largura */
+.rank-badges .role-badge, .role-cell .role-badge {
+    padding:4px 9px; font-size:11.5px; margin-right:4px;
+}
