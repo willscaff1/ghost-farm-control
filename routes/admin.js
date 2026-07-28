@@ -772,7 +772,7 @@ router.get('/password-reset-log', requireSuperAdmin, async (req, res) => {
 router.get('/elite/actions/pending', requireAdmin, requireEliteApprover, async (req, res) => {
     try {
         const actions = await getAll(`
-            SELECT a.id, a.action_name, a.description, a.proof_url, a.status, a.result, a.created_at,
+            SELECT a.id, a.action_name, a.description, a.proof_url, a.status, a.result, a.dirty_money, a.created_at,
                    a.registered_by,
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as registered_by_name,
                    u.passport as registered_by_passport
@@ -805,6 +805,7 @@ router.get('/elite/actions/pending', requireAdmin, requireEliteApprover, async (
                 description: a.description,
                 proof_url: a.proof_url,
                 result: a.result || null,
+                dirty_money: parseInt(a.dirty_money, 10) || 0,
                 created_at: a.created_at,
                 registered_by_name: a.registered_by_name,
                 registered_by_passport: a.registered_by_passport,
@@ -946,6 +947,7 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
                    COUNT(*) as participations,
                    ${winExpr} as wins,
                    ${lossExpr} as losses,
+                   COALESCE(SUM(a.dirty_money), 0) as dirty_money,
                    MAX(CASE WHEN eg.user_id IS NULL THEN 0 ELSE 1 END) as is_elite,
                    u.role
             FROM elite_action_participants p
@@ -973,7 +975,8 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
             SELECT a.action_name as name,
                    COUNT(*) as pulls,
                    ${winExpr} as wins,
-                   ${lossExpr} as losses
+                   ${lossExpr} as losses,
+                   COALESCE(SUM(a.dirty_money), 0) as dirty_money
             FROM elite_actions a
             WHERE a.status = 'approved'
             GROUP BY a.action_name
@@ -984,7 +987,8 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
         const totalsRow = await getOne(`
             SELECT COUNT(*) as total,
                    ${winExpr} as wins,
-                   ${lossExpr} as losses
+                   ${lossExpr} as losses,
+                   COALESCE(SUM(a.dirty_money), 0) as dirty_money
             FROM elite_actions a
             WHERE a.status = 'approved'
         `);
@@ -995,17 +999,20 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
                 is_elite: r.is_elite === 1 || r.is_elite === true || r.is_elite === '1',
                 groups: groupsByUser.get(r.id) || (r.role ? [r.role] : []),
                 participations: Number(r.participations) || 0,
-                wins: Number(r.wins) || 0, losses: Number(r.losses) || 0
+                wins: Number(r.wins) || 0, losses: Number(r.losses) || 0,
+                dirty_money: Number(r.dirty_money) || 0
             })),
             actionsPulled: actionsPulled.map(r => ({
                 name: r.name,
                 pulls: Number(r.pulls) || 0,
-                wins: Number(r.wins) || 0, losses: Number(r.losses) || 0
+                wins: Number(r.wins) || 0, losses: Number(r.losses) || 0,
+                dirty_money: Number(r.dirty_money) || 0
             })),
             totals: {
                 total: Number(totalsRow?.total) || 0,
                 wins: Number(totalsRow?.wins) || 0,
-                losses: Number(totalsRow?.losses) || 0
+                losses: Number(totalsRow?.losses) || 0,
+                dirty_money: Number(totalsRow?.dirty_money) || 0
             }
         });
     } catch (error) {

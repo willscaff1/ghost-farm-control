@@ -2236,8 +2236,8 @@ tr.status-rejected {
 
 /* Chip de progresso da Elite no status semanal */
 .elite-progress-chip {
-    display:inline-block; margin-left:8px;
-    font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px;
+    display:inline-block;
+    font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:999px;
     background:rgba(168,85,247,0.2); border:1px solid rgba(168,85,247,0.4); color:#c4b5fd;
     white-space:nowrap;
 }
@@ -2351,25 +2351,47 @@ tr.status-rejected {
     color:#c4b5fd !important;
 }
 
-/* Coluna de cargo: badges em linha, com respiro fixo entre elas.
-   O flex garante o espaçamento igual em todas as linhas. */
-.rank-badges, .role-cell {
+/* Badges em linha com respiro fixo. Fica num wrapper interno porque as
+   células da tabela são display:table-cell por outra regra mais específica. */
+.badge-row {
     display:flex;
     align-items:center;
+    justify-content:center;
     gap:8px;
     flex-wrap:wrap;
 }
-/* Badge Elite com largura fixa: as badges do cargo base começam
-   sempre no mesmo ponto, linha a linha. */
-.rank-badges .badge-elite,
-.role-cell .badge-elite {
-    min-width:82px;
-    text-align:center;
-    flex-shrink:0;
+.rank-badges .badge-row { justify-content:flex-start; }
+.badge-row .role-badge { margin-right:0; padding:5px 11px; font-size:11.5px; }
+/* Badge Elite com largura fixa: o cargo base começa sempre no mesmo ponto */
+.badge-row .badge-elite { min-width:82px; text-align:center; flex-shrink:0; }
+
+/* Status da semana: separa o selo de status dos chips (ex.: meta de ações) */
+.status-cell-inner {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    flex-wrap:wrap;
 }
-/* Badges compactas na coluna de cargo, sem margem (o gap já separa) */
-.rank-badges .role-badge, .role-cell .role-badge {
-    padding:5px 11px;
-    font-size:11.5px;
-    margin-right:0;
+.status-cell-inner > * { margin:0 !important; }
+
+/* Coluna de dinheiro no ranking */
+.rank-money {
+    font-variant-numeric:tabular-nums;
+    font-weight:700;
+    color:#f1c40f;
+    white-space:nowrap;
+}
+/* proporções com a coluna de dinheiro (8 colunas) */
+.rank-table th:nth-child(5),
+.rank-table th:nth-child(6),
+.rank-table th:nth-child(7) { width:9.5%; }
+.rank-table th:nth-child(8) { width:14%; text-align:center; }
+.rank-table td:nth-child(8) { text-align:center; }
+.rank-table-actions th:nth-child(6) { width:15%; text-align:center; }
+.rank-table-actions td:nth-child(6) { text-align:center; }
+
+/* Valor no card de aprovação */
+.elite-admin-money {
+    margin-top:6px; font-size:14px; font-weight:700; color:#f1c40f;
 }

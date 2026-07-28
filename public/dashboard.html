@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260723align2">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260723money1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -159,8 +159,12 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Observações <span class="optional">(opcional)</span></label>
-                            <input type="text" id="eliteActionDesc" name="description" placeholder="Detalhes da ação">
+                            <label>💰 Dinheiro sujo ganho na ação <span class="required">*</span></label>
+                            <div class="elite-money-input">
+                                <span class="elite-money-prefix">R$</span>
+                                <input type="text" id="eliteDirtyMoney" name="dirty_money" inputmode="numeric"
+                                       placeholder="0" autocomplete="off" oninput="formatEliteMoney(this)">
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Quem participou? <span class="optional">(qualquer membro ativo)</span></label>
@@ -508,6 +512,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260723align2"></script>
+    <script src="js/dashboard.js?v=20260723money1"></script>
 </body>
 </html>

@@ -789,7 +789,7 @@ router.get('/elite/status', requireAuth, async (req, res) => {
 
         // Ações da semana em que o usuário é registrante OU participante
         const actions = await getAll(`
-            SELECT DISTINCT a.id, a.action_name, a.description, a.proof_url, a.status, a.result,
+            SELECT DISTINCT a.id, a.action_name, a.description, a.proof_url, a.status, a.result, a.dirty_money,
                    a.registered_by, a.created_at, a.reviewed_at, a.review_note,
                    COALESCE(NULLIF(TRIM(ru.capital_nickname), ''), ru.name) as registered_by_name
             FROM elite_actions a
@@ -824,6 +824,7 @@ router.get('/elite/status', requireAuth, async (req, res) => {
             proof_url: a.proof_url,
             status: a.status,
             result: a.result || null,
+            dirty_money: parseInt(a.dirty_money, 10) || 0,
             registered_by_name: a.registered_by_name,
             is_mine: a.registered_by === userId,
             participants: partMap.get(a.id) || [],
@@ -918,10 +919,13 @@ router.post('/elite/action', requireAuth, (req, res) => {
             const week = getWeekWithOffset(0);
             const proofUrl = fileToDataUrl(req.file);
 
+            // Dinheiro sujo ganho na ação (inteiro, em reais)
+            const dirtyMoney = Math.max(0, parseInt(String(req.body.dirty_money || '0').replace(/\D/g, ''), 10) || 0);
+
             const result = await runQuery(
-                `INSERT INTO elite_actions (registered_by, week_start, week_end, action_name, action_type_id, description, proof_url, result, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-                [userId, week.start, week.end, actionName, actionTypeId, description || null, proofUrl, resultValue]
+                `INSERT INTO elite_actions (registered_by, week_start, week_end, action_name, action_type_id, description, proof_url, result, dirty_money, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+                [userId, week.start, week.end, actionName, actionTypeId, null, proofUrl, resultValue, dirtyMoney]
             );
             const actionId = result.lastID;
 

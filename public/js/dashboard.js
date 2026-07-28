@@ -288,7 +288,7 @@ function renderEliteStatus(data, offset) {
                             <span class="elite-action-name">${escapeHtml(a.action_name)} ${resultTag}</span>
                             ${st}
                         </div>
-                        <div class="elite-action-meta">Registrou: ${who}</div>
+                        <div class="elite-action-meta">Registrou: ${who} · 💰 R$ ${(a.dirty_money || 0).toLocaleString('pt-BR')}</div>
                         ${parts}
                         ${note}
                     </div>`;
@@ -376,12 +376,13 @@ async function submitEliteAction(e) {
     const msg = document.getElementById('eliteFormMessage');
     const btn = document.getElementById('eliteSubmitBtn');
     const typeId = document.getElementById('eliteActionType').value;
-    const desc = document.getElementById('eliteActionDesc').value.trim();
+    const moneyRaw = (document.getElementById('eliteDirtyMoney').value || '').replace(/\D/g, '');
     const proof = document.getElementById('eliteProof').files[0];
     const resultEl = document.querySelector('input[name="elite_result"]:checked');
 
     if (!typeId) { showEliteMsg(msg, 'Escolha qual ação você puxou', 'error'); return; }
     if (!resultEl) { showEliteMsg(msg, 'Marque se foi vitória ou derrota', 'error'); return; }
+    if (moneyRaw === '') { showEliteMsg(msg, 'Informe o dinheiro sujo ganho na ação (pode ser 0)', 'error'); return; }
     if (!proof) { showEliteMsg(msg, 'Anexe o print da ação ou do dinheiro', 'error'); return; }
 
     const participants = [...eliteSelectedIds];
@@ -389,7 +390,7 @@ async function submitEliteAction(e) {
     const fd = new FormData();
     fd.append('action_type_id', typeId);
     fd.append('result', resultEl.value);
-    fd.append('description', desc);
+    fd.append('dirty_money', moneyRaw);
     fd.append('participants', JSON.stringify(participants));
     fd.append('proof', proof);
 
@@ -412,6 +413,12 @@ async function submitEliteAction(e) {
         btn.disabled = false;
         btn.textContent = '📤 Enviar para aprovação';
     }
+}
+
+// Máscara de dinheiro: só dígitos, exibidos como 1.234.567
+function formatEliteMoney(input) {
+    const digits = (input.value || '').replace(/\D/g, '');
+    input.value = digits ? parseInt(digits, 10).toLocaleString('pt-BR') : '';
 }
 
 function showEliteMsg(el, text, type) {

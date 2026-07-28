@@ -2839,3 +2839,13 @@
     text-align:center;
     flex-shrink:0;
 }
+
+/* Campo de dinheiro sujo (registro de ação Elite) */
+.elite-money-input { display:flex; align-items:center; gap:8px; }
+.elite-money-prefix {
+    font-weight:700; color:#f1c40f; font-size:15px; flex-shrink:0;
+}
+.elite-money-input input {
+    flex:1; padding:10px 12px; border-radius:10px;
+    font-size:16px; font-weight:700; font-variant-numeric:tabular-nums;
+}

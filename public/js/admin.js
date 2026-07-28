@@ -206,7 +206,9 @@ function renderRoleBadgesHtml(groups, fallbackRole) {
         .map(g => `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`)
         .join('');
 
-    return eliteBadge + roleBadges;
+    // Wrapper interno: a célula da tabela é display:table-cell por outra regra,
+    // então o flex tem que ficar aqui dentro para as badges não colarem.
+    return `<div class="badge-row">${eliteBadge}${roleBadges}</div>`;
 }
 
 // Super admin de verdade — usado nas telas restritas ao dono do sistema.
@@ -2786,7 +2788,7 @@ function renderWeeklyStatusMemberRows(members) {
                 <td class="slot-cell">${renderWeeklyStatusSlotCell(member)}</td>
                 <td class="member-cell"><span class="member-avatar">${initial}</span><span class="member-name" onclick="openPaymentHistory(${member.id})">${escapeHtml(member.name)}${member.is_late_payment ? ' ⏰' : ''}</span>${pendingExtraBadge}</td>
                 <td class="role-cell">${groupsDisplay}</td>
-                <td><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span>${isEliteRow ? eliteChip : renderFarmTypeStatusChips(member)}${rejectionNotice}</td>
+                <td><div class="status-cell-inner"><span class="status-badge ${member.statusClass}">${member.statusLabel}${member.is_late_payment ? ' (Atrasado)' : ''}</span>${isEliteRow ? eliteChip : renderFarmTypeStatusChips(member)}</div>${rejectionNotice}</td>
                 <td style="white-space: nowrap;">${actionHtml}</td>
             </tr>
         `;
@@ -6141,6 +6143,7 @@ function renderEliteActionsAdmin(actions) {
                     <div class="elite-admin-title">${escapeHtml(a.action_name)}${resultTag}</div>
                     ${a.description ? `<div class="elite-admin-desc">${escapeHtml(a.description)}</div>` : ''}
                     <div class="elite-admin-meta">Registrou: <strong>${escapeHtml(a.registered_by_name)}</strong> <small>${escapeHtml(a.registered_by_passport || '')}</small> · ${when}</div>
+                    <div class="elite-admin-money">💰 R$ ${(a.dirty_money || 0).toLocaleString('pt-BR')}</div>
                     <div class="elite-admin-parts">👥 ${parts}</div>
                 </div>
                 <div class="elite-admin-proof">${proof}</div>
@@ -6186,6 +6189,7 @@ function openEliteConfirm(id, mode) {
         card.innerHTML = `
             <div class="elite-confirm-row"><span>Ação</span><strong>${escapeHtml(action.action_name)}</strong></div>
             <div class="elite-confirm-row"><span>Resultado</span><strong>${resultTxt}</strong></div>
+            <div class="elite-confirm-row"><span>Dinheiro sujo</span><strong>R$ ${(action.dirty_money || 0).toLocaleString('pt-BR')}</strong></div>
             <div class="elite-confirm-row"><span>Registrou</span><strong>${escapeHtml(action.registered_by_name || '')}</strong></div>
             <div class="elite-confirm-row"><span>Participantes</span><strong>${parts}</strong></div>`;
         card.style.display = '';
@@ -6332,10 +6336,12 @@ async function loadEliteRanking() {
 
         if (totalsEl && data.totals) {
             const card = (label, value, color) => `<div style="flex:1;min-width:130px;background:var(--card-bg,rgba(255,255,255,0.04));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;padding:12px 16px;"><div style="font-size:24px;font-weight:700;color:${color};">${value}</div><div style="font-size:12px;color:var(--text-secondary);">${label}</div></div>`;
+            const money = (data.totals.dirty_money || 0).toLocaleString('pt-BR');
             totalsEl.innerHTML =
                 card('⚔️ Ações aprovadas', data.totals.total, 'var(--text-primary, #fff)') +
                 card('🏆 Vitórias', data.totals.wins, '#27ae60') +
-                card('💀 Derrotas', data.totals.losses, '#e74c3c');
+                card('💀 Derrotas', data.totals.losses, '#e74c3c') +
+                card('💰 Dinheiro sujo arrecadado', 'R$ ' + money, '#f1c40f');
         }
 
         const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
@@ -6349,7 +6355,7 @@ async function loadEliteRanking() {
         };
 
         const rankRows = (rows, vazio, eliteOnly) => rows.length === 0
-            ? `<tr><td colspan="7" style="text-align:center;padding:24px;">${vazio}</td></tr>`
+            ? `<tr><td colspan="8" style="text-align:center;padding:24px;">${vazio}</td></tr>`
             : rows.map((r, i) => {
                 const initial = (r.name || '?').charAt(0).toUpperCase();
                 return `
@@ -6366,6 +6372,7 @@ async function loadEliteRanking() {
                     <td>${r.participations}</td>
                     <td style="color:#27ae60;">${r.wins}</td>
                     <td style="color:#e74c3c;">${r.losses}</td>
+                    <td class="rank-money">R$ ${(r.dirty_money || 0).toLocaleString('pt-BR')}</td>
                 </tr>`;
             }).join('');
 
@@ -6385,7 +6392,7 @@ async function loadEliteRanking() {
         if (aBody) {
             const rows = data.actionsPulled || [];
             aBody.innerHTML = rows.length === 0
-                ? '<tr><td colspan="5" style="text-align:center;padding:24px;">Nenhuma ação aprovada ainda.</td></tr>'
+                ? '<tr><td colspan="6" style="text-align:center;padding:24px;">Nenhuma ação aprovada ainda.</td></tr>'
                 : rows.map((r, i) => `
                     <tr>
                         <td>${medal(i)}</td>
@@ -6393,6 +6400,7 @@ async function loadEliteRanking() {
                         <td>${r.pulls}</td>
                         <td style="color:#27ae60;">${r.wins}</td>
                         <td style="color:#e74c3c;">${r.losses}</td>
+                        <td class="rank-money">R$ ${(r.dirty_money || 0).toLocaleString('pt-BR')}</td>
                     </tr>`).join('');
         }
     } catch (e) {

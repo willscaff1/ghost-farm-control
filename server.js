@@ -308,6 +308,11 @@ db.initialize().then(async () => {
                 await runQuery(`ALTER TABLE elite_actions ADD COLUMN action_type_id INTEGER`);
                 console.log('✅ Coluna elite_actions.action_type_id criada');
             } catch (e) { /* já existe */ }
+            // Dinheiro sujo ganho na ação (entrou no lugar do campo de observações)
+            try {
+                await runQuery(`ALTER TABLE elite_actions ADD COLUMN dirty_money INTEGER DEFAULT 0`);
+                console.log('✅ Coluna elite_actions.dirty_money criada');
+            } catch (e) { /* já existe */ }
 
             await runQuery('CREATE INDEX IF NOT EXISTS idx_elite_action_types_active ON elite_action_types (active)');
         } catch (error) {
