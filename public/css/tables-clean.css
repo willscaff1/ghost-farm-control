@@ -2305,22 +2305,45 @@ tr.status-rejected {
     background:rgba(168,85,247,0.22); color:#c4b5fd;
     padding:1px 9px; border-radius:999px; vertical-align:middle;
 }
-/* Larguras fixas por coluna: sem isso o navegador redistribui a tabela
-   conforme o conteúdo e as colunas dançam entre as duas tabelas. */
+/* Ranking: mesmo visual do status da semana (herda .weekly-table),
+   só definindo as proporções das colunas. As larguras vão no th porque
+   .weekly-table já tem uma regra global em th:nth-child(1). */
 .rank-table { table-layout:fixed; width:100%; }
-.rank-table th, .rank-table td { padding:10px 12px; vertical-align:middle; }
-.rank-table .rank-pos      { width:56px;  text-align:center; font-weight:700; }
-.rank-table .rank-passport { width:104px; font-weight:700; color:#cbd0e0; font-variant-numeric:tabular-nums; }
-.rank-table .rank-name     { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.rank-table .rank-badges   { width:250px; }
-/* colunas numéricas (participações / vitórias / derrotas) */
-.rank-table th:nth-child(n+5), .rank-table td:nth-child(n+5) { width:96px; text-align:center; }
+.rank-table th:nth-child(1) { width:64px;  text-align:center; }
+.rank-table th:nth-child(2) { width:13%; }
+.rank-table th:nth-child(3) { width:27%; }
+.rank-table th:nth-child(4) { width:26%; }
+.rank-table th:nth-child(5),
+.rank-table th:nth-child(6),
+.rank-table th:nth-child(7) { width:11%; text-align:center; }
+
+.rank-table td:nth-child(1) { text-align:center; font-weight:700; font-size:17px; }
+.rank-table td:nth-child(5),
+.rank-table td:nth-child(6),
+.rank-table td:nth-child(7) { text-align:center; font-size:16px; font-weight:600; }
+
+.rank-table .rank-passport { font-weight:700; color:#cbd0e0; font-variant-numeric:tabular-nums; }
+.rank-table .rank-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rank-table .rank-avatar {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:30px; height:30px; margin-right:9px; border-radius:50%;
+    background:linear-gradient(135deg,#6c5ce7,#a855f7);
+    color:#fff; font-size:13px; font-weight:700; flex-shrink:0;
+}
+.rank-table .rank-name-wrap { display:flex; align-items:center; min-width:0; }
+.rank-table .rank-name-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* Tabela de ações mais puxadas: # | Ação | Puxadas | Vitórias | Derrotas */
 .rank-table-actions { table-layout:fixed; width:100%; }
-.rank-table-actions th, .rank-table-actions td { padding:10px 12px; }
-.rank-table-actions th:first-child, .rank-table-actions td:first-child { width:56px; text-align:center; }
-.rank-table-actions th:nth-child(n+3), .rank-table-actions td:nth-child(n+3) { width:104px; text-align:center; }
+.rank-table-actions th:nth-child(1) { width:64px; text-align:center; }
+.rank-table-actions th:nth-child(2) { width:auto; }
+.rank-table-actions th:nth-child(3),
+.rank-table-actions th:nth-child(4),
+.rank-table-actions th:nth-child(5) { width:15%; text-align:center; }
+.rank-table-actions td:nth-child(1) { text-align:center; font-weight:700; font-size:17px; }
+.rank-table-actions td:nth-child(3),
+.rank-table-actions td:nth-child(4),
+.rank-table-actions td:nth-child(5) { text-align:center; font-size:16px; font-weight:600; }
 
 .role-badge.badge-elite {
     background:rgba(168,85,247,0.22) !important;

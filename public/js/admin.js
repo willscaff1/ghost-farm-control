@@ -6350,16 +6350,24 @@ async function loadEliteRanking() {
 
         const rankRows = (rows, vazio, eliteOnly) => rows.length === 0
             ? `<tr><td colspan="7" style="text-align:center;padding:24px;">${vazio}</td></tr>`
-            : rows.map((r, i) => `
+            : rows.map((r, i) => {
+                const initial = (r.name || '?').charAt(0).toUpperCase();
+                return `
                 <tr>
-                    <td class="rank-pos">${medal(i)}</td>
+                    <td>${medal(i)}</td>
                     <td class="rank-passport">${escapeHtml(r.passport || '-')}</td>
-                    <td class="rank-name">${escapeHtml(r.name)}</td>
+                    <td class="rank-name">
+                        <div class="rank-name-wrap">
+                            <span class="rank-avatar">${initial}</span>
+                            <span class="rank-name-text">${escapeHtml(r.name)}</span>
+                        </div>
+                    </td>
                     <td class="rank-badges">${rankBadges(r, eliteOnly)}</td>
-                    <td><strong>${r.participations}</strong></td>
+                    <td>${r.participations}</td>
                     <td style="color:#27ae60;">${r.wins}</td>
                     <td style="color:#e74c3c;">${r.losses}</td>
-                </tr>`).join('');
+                </tr>`;
+            }).join('');
 
         const all = data.participation || [];
         const eliteRows = all.filter(r => r.is_elite);
@@ -6381,8 +6389,8 @@ async function loadEliteRanking() {
                 : rows.map((r, i) => `
                     <tr>
                         <td>${medal(i)}</td>
-                        <td>${escapeHtml(r.name)}</td>
-                        <td><strong>${r.pulls}</strong></td>
+                        <td class="rank-name"><span class="rank-name-text">⚔️ ${escapeHtml(r.name)}</span></td>
+                        <td>${r.pulls}</td>
                         <td style="color:#27ae60;">${r.wins}</td>
                         <td style="color:#e74c3c;">${r.losses}</td>
                     </tr>`).join('');
