@@ -2529,8 +2529,10 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 member.groups = [member.role];
             }
             const isManager = isManagerByGroups(member.groups);
-            // Público isento não é cobrado — tratado como a whitelist (não aparece como devendo)
-            const isMetaExempt = isManager ? exemptManagers : exemptMembers;
+            // Elite não faz farm (tem a trilha de ações), então nunca aparece como devendo.
+            // Público isento também não é cobrado — ambos tratados como a whitelist.
+            const isElite = member.groups.includes('elite');
+            const isMetaExempt = isElite || (isManager ? exemptManagers : exemptMembers);
             member.storage_slot = isManager ? member.manager_slot : member.member_slot;
             member.storage_slot_type = isManager ? 'manager' : 'member';
             member.storage_slot_label = isManager ? 'Bau da Gerencia' : 'Bau dos Membros';
