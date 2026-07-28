@@ -6322,15 +6322,17 @@ async function loadEliteRanking() {
         const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 
         // Passaporte e nome em colunas separadas, Elite separado de quem só participou
-        // Na tabela da Elite só a badge Elite (é o cargo que coloca ele nesse ranking).
-        // Na tabela dos participantes de fora, o cargo real de cada um.
-        const rankBadges = (r, eliteOnly) => {
-            if (eliteOnly) return '<span class="role-badge badge-elite">⚔️ Elite</span>';
+        // Elite entra na frente (é o cargo que coloca a pessoa nesse ranking),
+        // seguida do cargo base dela — ex: "⚔️ Elite / Membro".
+        const rankBadges = (r, isEliteTable) => {
             let groups = (r.groups || []).filter(g => g !== 'elite');
             if (groups.length > 1) groups = groups.filter(g => g !== 'member');
             if (groups.length === 0) groups = ['member'];
-            return groups.map(g =>
+            const roleBadges = groups.map(g =>
                 `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`).join(' ');
+            return isEliteTable
+                ? `<span class="role-badge badge-elite">⚔️ Elite</span> ${roleBadges}`
+                : roleBadges;
         };
 
         const rankRows = (rows, vazio, eliteOnly) => rows.length === 0

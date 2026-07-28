@@ -114,7 +114,9 @@ function hierarchyItemHtml(m) {
     const c = roleBadgeColor(key);
     // Todo mundo mostra o cargo; quem é da Elite ganha a badge extra
     const roleBadge = `<span class="hierarchy-role-badge" style="background:${c.bg};border:1px solid ${c.bd};color:${c.fg};">${escapeHtml(m.roleLabel || 'Membro')}</span>`;
+    // Elite entra na frente do cargo base — ex: "⚔️ Elite / Membro"
     const eliteBadge = m.is_elite ? '<span class="hierarchy-role-badge elite-badge">⚔️ Elite</span>' : '';
+    const badges = eliteBadge + roleBadge;
     const vulgo = m.vulgo ? `<div class="hierarchy-vulgo">🏷️ ${escapeHtml(m.vulgo)}</div>` : '';
     return `
         <div class="hierarchy-item">
@@ -122,7 +124,7 @@ function hierarchyItemHtml(m) {
             <div class="hierarchy-info">
                 <div class="hierarchy-name">${escapeHtml(m.name || '')}</div>
                 ${vulgo}
-                <div class="hierarchy-badges">${roleBadge}${eliteBadge}</div>
+                <div class="hierarchy-badges">${badges}</div>
             </div>
         </div>`;
 }
