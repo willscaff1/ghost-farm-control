@@ -1065,9 +1065,12 @@ async function loadWeekData(offset = 0) {
                 statusClass = 'pending';
                 statusHtml = '⏳ Processando';
             }
-        } else if (data.hasJustification) {
+        } else if (data.hasJustification && data.justificationStatus !== 'rejected') {
             statusClass = data.justificationStatus === 'approved' ? 'justified' : 'pending';
-            statusHtml = data.justificationStatus === 'approved' ? '📋 Justificado' : '⏳ Aguardando';
+            statusHtml = data.justificationStatus === 'approved' ? '📋 Justificado' : '⏳ Justificativa aguardando';
+        } else if (data.hasJustification && data.justificationStatus === 'rejected') {
+            statusClass = 'missing';
+            statusHtml = '❌ Justificativa recusada';
         } else if (data.metaExempt) {
             statusClass = 'justified';
             statusHtml = '🚫 Meta isenta';
@@ -1129,8 +1132,12 @@ async function loadWeekData(offset = 0) {
         const absenceCard = document.getElementById('absenceCard');
         if (absenceCard) {
             // Não mostrar justificativa se farm já está em progresso (approved + partial) ou completo (approved + !partial)
-            const farmJaAprovado = data.deliveryStatus === 'approved';
-            const showJustify = data.canDeliver && !data.hasJustification && !farmJaAprovado && !data.metaExempt;
+            // Meta já paga (aprovada e completa) não tem o que justificar.
+            // Farm parcial/pendente/recusado pode ser justificado.
+            const metaJaPaga = data.deliveryStatus === 'approved' && !data.isPartial;
+            // Justificativa recusada pode ser reenviada
+            const justificativaAberta = data.hasJustification && data.justificationStatus !== 'rejected';
+            const showJustify = !metaJaPaga && !justificativaAberta && !data.metaExempt;
             absenceCard.style.display = showJustify ? 'block' : 'none';
             
             // Atualizar texto baseado se já tem farm parcial
@@ -2294,6 +2301,9 @@ function updateMetaSummary(data) {
         if (data.justificationStatus === 'approved') {
             text = '📋 Justificada';
             state = 'justified';
+        } else if (data.justificationStatus === 'rejected') {
+            text = '❌ Justif. recusada';
+            state = 'unpaid';
         } else {
             text = '⏳ Justif. aguardando';
             state = 'pending';

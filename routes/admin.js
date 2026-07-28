@@ -3508,7 +3508,10 @@ router.put('/justifications/:id/approve', requireAdmin, async (req, res) => {
             'UPDATE justifications SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
             ['approved', userId, justificationId]
         );
-        
+
+        // O membro passa a contar como justificado na conferência de metas
+        if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
+
         res.json({ success: true, message: 'Justificativa aprovada! ✅' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -3531,7 +3534,9 @@ router.put('/justifications/:id/reject', requireAdmin, async (req, res) => {
             'UPDATE justifications SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP WHERE id = ?',
             ['rejected', userId, justificationId]
         );
-        
+
+        if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
+
         res.json({ success: true, message: 'Justificativa rejeitada' });
     } catch (error) {
         res.status(500).json({ error: error.message });

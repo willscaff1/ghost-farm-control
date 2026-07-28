@@ -1806,55 +1806,71 @@ router.post('/absence', requireAuth, async (req, res) => {
         const { reason } = req.body;
         const userId = req.session.user.id;
         const week = getCurrentWeek();
-        // Verificar se competição está ativa para permitir farm extra
-        const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
-        const settingsObj = {};
-        (settingsRows || []).forEach(s => {
-            settingsObj[s.setting_key] = s.setting_value;
-        });
-        const competitionEnabled = (settingsObj.competition_enabled || 'false') === 'true';
-        if (!competitionEnabled) {
-            return res.status(400).json({ error: 'Competição desativada. Farm extra não está disponível.' });
-        }
-        
+
         if (!reason || reason.trim().length < 10) {
-            return res.status(400).json({ 
-                error: 'A justificativa deve ter pelo menos 10 caracteres.' 
+            return res.status(400).json({
+                error: 'A justificativa deve ter pelo menos 10 caracteres.'
             });
         }
-        
-        // Verificar se já tem entrega na semana
-        const existingDelivery = await getOne(`
-            SELECT * FROM deliveries 
+
+        // Só bloqueia se a meta da semana já está paga (aprovada e completa):
+        // nesse caso não há ausência nem falta de pagamento para justificar.
+        // Farm parcial, pendente ou recusado continuam podendo ser justificados.
+        const paidDelivery = await getOne(`
+            SELECT id FROM deliveries
             WHERE user_id = ? AND week_start = ? AND week_end = ?
+              AND status = 'approved' AND (is_partial = 0 OR is_partial IS NULL)
         `, [userId, week.start, week.end]);
-        
-        if (existingDelivery) {
-            return res.status(400).json({ 
-                error: 'Você já registrou farm para esta semana. Não pode justificar ausência.' 
+
+        if (paidDelivery) {
+            return res.status(400).json({
+                error: 'Sua meta desta semana já está paga. Não há o que justificar.'
             });
         }
-        
-        // Verificar se já tem justificativa na semana
+
+        // Justificativa já existente na semana
         const existingJustification = await getOne(`
-            SELECT * FROM justifications 
+            SELECT id, status FROM justifications
             WHERE user_id = ? AND week_start = ? AND week_end = ?
+            ORDER BY id DESC
         `, [userId, week.start, week.end]);
-        
+
         if (existingJustification) {
-            return res.status(400).json({ 
-                error: 'Você já enviou uma justificativa para esta semana.' 
+            if (existingJustification.status === 'pending') {
+                return res.status(400).json({
+                    error: 'Você já tem uma justificativa aguardando aprovação nesta semana.'
+                });
+            }
+            if (existingJustification.status === 'approved') {
+                return res.status(400).json({
+                    error: 'Sua justificativa desta semana já foi aprovada.'
+                });
+            }
+            // Foi recusada: deixa reenviar, substituindo o texto anterior
+            await runQuery(
+                `UPDATE justifications
+                 SET reason = ?, status = 'pending', approved_by = NULL, approved_at = NULL
+                 WHERE id = ?`,
+                [reason.trim(), existingJustification.id]
+            );
+            if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
+            return res.json({
+                success: true,
+                message: 'Justificativa reenviada para aprovação.'
             });
         }
-        
+
         await runQuery(
             'INSERT INTO justifications (user_id, week_start, week_end, reason) VALUES (?, ?, ?, ?)',
             [userId, week.start, week.end, reason.trim()]
         );
-        
-        res.json({ 
-            success: true, 
-            message: 'Justificativa enviada para aprovação.' 
+
+        // A justificativa muda quem aparece como devendo na conferência
+        if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
+
+        res.json({
+            success: true,
+            message: 'Justificativa enviada para aprovação.'
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
