@@ -2826,3 +2826,9 @@
     border:1px dashed rgba(255,255,255,0.12); border-radius:10px;
 }
 @media (max-width: 560px) { .elite-pick { grid-template-columns:1fr; } }
+
+/* Badges na hierarquia (cargo + Elite) */
+.hierarchy-badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+.hierarchy-role-badge.elite-badge {
+    background:rgba(168,85,247,0.2); border:1px solid rgba(168,85,247,0.45); color:#c4b5fd;
+}

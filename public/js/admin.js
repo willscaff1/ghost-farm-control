@@ -6079,6 +6079,8 @@ function filterResetLog(type, btn) {
 }
 
 // ===== Ações da Elite (aprovação) =====
+let eliteActionsCache = [];
+
 async function loadEliteActionsAdmin() {
     const box = document.getElementById('eliteActionsAdminList');
     if (!box) return;
@@ -6086,7 +6088,8 @@ async function loadEliteActionsAdmin() {
         const res = await fetch('/api/admin/elite/actions/pending');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        renderEliteActionsAdmin(data.actions || []);
+        eliteActionsCache = data.actions || [];
+        renderEliteActionsAdmin(eliteActionsCache);
     } catch (e) {
         console.error('Erro ao carregar ações Elite:', e);
         box.innerHTML = '<div style="text-align:center;padding:24px;">Erro ao carregar as ações</div>';
@@ -6130,35 +6133,90 @@ function renderEliteActionsAdmin(actions) {
     }).join('');
 }
 
-async function approveEliteAction(id) {
-    try {
-        const res = await fetch(`/api/admin/elite/actions/${id}/approve`, { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-            showNotification('Ação aprovada!', 'success');
-            loadEliteActionsAdmin();
-        } else {
-            showNotification(data.error || 'Erro ao aprovar', 'error');
-        }
-    } catch { showNotification('Erro de conexão', 'error'); }
+// Abre o modal de confirmação (aprovar ou rejeitar)
+let elitePendingConfirm = null;
+
+function approveEliteAction(id) { openEliteConfirm(id, 'approve'); }
+function rejectEliteAction(id) { openEliteConfirm(id, 'reject'); }
+
+function openEliteConfirm(id, mode) {
+    const action = (eliteActionsCache || []).find(a => a.id === id);
+    elitePendingConfirm = { id, mode };
+
+    const isApprove = mode === 'approve';
+    const modal = document.getElementById('eliteConfirmModal');
+    const icon = document.getElementById('eliteConfirmIcon');
+    const title = document.getElementById('eliteConfirmTitle');
+    const text = document.getElementById('eliteConfirmText');
+    const card = document.getElementById('eliteConfirmCard');
+    const reasonBox = document.getElementById('eliteConfirmReasonBox');
+    const reason = document.getElementById('eliteConfirmReason');
+    const go = document.getElementById('eliteConfirmGo');
+    if (!modal) return;
+
+    icon.textContent = isApprove ? '✅' : '❌';
+    icon.className = 'elite-confirm-icon ' + (isApprove ? 'ok' : 'no');
+    title.textContent = isApprove ? 'Aprovar esta ação?' : 'Rejeitar esta ação?';
+    text.textContent = isApprove
+        ? 'A ação vai contar na meta de quem registrou e de cada participante marcado.'
+        : 'A ação não vai contar para ninguém. Quem registrou verá o motivo.';
+
+    if (action) {
+        const parts = (action.participants || []).map(p => escapeHtml(p.name)).join(', ') || 'ninguém marcado';
+        const resultTxt = action.result === 'win' ? '🏆 Vitória' : action.result === 'loss' ? '💀 Derrota' : '—';
+        card.innerHTML = `
+            <div class="elite-confirm-row"><span>Ação</span><strong>${escapeHtml(action.action_name)}</strong></div>
+            <div class="elite-confirm-row"><span>Resultado</span><strong>${resultTxt}</strong></div>
+            <div class="elite-confirm-row"><span>Registrou</span><strong>${escapeHtml(action.registered_by_name || '')}</strong></div>
+            <div class="elite-confirm-row"><span>Participantes</span><strong>${parts}</strong></div>`;
+        card.style.display = '';
+    } else {
+        card.style.display = 'none';
+    }
+
+    reasonBox.style.display = isApprove ? 'none' : '';
+    if (reason) reason.value = '';
+    go.textContent = isApprove ? '✅ Sim, aprovar' : '❌ Sim, rejeitar';
+    go.className = 'elite-confirm-btn go ' + (isApprove ? 'ok' : 'no');
+
+    modal.style.display = 'flex';
+    if (!isApprove && reason) setTimeout(() => reason.focus(), 50);
 }
 
-async function rejectEliteAction(id) {
-    const note = prompt('Motivo da rejeição (opcional):') || '';
+function closeEliteConfirm() {
+    const modal = document.getElementById('eliteConfirmModal');
+    if (modal) modal.style.display = 'none';
+    elitePendingConfirm = null;
+}
+
+async function confirmEliteAction() {
+    if (!elitePendingConfirm) return;
+    const { id, mode } = elitePendingConfirm;
+    const go = document.getElementById('eliteConfirmGo');
+    const note = document.getElementById('eliteConfirmReason')?.value?.trim() || '';
+
+    go.disabled = true;
+    go.textContent = 'Enviando...';
+
     try {
-        const res = await fetch(`/api/admin/elite/actions/${id}/reject`, {
+        const res = await fetch(`/api/admin/elite/actions/${id}/${mode}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ note })
+            body: JSON.stringify(mode === 'reject' ? { note } : {})
         });
         const data = await res.json();
         if (data.success) {
-            showNotification('Ação rejeitada', 'success');
+            closeEliteConfirm();
+            showNotification(mode === 'approve' ? 'Ação aprovada!' : 'Ação rejeitada', 'success');
             loadEliteActionsAdmin();
         } else {
-            showNotification(data.error || 'Erro ao rejeitar', 'error');
+            showNotification(data.error || 'Erro ao processar', 'error');
         }
-    } catch { showNotification('Erro de conexão', 'error'); }
+    } catch {
+        showNotification('Erro de conexão', 'error');
+    } finally {
+        go.disabled = false;
+    }
 }
 
 // ===== Cadastro de tipos de ação (catálogo) =====
@@ -6263,19 +6321,43 @@ async function loadEliteRanking() {
 
         const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 
-        if (pBody) {
-            const rows = data.participation || [];
-            pBody.innerHTML = rows.length === 0
-                ? '<tr><td colspan="5" style="text-align:center;padding:24px;">Nenhuma participação ainda.</td></tr>'
-                : rows.map((r, i) => `
-                    <tr>
-                        <td>${medal(i)}</td>
-                        <td>${escapeHtml(r.name)} <small style="color:var(--text-secondary);">${escapeHtml(r.passport || '')}</small></td>
-                        <td><strong>${r.participations}</strong></td>
-                        <td style="color:#27ae60;">${r.wins}</td>
-                        <td style="color:#e74c3c;">${r.losses}</td>
-                    </tr>`).join('');
-        }
+        // Passaporte e nome em colunas separadas, Elite separado de quem só participou
+        // Na tabela da Elite só a badge Elite (é o cargo que coloca ele nesse ranking).
+        // Na tabela dos participantes de fora, o cargo real de cada um.
+        const rankBadges = (r, eliteOnly) => {
+            if (eliteOnly) return '<span class="role-badge badge-elite">⚔️ Elite</span>';
+            let groups = (r.groups || []).filter(g => g !== 'elite');
+            if (groups.length > 1) groups = groups.filter(g => g !== 'member');
+            if (groups.length === 0) groups = ['member'];
+            return groups.map(g =>
+                `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`).join(' ');
+        };
+
+        const rankRows = (rows, vazio, eliteOnly) => rows.length === 0
+            ? `<tr><td colspan="7" style="text-align:center;padding:24px;">${vazio}</td></tr>`
+            : rows.map((r, i) => `
+                <tr>
+                    <td class="rank-pos">${medal(i)}</td>
+                    <td class="rank-passport">${escapeHtml(r.passport || '-')}</td>
+                    <td class="rank-name">${escapeHtml(r.name)}</td>
+                    <td class="rank-badges">${rankBadges(r, eliteOnly)}</td>
+                    <td><strong>${r.participations}</strong></td>
+                    <td style="color:#27ae60;">${r.wins}</td>
+                    <td style="color:#e74c3c;">${r.losses}</td>
+                </tr>`).join('');
+
+        const all = data.participation || [];
+        const eliteRows = all.filter(r => r.is_elite);
+        const memberRows = all.filter(r => !r.is_elite);
+
+        if (pBody) pBody.innerHTML = rankRows(eliteRows, 'Nenhum membro da Elite participou ainda.', true);
+        const mBody = document.getElementById('eliteRankMembers');
+        if (mBody) mBody.innerHTML = rankRows(memberRows, 'Nenhum membro de fora da Elite participou ainda.', false);
+
+        const eCount = document.getElementById('eliteRankEliteCount');
+        const mCount = document.getElementById('eliteRankMembersCount');
+        if (eCount) eCount.textContent = eliteRows.length;
+        if (mCount) mCount.textContent = memberRows.length;
 
         if (aBody) {
             const rows = data.actionsPulled || [];
@@ -6292,8 +6374,11 @@ async function loadEliteRanking() {
         }
     } catch (e) {
         console.error('Erro ao carregar ranking Elite:', e);
-        if (pBody) pBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Erro ao carregar</td></tr>';
-        if (aBody) aBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Erro ao carregar</td></tr>';
+        const err = '<tr><td colspan="6" style="text-align:center;padding:24px;">Erro ao carregar</td></tr>';
+        if (pBody) pBody.innerHTML = err;
+        if (aBody) aBody.innerHTML = err;
+        const mBodyErr = document.getElementById('eliteRankMembers');
+        if (mBodyErr) mBodyErr.innerHTML = err;
     }
 }
 

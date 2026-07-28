@@ -937,20 +937,36 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
         const winExpr = "SUM(CASE WHEN a.result = 'win' THEN 1 ELSE 0 END)";
         const lossExpr = "SUM(CASE WHEN a.result = 'loss' THEN 1 ELSE 0 END)";
 
-        // Quem mais participou (inclui quem puxou, pois entra como participante)
+        // Quem mais participou (inclui quem puxou, pois entra como participante).
+        // is_elite separa quem é da Elite de quem só participou.
         const participation = await getAll(`
             SELECT u.id,
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
                    u.passport,
                    COUNT(*) as participations,
                    ${winExpr} as wins,
-                   ${lossExpr} as losses
+                   ${lossExpr} as losses,
+                   MAX(CASE WHEN eg.user_id IS NULL THEN 0 ELSE 1 END) as is_elite,
+                   u.role
             FROM elite_action_participants p
             JOIN elite_actions a ON a.id = p.action_id AND a.status = 'approved'
             JOIN users u ON u.id = p.user_id
-            GROUP BY u.id, name, u.passport
+            LEFT JOIN user_groups eg ON eg.user_id = u.id AND eg.group_name = 'elite'
+            GROUP BY u.id, name, u.passport, u.role
             ORDER BY participations DESC, wins DESC
         `);
+
+        // Grupos de cada participante, para montar as badges de cargo
+        const partIds = participation.map(r => r.id);
+        const groupsByUser = new Map();
+        if (partIds.length > 0) {
+            const ph = partIds.map(() => '?').join(',');
+            const gRows = await getAll(`SELECT user_id, group_name FROM user_groups WHERE user_id IN (${ph})`, partIds);
+            for (const g of gRows || []) {
+                if (!groupsByUser.has(g.user_id)) groupsByUser.set(g.user_id, []);
+                groupsByUser.get(g.user_id).push(g.group_name);
+            }
+        }
 
         // Ações mais puxadas (por tipo, pelo nome registrado)
         const actionsPulled = await getAll(`
@@ -976,6 +992,8 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
         res.json({
             participation: participation.map(r => ({
                 name: r.name, passport: r.passport,
+                is_elite: r.is_elite === 1 || r.is_elite === true || r.is_elite === '1',
+                groups: groupsByUser.get(r.id) || (r.role ? [r.role] : []),
                 participations: Number(r.participations) || 0,
                 wins: Number(r.wins) || 0, losses: Number(r.losses) || 0
             })),

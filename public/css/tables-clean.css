@@ -2242,3 +2242,78 @@ tr.status-rejected {
     white-space:nowrap;
 }
 .elite-progress-chip.done { background:rgba(39,174,96,0.2); border-color:rgba(39,174,96,0.45); color:#86efac; }
+
+/* ===== Modal de confirmação (aprovar/rejeitar ação da Elite) ===== */
+.elite-confirm-modal {
+    position:fixed; inset:0; z-index:9999;
+    background:rgba(0,0,0,0.65); backdrop-filter:blur(3px);
+    align-items:center; justify-content:center; padding:20px;
+}
+.elite-confirm-content {
+    width:100%; max-width:430px; text-align:center;
+    background:linear-gradient(145deg,#1e1e2e,#252538);
+    border:1px solid rgba(168,85,247,0.3); border-radius:18px;
+    padding:28px 26px; box-shadow:0 24px 60px rgba(0,0,0,0.5);
+    animation:eliteConfirmIn .18s ease-out;
+}
+@keyframes eliteConfirmIn { from { opacity:0; transform:translateY(10px) scale(.97); } to { opacity:1; transform:none; } }
+.elite-confirm-icon {
+    width:64px; height:64px; margin:0 auto 14px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:32px; border-radius:50%;
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+}
+.elite-confirm-icon.ok { background:rgba(39,174,96,0.15); border-color:rgba(39,174,96,0.45); }
+.elite-confirm-icon.no { background:rgba(231,76,60,0.15); border-color:rgba(231,76,60,0.45); }
+.elite-confirm-content h2 { margin:0 0 8px; font-size:21px; }
+.elite-confirm-text { margin:0 0 18px; font-size:13.5px; line-height:1.5; color:var(--text-secondary,#9aa0b5); }
+.elite-confirm-card {
+    text-align:left; background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.09); border-radius:12px;
+    padding:12px 14px; margin-bottom:16px;
+}
+.elite-confirm-row {
+    display:flex; justify-content:space-between; gap:12px;
+    font-size:13px; padding:5px 0;
+    border-bottom:1px solid rgba(255,255,255,0.05);
+}
+.elite-confirm-row:last-child { border-bottom:none; }
+.elite-confirm-row span { color:var(--text-secondary,#9aa0b5); flex-shrink:0; }
+.elite-confirm-row strong { text-align:right; word-break:break-word; }
+.elite-confirm-reason { text-align:left; margin-bottom:16px; }
+.elite-confirm-reason label { display:block; font-size:12px; margin-bottom:6px; color:var(--text-secondary,#9aa0b5); }
+.elite-confirm-reason input {
+    width:100%; padding:10px 12px; border-radius:10px; font-size:13px; color:inherit;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+}
+.elite-confirm-actions { display:flex; gap:10px; }
+.elite-confirm-btn {
+    flex:1; padding:12px; border:none; border-radius:11px;
+    font-size:14px; font-weight:700; cursor:pointer; transition:filter .15s;
+}
+.elite-confirm-btn:hover:not(:disabled) { filter:brightness(1.12); }
+.elite-confirm-btn:disabled { opacity:.6; cursor:default; }
+.elite-confirm-btn.cancel {
+    background:rgba(255,255,255,0.07); color:#cbd0e0; border:1px solid rgba(255,255,255,0.14);
+}
+.elite-confirm-btn.go.ok { background:#27ae60; color:#fff; }
+.elite-confirm-btn.go.no { background:#e74c3c; color:#fff; }
+
+/* ===== Ranking Elite: colunas e badges ===== */
+.rank-count {
+    display:inline-block; margin-left:6px; font-size:12px; font-weight:700;
+    background:rgba(168,85,247,0.22); color:#c4b5fd;
+    padding:1px 9px; border-radius:999px; vertical-align:middle;
+}
+.rank-table .rank-pos { width:52px; text-align:center; font-weight:700; }
+.rank-table .rank-passport {
+    width:110px; font-weight:700; color:#cbd0e0;
+    font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+.rank-table .rank-name { font-weight:600; }
+.rank-table .rank-badges { white-space:nowrap; }
+.role-badge.badge-elite {
+    background:rgba(168,85,247,0.22) !important;
+    border:1px solid rgba(168,85,247,0.45) !important;
+    color:#c4b5fd !important;
+}

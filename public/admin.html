@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723elitemeta"><link rel="stylesheet" href="css/tables-clean.css?v=20260618groups1">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260723confirm1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch2">
     
     
@@ -545,6 +545,27 @@
                 </div>
             </div>
 
+            <!-- Confirmação de aprovar/rejeitar ação da Elite -->
+            <div id="eliteConfirmModal" class="modal elite-confirm-modal" style="display: none;">
+                <div class="modal-content elite-confirm-content">
+                    <div class="elite-confirm-icon" id="eliteConfirmIcon">✅</div>
+                    <h2 id="eliteConfirmTitle">Aprovar ação?</h2>
+                    <p class="elite-confirm-text" id="eliteConfirmText"></p>
+
+                    <div class="elite-confirm-card" id="eliteConfirmCard"></div>
+
+                    <div class="elite-confirm-reason" id="eliteConfirmReasonBox" style="display:none;">
+                        <label for="eliteConfirmReason">Motivo da recusa <span class="optional">(opcional)</span></label>
+                        <input type="text" id="eliteConfirmReason" placeholder="Ex: print não confere com a ação">
+                    </div>
+
+                    <div class="elite-confirm-actions">
+                        <button class="elite-confirm-btn cancel" onclick="closeEliteConfirm()">Cancelar</button>
+                        <button class="elite-confirm-btn go" id="eliteConfirmGo" onclick="confirmEliteAction()">Confirmar</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Cadastro de tipos de ação (aprovadores da Elite) -->
             <div id="elite-catalog-tab" class="tab-content">
                 <div class="card">
@@ -576,21 +597,34 @@
                     <p class="subtitle">Acumulado geral (só ações aprovadas).</p>
                     <div class="attendance-summary" id="eliteRankingTotals" style="display:flex; gap:12px; flex-wrap:wrap; margin:16px 0;"></div>
 
-                    <h3 style="margin-top:8px;">👥 Quem mais participou</h3>
+                    <h3 style="margin-top:8px;">⚔️ Elite <span id="eliteRankEliteCount" class="rank-count"></span></h3>
                     <div class="table-container">
-                        <table class="weekly-table">
+                        <table class="weekly-table rank-table">
                             <thead>
-                                <tr><th>#</th><th>Membro</th><th>Participações</th><th>Vitórias</th><th>Derrotas</th></tr>
+                                <tr><th>#</th><th>Passaporte</th><th>Nome</th><th>Cargo</th><th>Participações</th><th>Vitórias</th><th>Derrotas</th></tr>
                             </thead>
                             <tbody id="eliteRankParticipation">
-                                <tr><td colspan="5" style="text-align:center;padding:24px;">Carregando...</td></tr>
+                                <tr><td colspan="7" style="text-align:center;padding:24px;">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <h3 style="margin-top:20px;">⚔️ Ações mais puxadas</h3>
+                    <h3 style="margin-top:22px;">👤 Membros que participaram <span id="eliteRankMembersCount" class="rank-count"></span></h3>
+                    <p class="subtitle" style="margin-top:-6px;">Não são da Elite — participaram das ações, mas seguem com a meta normal de farm.</p>
                     <div class="table-container">
-                        <table class="weekly-table">
+                        <table class="weekly-table rank-table">
+                            <thead>
+                                <tr><th>#</th><th>Passaporte</th><th>Nome</th><th>Cargo</th><th>Participações</th><th>Vitórias</th><th>Derrotas</th></tr>
+                            </thead>
+                            <tbody id="eliteRankMembers">
+                                <tr><td colspan="7" style="text-align:center;padding:24px;">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 style="margin-top:22px;">🎯 Ações mais puxadas</h3>
+                    <div class="table-container">
+                        <table class="weekly-table rank-table">
                             <thead>
                                 <tr><th>#</th><th>Ação</th><th>Puxadas</th><th>Vitórias</th><th>Derrotas</th></tr>
                             </thead>
@@ -1940,7 +1974,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260723elitemeta"></script>
+    <script src="js/admin.js?v=20260723confirm1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

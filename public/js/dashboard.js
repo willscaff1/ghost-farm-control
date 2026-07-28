@@ -109,12 +109,12 @@ async function loadFamilyHierarchy() {
     }
 }
 
-function hierarchyItemHtml(m, withBadge) {
+function hierarchyItemHtml(m) {
     const key = normalizeRoleName(m.role) || 'member';
     const c = roleBadgeColor(key);
-    const badge = withBadge
-        ? `<span class="hierarchy-role-badge" style="background:${c.bg};border:1px solid ${c.bd};color:${c.fg};">${escapeHtml(m.roleLabel || '')}</span>`
-        : '';
+    // Todo mundo mostra o cargo; quem é da Elite ganha a badge extra
+    const roleBadge = `<span class="hierarchy-role-badge" style="background:${c.bg};border:1px solid ${c.bd};color:${c.fg};">${escapeHtml(m.roleLabel || 'Membro')}</span>`;
+    const eliteBadge = m.is_elite ? '<span class="hierarchy-role-badge elite-badge">⚔️ Elite</span>' : '';
     const vulgo = m.vulgo ? `<div class="hierarchy-vulgo">🏷️ ${escapeHtml(m.vulgo)}</div>` : '';
     return `
         <div class="hierarchy-item">
@@ -122,8 +122,8 @@ function hierarchyItemHtml(m, withBadge) {
             <div class="hierarchy-info">
                 <div class="hierarchy-name">${escapeHtml(m.name || '')}</div>
                 ${vulgo}
+                <div class="hierarchy-badges">${roleBadge}${eliteBadge}</div>
             </div>
-            ${badge}
         </div>`;
 }
 
@@ -139,11 +139,11 @@ function renderFamilyHierarchy(leadership, members) {
     let html = '';
     if (leadership.length > 0) {
         html += '<div class="hierarchy-section-title">Liderança</div>';
-        html += leadership.map(m => hierarchyItemHtml(m, true)).join('');
+        html += leadership.map(m => hierarchyItemHtml(m)).join('');
     }
     if (members.length > 0) {
         html += `<div class="hierarchy-section-title">Membros (${members.length})</div>`;
-        html += members.map(m => hierarchyItemHtml(m, false)).join('');
+        html += members.map(m => hierarchyItemHtml(m)).join('');
     }
     el.innerHTML = html;
 }

@@ -737,7 +737,9 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
 
         const list = users.map(u => {
             const ug = groupsByUser.get(u.id) || (u.role ? [u.role] : []);
-            const primaryRole = ug.find(g => g && g !== 'member') || u.role || 'member';
+            // 'elite' é marcador de trilha, não o cargo — não pode virar o cargo principal
+            const primaryRole = ug.find(g => g && g !== 'member' && g !== 'elite') || u.role || 'member';
+            const isElite = ug.includes('elite');
             const rank = rankOf(primaryRole);
             const isLeader = rank < 9;
             const slot = isLeader ? u.manager_slot : u.member_slot;
@@ -747,6 +749,7 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
                 vulgo: u.capital_nickname || null,
                 role: primaryRole,
                 roleLabel: labelByRole[primaryRole] || DEFAULT_LABELS[primaryRole] || primaryRole,
+                is_elite: isElite,
                 slot: (slot !== null && slot !== undefined && String(slot).trim() !== '') ? String(slot).trim() : null,
                 tier: isLeader ? 'lideranca' : 'membro',
                 _rank: rank
