@@ -161,6 +161,172 @@ function renderUserRoleBadge(role) {
 
 const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
+// ===== Trilha Elite (registro de ações no lugar do farm) =====
+let eliteData = null;
+
+function enterEliteMode() {
+    const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+    hide('deliveryPanel');
+    hide('lockedMessage');
+    hide('extraFarmPanel');
+    hide('absenceCard');
+    // Esconde o painel de progresso de farm (esquerda)
+    const prog = document.getElementById('progressBars');
+    if (prog) { const panel = prog.closest('.panel'); if (panel) panel.style.display = 'none'; }
+    // Mostra os painéis da Elite
+    const p1 = document.getElementById('elitePanel'); if (p1) p1.style.display = 'block';
+    const p2 = document.getElementById('eliteActionsPanel'); if (p2) p2.style.display = 'block';
+    // Ajusta o rótulo do tile de meta
+    const metaLabel = document.querySelector('#metaSummaryTile .member-summary-label');
+    if (metaLabel) metaLabel.textContent = '⚔️ Ações da Elite';
+    // Liga o form
+    const form = document.getElementById('eliteActionForm');
+    if (form && !form.dataset.wired) {
+        form.dataset.wired = '1';
+        form.addEventListener('submit', submitEliteAction);
+    }
+}
+
+async function loadEliteStatus(offset = 0) {
+    try {
+        const res = await fetch(`/api/delivery/elite/status?offset=${offset}&_t=${Date.now()}`, { cache: 'no-cache' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        eliteData = await res.json();
+        renderEliteStatus(eliteData, offset);
+    } catch (e) {
+        console.error('Erro ao carregar Elite:', e);
+    }
+}
+
+function renderEliteStatus(data, offset) {
+    const goal = data.goal || 3;
+    const approved = data.approvedCount || 0;
+    const pending = data.pendingCount || 0;
+
+    // Label da semana
+    const weekLabel = document.getElementById('weekLabel');
+    if (weekLabel && data.week) {
+        let t = data.week.label;
+        if (offset === 0) t += ' (Atual)'; else if (offset > 0) t += ` (+${offset} sem)`;
+        weekLabel.textContent = t;
+    }
+
+    // Pílula de status da semana
+    const weekStatus = document.getElementById('weekStatus');
+    if (weekStatus) {
+        const done = approved >= goal;
+        weekStatus.innerHTML = `<span class="status-pill ${done ? 'approved' : 'in-progress'}">⚔️ ${approved}/${goal} ações</span>`;
+    }
+
+    // Tile de meta no resumo
+    if (offset === 0) {
+        const valueEl = document.getElementById('metaSummaryValue');
+        const tileEl = document.getElementById('metaSummaryTile');
+        if (valueEl) valueEl.textContent = `${approved}/${goal}`;
+        if (tileEl) {
+            tileEl.classList.remove('paid', 'partial', 'unpaid', 'pending', 'justified');
+            tileEl.classList.add(approved >= goal ? 'paid' : 'partial');
+        }
+    }
+
+    // Barra de progresso no painel
+    const pct = Math.min(100, Math.round((approved / goal) * 100));
+    const fill = document.getElementById('eliteProgressFill');
+    const txt = document.getElementById('eliteProgressText');
+    const pend = document.getElementById('eliteProgressPending');
+    if (fill) fill.style.width = pct + '%';
+    if (txt) txt.textContent = `${approved} / ${goal} ações aprovadas`;
+    if (pend) pend.textContent = pending > 0 ? `${pending} aguardando` : '';
+
+    // Participantes (seletor)
+    const partBox = document.getElementById('eliteParticipants');
+    if (partBox) {
+        const members = data.eliteMembers || [];
+        partBox.innerHTML = members.length === 0
+            ? '<span class="elite-empty">Nenhum outro membro da Elite.</span>'
+            : members.map(m => `
+                <label class="elite-participant">
+                    <input type="checkbox" value="${m.id}">
+                    <span>${escapeHtml(m.vulgo || m.name)}</span>
+                </label>`).join('');
+    }
+
+    // Lista de ações da semana
+    const list = document.getElementById('eliteActionsList');
+    if (list) {
+        const actions = data.weeklyActions || [];
+        if (actions.length === 0) {
+            list.innerHTML = '<div class="progress-empty">Nenhuma ação registrada nesta semana.</div>';
+        } else {
+            list.innerHTML = actions.map(a => {
+                const st = a.status === 'approved'
+                    ? '<span class="elite-badge ok">✅ Aprovada</span>'
+                    : a.status === 'rejected'
+                        ? '<span class="elite-badge no">❌ Rejeitada</span>'
+                        : '<span class="elite-badge wait">⏳ Aguardando</span>';
+                const who = a.is_mine ? 'Você' : escapeHtml(a.registered_by_name || '');
+                const parts = (a.participants || []).length ? `<div class="elite-action-parts">👥 ${a.participants.map(escapeHtml).join(', ')}</div>` : '';
+                const note = a.status === 'rejected' && a.review_note ? `<div class="elite-action-note">Motivo: ${escapeHtml(a.review_note)}</div>` : '';
+                return `
+                    <div class="elite-action-item">
+                        <div class="elite-action-top">
+                            <span class="elite-action-name">${escapeHtml(a.action_name)}</span>
+                            ${st}
+                        </div>
+                        <div class="elite-action-meta">Registrou: ${who}</div>
+                        ${parts}
+                        ${note}
+                    </div>`;
+            }).join('');
+        }
+    }
+}
+
+async function submitEliteAction(e) {
+    e.preventDefault();
+    const msg = document.getElementById('eliteFormMessage');
+    const btn = document.getElementById('eliteSubmitBtn');
+    const name = document.getElementById('eliteActionName').value.trim();
+    const desc = document.getElementById('eliteActionDesc').value.trim();
+    const proof = document.getElementById('eliteProof').files[0];
+
+    if (!name) { showEliteMsg(msg, 'Diga qual ação você puxou', 'error'); return; }
+    if (!proof) { showEliteMsg(msg, 'Anexe o print da ação ou do dinheiro', 'error'); return; }
+
+    const participants = Array.from(document.querySelectorAll('#eliteParticipants input:checked')).map(c => parseInt(c.value, 10));
+
+    const fd = new FormData();
+    fd.append('action_name', name);
+    fd.append('description', desc);
+    fd.append('participants', JSON.stringify(participants));
+    fd.append('proof', proof);
+
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    try {
+        const res = await fetch('/api/delivery/elite/action', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success) {
+            showEliteMsg(msg, '✅ Ação enviada para aprovação!', 'success');
+            document.getElementById('eliteActionForm').reset();
+            loadEliteStatus(currentWeekOffset || 0);
+        } else {
+            showEliteMsg(msg, data.error || 'Erro ao enviar', 'error');
+        }
+    } catch {
+        showEliteMsg(msg, 'Erro de conexão', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '📤 Enviar para aprovação';
+    }
+}
+
+function showEliteMsg(el, text, type) {
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'form-message ' + type;
+}
+
 // Nomes de exibição dos grupos (carregados dinamicamente do banco)
 let roleNames = {};
 
@@ -261,7 +427,13 @@ async function checkAuth() {
             if (typeof ensureCapitalNicknameModal === 'function') {
                 ensureCapitalNicknameModal(currentUser);
             }
-            
+
+            // Trilha Elite: no lugar do farm, registra ações
+            window.IS_ELITE = Array.isArray(currentUser.groups) && currentUser.groups.includes('elite');
+            if (window.IS_ELITE) {
+                enterEliteMode();
+            }
+
             // Usar grupos se disponível, senão usar role
             const userGroups = data.user.groups || [data.user.role];
             const primaryRole = userGroups[0] || data.user.role;
@@ -279,8 +451,8 @@ async function checkAuth() {
             renderUserRoleBadge(badgeRole);
             
             // Mostrar link de admin se tiver qualquer grupo que não seja apenas "member"
-            // Ou se tiver role antigo de gerente/admin
-            const nonMemberGroups = userGroups.filter(g => g !== 'member');
+            // Ou se tiver role antigo de gerente/admin ('elite' é marcador, não concede painel)
+            const nonMemberGroups = userGroups.filter(g => g !== 'member' && g !== 'elite');
             const hasAdminGroups = nonMemberGroups.length > 0;
             const hasAdminRole = userGroups.some(group => 
                 normalizeRoleName(group).includes('gerente') ||
@@ -749,9 +921,15 @@ function updateWeekNavButtons() {
 
 // Carregar dados de uma semana específica
 async function loadWeekData(offset = 0) {
+    // Elite não entrega farm — o painel de ações cuida de tudo
+    if (window.IS_ELITE) {
+        currentWeekOffset = offset;
+        loadEliteStatus(offset);
+        return;
+    }
     try {
         currentWeekOffset = offset;
-        
+
         // Atualizar hidden input do form
         const weekSelect = document.getElementById('weekSelect');
         if (weekSelect) weekSelect.value = offset;
@@ -803,6 +981,9 @@ async function loadWeekData(offset = 0) {
         } else if (data.hasJustification) {
             statusClass = data.justificationStatus === 'approved' ? 'justified' : 'pending';
             statusHtml = data.justificationStatus === 'approved' ? '📋 Justificado' : '⏳ Aguardando';
+        } else if (data.metaExempt) {
+            statusClass = 'justified';
+            statusHtml = '🚫 Meta isenta';
         } else {
             statusClass = 'missing';
             statusHtml = '⚠️ Pendente';
@@ -2015,6 +2196,9 @@ function updateMetaSummary(data) {
             text = '⏳ Justif. aguardando';
             state = 'pending';
         }
+    } else if (data && data.metaExempt) {
+        text = '🚫 Isenta';
+        state = 'justified';
     }
 
     valueEl.textContent = text;

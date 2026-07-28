@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260622farmedit1"><link rel="stylesheet" href="css/tables-clean.css?v=20260618groups1">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723elite1"><link rel="stylesheet" href="css/tables-clean.css?v=20260618groups1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch2">
     
     
@@ -79,6 +79,7 @@
                 <div class="sidebar-section-title">✅ Aprovações</div>
                 <button class="sidebar-item" data-tab="pending">🕐 Farms</button>
                 <button class="sidebar-item" data-tab="absences">📝 Justificativas</button>
+                <button class="sidebar-item" data-tab="elite-actions" style="display:none;">⚔️ Ações Elite</button>
             </div>
 
             <div class="sidebar-section">
@@ -531,6 +532,17 @@
             </div>
 
             <!-- Members Tab -->
+            <!-- Aprovação de ações da Elite (01/02/gerente geral) -->
+            <div id="elite-actions-tab" class="tab-content">
+                <div class="card">
+                    <h2>⚔️ Ações da Elite</h2>
+                    <p class="subtitle">Ações pendentes de aprovação. Aprovar conta a ação para quem registrou e para os participantes marcados.</p>
+                    <div id="eliteActionsAdminList" class="elite-admin-list">
+                        <div style="text-align:center; padding:24px;">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Extrato de resets de senha (somente super admin) -->
             <div id="password-reset-log-tab" class="tab-content">
                 <div class="card">
@@ -1035,6 +1047,37 @@
                 <div class="card goals-card">
                     <h2>🎯 Metas</h2>
                     <p class="subtitle">Materiais e tipos de pagamento do farm. Defina a meta semanal para membros e gerentes.</p>
+
+                    <!-- Isenção de meta -->
+                    <div class="goals-section meta-exempt-section">
+                        <h3>🚫 Isenção de meta</h3>
+                        <p class="subtitle" style="margin-top:-6px;">Enquanto ligado, o público isento não é cobrado pela meta (fica isento até você desligar).</p>
+                        <div class="meta-exempt-toggles">
+                            <label class="meta-exempt-toggle">
+                                <input type="checkbox" id="exemptMembersToggle" onchange="saveMetaExempt('members', this.checked)">
+                                <span class="meta-exempt-label">👤 Isentar meta dos <strong>Membros</strong></span>
+                                <span class="meta-exempt-state" id="exemptMembersState">Desligado</span>
+                            </label>
+                            <label class="meta-exempt-toggle">
+                                <input type="checkbox" id="exemptManagersToggle" onchange="saveMetaExempt('managers', this.checked)">
+                                <span class="meta-exempt-label">🛡️ Isentar meta da <strong>Gerência</strong></span>
+                                <span class="meta-exempt-state" id="exemptManagersState">Desligado</span>
+                            </label>
+                        </div>
+                        <div id="metaExemptMsg" class="goals-message"></div>
+                    </div>
+
+                    <!-- Meta da Elite -->
+                    <div class="goals-section elite-goal-section">
+                        <h3>⚔️ Meta da Elite</h3>
+                        <p class="subtitle" style="margin-top:-6px;">Quantas ações por semana cada membro da Elite precisa cumprir.</p>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Ações por semana</label>
+                            <input type="number" id="eliteGoalInput" min="1" max="99" value="3" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnSaveEliteGoal" onclick="saveEliteGoal()">💾 Salvar meta da Elite</button>
+                        </div>
+                        <div id="eliteGoalMsg" class="goals-message"></div>
+                    </div>
 
                     <!-- Materiais -->
                     <div class="goals-section">
@@ -1838,7 +1881,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260723reset1"></script>
+    <script src="js/admin.js?v=20260723elite1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

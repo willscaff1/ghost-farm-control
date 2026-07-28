@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260723hierarchy2">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260723elite1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -127,6 +127,51 @@
 
             <!-- Coluna Direita - Formulário -->
             <div class="column-right">
+                <!-- Painel Elite (substitui o farm para quem é da Elite) -->
+                <div class="panel elite-panel" id="elitePanel" style="display: none;">
+                    <div class="panel-header">
+                        <h2>⚔️ Ações da Elite</h2>
+                    </div>
+                    <div class="elite-progress" id="eliteProgress">
+                        <div class="elite-progress-head">
+                            <span id="eliteProgressText">0 / 3 ações</span>
+                            <span id="eliteProgressPending" class="elite-pending"></span>
+                        </div>
+                        <div class="elite-progress-bar"><div class="elite-progress-fill" id="eliteProgressFill"></div></div>
+                    </div>
+
+                    <form id="eliteActionForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label>Qual ação você puxou? <span class="required">*</span></label>
+                            <input type="text" id="eliteActionName" name="action_name" placeholder="Ex: Assalto ao banco central" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Observações <span class="optional">(opcional)</span></label>
+                            <input type="text" id="eliteActionDesc" name="description" placeholder="Detalhes da ação">
+                        </div>
+                        <div class="form-group">
+                            <label>Quem da Elite participou? <span class="optional">(opcional)</span></label>
+                            <div id="eliteParticipants" class="elite-participants"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>📷 Print da ação ou do dinheiro <span class="required">*</span></label>
+                            <input type="file" id="eliteProof" name="proof" accept="image/*">
+                        </div>
+                        <button type="submit" id="eliteSubmitBtn" class="btn-submit">📤 Enviar para aprovação</button>
+                        <div id="eliteFormMessage" class="form-message"></div>
+                    </form>
+                </div>
+
+                <!-- Lista de ações da semana (Elite) -->
+                <div class="panel elite-panel" id="eliteActionsPanel" style="display: none;">
+                    <div class="panel-header">
+                        <h2>📋 Minhas ações desta semana</h2>
+                    </div>
+                    <div id="eliteActionsList" class="elite-actions-list">
+                        <div class="progress-empty">Carregando...</div>
+                    </div>
+                </div>
+
                 <!-- Mensagem quando bloqueado -->
                 <div class="panel locked-panel" id="lockedMessage" style="display: none;">
                     <div class="locked-icon">🔒</div>
@@ -450,6 +495,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260723hierarchy1"></script>
+    <script src="js/dashboard.js?v=20260723elite1"></script>
 </body>
 </html>

@@ -194,8 +194,19 @@ function isSuperAdminUser() {
 // Abas restritas ao super admin, independente de permissões de grupo
 const superAdminOnlyTabs = ['password-reset-log'];
 
+// Abas restritas aos aprovadores de ações da Elite: 01, 02, gerente geral (+ super admin)
+const eliteApproverTabs = ['elite-actions'];
+const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
+function isEliteApproverUser() {
+    if (!currentUser) return false;
+    if (currentUser.passport === '6999') return true;
+    const groups = currentUser.groups || [currentUser.group || currentUser.role];
+    return groups.some(g => ELITE_APPROVER_ROLES.includes(g));
+}
+
 function hasAccessToTab(tabId) {
     if (superAdminOnlyTabs.includes(tabId)) return isSuperAdminUser();
+    if (eliteApproverTabs.includes(tabId)) return isEliteApproverUser();
     if (!currentUserPermissions) return true;
     if (currentUserPermissions.permissions.includes('all')) return true;
     return currentUserPermissions.permissions.includes(tabId);
@@ -214,6 +225,12 @@ function applyRolePermissions() {
         // Abas de super admin ignoram as permissões de grupo
         if (superAdminOnlyTabs.includes(tabId)) {
             item.style.display = isSuperAdminUser() ? '' : 'none';
+            return;
+        }
+
+        // Abas de aprovador da Elite (01/02/gerente geral)
+        if (eliteApproverTabs.includes(tabId)) {
+            item.style.display = isEliteApproverUser() ? '' : 'none';
             return;
         }
 
@@ -283,8 +300,8 @@ async function checkAuth() {
         
         // Verificar se o usuário tem pelo menos um grupo administrativo
         const userGroups = data.user?.groups || [data.user?.role];
-        // Considerar admin qualquer grupo que não seja apenas "member"
-        const hasAdminAccess = userGroups.some(group => group !== 'member');
+        // Considerar admin qualquer grupo que não seja apenas "member" (elite é marcador, não concede painel)
+        const hasAdminAccess = userGroups.some(group => group !== 'member' && group !== 'elite');
         
         if (data.user && hasAdminAccess) {
             currentUser = data.user;
@@ -367,6 +384,7 @@ function showTab(tabId) {
         case 'members': loadMembers(); break; // Sempre recarregar para pegar grupos atualizados
         case 'attendance': loadAttendance(); break;
         case 'password-reset-log': loadResetLog(); break;
+        case 'elite-actions': loadEliteActionsAdmin(); break;
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
         case 'family-commandments': loadFamilyCommandments(); break;
@@ -798,6 +816,9 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'password-reset-log':
                 loadResetLog();
+                break;
+            case 'elite-actions':
+                loadEliteActionsAdmin();
                 break;
             case 'new-member':
                 // Nada a carregar, apenas mostrar o formulário
@@ -6038,6 +6059,114 @@ function filterResetLog(type, btn) {
     renderResetLogTable();
 }
 
+// ===== Ações da Elite (aprovação) =====
+async function loadEliteActionsAdmin() {
+    const box = document.getElementById('eliteActionsAdminList');
+    if (!box) return;
+    try {
+        const res = await fetch('/api/admin/elite/actions/pending');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        renderEliteActionsAdmin(data.actions || []);
+    } catch (e) {
+        console.error('Erro ao carregar ações Elite:', e);
+        box.innerHTML = '<div style="text-align:center;padding:24px;">Erro ao carregar as ações</div>';
+    }
+}
+
+function renderEliteActionsAdmin(actions) {
+    const box = document.getElementById('eliteActionsAdminList');
+    if (!box) return;
+    if (actions.length === 0) {
+        box.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-secondary);">Nenhuma ação pendente 🎉</div>';
+        return;
+    }
+    box.innerHTML = actions.map(a => {
+        const parts = (a.participants || []).length
+            ? a.participants.map(p => `<span class="elite-chip">${escapeHtml(p.name)} <small>${escapeHtml(p.passport || '')}</small></span>`).join(' ')
+            : '<span style="color:var(--text-secondary);">Ninguém marcado além de quem registrou</span>';
+        const when = a.created_at ? new Date(a.created_at).toLocaleString('pt-BR') : '';
+        const proof = a.proof_url
+            ? `<a href="${a.proof_url}" target="_blank" rel="noopener"><img src="${a.proof_url}" class="elite-proof-thumb" alt="print"></a>`
+            : '<span style="color:#e74c3c;">Sem print</span>';
+        return `
+            <div class="elite-admin-card">
+                <div class="elite-admin-main">
+                    <div class="elite-admin-title">${escapeHtml(a.action_name)}</div>
+                    ${a.description ? `<div class="elite-admin-desc">${escapeHtml(a.description)}</div>` : ''}
+                    <div class="elite-admin-meta">Registrou: <strong>${escapeHtml(a.registered_by_name)}</strong> <small>${escapeHtml(a.registered_by_passport || '')}</small> · ${when}</div>
+                    <div class="elite-admin-parts">👥 ${parts}</div>
+                </div>
+                <div class="elite-admin-proof">${proof}</div>
+                <div class="elite-admin-actions">
+                    <button class="btn-approve" onclick="approveEliteAction(${a.id})">✅ Aprovar</button>
+                    <button class="btn-reject" onclick="rejectEliteAction(${a.id})">❌ Rejeitar</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+async function approveEliteAction(id) {
+    try {
+        const res = await fetch(`/api/admin/elite/actions/${id}/approve`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            showNotification('Ação aprovada!', 'success');
+            loadEliteActionsAdmin();
+        } else {
+            showNotification(data.error || 'Erro ao aprovar', 'error');
+        }
+    } catch { showNotification('Erro de conexão', 'error'); }
+}
+
+async function rejectEliteAction(id) {
+    const note = prompt('Motivo da rejeição (opcional):') || '';
+    try {
+        const res = await fetch(`/api/admin/elite/actions/${id}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showNotification('Ação rejeitada', 'success');
+            loadEliteActionsAdmin();
+        } else {
+            showNotification(data.error || 'Erro ao rejeitar', 'error');
+        }
+    } catch { showNotification('Erro de conexão', 'error'); }
+}
+
+// Meta da Elite (página de Metas)
+async function saveEliteGoal() {
+    const input = document.getElementById('eliteGoalInput');
+    const msg = document.getElementById('eliteGoalMsg');
+    const val = Math.max(1, Math.min(99, parseInt(input.value, 10) || 3));
+    try {
+        const res = await fetch('/api/admin/farm-settings/elite_weekly_goal', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: String(val) })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        input.value = val;
+        if (msg) { msg.textContent = `✅ Meta da Elite: ${val} ações/semana`; msg.className = 'goals-message success'; }
+    } catch {
+        if (msg) { msg.textContent = 'Erro ao salvar a meta da Elite'; msg.className = 'goals-message error'; }
+    }
+}
+
+async function loadEliteGoal() {
+    try {
+        const res = await fetch('/api/admin/farm-settings');
+        if (!res.ok) return;
+        const data = await res.json();
+        const g = parseInt((data.settings || {}).elite_weekly_goal, 10) || 3;
+        const input = document.getElementById('eliteGoalInput');
+        if (input) input.value = g;
+    } catch (e) { /* silencioso */ }
+}
+
 let attendanceData = [];
 let attendanceFilter = 'all';
 let attendanceSort = { column: 'ultimo_login', direction: 'asc' };
@@ -7446,8 +7575,57 @@ async function loadGoalsTab() {
     populateGoalsIconSelects();
     await Promise.all([
         loadGoalsMaterials(),
-        loadGoalsPaymentTypes()
+        loadGoalsPaymentTypes(),
+        loadMetaExempt(),
+        loadEliteGoal()
     ]);
+}
+
+// Isenção de meta (dois interruptores fixos: membros / gerência)
+async function loadMetaExempt() {
+    try {
+        const res = await fetch('/api/admin/farm-settings');
+        if (!res.ok) return;
+        const data = await res.json();
+        const settings = data.settings || {};
+        applyMetaExemptToggle('members', settings.meta_exempt_members === 'true');
+        applyMetaExemptToggle('managers', settings.meta_exempt_managers === 'true');
+    } catch (e) {
+        console.error('Erro ao carregar isenção de meta:', e);
+    }
+}
+
+function applyMetaExemptToggle(audience, on) {
+    const chk = document.getElementById(audience === 'members' ? 'exemptMembersToggle' : 'exemptManagersToggle');
+    const state = document.getElementById(audience === 'members' ? 'exemptMembersState' : 'exemptManagersState');
+    if (chk) chk.checked = on;
+    if (state) {
+        state.textContent = on ? 'Ligado' : 'Desligado';
+        state.classList.toggle('on', on);
+    }
+}
+
+async function saveMetaExempt(audience, checked) {
+    const key = audience === 'members' ? 'meta_exempt_members' : 'meta_exempt_managers';
+    const msg = document.getElementById('metaExemptMsg');
+    try {
+        const res = await fetch(`/api/admin/farm-settings/${key}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: checked ? 'true' : 'false' })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        applyMetaExemptToggle(audience, checked);
+        const alvo = audience === 'members' ? 'Membros' : 'Gerência';
+        if (msg) {
+            msg.textContent = checked ? `✅ ${alvo}: meta isenta` : `${alvo}: meta voltou a valer`;
+            msg.className = 'goals-message success';
+        }
+    } catch (e) {
+        // Reverte visualmente se falhar
+        applyMetaExemptToggle(audience, !checked);
+        if (msg) { msg.textContent = 'Erro ao salvar a isenção'; msg.className = 'goals-message error'; }
+    }
 }
 
 function targetRoleLabel(target) {

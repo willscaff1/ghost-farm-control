@@ -80,6 +80,17 @@ const getUserGroups = async (userId) => {
     }
 };
 
+// Elite é um marcador (grupo 'elite') sobre o cargo — troca a meta para o modo de ações
+const isEliteGroupName = (groupName = '') => normalizeGroupName(groupName) === 'elite';
+
+const isEliteUser = async (userId, sessionUser) => {
+    if (sessionUser && sessionUser.id === userId && Array.isArray(sessionUser.groups)) {
+        return sessionUser.groups.some(isEliteGroupName);
+    }
+    const groups = await getUserGroups(userId);
+    return groups.some(isEliteGroupName);
+};
+
 const isManagerUser = async (userId, sessionUser) => {
     if (sessionUser && sessionUser.id === userId && Array.isArray(sessionUser.groups)) {
         return sessionUser.groups.some(isManagerGroupName);
@@ -252,6 +263,19 @@ const upload = multer({
         cb(new Error('Apenas imagens são permitidas'));
     }
 }).array('screenshots', MAX_SCREENSHOT_FILES);
+
+// Upload de um único print (prova da ação da Elite)
+const uploadProof = multer({
+    storage,
+    limits: { fileSize: MAX_SCREENSHOT_FILE_BYTES },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif|webp/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+        if (extname && mimetype) return cb(null, true);
+        cb(new Error('Apenas imagens são permitidas'));
+    }
+}).single('proof');
 
 // Middleware de autenticação
 const requireAuth = (req, res, next) => {
@@ -638,7 +662,13 @@ router.get('/current-week', requireAuth, async (req, res) => {
             canEditValues = await isManagerUser(userId, req.session.user);
         }
         
-        res.json({ 
+        // Isenção de meta: interruptor por público (membros x gerência).
+        // Quando ligado, o membro não é obrigado a pagar a meta (ainda pode, se quiser).
+        const metaExempt = (isManager
+            ? settingsObj.meta_exempt_managers
+            : settingsObj.meta_exempt_members) === 'true';
+
+        res.json({
             week,
             hasDelivery: !!existingDelivery,
             deliveryStatus: existingDelivery?.status || null,
@@ -648,6 +678,7 @@ router.get('/current-week', requireAuth, async (req, res) => {
             existingScreenshots: existingScreenshots,
             canDeliver: canDeliver,
             isLocked: isLocked,
+            metaExempt: metaExempt,
             hasPendingExtraFarm: hasPendingExtraFarm,
             statusMessage: statusMessage,
             hasJustification: !!existingJustification,
@@ -736,6 +767,154 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
         console.error('Erro ao carregar hierarquia da família:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+// ===== Trilha Elite: registro de ações =====
+
+// Status da Elite para o membro: meta, contagem e ações da semana
+router.get('/elite/status', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        if (!(await isEliteUser(userId, req.session.user))) {
+            return res.status(403).json({ error: 'Acesso restrito à Elite' });
+        }
+
+        const week = getWeekWithOffset(parseInt(req.query.offset) || 0);
+        const goalRow = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'elite_weekly_goal'");
+        const goal = parseInt(goalRow?.setting_value, 10) || 3;
+
+        // Ações da semana em que o usuário é registrante OU participante
+        const actions = await getAll(`
+            SELECT DISTINCT a.id, a.action_name, a.description, a.proof_url, a.status,
+                   a.registered_by, a.created_at, a.reviewed_at, a.review_note,
+                   COALESCE(NULLIF(TRIM(ru.capital_nickname), ''), ru.name) as registered_by_name
+            FROM elite_actions a
+            JOIN users ru ON ru.id = a.registered_by
+            LEFT JOIN elite_action_participants p ON p.action_id = a.id
+            WHERE a.week_start = ? AND a.week_end = ?
+              AND (a.registered_by = ? OR p.user_id = ?)
+            ORDER BY a.created_at DESC, a.id DESC
+        `, [week.start, week.end, userId, userId]);
+
+        // Participantes de cada ação (para exibir)
+        const actionIds = actions.map(a => a.id);
+        const partMap = new Map();
+        if (actionIds.length > 0) {
+            const ph = actionIds.map(() => '?').join(',');
+            const parts = await getAll(`
+                SELECT p.action_id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name
+                FROM elite_action_participants p
+                JOIN users u ON u.id = p.user_id
+                WHERE p.action_id IN (${ph})
+            `, actionIds);
+            for (const p of parts) {
+                if (!partMap.has(p.action_id)) partMap.set(p.action_id, []);
+                partMap.get(p.action_id).push(p.name);
+            }
+        }
+
+        const weeklyActions = actions.map(a => ({
+            id: a.id,
+            action_name: a.action_name,
+            description: a.description,
+            proof_url: a.proof_url,
+            status: a.status,
+            registered_by_name: a.registered_by_name,
+            is_mine: a.registered_by === userId,
+            participants: partMap.get(a.id) || [],
+            created_at: a.created_at,
+            review_note: a.review_note
+        }));
+
+        const approvedCount = weeklyActions.filter(a => a.status === 'approved').length;
+        const pendingCount = weeklyActions.filter(a => a.status === 'pending').length;
+
+        // Outros Elite para o seletor de participantes
+        const eliteMembers = await getAll(`
+            SELECT DISTINCT u.id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.capital_nickname
+            FROM users u
+            JOIN user_groups g ON g.user_id = u.id
+            WHERE g.group_name = 'elite' AND u.active = 1 AND u.id != ?
+            ORDER BY name
+        `, [userId]);
+
+        res.json({
+            goal,
+            approvedCount,
+            pendingCount,
+            week: { start: week.start, end: week.end, label: week.label },
+            weeklyActions,
+            eliteMembers: eliteMembers.map(m => ({ id: m.id, name: m.name, vulgo: m.capital_nickname || null }))
+        });
+    } catch (error) {
+        console.error('Erro no status da Elite:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Registrar (puxar) uma ação — print obrigatório, participantes opcionais
+router.post('/elite/action', requireAuth, (req, res) => {
+    uploadProof(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ error: err.message || 'Falha no upload do print' });
+        }
+        try {
+            const userId = req.session.user.id;
+            if (!(await isEliteUser(userId, req.session.user))) {
+                return res.status(403).json({ error: 'Acesso restrito à Elite' });
+            }
+
+            const actionName = String(req.body.action_name || '').trim();
+            const description = String(req.body.description || '').trim();
+            if (!actionName) {
+                return res.status(400).json({ error: 'Diga qual ação você puxou' });
+            }
+            if (!req.file) {
+                return res.status(400).json({ error: 'Anexe o print da ação ou do dinheiro' });
+            }
+
+            // Participantes marcados (ids), validados como Elite ativos
+            let participantIds = [];
+            try {
+                const raw = req.body.participants;
+                const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (Array.isArray(parsed)) participantIds = parsed.map(n => parseInt(n, 10)).filter(Boolean);
+            } catch (e) { participantIds = []; }
+
+            let validParticipants = [];
+            if (participantIds.length > 0) {
+                const ph = participantIds.map(() => '?').join(',');
+                const rows = await getAll(`
+                    SELECT DISTINCT u.id FROM users u
+                    JOIN user_groups g ON g.user_id = u.id
+                    WHERE g.group_name = 'elite' AND u.active = 1 AND u.id IN (${ph})
+                `, participantIds);
+                validParticipants = rows.map(r => r.id).filter(id => id !== userId);
+            }
+
+            const week = getWeekWithOffset(0);
+            const proofUrl = fileToDataUrl(req.file);
+
+            const result = await runQuery(
+                `INSERT INTO elite_actions (registered_by, week_start, week_end, action_name, description, proof_url, status)
+                 VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+                [userId, week.start, week.end, actionName, description || null, proofUrl]
+            );
+            const actionId = result.lastID;
+
+            // O registrante conta como participante + os marcados (para a meta contar para todos)
+            const allParticipants = [userId, ...validParticipants];
+            for (const pid of allParticipants) {
+                await runQuery('INSERT INTO elite_action_participants (action_id, user_id) VALUES (?, ?)', [actionId, pid]);
+            }
+
+            console.log(`⚔️ Ação Elite registrada por ${req.session.user.name} (id ${actionId}) com ${allParticipants.length} participante(s)`);
+            res.json({ success: true, message: 'Ação enviada para aprovação!', actionId });
+        } catch (error) {
+            console.error('Erro ao registrar ação Elite:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
 });
 
 // Deletar screenshot de farm pendente

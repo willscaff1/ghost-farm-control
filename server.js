@@ -178,6 +178,101 @@ db.initialize().then(async () => {
         }
     }
 
+    // Trilha Elite: grupo 'elite' (marcador sobre o cargo), tabelas de ações e meta padrão
+    async function createEliteTables() {
+        try {
+            const { runQuery, getAll, getOne } = require('./database/db');
+            const isPostgres = process.env.DATABASE_URL ? true : false;
+
+            // Grupo 'elite' sem permissões próprias: o painel/permissões vêm do cargo base;
+            // Elite só troca a meta para o modo de ações.
+            const eliteRole = await getOne('SELECT role_name FROM role_permissions WHERE role_name = ?', ['elite']);
+            if (!eliteRole) {
+                await runQuery(
+                    'INSERT INTO role_permissions (role_name, display_name, permissions, can_config) VALUES (?, ?, ?, ?)',
+                    ['elite', 'Elite', JSON.stringify([]), 0]
+                );
+                console.log('⚔️ Grupo elite criado');
+            }
+
+            // Meta padrão da Elite (3 ações/semana), só cria se não existir
+            const goal = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', ['elite_weekly_goal']);
+            if (!goal) {
+                await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', ['elite_weekly_goal', '3']);
+            }
+
+            try {
+                await getAll('SELECT id FROM elite_actions LIMIT 1');
+                console.log('✅ Tabela elite_actions já existe');
+                return;
+            } catch (e) {
+                console.log('⚔️ Criando tabelas de ações da Elite...');
+            }
+
+            if (isPostgres) {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS elite_actions (
+                        id SERIAL PRIMARY KEY,
+                        registered_by INTEGER NOT NULL REFERENCES users(id),
+                        week_start DATE NOT NULL,
+                        week_end DATE NOT NULL,
+                        action_name TEXT NOT NULL,
+                        description TEXT,
+                        proof_url TEXT,
+                        status TEXT DEFAULT 'pending',
+                        reviewed_by INTEGER REFERENCES users(id),
+                        reviewed_at TIMESTAMP,
+                        review_note TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS elite_action_participants (
+                        id SERIAL PRIMARY KEY,
+                        action_id INTEGER NOT NULL REFERENCES elite_actions(id),
+                        user_id INTEGER NOT NULL REFERENCES users(id)
+                    )
+                `);
+            } else {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS elite_actions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        registered_by INTEGER NOT NULL,
+                        week_start DATE NOT NULL,
+                        week_end DATE NOT NULL,
+                        action_name TEXT NOT NULL,
+                        description TEXT,
+                        proof_url TEXT,
+                        status TEXT DEFAULT 'pending',
+                        reviewed_by INTEGER,
+                        reviewed_at DATETIME,
+                        review_note TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (registered_by) REFERENCES users(id),
+                        FOREIGN KEY (reviewed_by) REFERENCES users(id)
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS elite_action_participants (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        action_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        FOREIGN KEY (action_id) REFERENCES elite_actions(id),
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                    )
+                `);
+            }
+
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_elite_actions_week ON elite_actions (week_start, week_end)');
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_elite_actions_status ON elite_actions (status)');
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_elite_participants_action ON elite_action_participants (action_id)');
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_elite_participants_user ON elite_action_participants (user_id)');
+            console.log('✅ Tabelas elite_actions e elite_action_participants criadas');
+        } catch (error) {
+            console.error('⚠️ Erro ao criar tabelas da Elite:', error.message);
+        }
+    }
+
     async function createExtraFarmTable() {
         try {
             const { runQuery, getAll } = require('./database/db');
@@ -951,6 +1046,9 @@ db.initialize().then(async () => {
         
         // Extrato de reset de senha + flag de troca obrigatória
         await createPasswordResetLog();
+
+        // Trilha Elite: grupo, tabelas de ações e meta padrão
+        await createEliteTables();
 
         // Criar tabela de farm extra se não existir
         await createExtraFarmTable();

@@ -668,8 +668,9 @@ const requireAdmin = async (req, res, next) => {
         );
         
         // Considerar admin qualquer usuário com grupos que não sejam apenas "member"
+        // 'elite' é marcador de trilha (não concede painel), então não conta como admin
         const groups = userGroups.map(g => g.group_name);
-        const nonMemberGroups = groups.filter(g => g !== 'member');
+        const nonMemberGroups = groups.filter(g => g !== 'member' && g !== 'elite');
         const hasAdminGroups = nonMemberGroups.length > 0;
         
         // Verificar se tem role de gerente/admin no nome do grupo
@@ -709,6 +710,27 @@ const requireSuperAdmin = (req, res, next) => {
     next();
 };
 
+// Aprovadores de ações da Elite: 01, 02, gerente geral (e super admin)
+const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
+const requireEliteApprover = async (req, res, next) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Não autenticado' });
+    }
+    try {
+        const rows = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [req.session.user.id]);
+        const groups = rows.map(g => g.group_name);
+        const allowed = isSuperAdminUser(req.session.user)
+            || ELITE_APPROVER_ROLES.includes(req.session.user.role)
+            || groups.some(g => ELITE_APPROVER_ROLES.includes(g));
+        if (!allowed) {
+            return res.status(403).json({ error: 'Apenas 01, 02 ou gerente geral podem aprovar ações da Elite' });
+        }
+        next();
+    } catch (error) {
+        return res.status(500).json({ error: 'Erro ao verificar permissão' });
+    }
+};
+
 // Extrato de solicitações de reset de senha — só super admin
 router.get('/password-reset-log', requireSuperAdmin, async (req, res) => {
     try {
@@ -740,6 +762,115 @@ router.get('/password-reset-log', requireSuperAdmin, async (req, res) => {
         res.json({ entries, summary: { total, success: ok, failed: total - ok } });
     } catch (error) {
         console.error('Erro ao carregar extrato de reset de senha:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ===== Ações da Elite: fila de aprovação (01/02/gerente geral) =====
+
+// Ações pendentes com registrante, participantes e print
+router.get('/elite/actions/pending', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const actions = await getAll(`
+            SELECT a.id, a.action_name, a.description, a.proof_url, a.status, a.created_at,
+                   a.registered_by,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as registered_by_name,
+                   u.passport as registered_by_passport
+            FROM elite_actions a
+            JOIN users u ON u.id = a.registered_by
+            WHERE a.status = 'pending'
+            ORDER BY a.created_at ASC, a.id ASC
+        `);
+
+        const ids = actions.map(a => a.id);
+        const partMap = new Map();
+        if (ids.length > 0) {
+            const ph = ids.map(() => '?').join(',');
+            const parts = await getAll(`
+                SELECT p.action_id, COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.passport
+                FROM elite_action_participants p
+                JOIN users u ON u.id = p.user_id
+                WHERE p.action_id IN (${ph})
+            `, ids);
+            for (const p of parts) {
+                if (!partMap.has(p.action_id)) partMap.set(p.action_id, []);
+                partMap.get(p.action_id).push({ name: p.name, passport: p.passport });
+            }
+        }
+
+        res.json({
+            actions: actions.map(a => ({
+                id: a.id,
+                action_name: a.action_name,
+                description: a.description,
+                proof_url: a.proof_url,
+                created_at: a.created_at,
+                registered_by_name: a.registered_by_name,
+                registered_by_passport: a.registered_by_passport,
+                participants: partMap.get(a.id) || []
+            }))
+        });
+    } catch (error) {
+        console.error('Erro ao listar ações Elite pendentes:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Histórico de ações (todas)
+router.get('/elite/actions/all', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit, 10) || 200, 1000);
+        const actions = await getAll(`
+            SELECT a.id, a.action_name, a.status, a.created_at, a.reviewed_at,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as registered_by_name,
+                   COALESCE(NULLIF(TRIM(rv.capital_nickname), ''), rv.name) as reviewed_by_name
+            FROM elite_actions a
+            JOIN users u ON u.id = a.registered_by
+            LEFT JOIN users rv ON rv.id = a.reviewed_by
+            ORDER BY a.created_at DESC, a.id DESC
+            LIMIT ${limit}
+        `);
+        res.json({ actions });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Aprovar ação
+router.post('/elite/actions/:id/approve', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const action = await getOne("SELECT id, status FROM elite_actions WHERE id = ?", [req.params.id]);
+        if (!action) return res.status(404).json({ error: 'Ação não encontrada' });
+        if (action.status !== 'pending') return res.status(400).json({ error: 'Ação já foi analisada' });
+
+        await runQuery(
+            "UPDATE elite_actions SET status = 'approved', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            [req.session.user.id, req.params.id]
+        );
+        console.log(`⚔️ Ação Elite ${req.params.id} aprovada por ${req.session.user.name}`);
+        res.json({ success: true, message: 'Ação aprovada!' });
+    } catch (error) {
+        console.error('Erro ao aprovar ação Elite:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Rejeitar ação
+router.post('/elite/actions/:id/reject', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const note = String(req.body?.note || '').trim();
+        const action = await getOne("SELECT id, status FROM elite_actions WHERE id = ?", [req.params.id]);
+        if (!action) return res.status(404).json({ error: 'Ação não encontrada' });
+        if (action.status !== 'pending') return res.status(400).json({ error: 'Ação já foi analisada' });
+
+        await runQuery(
+            "UPDATE elite_actions SET status = 'rejected', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, review_note = ? WHERE id = ?",
+            [req.session.user.id, note || null, req.params.id]
+        );
+        console.log(`⚔️ Ação Elite ${req.params.id} rejeitada por ${req.session.user.name}`);
+        res.json({ success: true, message: 'Ação rejeitada' });
+    } catch (error) {
+        console.error('Erro ao rejeitar ação Elite:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2202,11 +2333,11 @@ router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
         const { key } = req.params;
         const { value } = req.body;
         
-        const validKeys = ['farm_materials_enabled', 'member_drug_farm_enabled', 'member_weapon_farm_enabled', 'farm_payment_enabled', 'farm_payment_mode', 'competition_enabled'];
+        const validKeys = ['farm_materials_enabled', 'member_drug_farm_enabled', 'member_weapon_farm_enabled', 'farm_payment_enabled', 'farm_payment_mode', 'competition_enabled', 'meta_exempt_members', 'meta_exempt_managers', 'elite_weekly_goal'];
         if (!validKeys.includes(key)) {
             return res.status(400).json({ error: 'Configuração inválida' });
         }
-        
+
         // Verificar se existe, se não, criar
         const existing = await getOne('SELECT * FROM farm_settings WHERE setting_key = ?', [key]);
         if (existing) {
@@ -2214,7 +2345,12 @@ router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
         } else {
             await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [key, value]);
         }
-        
+
+        // A isenção muda quem aparece como devendo — invalidar cache do status semanal
+        if ((key === 'meta_exempt_members' || key === 'meta_exempt_managers') && typeof global.__clearWeeklyStatusCache === 'function') {
+            global.__clearWeeklyStatusCache();
+        }
+
         res.json({ success: true, message: 'Configuração atualizada' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -2381,7 +2517,11 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         const pendingApproval = [];
         const notDelivered = [];
         const justified = [];
-        
+
+        // Isenção de meta por público (fica ligada até desmarcar)
+        const exemptMembers = farmSettingsObj.meta_exempt_members === 'true';
+        const exemptManagers = farmSettingsObj.meta_exempt_managers === 'true';
+
         for (const member of allMembers) {
             // Grupos do membro (já carregados)
             member.groups = userGroupsMap.get(member.id) || [];
@@ -2389,6 +2529,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                 member.groups = [member.role];
             }
             const isManager = isManagerByGroups(member.groups);
+            // Público isento não é cobrado — tratado como a whitelist (não aparece como devendo)
+            const isMetaExempt = isManager ? exemptManagers : exemptMembers;
             member.storage_slot = isManager ? member.manager_slot : member.member_slot;
             member.storage_slot_type = isManager ? 'manager' : 'member';
             member.storage_slot_label = isManager ? 'Bau da Gerencia' : 'Bau dos Membros';
@@ -2671,8 +2813,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     weekly_submissions: []
                 });
             } else if (delivery && (delivery.status === 'rejected' || delivery.status === 'not_delivered')) {
-                // Farm foi rejeitado - mas se está na whitelist, ignorar
-                if (!whitelistIds.has(member.id)) {
+                // Farm foi rejeitado - mas se está na whitelist ou com meta isenta, ignorar
+                if (!whitelistIds.has(member.id) && !isMetaExempt) {
                     notDelivered.push({
                         ...member,
                         ...lastRejectionInfo,
@@ -2703,8 +2845,8 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     justification_reason: justification.reason,
                     justification_created_at: justification.created_at
                 });
-            } else if (whitelistIds.has(member.id)) {
-                // Whitelist - isento
+            } else if (whitelistIds.has(member.id) || isMetaExempt) {
+                // Whitelist ou meta isenta - não é cobrado
             } else {
                 notDelivered.push({
                     ...member,
