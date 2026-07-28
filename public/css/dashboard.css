@@ -2745,14 +2745,6 @@
 .elite-pending { color:#f39c12; font-weight:600; }
 .elite-progress-bar { height:10px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden; }
 .elite-progress-fill { height:100%; background:linear-gradient(90deg,#a855f7,#7c3aed); border-radius:999px; transition:width .3s; }
-.elite-participants { display:flex; flex-wrap:wrap; gap:8px; }
-.elite-participant {
-    display:flex; align-items:center; gap:6px;
-    padding:6px 10px; border-radius:999px;
-    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
-    font-size:13px; cursor:pointer;
-}
-.elite-participant input { accent-color:#a855f7; cursor:pointer; }
 .elite-empty, .elite-actions-list .progress-empty { color:var(--text-secondary,#9aa0b5); font-size:13px; }
 .elite-actions-list { display:flex; flex-direction:column; gap:10px; }
 .elite-action-item {
@@ -2787,3 +2779,50 @@
 .elite-result-tag { font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; margin-left:6px; }
 .elite-result-tag.win { background:#27ae60; color:#fff; }
 .elite-result-tag.loss { background:#e74c3c; color:#fff; }
+
+/* ===== Seletor de participantes (+ / −) ===== */
+.elite-pick { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.elite-pick-col { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.elite-pick-head {
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--text-secondary,#9aa0b5);
+}
+.elite-pick-count {
+    background:rgba(168,85,247,0.25); color:#c4b5fd;
+    padding:1px 8px; border-radius:999px; font-size:11px;
+}
+.elite-pick-search {
+    width:100%; padding:7px 10px; font-size:13px; border-radius:8px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+    color:inherit;
+}
+.elite-pick-list {
+    display:flex; flex-direction:column; gap:6px;
+    max-height:190px; overflow-y:auto; padding-right:4px;
+}
+.elite-pick-row {
+    display:flex; align-items:center; gap:8px;
+    padding:7px 10px; border-radius:10px;
+    background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09);
+}
+.elite-pick-row.is-selected { background:rgba(168,85,247,0.12); border-color:rgba(168,85,247,0.35); }
+.elite-pick-name {
+    flex:1; min-width:0; font-size:13px; font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.elite-pick-pass { font-size:11px; color:var(--text-secondary,#9aa0b5); flex-shrink:0; }
+.elite-pick-btn {
+    flex-shrink:0; width:26px; height:26px; border:none; border-radius:8px;
+    font-size:17px; font-weight:700; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:filter .15s;
+}
+.elite-pick-btn:hover { filter:brightness(1.15); }
+.elite-pick-btn.add { background:#27ae60; color:#fff; }
+.elite-pick-btn.remove { background:#e74c3c; color:#fff; }
+.elite-pick-empty {
+    font-size:12px; color:var(--text-secondary,#9aa0b5);
+    padding:14px 10px; text-align:center;
+    border:1px dashed rgba(255,255,255,0.12); border-radius:10px;
+}
+@media (max-width: 560px) { .elite-pick { grid-template-columns:1fr; } }

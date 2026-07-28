@@ -251,18 +251,12 @@ function renderEliteStatus(data, offset) {
         }
     }
 
-    // Participantes: qualquer membro ativo
-    const partBox = document.getElementById('eliteParticipants');
-    if (partBox) {
-        const members = data.participantsOptions || [];
-        partBox.innerHTML = members.length === 0
-            ? '<span class="elite-empty">Nenhum membro ativo disponível.</span>'
-            : members.map(m => `
-                <label class="elite-participant">
-                    <input type="checkbox" value="${m.id}">
-                    <span>${escapeHtml(m.vulgo || m.name)}</span>
-                </label>`).join('');
-    }
+    // Participantes: qualquer membro ativo (lista com + para adicionar e − para remover)
+    eliteAllMembers = data.participantsOptions || [];
+    // Mantém só quem ainda existe na lista após um refresh
+    const validIds = new Set(eliteAllMembers.map(m => m.id));
+    eliteSelectedIds = eliteSelectedIds.filter(id => validIds.has(id));
+    renderEliteParticipants();
 
     // Lista de ações da semana
     const list = document.getElementById('eliteActionsList');
@@ -297,6 +291,80 @@ function renderEliteStatus(data, offset) {
     }
 }
 
+// ── Seletor de participantes (+ adicionar / − remover) ──────────────
+let eliteAllMembers = [];
+let eliteSelectedIds = [];
+
+function eliteMemberLabel(m) {
+    return m.vulgo || m.name || '';
+}
+
+function renderEliteParticipants() {
+    const box = document.getElementById('eliteParticipants');
+    if (!box) return;
+
+    const term = (document.getElementById('eliteParticipantSearch')?.value || '').toLowerCase().trim();
+    const selected = eliteAllMembers.filter(m => eliteSelectedIds.includes(m.id));
+    const available = eliteAllMembers
+        .filter(m => !eliteSelectedIds.includes(m.id))
+        .filter(m => !term || eliteMemberLabel(m).toLowerCase().includes(term) || String(m.passport || '').includes(term));
+
+    const selectedHtml = selected.length === 0
+        ? '<div class="elite-pick-empty">Ninguém selecionado ainda</div>'
+        : selected.map(m => `
+            <div class="elite-pick-row is-selected">
+                <span class="elite-pick-name">${escapeHtml(eliteMemberLabel(m))}</span>
+                <span class="elite-pick-pass">${escapeHtml(m.passport || '')}</span>
+                <button type="button" class="elite-pick-btn remove" onclick="removeEliteParticipant(${m.id})" title="Remover">−</button>
+            </div>`).join('');
+
+    const availableHtml = available.length === 0
+        ? `<div class="elite-pick-empty">${term ? 'Ninguém encontrado' : 'Todos já foram adicionados'}</div>`
+        : available.map(m => `
+            <div class="elite-pick-row">
+                <span class="elite-pick-name">${escapeHtml(eliteMemberLabel(m))}</span>
+                <span class="elite-pick-pass">${escapeHtml(m.passport || '')}</span>
+                <button type="button" class="elite-pick-btn add" onclick="addEliteParticipant(${m.id})" title="Adicionar">+</button>
+            </div>`).join('');
+
+    box.innerHTML = `
+        <div class="elite-pick">
+            <div class="elite-pick-col">
+                <div class="elite-pick-head">
+                    <span>Selecionados</span>
+                    <span class="elite-pick-count">${selected.length}</span>
+                </div>
+                <div class="elite-pick-list selected">${selectedHtml}</div>
+            </div>
+            <div class="elite-pick-col">
+                <div class="elite-pick-head">
+                    <span>Disponíveis</span>
+                    <span class="elite-pick-count">${available.length}</span>
+                </div>
+                <input type="text" id="eliteParticipantSearch" class="elite-pick-search"
+                       placeholder="🔍 Buscar por nome ou passaporte..."
+                       value="${escapeHtml(term)}" oninput="renderEliteParticipants()">
+                <div class="elite-pick-list">${availableHtml}</div>
+            </div>
+        </div>`;
+
+    // Devolve o foco/cursor para a busca depois do re-render
+    if (term) {
+        const input = document.getElementById('eliteParticipantSearch');
+        if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    }
+}
+
+function addEliteParticipant(id) {
+    if (!eliteSelectedIds.includes(id)) eliteSelectedIds.push(id);
+    renderEliteParticipants();
+}
+
+function removeEliteParticipant(id) {
+    eliteSelectedIds = eliteSelectedIds.filter(x => x !== id);
+    renderEliteParticipants();
+}
+
 async function submitEliteAction(e) {
     e.preventDefault();
     const msg = document.getElementById('eliteFormMessage');
@@ -310,7 +378,7 @@ async function submitEliteAction(e) {
     if (!resultEl) { showEliteMsg(msg, 'Marque se foi vitória ou derrota', 'error'); return; }
     if (!proof) { showEliteMsg(msg, 'Anexe o print da ação ou do dinheiro', 'error'); return; }
 
-    const participants = Array.from(document.querySelectorAll('#eliteParticipants input:checked')).map(c => parseInt(c.value, 10));
+    const participants = [...eliteSelectedIds];
 
     const fd = new FormData();
     fd.append('action_type_id', typeId);
@@ -327,6 +395,7 @@ async function submitEliteAction(e) {
         if (data.success) {
             showEliteMsg(msg, '✅ Ação enviada para aprovação!', 'success');
             document.getElementById('eliteActionForm').reset();
+            eliteSelectedIds = [];
             loadEliteStatus(currentWeekOffset || 0);
         } else {
             showEliteMsg(msg, data.error || 'Erro ao enviar', 'error');
