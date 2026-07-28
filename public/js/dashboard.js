@@ -1043,7 +1043,7 @@ async function loadWeekData(offset = 0) {
         if (absenceCard) {
             // Não mostrar justificativa se farm já está em progresso (approved + partial) ou completo (approved + !partial)
             const farmJaAprovado = data.deliveryStatus === 'approved';
-            const showJustify = data.canDeliver && !data.hasJustification && !farmJaAprovado;
+            const showJustify = data.canDeliver && !data.hasJustification && !farmJaAprovado && !data.metaExempt;
             absenceCard.style.display = showJustify ? 'block' : 'none';
             
             // Atualizar texto baseado se já tem farm parcial
@@ -1068,8 +1068,23 @@ async function loadWeekData(offset = 0) {
         const farmEmProgresso = data.deliveryStatus === 'approved' && data.isPartial;
         
         if (deliveryPanel) {
+            // META ISENTA - trava o registro e mostra o aviso (prioridade máxima)
+            if (data.metaExempt) {
+                deliveryPanel.style.display = 'none';
+                if (extraFarmPanel) extraFarmPanel.style.display = 'none';
+                if (lockedMessage) {
+                    const audienceText = data.metaExemptAudience === 'managers'
+                        ? 'Essa semana a <strong>gerência</strong> está isenta de metas'
+                        : 'Essa semana os <strong>membros</strong> estão isentos de metas';
+                    lockedMessage.style.display = 'block';
+                    lockedMessage.innerHTML = `
+                        <div class="locked-icon">🚫</div>
+                        <h3>Meta isenta</h3>
+                        <p class="meta-exempt-banner-text">${audienceText}. Você não precisa registrar farm nesta semana. 🎉</p>
+                    `;
+                }
             // Farm COMPLETO - meta batida, só mostra painel de farm extra se competição estiver ATIVA
-            if (farmCompleto && farmSettings.competition_enabled === 'true') {
+            } else if (farmCompleto && farmSettings.competition_enabled === 'true') {
                 deliveryPanel.style.display = 'none';
                 if (lockedMessage) lockedMessage.style.display = 'none';
                 

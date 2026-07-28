@@ -679,6 +679,7 @@ router.get('/current-week', requireAuth, async (req, res) => {
             canDeliver: canDeliver,
             isLocked: isLocked,
             metaExempt: metaExempt,
+            metaExemptAudience: isManager ? 'managers' : 'members',
             hasPendingExtraFarm: hasPendingExtraFarm,
             statusMessage: statusMessage,
             hasJustification: !!existingJustification,

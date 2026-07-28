@@ -2768,3 +2768,7 @@
 .elite-badge.ok { background:#27ae60; color:#fff; }
 .elite-badge.no { background:#e74c3c; color:#fff; }
 .elite-badge.wait { background:#f39c12; color:#fff; }
+
+/* ===== Aviso de meta isenta (trava o registro) ===== */
+#lockedMessage .meta-exempt-banner-text { font-size:15px; line-height:1.5; }
+.locked-panel .locked-icon { font-size:44px; }
