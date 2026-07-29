@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260729rankelite3">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260729editacao1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch2">
     
     
@@ -541,6 +541,48 @@
                     <p class="subtitle">Ações pendentes de aprovação. Aprovar conta a ação para quem registrou e para os participantes marcados.</p>
                     <div id="eliteActionsAdminList" class="elite-admin-list">
                         <div style="text-align:center; padding:24px;">Carregando...</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top:18px;">
+                    <h2>✅ Ações aprovadas</h2>
+                    <p class="subtitle">Corrija participantes, resultado ou dinheiro de uma ação já aprovada (ex.: marcou o membro errado).</p>
+                    <div id="eliteApprovedList" class="elite-admin-list">
+                        <div style="text-align:center; padding:24px;">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editar ação da Elite (corrigir participantes/resultado/dinheiro) -->
+            <div id="eliteEditModal" class="modal" style="display:none;">
+                <div class="modal-content elite-edit-content">
+                    <div class="elite-edit-header">
+                        <h2>✏️ Editar ação</h2>
+                        <span class="elite-edit-close" onclick="closeEliteEdit()">&times;</span>
+                    </div>
+                    <div class="elite-edit-body">
+                        <label class="elite-edit-label">Ação</label>
+                        <select id="eliteEditType" class="elite-edit-input"></select>
+
+                        <label class="elite-edit-label">Resultado</label>
+                        <select id="eliteEditResult" class="elite-edit-input">
+                            <option value="win">🏆 Vitória</option>
+                            <option value="loss">💀 Derrota</option>
+                        </select>
+
+                        <label class="elite-edit-label">Dinheiro sujo (R$)</label>
+                        <input type="number" id="eliteEditMoney" class="elite-edit-input" min="0" step="1000" placeholder="0">
+
+                        <label class="elite-edit-label">Participantes</label>
+                        <div id="eliteEditParts" class="elite-edit-parts"></div>
+                        <div class="elite-edit-add">
+                            <select id="eliteEditAddUser" class="elite-edit-input" style="margin:0;"></select>
+                            <button type="button" class="btn btn-secondary" onclick="eliteEditAddParticipant()">➕ Adicionar</button>
+                        </div>
+                    </div>
+                    <div class="elite-edit-actions">
+                        <button class="btn btn-secondary" onclick="closeEliteEdit()">Cancelar</button>
+                        <button class="btn btn-primary" id="eliteEditSave" onclick="saveEliteEdit()">💾 Salvar</button>
                     </div>
                 </div>
             </div>
@@ -1975,7 +2017,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260729rankelite2"></script>
+    <script src="js/admin.js?v=20260729editacao1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

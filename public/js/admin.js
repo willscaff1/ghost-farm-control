@@ -6115,6 +6115,183 @@ async function loadEliteActionsAdmin() {
         console.error('Erro ao carregar ações Elite:', e);
         box.innerHTML = '<div style="text-align:center;padding:24px;">Erro ao carregar as ações</div>';
     }
+    loadEliteApprovedActions();
+}
+
+// ===== Ações aprovadas (editáveis) =====
+let eliteApprovedCache = [];
+
+async function loadEliteApprovedActions() {
+    const box = document.getElementById('eliteApprovedList');
+    if (!box) return;
+    try {
+        const res = await fetch('/api/admin/elite/actions/all?limit=300');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        eliteApprovedCache = (data.actions || []).filter(a => a.status === 'approved');
+        renderEliteApprovedActions(eliteApprovedCache);
+    } catch (e) {
+        console.error('Erro ao carregar ações aprovadas:', e);
+        box.innerHTML = '<div style="text-align:center;padding:24px;">Erro ao carregar as ações aprovadas</div>';
+    }
+}
+
+function renderEliteApprovedActions(actions) {
+    const box = document.getElementById('eliteApprovedList');
+    if (!box) return;
+    if (!actions.length) {
+        box.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-secondary);">Nenhuma ação aprovada ainda.</div>';
+        return;
+    }
+    box.innerHTML = actions.map(a => {
+        const parts = (a.participants || []).length
+            ? a.participants.map(p => `<span class="elite-chip">${escapeHtml(p.name)} <small>${escapeHtml(p.passport || '')}</small></span>`).join(' ')
+            : '<span style="color:var(--text-secondary);">Sem participantes</span>';
+        const when = a.created_at ? new Date(a.created_at).toLocaleString('pt-BR') : '';
+        const resultTag = a.result === 'win'
+            ? '<span class="status-badge" style="background:#27ae60;color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">🏆 Vitória</span>'
+            : a.result === 'loss'
+                ? '<span class="status-badge" style="background:#e74c3c;color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">💀 Derrota</span>'
+                : '';
+        return `
+            <div class="elite-admin-card">
+                <div class="elite-admin-main">
+                    <div class="elite-admin-title">${escapeHtml(a.action_name)}${resultTag}</div>
+                    <div class="elite-admin-meta">Registrou: <strong>${escapeHtml(a.registered_by_name)}</strong> <small>${escapeHtml(a.registered_by_passport || '')}</small> · ${when}</div>
+                    <div class="elite-admin-money">💰 R$ ${(a.dirty_money || 0).toLocaleString('pt-BR')}</div>
+                    <div class="elite-admin-parts">👥 ${parts}</div>
+                </div>
+                <div class="elite-admin-actions">
+                    <button class="btn-approve" onclick="openEliteEdit(${a.id})">✏️ Editar</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+// ===== Modal de edição de ação =====
+let eliteEditState = null;
+
+async function openEliteEdit(id) {
+    const action = (eliteApprovedCache || []).find(a => a.id === id);
+    if (!action) return;
+
+    // carregar tipos de ação e usuários disponíveis em paralelo
+    let types = [];
+    let users = [];
+    try {
+        const [tRes, uRes] = await Promise.all([
+            fetch('/api/admin/elite/action-types'),
+            fetch('/api/admin/users/available')
+        ]);
+        types = (await tRes.json()).types || [];
+        users = (await uRes.json()).users || [];
+    } catch (e) {
+        showNotification('Erro ao abrir edição', 'error');
+        return;
+    }
+
+    eliteEditState = {
+        id,
+        participants: (action.participants || []).map(p => ({ id: p.id, name: p.name, passport: p.passport })),
+        allUsers: users
+    };
+
+    // Select de ação (por nome). Garante que o nome atual esteja na lista.
+    const typeSel = document.getElementById('eliteEditType');
+    const names = types.filter(t => t.active).map(t => t.name);
+    if (action.action_name && !names.includes(action.action_name)) names.unshift(action.action_name);
+    typeSel.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+    typeSel.value = action.action_name || (names[0] || '');
+
+    document.getElementById('eliteEditResult').value = action.result === 'loss' ? 'loss' : 'win';
+    document.getElementById('eliteEditMoney').value = action.dirty_money || 0;
+
+    renderEliteEditParts();
+    renderEliteEditAddOptions();
+
+    document.getElementById('eliteEditModal').style.display = 'flex';
+}
+
+function renderEliteEditParts() {
+    const box = document.getElementById('eliteEditParts');
+    if (!eliteEditState) return;
+    const parts = eliteEditState.participants;
+    box.innerHTML = parts.length
+        ? parts.map(p => `<span class="elite-edit-chip">${escapeHtml(p.name)} <small>${escapeHtml(p.passport || '')}</small><button type="button" onclick="eliteEditRemoveParticipant(${p.id})" title="Remover">&times;</button></span>`).join('')
+        : '<span style="color:var(--text-secondary);">Nenhum participante — adicione pelo menos um.</span>';
+}
+
+function renderEliteEditAddOptions() {
+    const sel = document.getElementById('eliteEditAddUser');
+    if (!eliteEditState) return;
+    const chosen = new Set(eliteEditState.participants.map(p => p.id));
+    const opts = eliteEditState.allUsers
+        .filter(u => !chosen.has(u.id))
+        .map(u => `<option value="${u.id}">${escapeHtml(u.name)} — ${escapeHtml(u.passport || '')}</option>`)
+        .join('');
+    sel.innerHTML = opts || '<option value="">Todos já estão na ação</option>';
+}
+
+function eliteEditAddParticipant() {
+    const sel = document.getElementById('eliteEditAddUser');
+    const uid = parseInt(sel.value, 10);
+    if (!Number.isFinite(uid)) return;
+    const user = eliteEditState.allUsers.find(u => u.id === uid);
+    if (!user) return;
+    if (eliteEditState.participants.some(p => p.id === uid)) return;
+    eliteEditState.participants.push({ id: user.id, name: user.name, passport: user.passport });
+    renderEliteEditParts();
+    renderEliteEditAddOptions();
+}
+
+function eliteEditRemoveParticipant(uid) {
+    if (!eliteEditState) return;
+    eliteEditState.participants = eliteEditState.participants.filter(p => p.id !== uid);
+    renderEliteEditParts();
+    renderEliteEditAddOptions();
+}
+
+function closeEliteEdit() {
+    const modal = document.getElementById('eliteEditModal');
+    if (modal) modal.style.display = 'none';
+    eliteEditState = null;
+}
+
+async function saveEliteEdit() {
+    if (!eliteEditState) return;
+    const btn = document.getElementById('eliteEditSave');
+    const action_name = document.getElementById('eliteEditType').value;
+    const result = document.getElementById('eliteEditResult').value;
+    const dirty_money = parseInt(document.getElementById('eliteEditMoney').value, 10) || 0;
+    const participant_ids = eliteEditState.participants.map(p => p.id);
+
+    if (participant_ids.length === 0) {
+        showNotification('Adicione pelo menos um participante', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+    try {
+        const res = await fetch(`/api/admin/elite/actions/${eliteEditState.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action_name, result, dirty_money, participant_ids })
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeEliteEdit();
+            showNotification('Ação atualizada!', 'success');
+            loadEliteApprovedActions();
+        } else {
+            showNotification(data.error || 'Erro ao salvar', 'error');
+        }
+    } catch {
+        showNotification('Erro de conexão', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Salvar';
+    }
 }
 
 function renderEliteActionsAdmin(actions) {

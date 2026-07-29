@@ -2234,6 +2234,49 @@ tr.status-rejected {
     .elite-admin-actions { flex-direction:row; }
 }
 
+/* ===== Modal de editar ação da Elite ===== */
+.elite-edit-content {
+    background:var(--card-bg,#1a1c2b); border:1px solid rgba(255,255,255,0.12);
+    border-radius:16px; width:520px; max-width:94vw; max-height:90vh; overflow-y:auto;
+    padding:0; box-shadow:0 20px 60px rgba(0,0,0,0.5);
+}
+.elite-edit-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 22px; border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.elite-edit-header h2 { margin:0; font-size:18px; }
+.elite-edit-close { font-size:26px; line-height:1; cursor:pointer; color:var(--text-secondary,#9aa0b5); }
+.elite-edit-close:hover { color:#fff; }
+.elite-edit-body { padding:18px 22px; }
+.elite-edit-label {
+    display:block; font-size:12px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; color:var(--text-secondary,#9aa0b5); margin:14px 0 6px;
+}
+.elite-edit-label:first-child { margin-top:0; }
+.elite-edit-input {
+    width:100%; padding:10px 12px; border-radius:10px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14);
+    color:#fff; font-size:14px; margin-bottom:2px;
+}
+.elite-edit-parts { display:flex; flex-wrap:wrap; gap:8px; min-height:20px; }
+.elite-edit-chip {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 10px; border-radius:999px; font-size:12.5px;
+    background:rgba(168,85,247,0.18); border:1px solid rgba(168,85,247,0.4); color:#e9ddff;
+}
+.elite-edit-chip small { color:var(--text-secondary,#c4b5fd); }
+.elite-edit-chip button {
+    background:none; border:none; color:#e9ddff; font-size:16px; line-height:1;
+    cursor:pointer; padding:0 0 0 2px;
+}
+.elite-edit-chip button:hover { color:#ff8080; }
+.elite-edit-add { display:flex; gap:8px; margin-top:10px; }
+.elite-edit-add .elite-edit-input { flex:1; }
+.elite-edit-actions {
+    display:flex; justify-content:flex-end; gap:10px;
+    padding:16px 22px; border-top:1px solid rgba(255,255,255,0.08);
+}
+
 /* Chip de progresso da Elite no status semanal */
 .elite-progress-chip {
     display:inline-block;

@@ -818,13 +818,15 @@ router.get('/elite/actions/pending', requireAdmin, requireEliteApprover, async (
     }
 });
 
-// Histórico de ações (todas)
+// Histórico de ações (todas) — com participantes, resultado e dinheiro (pra editar)
 router.get('/elite/actions/all', requireAdmin, requireEliteApprover, async (req, res) => {
     try {
         const limit = Math.min(parseInt(req.query.limit, 10) || 200, 1000);
         const actions = await getAll(`
-            SELECT a.id, a.action_name, a.status, a.created_at, a.reviewed_at,
+            SELECT a.id, a.action_name, a.action_type_id, a.status, a.result, a.dirty_money,
+                   a.created_at, a.reviewed_at, a.registered_by,
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as registered_by_name,
+                   u.passport as registered_by_passport,
                    COALESCE(NULLIF(TRIM(rv.capital_nickname), ''), rv.name) as reviewed_by_name
             FROM elite_actions a
             JOIN users u ON u.id = a.registered_by
@@ -832,8 +834,82 @@ router.get('/elite/actions/all', requireAdmin, requireEliteApprover, async (req,
             ORDER BY a.created_at DESC, a.id DESC
             LIMIT ${limit}
         `);
-        res.json({ actions });
+
+        const ids = actions.map(a => a.id);
+        const partMap = new Map();
+        if (ids.length > 0) {
+            const ph = ids.map(() => '?').join(',');
+            const parts = await getAll(`
+                SELECT p.action_id, u.id as user_id,
+                       COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name, u.passport
+                FROM elite_action_participants p
+                JOIN users u ON u.id = p.user_id
+                WHERE p.action_id IN (${ph})
+            `, ids);
+            for (const p of parts) {
+                if (!partMap.has(p.action_id)) partMap.set(p.action_id, []);
+                partMap.get(p.action_id).push({ id: p.user_id, name: p.name, passport: p.passport });
+            }
+        }
+
+        res.json({ actions: actions.map(a => ({
+            id: a.id,
+            action_name: a.action_name,
+            action_type_id: a.action_type_id,
+            status: a.status,
+            result: a.result || null,
+            dirty_money: parseInt(a.dirty_money, 10) || 0,
+            created_at: a.created_at,
+            reviewed_at: a.reviewed_at,
+            registered_by_name: a.registered_by_name,
+            registered_by_passport: a.registered_by_passport,
+            reviewed_by_name: a.reviewed_by_name || null,
+            participants: partMap.get(a.id) || []
+        })) });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Editar uma ação (inclusive aprovada) — corrige participantes, resultado e dinheiro
+router.put('/elite/actions/:id', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const action = await getOne("SELECT id FROM elite_actions WHERE id = ?", [id]);
+        if (!action) return res.status(404).json({ error: 'Ação não encontrada' });
+
+        const actionName = String(req.body?.action_name || '').trim();
+        if (!actionName) return res.status(400).json({ error: 'Informe o nome da ação' });
+
+        let result = req.body?.result;
+        result = (result === 'win' || result === 'loss') ? result : null;
+
+        let money = parseInt(req.body?.dirty_money, 10);
+        if (!Number.isFinite(money) || money < 0) money = 0;
+
+        let participantIds = Array.isArray(req.body?.participant_ids) ? req.body.participant_ids : [];
+        participantIds = [...new Set(participantIds.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n)))];
+
+        // Não permite ação sem nenhum participante (ninguém contaria)
+        if (participantIds.length === 0) {
+            return res.status(400).json({ error: 'A ação precisa de pelo menos um participante' });
+        }
+
+        await runQuery(
+            "UPDATE elite_actions SET action_name = ?, result = ?, dirty_money = ? WHERE id = ?",
+            [actionName, result, money, id]
+        );
+
+        // Substitui a lista de participantes pela nova
+        await runQuery("DELETE FROM elite_action_participants WHERE action_id = ?", [id]);
+        for (const uid of participantIds) {
+            await runQuery("INSERT INTO elite_action_participants (action_id, user_id) VALUES (?, ?)", [id, uid]);
+        }
+
+        console.log(`⚔️ Ação Elite ${id} editada por ${req.session.user.name}`);
+        res.json({ success: true, message: 'Ação atualizada!' });
+    } catch (error) {
+        console.error('Erro ao editar ação Elite:', error);
         res.status(500).json({ error: error.message });
     }
 });
