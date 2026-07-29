@@ -2308,14 +2308,16 @@ tr.status-rejected {
 /* Ranking: mesmo visual do status da semana (herda .weekly-table),
    só definindo as proporções das colunas. As larguras vão no th porque
    .weekly-table já tem uma regra global em th:nth-child(1). */
+/* 7 colunas: # | Passaporte | Nome | Cargo | Ações | Vitórias | Derrotas
+   Larguras em % somando 100% (sem px) pra não estourar o container. */
 .rank-table { table-layout:fixed; width:100%; }
-.rank-table th:nth-child(1) { width:64px;  text-align:center; }
+.rank-table th:nth-child(1) { width:6%;  text-align:center; }
 .rank-table th:nth-child(2) { width:13%; }
-.rank-table th:nth-child(3) { width:27%; }
-.rank-table th:nth-child(4) { width:26%; }
+.rank-table th:nth-child(3) { width:25%; }
+.rank-table th:nth-child(4) { width:20%; }
 .rank-table th:nth-child(5),
 .rank-table th:nth-child(6),
-.rank-table th:nth-child(7) { width:11%; text-align:center; }
+.rank-table th:nth-child(7) { width:12%; text-align:center; }
 
 .rank-table td:nth-child(1) { text-align:center; font-weight:700; font-size:17px; }
 .rank-table td:nth-child(5),
@@ -2382,12 +2384,7 @@ tr.status-rejected {
     color:#f1c40f;
     white-space:nowrap;
 }
-/* proporções com a coluna de dinheiro (8 colunas) */
-.rank-table th:nth-child(5),
-.rank-table th:nth-child(6),
-.rank-table th:nth-child(7) { width:9.5%; }
-.rank-table th:nth-child(8) { width:14%; text-align:center; }
-.rank-table td:nth-child(8) { text-align:center; }
+/* Coluna de dinheiro só na tabela de ações mais puxadas */
 .rank-table-actions th:nth-child(6) { width:15%; text-align:center; }
 .rank-table-actions td:nth-child(6) { text-align:center; }
 

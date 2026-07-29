@@ -6324,8 +6324,9 @@ async function renameEliteType(id, currentName) {
     } catch { showNotification('Erro de conexão', 'error'); }
 }
 
-// ===== Ranking Elite (só ações mais puxadas) =====
+// ===== Ranking Elite (geral) =====
 async function loadEliteRanking() {
+    const pBody = document.getElementById('eliteRankParticipation');
     const aBody = document.getElementById('eliteRankActions');
     const totalsEl = document.getElementById('eliteRankingTotals');
     try {
@@ -6345,6 +6346,49 @@ async function loadEliteRanking() {
 
         const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 
+        // Badges de cargo; membro+elite mostra só Elite
+        const rankBadges = (r, isEliteTable) => {
+            const groups = (r.groups || []).slice();
+            if (isEliteTable && !groups.includes('elite')) groups.push('elite');
+            return renderRoleBadgesHtml(groups, 'member');
+        };
+
+        // Ranking de PESSOAS: participações, vitórias e derrotas (SEM dinheiro).
+        // O dinheiro fica só na tabela de "ações mais puxadas".
+        const rankRows = (rows, vazio, eliteOnly) => rows.length === 0
+            ? `<tr><td colspan="7" style="text-align:center;padding:24px;">${vazio}</td></tr>`
+            : rows.map((r, i) => {
+                const initial = (r.name || '?').charAt(0).toUpperCase();
+                return `
+                <tr>
+                    <td>${medal(i)}</td>
+                    <td class="rank-passport">${escapeHtml(r.passport || '-')}</td>
+                    <td class="rank-name">
+                        <div class="rank-name-wrap">
+                            <span class="rank-avatar">${initial}</span>
+                            <span class="rank-name-text">${escapeHtml(r.name)}</span>
+                        </div>
+                    </td>
+                    <td class="rank-badges">${rankBadges(r, eliteOnly)}</td>
+                    <td>${r.participations}</td>
+                    <td style="color:#27ae60;">${r.wins}</td>
+                    <td style="color:#e74c3c;">${r.losses}</td>
+                </tr>`;
+            }).join('');
+
+        const all = data.participation || [];
+        const eliteRows = all.filter(r => r.is_elite);
+        const memberRows = all.filter(r => !r.is_elite);
+
+        if (pBody) pBody.innerHTML = rankRows(eliteRows, 'Nenhum membro da Elite participou ainda.', true);
+        const mBody = document.getElementById('eliteRankMembers');
+        if (mBody) mBody.innerHTML = rankRows(memberRows, 'Nenhum membro de fora da Elite participou ainda.', false);
+
+        const eCount = document.getElementById('eliteRankEliteCount');
+        const mCount = document.getElementById('eliteRankMembersCount');
+        if (eCount) eCount.textContent = eliteRows.length;
+        if (mCount) mCount.textContent = memberRows.length;
+
         if (aBody) {
             const rows = data.actionsPulled || [];
             aBody.innerHTML = rows.length === 0
@@ -6361,6 +6405,10 @@ async function loadEliteRanking() {
         }
     } catch (e) {
         console.error('Erro ao carregar ranking Elite:', e);
+        const err7 = '<tr><td colspan="7" style="text-align:center;padding:24px;">Erro ao carregar</td></tr>';
+        if (pBody) pBody.innerHTML = err7;
+        const mBodyErr = document.getElementById('eliteRankMembers');
+        if (mBodyErr) mBodyErr.innerHTML = err7;
         if (aBody) aBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Erro ao carregar</td></tr>';
     }
 }
