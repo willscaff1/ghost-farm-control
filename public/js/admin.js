@@ -6501,6 +6501,20 @@ async function renameEliteType(id, currentName) {
     } catch { showNotification('Erro de conexão', 'error'); }
 }
 
+// Escolhe o cargo principal de quem NÃO é da Elite, pra mostrar 1 badge só
+// (01/02/gerente geral primeiro; depois qualquer gerência/liderança; senão Membro).
+function eliteRankPrimaryRole(groups) {
+    const g = (Array.isArray(groups) ? groups : []).filter(x => x && x !== 'elite' && x !== 'member');
+    if (g.length === 0) return 'member';
+    const priority = ['super_admin', 'gerente_geral', '01', '02'];
+    for (const p of priority) if (g.includes(p)) return p;
+    const ger = g.find(x => {
+        const c = roleBadgeClass(x);
+        return c.startsWith('gerente') || c === 'lider' || c === 'lider_geral';
+    });
+    return ger || g[0];
+}
+
 // ===== Ranking Elite (geral) =====
 async function loadEliteRanking() {
     const pBody = document.getElementById('eliteRankParticipation');
@@ -6523,9 +6537,11 @@ async function loadEliteRanking() {
 
         const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 
-        // No ranking mostra UMA badge só (Elite na tabela da Elite, Membro na de
-        // membros), ignorando os outros cargos pra manter tudo alinhado.
-        const rankBadges = (r, isEliteTable) => renderRoleBadgesHtml([isEliteTable ? 'elite' : 'member'], 'member');
+        // Tabela da Elite: só a badge Elite (mantém alinhado, mesmo quem tem vários cargos).
+        // Tabela de membros: o cargo REAL do cara (01, 02, gerente...), uma badge só.
+        const rankBadges = (r, isEliteTable) => renderRoleBadgesHtml(
+            [isEliteTable ? 'elite' : eliteRankPrimaryRole(r.groups)], 'member'
+        );
 
         // Ranking de PESSOAS: participações, vitórias e derrotas (SEM dinheiro).
         // O dinheiro fica só na tabela de "ações mais puxadas".
