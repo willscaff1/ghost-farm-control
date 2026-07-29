@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260723money1">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260729eliterank1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -35,6 +35,7 @@
                     <a href="/admin" class="dropdown-item" id="dropdownAdminBtn" style="display: none;">⚙️ Painel Admin</a>
                     <a href="#" class="dropdown-item" onclick="showEditProfile(); closeUserDropdown();">👤 Editar Meus Dados</a>
                     <a href="#" class="dropdown-item" onclick="showChangePassword(); closeUserDropdown();">🔑 Trocar Senha</a>
+                    <a href="#" class="dropdown-item" onclick="showEliteRankingPage(); closeUserDropdown();">🏆 Ranking da Elite</a>
                     <a href="#" class="dropdown-item" onclick="showMyWarnings(); closeUserDropdown();">⚠️ Minhas Advertências</a>
                     <div class="dropdown-divider"></div>
                     <a href="#" class="dropdown-item dropdown-item-danger" onclick="logout()">🚪 Sair</a>
@@ -510,8 +511,41 @@
         </div>
     </div>
 
+    <!-- Página: Ranking da Elite (membros) -->
+    <div id="eliteRankPage" class="elite-rank-page" style="display:none;">
+        <div class="elite-rank-panel">
+            <div class="elite-rank-head">
+                <h2>🏆 Ranking da Elite</h2>
+                <button class="elite-rank-close" onclick="closeEliteRankingPage()">&times;</button>
+            </div>
+            <p class="elite-rank-sub">Acumulado geral (só ações aprovadas).</p>
+
+            <div class="elite-rank-totals" id="eliteRankPageTotals"></div>
+
+            <h3 class="elite-rank-title">⚔️ Elite <span class="elite-rank-count" id="eliteRankPageEliteCount"></span></h3>
+            <div class="elite-rank-table-wrap">
+                <table class="elite-rank-table">
+                    <thead>
+                        <tr><th>#</th><th>Passaporte</th><th>Nome</th><th>Cargo</th><th>Ações</th><th>Vitórias</th><th>Derrotas</th></tr>
+                    </thead>
+                    <tbody id="eliteRankPageElite"><tr><td colspan="7" class="elite-rank-empty">Carregando...</td></tr></tbody>
+                </table>
+            </div>
+
+            <h3 class="elite-rank-title">👤 Membros que participaram <span class="elite-rank-count" id="eliteRankPageMembersCount"></span></h3>
+            <div class="elite-rank-table-wrap">
+                <table class="elite-rank-table">
+                    <thead>
+                        <tr><th>#</th><th>Passaporte</th><th>Nome</th><th>Cargo</th><th>Ações</th><th>Vitórias</th><th>Derrotas</th></tr>
+                    </thead>
+                    <tbody id="eliteRankPageMembers"><tr><td colspan="7" class="elite-rank-empty">Carregando...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260723money1"></script>
+    <script src="js/dashboard.js?v=20260729eliterank1"></script>
 </body>
 </html>

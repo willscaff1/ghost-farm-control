@@ -3972,3 +3972,79 @@ async function submitExtraFarm(materials, messageEl, submitBtn, inputs) {
         setTimeout(() => { messageEl.className = 'form-message'; }, 5000);
     }
 }
+
+// ===== Página: Ranking da Elite (membros) =====
+async function showEliteRankingPage() {
+    const page = document.getElementById('eliteRankPage');
+    if (!page) return;
+    page.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    page.onclick = (e) => { if (e.target === page) closeEliteRankingPage(); };
+    try {
+        const res = await fetch('/api/delivery/elite/rankings');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        renderEliteRankPage(data);
+    } catch (e) {
+        console.error('Erro ao carregar ranking Elite:', e);
+        const err = '<tr><td colspan="7" class="elite-rank-empty">Erro ao carregar</td></tr>';
+        const eBody = document.getElementById('eliteRankPageElite');
+        const mBody = document.getElementById('eliteRankPageMembers');
+        if (eBody) eBody.innerHTML = err;
+        if (mBody) mBody.innerHTML = err;
+    }
+}
+
+function closeEliteRankingPage() {
+    const page = document.getElementById('eliteRankPage');
+    if (page) page.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function eliteRankBadgeClass(key) {
+    const k = String(key || '').toLowerCase();
+    if (k === 'elite') return 'elite';
+    if (k === '01' || k === '02') return 'lead';
+    if (k.startsWith('gerente') || k.includes('lider')) return 'ger';
+    return 'member';
+}
+
+function renderEliteRankPage(data) {
+    const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+
+    const totalsEl = document.getElementById('eliteRankPageTotals');
+    if (totalsEl && data.totals) {
+        const card = (label, value, cls) => `<div class="elite-rank-total ${cls}"><div class="ert-value">${value}</div><div class="ert-label">${label}</div></div>`;
+        totalsEl.innerHTML =
+            card('⚔️ Ações aprovadas', data.totals.total, '') +
+            card('🏆 Vitórias', data.totals.wins, 'win') +
+            card('💀 Derrotas', data.totals.losses, 'loss');
+    }
+
+    const rows = (list) => (list && list.length)
+        ? list.map((r, i) => {
+            const initial = (r.name || '?').charAt(0).toUpperCase();
+            const bcls = eliteRankBadgeClass(r.role_key);
+            const label = bcls === 'elite' ? '⚔️ ' + escapeHtml(r.role_label) : escapeHtml(r.role_label);
+            return `<tr>
+                <td class="erc-pos">${medal(i)}</td>
+                <td class="erc-pass">${escapeHtml(r.passport || '-')}</td>
+                <td class="erc-name"><span class="erc-avatar">${initial}</span><span class="erc-name-text">${escapeHtml(r.name)}</span></td>
+                <td class="erc-cargo"><span class="er-badge er-badge-${bcls}">${label}</span></td>
+                <td class="erc-num">${r.participations}</td>
+                <td class="erc-num win">${r.wins}</td>
+                <td class="erc-num loss">${r.losses}</td>
+            </tr>`;
+        }).join('')
+        : '';
+
+    const eBody = document.getElementById('eliteRankPageElite');
+    const mBody = document.getElementById('eliteRankPageMembers');
+    if (eBody) eBody.innerHTML = rows(data.elite) || '<tr><td colspan="7" class="elite-rank-empty">Nenhum membro da Elite participou ainda.</td></tr>';
+    if (mBody) mBody.innerHTML = rows(data.members) || '<tr><td colspan="7" class="elite-rank-empty">Ninguém de fora da Elite participou ainda.</td></tr>';
+
+    const ec = document.getElementById('eliteRankPageEliteCount');
+    const mc = document.getElementById('eliteRankPageMembersCount');
+    if (ec) ec.textContent = (data.elite || []).length;
+    if (mc) mc.textContent = (data.members || []).length;
+}

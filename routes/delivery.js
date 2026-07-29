@@ -776,6 +776,93 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
 // ===== Trilha Elite: registro de ações =====
 
 // Status da Elite para o membro: meta, contagem e ações da semana
+// Ranking da Elite para os membros (sem dinheiro e sem "ações mais puxadas").
+// Mostra o ranking dos Elite e dos não-Elite que participaram das ações.
+router.get('/elite/rankings', requireAuth, async (req, res) => {
+    try {
+        const winExpr = "SUM(CASE WHEN a.result = 'win' THEN 1 ELSE 0 END)";
+        const lossExpr = "SUM(CASE WHEN a.result = 'loss' THEN 1 ELSE 0 END)";
+
+        const participation = await getAll(`
+            SELECT u.id,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                   u.passport,
+                   COUNT(*) as participations,
+                   ${winExpr} as wins,
+                   ${lossExpr} as losses,
+                   MAX(CASE WHEN eg.user_id IS NULL THEN 0 ELSE 1 END) as is_elite,
+                   u.role
+            FROM elite_action_participants p
+            JOIN elite_actions a ON a.id = p.action_id AND a.status = 'approved'
+            JOIN users u ON u.id = p.user_id
+            LEFT JOIN user_groups eg ON eg.user_id = u.id AND eg.group_name = 'elite'
+            GROUP BY u.id, name, u.passport, u.role
+            ORDER BY participations DESC, wins DESC
+        `);
+
+        // Grupos de cada participante + nomes de exibição dos cargos
+        const ids = participation.map(r => r.id);
+        const groupsByUser = new Map();
+        if (ids.length > 0) {
+            const ph = ids.map(() => '?').join(',');
+            const gRows = await getAll(`SELECT user_id, group_name FROM user_groups WHERE user_id IN (${ph})`, ids);
+            for (const g of gRows || []) {
+                if (!groupsByUser.has(g.user_id)) groupsByUser.set(g.user_id, []);
+                groupsByUser.get(g.user_id).push(g.group_name);
+            }
+        }
+        const roleRows = await getAll('SELECT role_name, display_name FROM role_permissions').catch(() => []);
+        const roleNames = {};
+        for (const r of roleRows || []) roleNames[r.role_name] = r.display_name || r.role_name;
+
+        const primaryRole = (groups) => {
+            const g = (groups || []).filter(x => x && x !== 'elite' && x !== 'member');
+            if (g.length === 0) return 'member';
+            for (const p of ['super_admin', 'gerente_geral', '01', '02']) if (g.includes(p)) return p;
+            const ger = g.find(x => {
+                const c = String(x).toLowerCase();
+                return c.startsWith('gerente') || c.includes('lider');
+            });
+            return ger || g[0];
+        };
+
+        const totalsRow = await getOne(`
+            SELECT COUNT(*) as total, ${winExpr} as wins, ${lossExpr} as losses
+            FROM elite_actions a WHERE a.status = 'approved'
+        `);
+
+        const rows = participation.map(r => {
+            const groups = groupsByUser.get(r.id) || (r.role ? [r.role] : []);
+            const isElite = r.is_elite === 1 || r.is_elite === true || r.is_elite === '1';
+            const roleKey = isElite ? 'elite' : primaryRole(groups);
+            const roleLabel = isElite ? 'Elite' : (roleNames[roleKey] || roleKey);
+            return {
+                name: r.name,
+                passport: r.passport,
+                is_elite: isElite,
+                participations: Number(r.participations) || 0,
+                wins: Number(r.wins) || 0,
+                losses: Number(r.losses) || 0,
+                role_key: roleKey,
+                role_label: roleLabel
+            };
+        });
+
+        res.json({
+            elite: rows.filter(r => r.is_elite),
+            members: rows.filter(r => !r.is_elite),
+            totals: {
+                total: Number(totalsRow?.total) || 0,
+                wins: Number(totalsRow?.wins) || 0,
+                losses: Number(totalsRow?.losses) || 0
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao carregar ranking Elite (membros):', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/elite/status', requireAuth, async (req, res) => {
     try {
         const userId = req.session.user.id;

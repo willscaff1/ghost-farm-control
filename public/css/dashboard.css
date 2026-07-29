@@ -2849,3 +2849,92 @@
     flex:1; padding:10px 12px; border-radius:10px;
     font-size:16px; font-weight:700; font-variant-numeric:tabular-nums;
 }
+
+/* ===== Página: Ranking da Elite (membros) ===== */
+.elite-rank-page {
+    position: fixed; inset: 0; z-index: 100000;
+    background: rgba(0,0,0,0.72);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 24px 16px; overflow-y: auto;
+}
+.elite-rank-panel {
+    width: 100%; max-width: 860px; margin: auto;
+    background: #171a2b; border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 18px; padding: 22px 24px 28px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+}
+.elite-rank-head { display: flex; align-items: center; justify-content: space-between; }
+.elite-rank-head h2 { margin: 0; font-size: 22px; }
+.elite-rank-close {
+    background: none; border: none; color: #9aa0b5; font-size: 30px;
+    line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.elite-rank-close:hover { color: #fff; }
+.elite-rank-sub { color: #9aa0b5; font-size: 13px; margin: 4px 0 14px; }
+.elite-rank-title { font-size: 16px; margin: 22px 0 10px; }
+.elite-rank-title:first-of-type { margin-top: 6px; }
+.elite-rank-count {
+    display: inline-block; margin-left: 6px; font-size: 12px; font-weight: 700;
+    background: rgba(168,85,247,0.22); color: #c4b5fd;
+    padding: 1px 9px; border-radius: 999px; vertical-align: middle;
+}
+
+/* Totais */
+.elite-rank-totals { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 4px; }
+.elite-rank-total {
+    flex: 1; min-width: 150px; padding: 12px 16px; border-radius: 12px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10);
+}
+.elite-rank-total .ert-value { font-size: 24px; font-weight: 800; }
+.elite-rank-total .ert-label { font-size: 12px; color: #9aa0b5; }
+.elite-rank-total.win .ert-value { color: #2ecc71; }
+.elite-rank-total.loss .ert-value { color: #e74c3c; }
+
+/* Tabela */
+.elite-rank-table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+.elite-rank-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.elite-rank-table th, .elite-rank-table td { padding: 12px 10px; }
+.elite-rank-table thead th {
+    background: rgba(255,255,255,0.04); text-align: left;
+    font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: #9aa0b5;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+.elite-rank-table tbody tr + tr td { border-top: 1px solid rgba(255,255,255,0.06); }
+.elite-rank-table th:nth-child(1) { width: 5%;  text-align: center; }
+.elite-rank-table th:nth-child(2) { width: 13%; }
+.elite-rank-table th:nth-child(3) { width: 27%; }
+.elite-rank-table th:nth-child(4) { width: 22%; text-align: center; }
+.elite-rank-table th:nth-child(5),
+.elite-rank-table th:nth-child(6),
+.elite-rank-table th:nth-child(7) { width: 11%; text-align: center; }
+.elite-rank-table .erc-pos { text-align: center; font-weight: 700; font-size: 16px; }
+.elite-rank-table .erc-pass { font-weight: 700; color: #cbd0e0; font-variant-numeric: tabular-nums; }
+.elite-rank-table .erc-name { display: flex; align-items: center; min-width: 0; }
+.elite-rank-table .erc-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.elite-rank-table .erc-avatar {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 30px; height: 30px; margin-right: 9px; border-radius: 50%;
+    background: linear-gradient(135deg,#6c5ce7,#a855f7); color: #fff; font-size: 13px; font-weight: 700;
+}
+.elite-rank-table .erc-cargo { text-align: center; }
+.elite-rank-table .erc-num { text-align: center; font-size: 16px; font-weight: 600; }
+.elite-rank-table .erc-num.win { color: #2ecc71; }
+.elite-rank-table .erc-num.loss { color: #e74c3c; }
+.elite-rank-empty { text-align: center; padding: 22px; color: #9aa0b5; }
+
+/* Badge de cargo */
+.er-badge {
+    display: inline-block; padding: 5px 11px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; white-space: nowrap;
+    border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #e6e8f0;
+}
+.er-badge-elite { background: rgba(168,85,247,0.22); border-color: rgba(168,85,247,0.45); color: #c4b5fd; }
+.er-badge-lead  { background: rgba(231,76,60,0.18);  border-color: rgba(231,76,60,0.42);  color: #ff9b8f; }
+.er-badge-ger   { background: rgba(52,152,219,0.18); border-color: rgba(52,152,219,0.42); color: #8fd0ff; }
+.er-badge-member{ background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.16); color: #c7cbd8; }
+
+@media (max-width: 620px) {
+    .elite-rank-panel { padding: 18px 14px 22px; }
+    .elite-rank-table th, .elite-rank-table td { padding: 10px 6px; font-size: 13px; }
+    .elite-rank-table .erc-avatar { width: 24px; height: 24px; font-size: 11px; margin-right: 6px; }
+}
