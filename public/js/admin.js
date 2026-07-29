@@ -6346,12 +6346,9 @@ async function loadEliteRanking() {
 
         const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
 
-        // Badges de cargo; membro+elite mostra só Elite
-        const rankBadges = (r, isEliteTable) => {
-            const groups = (r.groups || []).slice();
-            if (isEliteTable && !groups.includes('elite')) groups.push('elite');
-            return renderRoleBadgesHtml(groups, 'member');
-        };
+        // No ranking mostra UMA badge só (Elite na tabela da Elite, Membro na de
+        // membros), ignorando os outros cargos pra manter tudo alinhado.
+        const rankBadges = (r, isEliteTable) => renderRoleBadgesHtml([isEliteTable ? 'elite' : 'member'], 'member');
 
         // Ranking de PESSOAS: participações, vitórias e derrotas (SEM dinheiro).
         // O dinheiro fica só na tabela de "ações mais puxadas".
