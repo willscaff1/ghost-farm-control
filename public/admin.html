@@ -594,42 +594,17 @@
             <div id="elite-ranking-tab" class="tab-content">
                 <div class="card">
                     <h2>🏆 Ranking Elite</h2>
-                    <p class="subtitle">Acumulado geral (só ações aprovadas).</p>
+                    <p class="subtitle">Ranking das ações mais puxadas (só ações aprovadas).</p>
                     <div class="attendance-summary" id="eliteRankingTotals" style="display:flex; gap:12px; flex-wrap:wrap; margin:16px 0;"></div>
 
-                    <h3 style="margin-top:8px;">⚔️ Elite <span id="eliteRankEliteCount" class="rank-count"></span></h3>
-                    <div class="table-container">
-                        <table class="weekly-table rank-table">
-                            <thead>
-                                <tr><th>#</th><th>Passaporte</th><th>Nome</th><th>Cargo</th><th>Participações</th><th>Vitórias</th><th>Derrotas</th><th>Dinheiro</th></tr>
-                            </thead>
-                            <tbody id="eliteRankParticipation">
-                                <tr><td colspan="7" style="text-align:center;padding:24px;">Carregando...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <h3 style="margin-top:22px;">👤 Membros que participaram <span id="eliteRankMembersCount" class="rank-count"></span></h3>
-                    <p class="subtitle" style="margin-top:-6px;">Não são da Elite — participaram das ações, mas seguem com a meta normal de farm.</p>
-                    <div class="table-container">
-                        <table class="weekly-table rank-table">
-                            <thead>
-                                <tr><th>#</th><th>Passaporte</th><th>Nome</th><th>Cargo</th><th>Participações</th><th>Vitórias</th><th>Derrotas</th><th>Dinheiro</th></tr>
-                            </thead>
-                            <tbody id="eliteRankMembers">
-                                <tr><td colspan="7" style="text-align:center;padding:24px;">Carregando...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <h3 style="margin-top:22px;">🎯 Ações mais puxadas</h3>
+                    <h3 style="margin-top:8px;">🎯 Ações mais puxadas</h3>
                     <div class="table-container">
                         <table class="weekly-table rank-table-actions">
                             <thead>
                                 <tr><th>#</th><th>Ação</th><th>Puxadas</th><th>Vitórias</th><th>Derrotas</th><th>Dinheiro</th></tr>
                             </thead>
                             <tbody id="eliteRankActions">
-                                <tr><td colspan="5" style="text-align:center;padding:24px;">Carregando...</td></tr>
+                                <tr><td colspan="6" style="text-align:center;padding:24px;">Carregando...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1974,7 +1949,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260723money1"></script>
+    <script src="js/admin.js?v=20260729rankelite1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();
