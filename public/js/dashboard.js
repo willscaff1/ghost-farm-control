@@ -112,15 +112,15 @@ async function loadFamilyHierarchy() {
 function hierarchyItemHtml(m) {
     const key = normalizeRoleName(m.role) || 'member';
     const c = roleBadgeColor(key);
-    // Todo mundo mostra o cargo; quem é da Elite ganha a badge extra
-    // Elite na frente; membro + Elite mostra só Elite (Membro é o cargo padrão,
-    // não acrescenta nada). Gerente + Elite mostra os dois lado a lado.
+    // Todo mundo mostra o cargo; quem é da Elite ganha a badge extra.
+    // Cargo na frente e a Elite depois. Membro + Elite mostra só Elite
+    // (Membro é o cargo padrão, não acrescenta nada).
     const eliteBadge = m.is_elite ? '<span class="hierarchy-role-badge elite-badge">⚔️ Elite</span>' : '';
     const isPlainMember = !m.role || m.role === 'member';
     const roleBadge = (m.is_elite && isPlainMember)
         ? ''
         : `<span class="hierarchy-role-badge" style="background:${c.bg};border:1px solid ${c.bd};color:${c.fg};">${escapeHtml(m.roleLabel || 'Membro')}</span>`;
-    const badges = eliteBadge + roleBadge;
+    const badges = roleBadge + eliteBadge;
     const vulgo = m.vulgo ? `<div class="hierarchy-vulgo">🏷️ ${escapeHtml(m.vulgo)}</div>` : '';
     return `
         <div class="hierarchy-item">

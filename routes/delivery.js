@@ -769,9 +769,14 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
 
         list.forEach(m => delete m._rank);
 
+        // Membros ordenados por passaporte (numérico)
+        const membersByPassport = list
+            .filter(m => m.tier === 'membro')
+            .sort((a, b) => (parseInt(a.passport, 10) || 9e15) - (parseInt(b.passport, 10) || 9e15));
+
         res.json({
             leadership: list.filter(m => m.tier === 'lideranca'),
-            members: list.filter(m => m.tier === 'membro')
+            members: membersByPassport
         });
     } catch (error) {
         console.error('Erro ao carregar hierarquia da família:', error);
