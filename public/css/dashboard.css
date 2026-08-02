@@ -2939,3 +2939,27 @@
     .elite-rank-table th, .elite-rank-table td { padding: 10px 6px; font-size: 13px; }
     .elite-rank-table .erc-avatar { width: 24px; height: 24px; font-size: 11px; margin-right: 6px; }
 }
+
+/* ===== Elite: toggle Ação/Rota + form de rota ===== */
+.elite-mode-toggle { display:flex; gap:8px; margin-bottom:14px; }
+.elite-mode-btn {
+    flex:1; padding:9px 12px; border-radius:10px; cursor:pointer;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14);
+    color:#c7cbd8; font-weight:700; font-size:13px;
+}
+.elite-mode-btn.active { background:rgba(168,85,247,0.22); border-color:rgba(168,85,247,0.5); color:#e9ddff; }
+.elite-route-hint { font-size:13px; color:var(--text-secondary,#9aa0b5); margin:0 0 12px; }
+.elite-route-hint b { color:#e9ddff; }
+.elite-route-materials { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+.elite-route-mat { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.elite-route-mat label { font-size:13px; font-weight:600; }
+.elite-route-mat small { color:var(--text-secondary,#9aa0b5); font-weight:400; }
+.elite-route-mat input {
+    width:110px; padding:8px 10px; border-radius:8px; text-align:center;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14); color:#fff;
+    font-weight:700; font-variant-numeric:tabular-nums;
+}
+.elite-route-tag {
+    font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px; margin-left:6px;
+    background:rgba(52,152,219,0.18); border:1px solid rgba(52,152,219,0.4); color:#8fd0ff; white-space:nowrap;
+}

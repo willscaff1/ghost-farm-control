@@ -773,7 +773,7 @@ router.get('/elite/actions/pending', requireAdmin, requireEliteApprover, async (
     try {
         const actions = await getAll(`
             SELECT a.id, a.action_name, a.description, a.proof_url, a.status, a.result, a.dirty_money, a.created_at,
-                   a.registered_by,
+                   a.is_route, a.route_materials, a.registered_by,
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as registered_by_name,
                    u.passport as registered_by_passport
             FROM elite_actions a
@@ -807,6 +807,8 @@ router.get('/elite/actions/pending', requireAdmin, requireEliteApprover, async (
                 result: a.result || null,
                 dirty_money: parseInt(a.dirty_money, 10) || 0,
                 created_at: a.created_at,
+                is_route: a.is_route === 1 || a.is_route === true,
+                route_materials: (() => { try { return a.route_materials ? JSON.parse(a.route_materials) : []; } catch (e) { return []; } })(),
                 registered_by_name: a.registered_by_name,
                 registered_by_passport: a.registered_by_passport,
                 participants: partMap.get(a.id) || []
@@ -1027,7 +1029,7 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
                    MAX(CASE WHEN eg.user_id IS NULL THEN 0 ELSE 1 END) as is_elite,
                    u.role
             FROM elite_action_participants p
-            JOIN elite_actions a ON a.id = p.action_id AND a.status = 'approved'
+            JOIN elite_actions a ON a.id = p.action_id AND a.status = 'approved' AND (a.is_route = 0 OR a.is_route IS NULL)
             JOIN users u ON u.id = p.user_id
             LEFT JOIN user_groups eg ON eg.user_id = u.id AND eg.group_name = 'elite'
             GROUP BY u.id, name, u.passport, u.role
@@ -1054,7 +1056,7 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
                    ${lossExpr} as losses,
                    COALESCE(SUM(a.dirty_money), 0) as dirty_money
             FROM elite_actions a
-            WHERE a.status = 'approved'
+            WHERE a.status = 'approved' AND (a.is_route = 0 OR a.is_route IS NULL)
             GROUP BY a.action_name
             ORDER BY pulls DESC
         `);
@@ -1066,7 +1068,7 @@ router.get('/elite/rankings', requireAdmin, requireEliteApprover, async (req, re
                    ${lossExpr} as losses,
                    COALESCE(SUM(a.dirty_money), 0) as dirty_money
             FROM elite_actions a
-            WHERE a.status = 'approved'
+            WHERE a.status = 'approved' AND (a.is_route = 0 OR a.is_route IS NULL)
         `);
 
         res.json({

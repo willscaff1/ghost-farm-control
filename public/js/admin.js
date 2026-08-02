@@ -6326,6 +6326,24 @@ function renderEliteActionsAdmin(actions) {
         const proof = a.proof_url
             ? `<a href="${a.proof_url}" target="_blank" rel="noopener"><img src="${a.proof_url}" class="elite-proof-thumb" alt="print"></a>`
             : '<span style="color:#e74c3c;">Sem print</span>';
+        if (a.is_route) {
+            const mats = (a.route_materials || []).length
+                ? a.route_materials.map(m => `${escapeHtml(m.name)}: <strong>${m.amount}</strong>`).join(' · ')
+                : 'materiais não informados';
+            return `
+            <div class="elite-admin-card">
+                <div class="elite-admin-main">
+                    <div class="elite-admin-title">🔫 Rota de Arma <span class="status-badge" style="background:rgba(52,152,219,0.9);color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">substitui 1 ação</span></div>
+                    <div class="elite-admin-meta">Registrou: <strong>${escapeHtml(a.registered_by_name)}</strong> <small>${escapeHtml(a.registered_by_passport || '')}</small> · ${when}</div>
+                    <div class="elite-admin-parts">🔫 ${mats}</div>
+                </div>
+                <div class="elite-admin-proof">${proof}</div>
+                <div class="elite-admin-actions">
+                    <button class="btn-approve" onclick="approveEliteAction(${a.id})">✅ Aprovar</button>
+                    <button class="btn-reject" onclick="rejectEliteAction(${a.id})">❌ Rejeitar</button>
+                </div>
+            </div>`;
+        }
         const resultTag = a.result === 'win'
             ? '<span class="status-badge" style="background:#27ae60;color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">🏆 Vitória</span>'
             : a.result === 'loss'

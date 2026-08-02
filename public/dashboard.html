@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260729datahora1">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260729rota1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -141,6 +141,11 @@
                         <div class="elite-progress-bar"><div class="elite-progress-fill" id="eliteProgressFill"></div></div>
                     </div>
 
+                    <div class="elite-mode-toggle">
+                        <button type="button" class="elite-mode-btn active" id="eliteModeAction" onclick="setEliteMode('action')">⚔️ Fazer ação</button>
+                        <button type="button" class="elite-mode-btn" id="eliteModeRoute" onclick="setEliteMode('route')">🔫 Pagar rota de arma</button>
+                    </div>
+
                     <form id="eliteActionForm" enctype="multipart/form-data">
                         <div class="form-group">
                             <label>Qual ação você puxou? <span class="required">*</span></label>
@@ -177,6 +182,17 @@
                         </div>
                         <button type="submit" id="eliteSubmitBtn" class="btn-submit">📤 Enviar para aprovação</button>
                         <div id="eliteFormMessage" class="form-message"></div>
+                    </form>
+
+                    <form id="eliteRouteForm" enctype="multipart/form-data" style="display:none;">
+                        <p class="elite-route-hint">🔫 A rota de arma <b>substitui 1 ação</b> na sua meta da semana. Informe os materiais e anexe o print.</p>
+                        <div id="eliteRouteMaterials" class="elite-route-materials"></div>
+                        <div class="form-group">
+                            <label>📷 Print da rota <span class="required">*</span></label>
+                            <input type="file" id="eliteRouteProof" name="proof" accept="image/*">
+                        </div>
+                        <button type="submit" id="eliteRouteSubmitBtn" class="btn-submit">📤 Enviar rota para aprovação</button>
+                        <div id="eliteRouteMessage" class="form-message"></div>
                     </form>
                 </div>
 
@@ -546,6 +562,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260729datahora1"></script>
+    <script src="js/dashboard.js?v=20260729rota1"></script>
 </body>
 </html>

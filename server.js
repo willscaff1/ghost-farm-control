@@ -313,6 +313,15 @@ db.initialize().then(async () => {
                 await runQuery(`ALTER TABLE elite_actions ADD COLUMN dirty_money INTEGER DEFAULT 0`);
                 console.log('✅ Coluna elite_actions.dirty_money criada');
             } catch (e) { /* já existe */ }
+            // Rota de arma: substitui 1 ação (materiais + print). is_route=1 marca a rota.
+            try {
+                await runQuery(`ALTER TABLE elite_actions ADD COLUMN is_route INTEGER DEFAULT 0`);
+                console.log('✅ Coluna elite_actions.is_route criada');
+            } catch (e) { /* já existe */ }
+            try {
+                await runQuery(`ALTER TABLE elite_actions ADD COLUMN route_materials TEXT`);
+                console.log('✅ Coluna elite_actions.route_materials criada');
+            } catch (e) { /* já existe */ }
 
             await runQuery('CREATE INDEX IF NOT EXISTS idx_elite_action_types_active ON elite_action_types (active)');
         } catch (error) {

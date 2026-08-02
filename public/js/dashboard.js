@@ -191,6 +191,92 @@ function enterEliteMode() {
         form.dataset.wired = '1';
         form.addEventListener('submit', submitEliteAction);
     }
+    const routeForm = document.getElementById('eliteRouteForm');
+    if (routeForm && !routeForm.dataset.wired) {
+        routeForm.dataset.wired = '1';
+        routeForm.addEventListener('submit', submitEliteRoute);
+    }
+}
+
+// Alterna entre "fazer ação" e "pagar rota de arma"
+function setEliteMode(mode) {
+    const actForm = document.getElementById('eliteActionForm');
+    const routeForm = document.getElementById('eliteRouteForm');
+    const btnAct = document.getElementById('eliteModeAction');
+    const btnRoute = document.getElementById('eliteModeRoute');
+    const isRoute = mode === 'route';
+    if (actForm) actForm.style.display = isRoute ? 'none' : '';
+    if (routeForm) routeForm.style.display = isRoute ? '' : 'none';
+    if (btnAct) btnAct.classList.toggle('active', !isRoute);
+    if (btnRoute) btnRoute.classList.toggle('active', isRoute);
+}
+
+// Renderiza os inputs de materiais de arma no form da rota
+function renderEliteRouteMaterials(materials) {
+    const box = document.getElementById('eliteRouteMaterials');
+    if (!box) return;
+    if (!materials.length) {
+        box.innerHTML = '<div class="progress-empty">Nenhum material de arma cadastrado — fale com um gerente.</div>';
+        return;
+    }
+    box.innerHTML = materials.map(m => `
+        <div class="elite-route-mat">
+            <label>${m.icon || '🔫'} ${escapeHtml(m.name)} <small>(meta ${m.weekly_goal})</small></label>
+            <input type="number" min="0" step="1" data-mat-id="${m.id}" value="${m.weekly_goal}" placeholder="0">
+        </div>
+    `).join('');
+}
+
+async function submitEliteRoute(e) {
+    e.preventDefault();
+    const btn = document.getElementById('eliteRouteSubmitBtn');
+    const msg = document.getElementById('eliteRouteMessage');
+    const proof = document.getElementById('eliteRouteProof');
+
+    const materials = {};
+    document.querySelectorAll('#eliteRouteMaterials input[data-mat-id]').forEach(inp => {
+        const id = inp.getAttribute('data-mat-id');
+        const val = parseInt(inp.value, 10) || 0;
+        if (val > 0) materials[id] = val;
+    });
+
+    if (Object.keys(materials).length === 0) {
+        msg.textContent = '❌ Informe a quantidade dos materiais da rota.';
+        msg.className = 'form-message show error';
+        return;
+    }
+    if (!proof || !proof.files || !proof.files[0]) {
+        msg.textContent = '❌ Anexe o print da rota.';
+        msg.className = 'form-message show error';
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('materials', JSON.stringify(materials));
+    fd.append('proof', proof.files[0]);
+
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    try {
+        const res = await fetch('/api/delivery/elite/route', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success) {
+            msg.textContent = '✅ Rota enviada para aprovação!';
+            msg.className = 'form-message show success';
+            document.getElementById('eliteRouteForm').reset();
+            loadEliteStatus(0);
+        } else {
+            msg.textContent = '❌ ' + (data.error || 'Erro ao enviar');
+            msg.className = 'form-message show error';
+        }
+    } catch {
+        msg.textContent = '❌ Erro de conexão. Tente novamente.';
+        msg.className = 'form-message show error';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '📤 Enviar rota para aprovação';
+        setTimeout(() => { msg.className = 'form-message'; }, 5000);
+    }
 }
 
 async function loadEliteStatus(offset = 0) {
@@ -241,8 +327,12 @@ function renderEliteStatus(data, offset) {
     const txt = document.getElementById('eliteProgressText');
     const pend = document.getElementById('eliteProgressPending');
     if (fill) fill.style.width = pct + '%';
-    if (txt) txt.textContent = `${approved} / ${goal} ações aprovadas`;
+    const routesN = data.routesApproved || 0;
+    if (txt) txt.textContent = `${approved} / ${goal} concluídas` + (routesN > 0 ? ` · ${routesN} rota${routesN > 1 ? 's' : ''}` : '');
     if (pend) pend.textContent = pending > 0 ? `${pending} aguardando` : '';
+
+    // Materiais da rota de arma (form da rota)
+    renderEliteRouteMaterials(data.weaponMaterials || []);
 
     // Dropdown de tipos de ação (catálogo)
     const typeSel = document.getElementById('eliteActionType');
@@ -278,11 +368,26 @@ function renderEliteStatus(data, offset) {
                         ? '<span class="elite-badge no">❌ Rejeitada</span>'
                         : '<span class="elite-badge wait">⏳ Aguardando</span>';
                 const who = a.is_mine ? 'Você' : escapeHtml(a.registered_by_name || '');
+                const note = a.status === 'rejected' && a.review_note ? `<div class="elite-action-note">Motivo: ${escapeHtml(a.review_note)}</div>` : '';
+                const when = a.created_at ? `<div class="elite-action-when">📅 Lançada em ${formatDateTimeBR(a.created_at)}</div>` : '';
+
+                if (a.is_route) {
+                    const mats = (a.route_materials || []).map(m => `${escapeHtml(m.name)}: ${m.amount}`).join(' · ') || 'materiais';
+                    return `
+                    <div class="elite-action-item">
+                        <div class="elite-action-top">
+                            <span class="elite-action-name">🔫 Rota de Arma <span class="elite-route-tag">substitui 1 ação</span></span>
+                            ${st}
+                        </div>
+                        <div class="elite-action-meta">Materiais: ${mats}</div>
+                        ${when}
+                        ${note}
+                    </div>`;
+                }
+
                 const resultTag = a.result === 'win' ? '<span class="elite-result-tag win">🏆 Vitória</span>'
                     : a.result === 'loss' ? '<span class="elite-result-tag loss">💀 Derrota</span>' : '';
                 const parts = (a.participants || []).length ? `<div class="elite-action-parts">👥 ${a.participants.map(escapeHtml).join(', ')}</div>` : '';
-                const note = a.status === 'rejected' && a.review_note ? `<div class="elite-action-note">Motivo: ${escapeHtml(a.review_note)}</div>` : '';
-                const when = a.created_at ? `<div class="elite-action-when">📅 Lançada em ${formatDateTimeBR(a.created_at)}</div>` : '';
                 return `
                     <div class="elite-action-item">
                         <div class="elite-action-top">

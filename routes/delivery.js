@@ -799,7 +799,7 @@ router.get('/elite/rankings', requireAuth, async (req, res) => {
                    MAX(CASE WHEN eg.user_id IS NULL THEN 0 ELSE 1 END) as is_elite,
                    u.role
             FROM elite_action_participants p
-            JOIN elite_actions a ON a.id = p.action_id AND a.status = 'approved'
+            JOIN elite_actions a ON a.id = p.action_id AND a.status = 'approved' AND (a.is_route = 0 OR a.is_route IS NULL)
             JOIN users u ON u.id = p.user_id
             LEFT JOIN user_groups eg ON eg.user_id = u.id AND eg.group_name = 'elite'
             GROUP BY u.id, name, u.passport, u.role
@@ -834,7 +834,7 @@ router.get('/elite/rankings', requireAuth, async (req, res) => {
 
         const totalsRow = await getOne(`
             SELECT COUNT(*) as total, ${winExpr} as wins, ${lossExpr} as losses
-            FROM elite_actions a WHERE a.status = 'approved'
+            FROM elite_actions a WHERE a.status = 'approved' AND (a.is_route = 0 OR a.is_route IS NULL)
         `);
 
         const rows = participation.map(r => {
@@ -883,6 +883,7 @@ router.get('/elite/status', requireAuth, async (req, res) => {
         // Ações da semana em que o usuário é registrante OU participante
         const actions = await getAll(`
             SELECT DISTINCT a.id, a.action_name, a.description, a.proof_url, a.status, a.result, a.dirty_money,
+                   a.is_route, a.route_materials,
                    a.registered_by, a.created_at, a.reviewed_at, a.review_note,
                    COALESCE(NULLIF(TRIM(ru.capital_nickname), ''), ru.name) as registered_by_name
             FROM elite_actions a
@@ -918,6 +919,8 @@ router.get('/elite/status', requireAuth, async (req, res) => {
             status: a.status,
             result: a.result || null,
             dirty_money: parseInt(a.dirty_money, 10) || 0,
+            is_route: a.is_route === 1 || a.is_route === true,
+            route_materials: (() => { try { return a.route_materials ? JSON.parse(a.route_materials) : []; } catch (e) { return []; } })(),
             registered_by_name: a.registered_by_name,
             is_mine: a.registered_by === userId,
             participants: partMap.get(a.id) || [],
@@ -941,13 +944,23 @@ router.get('/elite/status', requireAuth, async (req, res) => {
             SELECT id, name FROM elite_action_types WHERE active = 1 ORDER BY name
         `);
 
+        // Materiais de armas (para o formulário de "rota de arma")
+        const weaponMaterials = await getAll(`
+            SELECT id, name, icon, weekly_goal FROM materials
+            WHERE active = 1 AND farm_type = 'weapons' ORDER BY name
+        `);
+
+        const routesApproved = weeklyActions.filter(a => a.is_route && a.status === 'approved').length;
+
         res.json({
             goal,
             approvedCount,
             pendingCount,
+            routesApproved,
             week: { start: week.start, end: week.end, label: week.label },
             weeklyActions,
             actionTypes: actionTypes.map(t => ({ id: t.id, name: t.name })),
+            weaponMaterials: weaponMaterials.map(m => ({ id: m.id, name: m.name, icon: m.icon || '🔫', weekly_goal: m.weekly_goal || 100 })),
             participantsOptions: activeMembers.map(m => ({ id: m.id, name: m.name, vulgo: m.capital_nickname || null, passport: m.passport }))
         });
     } catch (error) {
@@ -1032,6 +1045,56 @@ router.post('/elite/action', requireAuth, (req, res) => {
             res.json({ success: true, message: 'Ação enviada para aprovação!', actionId });
         } catch (error) {
             console.error('Erro ao registrar ação Elite:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+});
+
+// Lançar uma ROTA DE ARMA (substitui 1 ação): materiais de armas + print.
+// Vira um elite_action com is_route=1 e conta como 1 ação na meta da semana.
+router.post('/elite/route', requireAuth, (req, res) => {
+    uploadProof(req, res, async (err) => {
+        if (err) return res.status(400).json({ error: err.message || 'Falha no upload do print' });
+        try {
+            const userId = req.session.user.id;
+            if (!(await isEliteUser(userId, req.session.user))) {
+                return res.status(403).json({ error: 'Acesso restrito à Elite' });
+            }
+            if (!req.file) return res.status(400).json({ error: 'Anexe o print da rota de arma' });
+
+            // Materiais informados: { materialId: amount }
+            let materialsInput = {};
+            try {
+                const raw = req.body.materials;
+                materialsInput = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+            } catch (e) { materialsInput = {}; }
+
+            // A rota é de arma: só materiais de armas ativos contam
+            const weaponMats = await getAll("SELECT id, name, weekly_goal FROM materials WHERE active = 1 AND farm_type = 'weapons'");
+            const routeMaterials = [];
+            for (const m of weaponMats) {
+                const amt = Math.max(0, parseInt(materialsInput[m.id] ?? materialsInput[String(m.id)] ?? 0, 10) || 0);
+                if (amt > 0) routeMaterials.push({ material_id: m.id, name: m.name, amount: amt });
+            }
+            if (routeMaterials.length === 0) {
+                return res.status(400).json({ error: 'Informe a quantidade dos materiais da rota' });
+            }
+
+            const week = getWeekWithOffset(0);
+            const proofUrl = fileToDataUrl(req.file);
+
+            const result = await runQuery(
+                `INSERT INTO elite_actions (registered_by, week_start, week_end, action_name, action_type_id, description, proof_url, result, dirty_money, status, is_route, route_materials)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?)`,
+                [userId, week.start, week.end, 'Rota de Arma', null, null, proofUrl, null, 0, JSON.stringify(routeMaterials)]
+            );
+            const actionId = result.lastID;
+            await runQuery('INSERT INTO elite_action_participants (action_id, user_id) VALUES (?, ?)', [actionId, userId]);
+
+            console.log(`🔫 Rota de arma (Elite) registrada por ${req.session.user.name} (id ${actionId})`);
+            res.json({ success: true, message: 'Rota de arma enviada para aprovação!', actionId });
+        } catch (error) {
+            console.error('Erro ao registrar rota de arma (Elite):', error);
             res.status(500).json({ error: error.message });
         }
     });
