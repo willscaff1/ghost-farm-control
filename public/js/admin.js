@@ -8925,6 +8925,10 @@ async function loadFarmSettings() {
         if (memberWeaponFarmEnabled) {
             memberWeaponFarmEnabled.checked = settings.member_weapon_farm_enabled !== 'false';
         }
+        const drugsOptionalEl = document.getElementById('drugsOptional');
+        if (drugsOptionalEl) {
+            drugsOptionalEl.checked = settings.drugs_optional === 'true';
+        }
         if (paymentEnabled) {
             paymentEnabled.checked = settings.farm_payment_enabled === 'true';
         }

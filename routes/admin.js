@@ -1468,13 +1468,26 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
                 .filter(m => productAppliesToRole(m, isManager))
                 .filter(m => deliveryFarmTypes.size === 0 || deliveryFarmTypes.has(normalizeFarmType(m.farm_type)));
 
-            for (const mat of materials) {
-                const item = items.find(i => i.material_id === mat.id);
-                const amount = item ? item.amount : 0;
-                const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
-                if (amount < goal) {
-                    metaAtingida = false;
-                    break;
+            // Drogas opcional: quando ligado, as drogas não contam para a meta
+            // (o cara conclui só com as armas), mas ainda pode farmar drogas.
+            const drugsOptRow = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'drugs_optional'");
+            const drugsOptional = drugsOptRow?.setting_value === 'true';
+            const requiredMaterials = drugsOptional
+                ? materials.filter(m => normalizeFarmType(m.farm_type) !== 'drugs')
+                : materials;
+
+            if (drugsOptional && requiredMaterials.length === 0) {
+                // Entrega só de drogas (opcional) não conclui a meta sozinha
+                metaAtingida = false;
+            } else {
+                for (const mat of requiredMaterials) {
+                    const item = items.find(i => i.material_id === mat.id);
+                    const amount = item ? item.amount : 0;
+                    const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
+                    if (amount < goal) {
+                        metaAtingida = false;
+                        break;
+                    }
                 }
             }
         }
@@ -2555,7 +2568,7 @@ router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
         const { key } = req.params;
         const { value } = req.body;
         
-        const validKeys = ['farm_materials_enabled', 'member_drug_farm_enabled', 'member_weapon_farm_enabled', 'farm_payment_enabled', 'farm_payment_mode', 'competition_enabled', 'meta_exempt_members', 'meta_exempt_managers', 'elite_weekly_goal'];
+        const validKeys = ['farm_materials_enabled', 'member_drug_farm_enabled', 'member_weapon_farm_enabled', 'drugs_optional', 'farm_payment_enabled', 'farm_payment_mode', 'competition_enabled', 'meta_exempt_members', 'meta_exempt_managers', 'elite_weekly_goal'];
         if (!validKeys.includes(key)) {
             return res.status(400).json({ error: 'Configuração inválida' });
         }
@@ -2568,8 +2581,9 @@ router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
             await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [key, value]);
         }
 
-        // A isenção muda quem aparece como devendo — invalidar cache do status semanal
-        if ((key === 'meta_exempt_members' || key === 'meta_exempt_managers') && typeof global.__clearWeeklyStatusCache === 'function') {
+        // A isenção e o "drogas opcional" mudam quem aparece como concluído —
+        // invalidar cache do status semanal
+        if ((key === 'meta_exempt_members' || key === 'meta_exempt_managers' || key === 'drugs_optional') && typeof global.__clearWeeklyStatusCache === 'function') {
             global.__clearWeeklyStatusCache();
         }
 
@@ -2941,9 +2955,15 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                             }
                         }
                         // Completo = TODOS os materiais do CARGO com total >= meta; senão = Em progresso
-                        const applicableMaterials = allMaterials
+                        // Drogas opcional: ignora drogas na conta (conclui só com as armas),
+                        // desde que exista algum material que não seja droga.
+                        const drugsOptional = farmSettingsObj.drugs_optional === 'true';
+                        let applicableMaterials = allMaterials
                             .filter(mat => productAppliesToRole(mat, isManager))
                             .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, weekStart));
+                        if (drugsOptional && applicableMaterials.some(m => normalizeFarmType(m.farm_type) !== 'drugs')) {
+                            applicableMaterials = applicableMaterials.filter(m => normalizeFarmType(m.farm_type) !== 'drugs');
+                        }
                         if (applicableMaterials.length === 0) {
                             effectiveIsPartial = sumByMaterial.size === 0;
                         } else {

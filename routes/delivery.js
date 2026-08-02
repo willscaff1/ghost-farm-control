@@ -590,8 +590,14 @@ router.get('/current-week', requireAuth, async (req, res) => {
                 const isComplete = totalDirtyMoney >= paymentGoal;
                 effectiveIsPartial = !isComplete;
             } else if (approvedProgress) {
-                // Usar approvedProgress para verificar se foi aprovado como completo
-                const isComplete = approvedProgress.every(p => p.complete);
+                // Usar approvedProgress para verificar se foi aprovado como completo.
+                // Drogas opcional: ignora as drogas na conta (conclui só com as armas),
+                // desde que exista algum material que não seja droga (senão usa tudo).
+                const drugsOptional = settingsObj.drugs_optional === 'true';
+                const base = (drugsOptional && approvedProgress.some(p => p.farm_type !== 'drugs'))
+                    ? approvedProgress.filter(p => p.farm_type !== 'drugs')
+                    : approvedProgress;
+                const isComplete = base.every(p => p.complete);
                 effectiveIsPartial = !isComplete;
             }
         }

@@ -1056,6 +1056,16 @@
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Farm de Drogas Opcional</span>
+                                <span class="setting-description">O membro conclui a meta só pagando as armas; as drogas ficam opcionais (ele ainda pode farmar se quiser)</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="drugsOptional" onchange="updateFarmSetting('drugs_optional', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="settings-section">
@@ -2017,7 +2027,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260729datahora1"></script>
+    <script src="js/admin.js?v=20260729drogas1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();
