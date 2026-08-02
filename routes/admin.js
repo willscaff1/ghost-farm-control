@@ -1470,10 +1470,10 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
                 .filter(m => productAppliesToRole(m, isManager))
                 .filter(m => deliveryFarmTypes.size === 0 || deliveryFarmTypes.has(normalizeFarmType(m.farm_type)));
 
-            // Drogas opcional é POR MEMBRO: quando o dono da entrega é "não optante"
-            // de drogas, elas não contam para a meta (conclui só com as armas).
-            const optRow = await getOne('SELECT drugs_opt_out FROM users WHERE id = ?', [delivery.user_id]);
-            const drugsOptional = optRow && (optRow.drugs_opt_out === 1 || optRow.drugs_opt_out === true);
+            // Drogas opcional é a escolha do dono da entrega NAQUELA SEMANA:
+            // se ele é "não optante", as drogas não contam (conclui só com as armas).
+            const optRow = await getOne('SELECT opt_out FROM week_drug_optout WHERE user_id = ? AND week_start = ?', [delivery.user_id, delivery.week_start]);
+            const drugsOptional = !!optRow && (optRow.opt_out === 1 || optRow.opt_out === true);
             const requiredMaterials = drugsOptional
                 ? materials.filter(m => normalizeFarmType(m.farm_type) !== 'drugs')
                 : materials;
@@ -1663,7 +1663,15 @@ router.get('/members', requireAdmin, async (req, res) => {
                 member.groups = [member.role];
             }
         }
-        
+
+        // Escolha "não optante de drogas" da SEMANA ATUAL (é por semana)
+        try {
+            const cw = getCurrentWeek();
+            const optRows = await getAll('SELECT user_id FROM week_drug_optout WHERE week_start = ? AND opt_out = 1', [cw.start]);
+            const optSet = new Set((optRows || []).map(r => Number(r.user_id)));
+            for (const member of members) member.drugs_opt_out = optSet.has(Number(member.id)) ? 1 : 0;
+        } catch (e) { /* tabela pode não existir ainda */ }
+
         res.json({ members, roleNames: roleNamesMap });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1915,10 +1923,17 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
             );
         }
         
-        // "Não optante de drogas" — gerentes podem marcar (como os slots)
+        // "Não optante de drogas" — o gerente marca a escolha da SEMANA ATUAL
+        // (o membro também pode mudar no painel dele). É por semana.
         if (drugs_opt_out !== undefined) {
             const val = (drugs_opt_out === true || drugs_opt_out === 1 || drugs_opt_out === '1' || drugs_opt_out === 'true') ? 1 : 0;
-            await runQuery('UPDATE users SET drugs_opt_out = ? WHERE id = ?', [val, memberId]);
+            const cw = getCurrentWeek();
+            const existingOpt = await getOne('SELECT id FROM week_drug_optout WHERE user_id = ? AND week_start = ?', [memberId, cw.start]);
+            if (existingOpt) {
+                await runQuery('UPDATE week_drug_optout SET opt_out = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [val, existingOpt.id]);
+            } else {
+                await runQuery('INSERT INTO week_drug_optout (user_id, week_start, opt_out) VALUES (?, ?, ?)', [memberId, cw.start, val]);
+            }
         }
 
         if (typeof global.__clearWeeklyStatusCache === 'function') {
@@ -2785,6 +2800,13 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         const notDelivered = [];
         const justified = [];
 
+        // Quem escolheu "não optante de drogas" NESTA semana (só armas conclui)
+        const drugsOptOutSet = new Set();
+        try {
+            const optRows = await getAll('SELECT user_id FROM week_drug_optout WHERE week_start = ? AND opt_out = 1', [weekStart]);
+            for (const r of optRows || []) drugsOptOutSet.add(Number(r.user_id));
+        } catch (e) { /* tabela pode não existir ainda */ }
+
         // Isenção de meta por público (fica ligada até desmarcar)
         const exemptMembers = farmSettingsObj.meta_exempt_members === 'true';
         const exemptManagers = farmSettingsObj.meta_exempt_managers === 'true';
@@ -2965,7 +2987,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                         // Completo = TODOS os materiais do CARGO com total >= meta; senão = Em progresso
                         // Drogas opcional: ignora drogas na conta (conclui só com as armas),
                         // desde que exista algum material que não seja droga.
-                        const drugsOptional = member.drugs_opt_out === 1 || member.drugs_opt_out === true;
+                        const drugsOptional = drugsOptOutSet.has(Number(member.id));
                         let applicableMaterials = allMaterials
                             .filter(mat => productAppliesToRole(mat, isManager))
                             .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, weekStart));

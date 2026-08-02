@@ -1096,6 +1096,41 @@ async function loadAvailableWeeks() {
 }
 
 // Mudar semana (botões de navegação)
+// Escolha do membro: fazer drogas (optante) ou só armas (não optante) nesta semana
+function renderDrugsChoice(data) {
+    const box = document.getElementById('drugsChoiceBox');
+    if (!box) return;
+    const elitePanelVisible = document.getElementById('elitePanel')?.style.display === 'block';
+    const show = currentWeekOffset === 0 && !elitePanelVisible;
+    box.style.display = show ? '' : 'none';
+    if (!show) return;
+    const out = !!(data && data.drugsOptOut);
+    document.getElementById('drugsChoiceIn')?.classList.toggle('active', !out);
+    document.getElementById('drugsChoiceOut')?.classList.toggle('active', out);
+    const hint = document.getElementById('drugsChoiceHint');
+    if (hint) hint.textContent = out
+        ? '🔫 Você conclui a meta só pagando as armas (drogas opcional esta semana).'
+        : '🧪 Meta normal desta semana: drogas + armas.';
+}
+
+async function setDrugsChoice(optOut) {
+    try {
+        const res = await fetch('/api/delivery/drugs-optout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ opt_out: !!optOut, offset: currentWeekOffset })
+        });
+        const data = await res.json();
+        if (data.success) {
+            loadWeekData(currentWeekOffset);
+        } else {
+            alert(data.error || 'Erro ao salvar a escolha');
+        }
+    } catch (e) {
+        console.error('Erro ao salvar escolha de drogas:', e);
+    }
+}
+
 function changeWeek(direction) {
     const newOffset = currentWeekOffset + direction;
     
@@ -1152,7 +1187,8 @@ async function loadWeekData(offset = 0) {
         });
         const data = await response.json();
         currentWeekData = data;
-        
+        renderDrugsChoice(data);
+
         // Atualizar label da semana com indicador
         const weekLabel = document.getElementById('weekLabel');
         let labelText = data.week.label;

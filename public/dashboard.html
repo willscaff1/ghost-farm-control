@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260729rota1">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260729semana1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -217,7 +217,17 @@
                     <div class="panel-header">
                         <h2 id="formTitle">📦 Registrar Farm</h2>
                     </div>
-                    
+
+                    <!-- Escolha da semana: fazer drogas ou só armas -->
+                    <div class="drugs-choice" id="drugsChoiceBox" style="display:none;">
+                        <div class="drugs-choice-label">💊 Meta de drogas desta semana</div>
+                        <div class="drugs-choice-toggle">
+                            <button type="button" class="drugs-choice-btn" id="drugsChoiceIn" onclick="setDrugsChoice(false)">🧪 Vou fazer drogas</button>
+                            <button type="button" class="drugs-choice-btn" id="drugsChoiceOut" onclick="setDrugsChoice(true)">🔫 Só armas</button>
+                        </div>
+                        <div class="drugs-choice-hint" id="drugsChoiceHint"></div>
+                    </div>
+
                     <!-- Seletor de Tipo de Pagamento -->
                     <div class="payment-type-selector">
                         <button type="button" class="payment-type-btn active" data-type="material" onclick="selectPaymentType('material')">
@@ -562,6 +572,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260729hier1"></script>
+    <script src="js/dashboard.js?v=20260729semana1"></script>
 </body>
 </html>

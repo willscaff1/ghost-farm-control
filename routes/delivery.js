@@ -292,9 +292,9 @@ router.get('/current-week', requireAuth, async (req, res) => {
         const week = getWeekWithOffset(offset);
         const userId = req.session.user.id;
         const isManager = await isManagerUser(userId, req.session.user);
-        // Drogas opcional é POR MEMBRO (o membro escolhe / gerente marca no editar)
-        const meRow = await getOne('SELECT drugs_opt_out FROM users WHERE id = ?', [userId]).catch(() => null);
-        const drugsOptOut = meRow && (meRow.drugs_opt_out === 1 || meRow.drugs_opt_out === true);
+        // Drogas opcional é escolha do MEMBRO POR SEMANA (tabela week_drug_optout)
+        const optRow = await getOne('SELECT opt_out FROM week_drug_optout WHERE user_id = ? AND week_start = ?', [userId, week.start]).catch(() => null);
+        const drugsOptOut = !!optRow && (optRow.opt_out === 1 || optRow.opt_out === true);
         const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
         const settingsObj = {};
         (settingsRows || []).forEach(s => {
@@ -696,9 +696,32 @@ router.get('/current-week', requireAuth, async (req, res) => {
             paymentType: paymentType,
             paymentTypeId: paymentTypeId,
             dirtyMoneyAmount: dirtyMoneyAmount,
+            drugsOptOut: drugsOptOut,
             farmTypeStatus
         });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Membro escolhe, POR SEMANA, se é "não optante de drogas" (conclui só com armas)
+router.post('/drugs-optout', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const offset = parseInt(req.body?.offset, 10) || 0;
+        const week = getWeekWithOffset(offset);
+        const optOut = (req.body?.opt_out === true || req.body?.opt_out === 1 || req.body?.opt_out === '1' || req.body?.opt_out === 'true') ? 1 : 0;
+
+        const existing = await getOne('SELECT id FROM week_drug_optout WHERE user_id = ? AND week_start = ?', [userId, week.start]);
+        if (existing) {
+            await runQuery('UPDATE week_drug_optout SET opt_out = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [optOut, existing.id]);
+        } else {
+            await runQuery('INSERT INTO week_drug_optout (user_id, week_start, opt_out) VALUES (?, ?, ?)', [userId, week.start, optOut]);
+        }
+        if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
+        res.json({ success: true, drugsOptOut: optOut === 1 });
+    } catch (error) {
+        console.error('Erro ao salvar escolha de drogas da semana:', error);
         res.status(500).json({ error: error.message });
     }
 });

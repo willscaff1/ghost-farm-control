@@ -1113,6 +1113,33 @@ db.initialize().then(async () => {
         // Catálogo de tipos de ação + colunas result/action_type_id (idempotente)
         await createEliteCatalog();
 
+        // Escolha do membro por semana: "não optante de drogas" (só armas)
+        try {
+            const { runQuery } = require('./database/db');
+            const isPg = process.env.DATABASE_URL ? true : false;
+            if (isPg) {
+                await runQuery(`CREATE TABLE IF NOT EXISTS week_drug_optout (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    week_start DATE NOT NULL,
+                    opt_out INTEGER DEFAULT 1,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )`);
+            } else {
+                await runQuery(`CREATE TABLE IF NOT EXISTS week_drug_optout (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    week_start DATE NOT NULL,
+                    opt_out INTEGER DEFAULT 1,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )`);
+            }
+            await runQuery('CREATE UNIQUE INDEX IF NOT EXISTS idx_week_drug_optout_uw ON week_drug_optout (user_id, week_start)');
+            console.log('✅ Tabela week_drug_optout criada/verificada');
+        } catch (e) {
+            console.error('⚠️ Erro ao criar week_drug_optout:', e.message);
+        }
+
         // Criar tabela de farm extra se não existir
         await createExtraFarmTable();
         
