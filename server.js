@@ -142,6 +142,11 @@ db.initialize().then(async () => {
                 await runQuery('ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0');
                 console.log('✅ Coluna users.must_change_password criada');
             } catch (e) { /* já existe */ }
+            // Não optante de drogas (por membro): 1 = só as armas concluem a meta
+            try {
+                await runQuery('ALTER TABLE users ADD COLUMN drugs_opt_out INTEGER DEFAULT 0');
+                console.log('✅ Coluna users.drugs_opt_out criada');
+            } catch (e) { /* já existe */ }
 
             if (isPostgres) {
                 await runQuery(`

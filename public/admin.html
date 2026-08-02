@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260729editacao1">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260729optout1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch2">
     
     
@@ -886,6 +886,12 @@
                             </label>
                             <input type="password" id="editMemberPassword" placeholder="••••••••">
                         </div>
+                        <div class="edit-form-group full-width">
+                            <label class="edit-drugs-optout">
+                                <input type="checkbox" id="editDrugsOptOut">
+                                <span>💊 Não optante de drogas <span class="optional">(o membro conclui a meta só pagando as armas)</span></span>
+                            </label>
+                        </div>
                         <div id="editMemberCreatedAt" style="text-align:center; color:#6c6f82; font-size:11px; margin-top:8px;"></div>
                         <div class="edit-modal-actions">
                             <button class="btn-cancel-edit" onclick="closeEditMemberModal()">
@@ -1053,16 +1059,6 @@
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" id="memberWeaponFarmEnabled" onchange="updateFarmSetting('member_weapon_farm_enabled', this.checked)">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <span class="setting-label">Farm de Drogas Opcional</span>
-                                <span class="setting-description">O membro conclui a meta só pagando as armas; as drogas ficam opcionais (ele ainda pode farmar se quiser)</span>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="drugsOptional" onchange="updateFarmSetting('drugs_optional', this.checked)">
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
@@ -2027,7 +2023,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260729rota1"></script>
+    <script src="js/admin.js?v=20260729optout1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

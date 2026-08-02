@@ -6976,6 +6976,10 @@ function openEditMemberModal(id, name, passport, email) {
     document.getElementById('editManagerSlot').value = selectedMember?.manager_slot || '';
     document.getElementById('editMemberPassword').value = '';
 
+    // "Não optante de drogas" (por membro)
+    const drugsOptEl = document.getElementById('editDrugsOptOut');
+    if (drugsOptEl) drugsOptEl.checked = (selectedMember?.drugs_opt_out === 1 || selectedMember?.drugs_opt_out === true);
+
     // Data de criação da conta (discreto)
     const createdEl = document.getElementById('editMemberCreatedAt');
     if (createdEl) {
@@ -7032,7 +7036,8 @@ async function saveEditMember() {
     const memberSlot = document.getElementById('editMemberSlot').value.trim();
     const managerSlot = document.getElementById('editManagerSlot').value.trim();
     const newPassword = document.getElementById('editMemberPassword').value;
-    
+    const drugsOptOut = document.getElementById('editDrugsOptOut')?.checked ? 1 : 0;
+
     if (!name || !passport) {
         alert('Nome e passaporte são obrigatórios!');
         return;
@@ -7058,12 +7063,14 @@ async function saveEditMember() {
         const currentCapitalNickname = (member.capital_nickname || '').trim();
         const currentPassport = (member.passport || '').trim();
         const currentEmail = (member.email || '').trim();
+        const currentDrugsOptOut = (member.drugs_opt_out === 1 || member.drugs_opt_out === true) ? 1 : 0;
         const hasProfileChanges =
             name !== currentName ||
             capitalNickname !== currentCapitalNickname ||
             passport !== currentPassport ||
             email !== currentEmail ||
             relevantSlot !== currentRelevantSlot ||
+            drugsOptOut !== currentDrugsOptOut ||
             !!newPassword;
 
         // Atualizar dados básicos apenas quando houve alteração
@@ -7078,6 +7085,7 @@ async function saveEditMember() {
                     email,
                     member_slot: usesManagerSlot ? undefined : memberSlot,
                     manager_slot: usesManagerSlot ? managerSlot : undefined,
+                    drugs_opt_out: drugsOptOut,
                     newPassword: newPassword || undefined
                 })
             });
@@ -8942,10 +8950,6 @@ async function loadFarmSettings() {
         }
         if (memberWeaponFarmEnabled) {
             memberWeaponFarmEnabled.checked = settings.member_weapon_farm_enabled !== 'false';
-        }
-        const drugsOptionalEl = document.getElementById('drugsOptional');
-        if (drugsOptionalEl) {
-            drugsOptionalEl.checked = settings.drugs_optional === 'true';
         }
         if (paymentEnabled) {
             paymentEnabled.checked = settings.farm_payment_enabled === 'true';

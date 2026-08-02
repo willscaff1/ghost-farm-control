@@ -292,6 +292,9 @@ router.get('/current-week', requireAuth, async (req, res) => {
         const week = getWeekWithOffset(offset);
         const userId = req.session.user.id;
         const isManager = await isManagerUser(userId, req.session.user);
+        // Drogas opcional é POR MEMBRO (o membro escolhe / gerente marca no editar)
+        const meRow = await getOne('SELECT drugs_opt_out FROM users WHERE id = ?', [userId]).catch(() => null);
+        const drugsOptOut = meRow && (meRow.drugs_opt_out === 1 || meRow.drugs_opt_out === true);
         const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
         const settingsObj = {};
         (settingsRows || []).forEach(s => {
@@ -591,10 +594,9 @@ router.get('/current-week', requireAuth, async (req, res) => {
                 effectiveIsPartial = !isComplete;
             } else if (approvedProgress) {
                 // Usar approvedProgress para verificar se foi aprovado como completo.
-                // Drogas opcional: ignora as drogas na conta (conclui só com as armas),
-                // desde que exista algum material que não seja droga (senão usa tudo).
-                const drugsOptional = settingsObj.drugs_optional === 'true';
-                const base = (drugsOptional && approvedProgress.some(p => p.farm_type !== 'drugs'))
+                // Drogas opcional (por membro): ignora as drogas na conta (conclui só
+                // com as armas), desde que exista algum material que não seja droga.
+                const base = (drugsOptOut && approvedProgress.some(p => p.farm_type !== 'drugs'))
                     ? approvedProgress.filter(p => p.farm_type !== 'drugs')
                     : approvedProgress;
                 const isComplete = base.every(p => p.complete);

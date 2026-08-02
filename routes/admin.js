@@ -1470,10 +1470,10 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
                 .filter(m => productAppliesToRole(m, isManager))
                 .filter(m => deliveryFarmTypes.size === 0 || deliveryFarmTypes.has(normalizeFarmType(m.farm_type)));
 
-            // Drogas opcional: quando ligado, as drogas não contam para a meta
-            // (o cara conclui só com as armas), mas ainda pode farmar drogas.
-            const drugsOptRow = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'drugs_optional'");
-            const drugsOptional = drugsOptRow?.setting_value === 'true';
+            // Drogas opcional é POR MEMBRO: quando o dono da entrega é "não optante"
+            // de drogas, elas não contam para a meta (conclui só com as armas).
+            const optRow = await getOne('SELECT drugs_opt_out FROM users WHERE id = ?', [delivery.user_id]);
+            const drugsOptional = optRow && (optRow.drugs_opt_out === 1 || optRow.drugs_opt_out === true);
             const requiredMaterials = drugsOptional
                 ? materials.filter(m => normalizeFarmType(m.farm_type) !== 'drugs')
                 : materials;
@@ -1638,7 +1638,7 @@ router.get('/members', requireAdmin, async (req, res) => {
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
                    u.name as original_name,
                    u.capital_nickname,
-                   u.passport, u.email, u.role, u.member_slot, u.manager_slot, u.created_at, u.active,
+                   u.passport, u.email, u.role, u.member_slot, u.manager_slot, u.created_at, u.active, u.drugs_opt_out,
                    COALESCE((
                        SELECT SUM(di.amount) 
                        FROM delivery_items di 
@@ -1841,7 +1841,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
     try {
         const isSuperAdmin = isSuperAdminUser(req.session.user);
         const memberId = req.params.id;
-        const { name, passport, email, role, newPassword, member_slot, manager_slot, capital_nickname } = req.body;
+        const { name, passport, email, role, newPassword, member_slot, manager_slot, capital_nickname, drugs_opt_out } = req.body;
         
         const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
         if (!member) {
@@ -1915,6 +1915,12 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
             );
         }
         
+        // "Não optante de drogas" — gerentes podem marcar (como os slots)
+        if (drugs_opt_out !== undefined) {
+            const val = (drugs_opt_out === true || drugs_opt_out === 1 || drugs_opt_out === '1' || drugs_opt_out === 'true') ? 1 : 0;
+            await runQuery('UPDATE users SET drugs_opt_out = ? WHERE id = ?', [val, memberId]);
+        }
+
         if (typeof global.__clearWeeklyStatusCache === 'function') {
             global.__clearWeeklyStatusCache();
         }
@@ -2642,7 +2648,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                        COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name,
                        name as original_name,
                        capital_nickname,
-                       passport, role, member_slot, manager_slot, created_at FROM users
+                       passport, role, member_slot, manager_slot, created_at, drugs_opt_out FROM users
                 WHERE active = 1 AND passport != '0'
                 ORDER BY COALESCE(NULLIF(TRIM(capital_nickname), ''), name)
             `),
@@ -2959,7 +2965,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                         // Completo = TODOS os materiais do CARGO com total >= meta; senão = Em progresso
                         // Drogas opcional: ignora drogas na conta (conclui só com as armas),
                         // desde que exista algum material que não seja droga.
-                        const drugsOptional = farmSettingsObj.drugs_optional === 'true';
+                        const drugsOptional = member.drugs_opt_out === 1 || member.drugs_opt_out === true;
                         let applicableMaterials = allMaterials
                             .filter(mat => productAppliesToRole(mat, isManager))
                             .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, weekStart));
