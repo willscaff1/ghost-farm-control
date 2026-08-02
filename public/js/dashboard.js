@@ -282,6 +282,7 @@ function renderEliteStatus(data, offset) {
                     : a.result === 'loss' ? '<span class="elite-result-tag loss">💀 Derrota</span>' : '';
                 const parts = (a.participants || []).length ? `<div class="elite-action-parts">👥 ${a.participants.map(escapeHtml).join(', ')}</div>` : '';
                 const note = a.status === 'rejected' && a.review_note ? `<div class="elite-action-note">Motivo: ${escapeHtml(a.review_note)}</div>` : '';
+                const when = a.created_at ? `<div class="elite-action-when">📅 Lançada em ${formatDateTimeBR(a.created_at)}</div>` : '';
                 return `
                     <div class="elite-action-item">
                         <div class="elite-action-top">
@@ -290,6 +291,7 @@ function renderEliteStatus(data, offset) {
                         </div>
                         <div class="elite-action-meta">Registrou: ${who} · 💰 R$ ${(a.dirty_money || 0).toLocaleString('pt-BR')}</div>
                         ${parts}
+                        ${when}
                         ${note}
                     </div>`;
             }).join('');
@@ -3184,6 +3186,23 @@ function formatDate(dateStr) {
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
+    });
+}
+
+// Data + hora no fuso do Brasil. Trata o timestamp do banco como UTC
+// (SQLite grava "YYYY-MM-DD HH:MM:SS" sem fuso; Postgres manda ISO com Z).
+function formatDateTimeBR(value) {
+    if (!value) return '';
+    let s = value;
+    if (typeof s === 'string' && !s.includes('T') && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) {
+        s = s.replace(' ', 'T') + 'Z';
+    }
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/Sao_Paulo'
     });
 }
 

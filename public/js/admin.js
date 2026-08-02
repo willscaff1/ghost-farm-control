@@ -6099,6 +6099,23 @@ function filterResetLog(type, btn) {
     renderResetLogTable();
 }
 
+// Data + hora no fuso do Brasil. Trata o timestamp do banco como UTC
+// (SQLite grava "YYYY-MM-DD HH:MM:SS" sem fuso; Postgres manda ISO com Z).
+function formatDateTimeBR(value) {
+    if (!value) return '';
+    let s = value;
+    if (typeof s === 'string' && !s.includes('T') && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) {
+        s = s.replace(' ', 'T') + 'Z';
+    }
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/Sao_Paulo'
+    });
+}
+
 // ===== Ações da Elite (aprovação) =====
 let eliteActionsCache = [];
 
@@ -6147,7 +6164,7 @@ function renderEliteApprovedActions(actions) {
         const parts = (a.participants || []).length
             ? a.participants.map(p => `<span class="elite-chip">${escapeHtml(p.name)} <small>${escapeHtml(p.passport || '')}</small></span>`).join(' ')
             : '<span style="color:var(--text-secondary);">Sem participantes</span>';
-        const when = a.created_at ? new Date(a.created_at).toLocaleString('pt-BR') : '';
+        const when = a.created_at ? formatDateTimeBR(a.created_at) : '';
         const resultTag = a.result === 'win'
             ? '<span class="status-badge" style="background:#27ae60;color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">🏆 Vitória</span>'
             : a.result === 'loss'
@@ -6305,7 +6322,7 @@ function renderEliteActionsAdmin(actions) {
         const parts = (a.participants || []).length
             ? a.participants.map(p => `<span class="elite-chip">${escapeHtml(p.name)} <small>${escapeHtml(p.passport || '')}</small></span>`).join(' ')
             : '<span style="color:var(--text-secondary);">Ninguém marcado além de quem registrou</span>';
-        const when = a.created_at ? new Date(a.created_at).toLocaleString('pt-BR') : '';
+        const when = a.created_at ? formatDateTimeBR(a.created_at) : '';
         const proof = a.proof_url
             ? `<a href="${a.proof_url}" target="_blank" rel="noopener"><img src="${a.proof_url}" class="elite-proof-thumb" alt="print"></a>`
             : '<span style="color:#e74c3c;">Sem print</span>';
