@@ -974,11 +974,24 @@ router.get('/elite/status', requireAuth, async (req, res) => {
             SELECT id, name FROM elite_action_types WHERE active = 1 ORDER BY name
         `);
 
-        // Materiais de armas (para o formulário de "rota de arma")
-        const weaponMaterials = await getAll(`
-            SELECT id, name, icon, weekly_goal FROM materials
-            WHERE active = 1 AND farm_type = 'weapons' ORDER BY name
-        `);
+        // Rota de arma da Elite: material + quantidade CADASTRADOS pelo gerente
+        // (separado da meta de armas dos membros). Fallback: 1ª arma ativa.
+        let eliteRoute = null;
+        try {
+            const cfg = await getAll("SELECT setting_key, setting_value FROM farm_settings WHERE setting_key IN ('elite_route_material_id','elite_route_amount')");
+            const cmap = {};
+            for (const c of cfg || []) cmap[c.setting_key] = c.setting_value;
+            let matId = cmap.elite_route_material_id ? parseInt(cmap.elite_route_material_id, 10) : null;
+            let amount = cmap.elite_route_amount ? parseInt(cmap.elite_route_amount, 10) : null;
+            let mat = matId ? await getOne('SELECT id, name, icon FROM materials WHERE id = ? AND active = 1', [matId]) : null;
+            if (!mat) {
+                mat = await getOne("SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1 AND farm_type = 'weapons' ORDER BY name LIMIT 1");
+                if (mat && !amount) amount = mat.weekly_goal || 100;
+            }
+            if (mat) {
+                eliteRoute = { material_id: mat.id, name: mat.name, icon: mat.icon || '🔫', amount: amount || 100 };
+            }
+        } catch (e) { eliteRoute = null; }
 
         const routesApproved = weeklyActions.filter(a => a.is_route && a.status === 'approved').length;
 
@@ -990,7 +1003,7 @@ router.get('/elite/status', requireAuth, async (req, res) => {
             week: { start: week.start, end: week.end, label: week.label },
             weeklyActions,
             actionTypes: actionTypes.map(t => ({ id: t.id, name: t.name })),
-            weaponMaterials: weaponMaterials.map(m => ({ id: m.id, name: m.name, icon: m.icon || '🔫', weekly_goal: m.weekly_goal || 100 })),
+            eliteRoute,
             participantsOptions: activeMembers.map(m => ({ id: m.id, name: m.name, vulgo: m.capital_nickname || null, passport: m.passport }))
         });
     } catch (error) {
@@ -1092,23 +1105,19 @@ router.post('/elite/route', requireAuth, (req, res) => {
             }
             if (!req.file) return res.status(400).json({ error: 'Anexe o print da rota de arma' });
 
-            // Materiais informados: { materialId: amount }
-            let materialsInput = {};
-            try {
-                const raw = req.body.materials;
-                materialsInput = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
-            } catch (e) { materialsInput = {}; }
-
-            // A rota é de arma: só materiais de armas ativos contam
-            const weaponMats = await getAll("SELECT id, name, weekly_goal FROM materials WHERE active = 1 AND farm_type = 'weapons'");
-            const routeMaterials = [];
-            for (const m of weaponMats) {
-                const amt = Math.max(0, parseInt(materialsInput[m.id] ?? materialsInput[String(m.id)] ?? 0, 10) || 0);
-                if (amt > 0) routeMaterials.push({ material_id: m.id, name: m.name, amount: amt });
+            // A rota da Elite é a CADASTRADA pelo gerente (material + quantidade fixos).
+            const cfg = await getAll("SELECT setting_key, setting_value FROM farm_settings WHERE setting_key IN ('elite_route_material_id','elite_route_amount')");
+            const cmap = {};
+            for (const c of cfg || []) cmap[c.setting_key] = c.setting_value;
+            let matId = cmap.elite_route_material_id ? parseInt(cmap.elite_route_material_id, 10) : null;
+            let amount = cmap.elite_route_amount ? parseInt(cmap.elite_route_amount, 10) : null;
+            let mat = matId ? await getOne('SELECT id, name FROM materials WHERE id = ? AND active = 1', [matId]) : null;
+            if (!mat) {
+                mat = await getOne("SELECT id, name, weekly_goal FROM materials WHERE active = 1 AND farm_type = 'weapons' ORDER BY name LIMIT 1");
+                if (mat && !amount) amount = mat.weekly_goal || 100;
             }
-            if (routeMaterials.length === 0) {
-                return res.status(400).json({ error: 'Informe a quantidade dos materiais da rota' });
-            }
+            if (!mat) return res.status(400).json({ error: 'A rota da Elite ainda não foi cadastrada. Fale com um gerente.' });
+            const routeMaterials = [{ material_id: mat.id, name: mat.name, amount: amount || 100 }];
 
             const week = getWeekWithOffset(0);
             const proofUrl = fileToDataUrl(req.file);

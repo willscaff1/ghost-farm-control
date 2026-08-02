@@ -211,20 +211,19 @@ function setEliteMode(mode) {
     if (btnRoute) btnRoute.classList.toggle('active', isRoute);
 }
 
-// Renderiza os inputs de materiais de arma no form da rota
-function renderEliteRouteMaterials(materials) {
+// Mostra a rota de arma da Elite cadastrada (material + quantidade fixos)
+function renderEliteRouteMaterials(route) {
     const box = document.getElementById('eliteRouteMaterials');
     if (!box) return;
-    if (!materials.length) {
-        box.innerHTML = '<div class="progress-empty">Nenhum material de arma cadastrado — fale com um gerente.</div>';
+    if (!route || !route.material_id) {
+        box.innerHTML = '<div class="progress-empty">A rota da Elite ainda não foi cadastrada — fale com um gerente.</div>';
         return;
     }
-    box.innerHTML = materials.map(m => `
+    box.innerHTML = `
         <div class="elite-route-mat">
-            <label>${m.icon || '🔫'} ${escapeHtml(m.name)} <small>(meta ${m.weekly_goal})</small></label>
-            <input type="number" min="0" step="1" data-mat-id="${m.id}" value="${m.weekly_goal}" placeholder="0">
-        </div>
-    `).join('');
+            <label>${route.icon || '🔫'} ${escapeHtml(route.name)}</label>
+            <span class="elite-route-fixed">${route.amount}</span>
+        </div>`;
 }
 
 async function submitEliteRoute(e) {
@@ -233,18 +232,6 @@ async function submitEliteRoute(e) {
     const msg = document.getElementById('eliteRouteMessage');
     const proof = document.getElementById('eliteRouteProof');
 
-    const materials = {};
-    document.querySelectorAll('#eliteRouteMaterials input[data-mat-id]').forEach(inp => {
-        const id = inp.getAttribute('data-mat-id');
-        const val = parseInt(inp.value, 10) || 0;
-        if (val > 0) materials[id] = val;
-    });
-
-    if (Object.keys(materials).length === 0) {
-        msg.textContent = '❌ Informe a quantidade dos materiais da rota.';
-        msg.className = 'form-message show error';
-        return;
-    }
     if (!proof || !proof.files || !proof.files[0]) {
         msg.textContent = '❌ Anexe o print da rota.';
         msg.className = 'form-message show error';
@@ -252,7 +239,6 @@ async function submitEliteRoute(e) {
     }
 
     const fd = new FormData();
-    fd.append('materials', JSON.stringify(materials));
     fd.append('proof', proof.files[0]);
 
     btn.disabled = true;
@@ -331,8 +317,8 @@ function renderEliteStatus(data, offset) {
     if (txt) txt.textContent = `${approved} / ${goal} concluídas` + (routesN > 0 ? ` · ${routesN} rota${routesN > 1 ? 's' : ''}` : '');
     if (pend) pend.textContent = pending > 0 ? `${pending} aguardando` : '';
 
-    // Materiais da rota de arma (form da rota)
-    renderEliteRouteMaterials(data.weaponMaterials || []);
+    // Rota de arma da Elite (cadastrada pelo gerente)
+    renderEliteRouteMaterials(data.eliteRoute || null);
 
     // Dropdown de tipos de ação (catálogo)
     const typeSel = document.getElementById('eliteActionType');

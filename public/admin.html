@@ -1219,6 +1219,16 @@
                             <button type="button" class="btn btn-primary goals-btn-add" id="btnSaveEliteGoal" onclick="saveEliteGoal()">💾 Salvar meta da Elite</button>
                         </div>
                         <div id="eliteGoalMsg" class="goals-message"></div>
+
+                        <p class="subtitle" style="margin-top:14px;">🔫 Rota de arma da Elite — substitui 1 ação (material e quantidade próprios, separado dos membros).</p>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Material</label>
+                            <select id="eliteRouteMaterial" class="goals-input goals-dropdown"></select>
+                            <label class="goals-label">Quantidade</label>
+                            <input type="number" id="eliteRouteAmount" min="1" placeholder="Ex: 250" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" onclick="saveEliteRoute()">💾 Salvar rota</button>
+                        </div>
+                        <div id="eliteRouteMsg" class="goals-message"></div>
                     </div>
 
                     <!-- Materiais -->
@@ -2023,7 +2033,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260729semana1"></script>
+    <script src="js/admin.js?v=20260729rotaelite1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

@@ -873,6 +873,41 @@ router.get('/elite/actions/all', requireAdmin, requireEliteApprover, async (req,
     }
 });
 
+// Config da "rota de arma" da Elite (material + quantidade próprios, separado dos membros)
+router.get('/elite/route-config', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const rows = await getAll("SELECT setting_key, setting_value FROM farm_settings WHERE setting_key IN ('elite_route_material_id','elite_route_amount')");
+        const map = {};
+        for (const r of rows || []) map[r.setting_key] = r.setting_value;
+        const materials = await getAll("SELECT id, name, icon, farm_type FROM materials WHERE active = 1 ORDER BY farm_type, name");
+        res.json({
+            material_id: map.elite_route_material_id ? parseInt(map.elite_route_material_id, 10) : null,
+            amount: map.elite_route_amount ? parseInt(map.elite_route_amount, 10) : null,
+            materials: (materials || []).map(m => ({ id: m.id, name: m.name, icon: m.icon || '📦', farm_type: m.farm_type }))
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.put('/elite/route-config', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const materialId = parseInt(req.body?.material_id, 10);
+        const amount = parseInt(req.body?.amount, 10);
+        if (!materialId || !(amount > 0)) return res.status(400).json({ error: 'Escolha o material e a quantidade da rota' });
+        const mat = await getOne('SELECT id FROM materials WHERE id = ? AND active = 1', [materialId]);
+        if (!mat) return res.status(400).json({ error: 'Material inválido' });
+        for (const [k, v] of [['elite_route_material_id', String(materialId)], ['elite_route_amount', String(amount)]]) {
+            const ex = await getOne('SELECT id FROM farm_settings WHERE setting_key = ?', [k]);
+            if (ex) await runQuery('UPDATE farm_settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?', [v, k]);
+            else await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [k, v]);
+        }
+        res.json({ success: true, message: 'Rota da Elite salva!' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Editar uma ação (inclusive aprovada) — corrige participantes, resultado e dinheiro
 router.put('/elite/actions/:id', requireAdmin, requireEliteApprover, async (req, res) => {
     try {

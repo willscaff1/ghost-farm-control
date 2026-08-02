@@ -8086,8 +8086,54 @@ async function loadGoalsTab() {
         loadGoalsMaterials(),
         loadGoalsPaymentTypes(),
         loadMetaExempt(),
-        loadEliteGoal()
+        loadEliteGoal(),
+        loadEliteRouteConfig()
     ]);
+}
+
+// Cadastro da rota de arma da Elite (material + quantidade)
+async function loadEliteRouteConfig() {
+    try {
+        const res = await fetch('/api/admin/elite/route-config');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sel = document.getElementById('eliteRouteMaterial');
+        const amt = document.getElementById('eliteRouteAmount');
+        if (sel) {
+            sel.innerHTML = '<option value="">Selecione o material...</option>' +
+                (data.materials || []).map(m => `<option value="${m.id}">${escapeHtml(m.icon || '')} ${escapeHtml(m.name)}${m.farm_type === 'weapons' ? ' (arma)' : ''}</option>`).join('');
+            if (data.material_id) sel.value = String(data.material_id);
+        }
+        if (amt && data.amount) amt.value = data.amount;
+    } catch (e) { /* silencioso */ }
+}
+
+async function saveEliteRoute() {
+    const sel = document.getElementById('eliteRouteMaterial');
+    const amt = document.getElementById('eliteRouteAmount');
+    const msg = document.getElementById('eliteRouteMsg');
+    const material_id = parseInt(sel?.value, 10);
+    const amount = parseInt(amt?.value, 10);
+    if (!material_id || !(amount > 0)) {
+        if (msg) { msg.textContent = '❌ Escolha o material e a quantidade.'; msg.className = 'goals-message error'; }
+        return;
+    }
+    try {
+        const res = await fetch('/api/admin/elite/route-config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ material_id, amount })
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (msg) { msg.textContent = '✅ Rota da Elite salva!'; msg.className = 'goals-message success'; }
+        } else {
+            if (msg) { msg.textContent = '❌ ' + (data.error || 'Erro'); msg.className = 'goals-message error'; }
+        }
+    } catch (e) {
+        if (msg) { msg.textContent = '❌ Erro de conexão'; msg.className = 'goals-message error'; }
+    }
+    setTimeout(() => { if (msg) msg.className = 'goals-message'; }, 4000);
 }
 
 // Isenção de meta (dois interruptores fixos: membros / gerência)
