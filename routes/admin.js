@@ -873,36 +873,62 @@ router.get('/elite/actions/all', requireAdmin, requireEliteApprover, async (req,
     }
 });
 
-// Config da "rota de arma" da Elite (material + quantidade próprios, separado dos membros)
+// Rota de arma da Elite: LISTA de materiais próprios (mesma lógica de membros/gerentes)
+async function getEliteRouteList() {
+    const row = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'elite_route_materials'");
+    let list = [];
+    try { list = row && row.setting_value ? JSON.parse(row.setting_value) : []; } catch (e) { list = []; }
+    return Array.isArray(list) ? list : [];
+}
+async function saveEliteRouteList(list) {
+    const val = JSON.stringify(list);
+    const row = await getOne("SELECT id FROM farm_settings WHERE setting_key = 'elite_route_materials'");
+    if (row) await runQuery("UPDATE farm_settings SET setting_value = ? WHERE setting_key = 'elite_route_materials'", [val]);
+    else await runQuery("INSERT INTO farm_settings (setting_key, setting_value) VALUES ('elite_route_materials', ?)", [val]);
+}
+
 router.get('/elite/route-config', requireAdmin, requireEliteApprover, async (req, res) => {
     try {
-        const rows = await getAll("SELECT setting_key, setting_value FROM farm_settings WHERE setting_key IN ('elite_route_material_id','elite_route_amount')");
-        const map = {};
-        for (const r of rows || []) map[r.setting_key] = r.setting_value;
+        const list = await getEliteRouteList();
         const materials = await getAll("SELECT id, name, icon, farm_type FROM materials WHERE active = 1 ORDER BY farm_type, name");
+        const byId = new Map((materials || []).map(m => [Number(m.id), m]));
+        const items = list.map(it => {
+            const m = byId.get(Number(it.material_id));
+            return m ? { material_id: m.id, name: m.name, icon: m.icon || '📦', amount: parseInt(it.amount, 10) || 0 } : null;
+        }).filter(Boolean);
         res.json({
-            material_id: map.elite_route_material_id ? parseInt(map.elite_route_material_id, 10) : null,
-            amount: map.elite_route_amount ? parseInt(map.elite_route_amount, 10) : null,
-            materials: (materials || []).map(m => ({ id: m.id, name: m.name, icon: m.icon || '📦', farm_type: m.farm_type }))
+            items,
+            available: (materials || []).map(m => ({ id: m.id, name: m.name, icon: m.icon || '📦', farm_type: m.farm_type }))
         });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
 });
 
-router.put('/elite/route-config', requireAdmin, requireEliteApprover, async (req, res) => {
+router.post('/elite/route-materials', requireAdmin, requireEliteApprover, async (req, res) => {
     try {
         const materialId = parseInt(req.body?.material_id, 10);
         const amount = parseInt(req.body?.amount, 10);
-        if (!materialId || !(amount > 0)) return res.status(400).json({ error: 'Escolha o material e a quantidade da rota' });
+        if (!materialId || !(amount > 0)) return res.status(400).json({ error: 'Escolha o material e a quantidade' });
         const mat = await getOne('SELECT id FROM materials WHERE id = ? AND active = 1', [materialId]);
         if (!mat) return res.status(400).json({ error: 'Material inválido' });
-        for (const [k, v] of [['elite_route_material_id', String(materialId)], ['elite_route_amount', String(amount)]]) {
-            const ex = await getOne('SELECT id FROM farm_settings WHERE setting_key = ?', [k]);
-            if (ex) await runQuery('UPDATE farm_settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?', [v, k]);
-            else await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [k, v]);
-        }
-        res.json({ success: true, message: 'Rota da Elite salva!' });
+        const list = await getEliteRouteList();
+        const idx = list.findIndex(it => Number(it.material_id) === materialId);
+        if (idx >= 0) list[idx].amount = amount; else list.push({ material_id: materialId, amount });
+        await saveEliteRouteList(list);
+        res.json({ success: true, message: 'Material adicionado à rota' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.delete('/elite/route-materials/:materialId', requireAdmin, requireEliteApprover, async (req, res) => {
+    try {
+        const materialId = parseInt(req.params.materialId, 10);
+        let list = await getEliteRouteList();
+        list = list.filter(it => Number(it.material_id) !== materialId);
+        await saveEliteRouteList(list);
+        res.json({ success: true, message: 'Material removido da rota' });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

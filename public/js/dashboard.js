@@ -215,15 +215,16 @@ function setEliteMode(mode) {
 function renderEliteRouteMaterials(route) {
     const box = document.getElementById('eliteRouteMaterials');
     if (!box) return;
-    if (!route || !route.material_id) {
+    const list = Array.isArray(route) ? route : (route && route.material_id ? [route] : []);
+    if (!list.length) {
         box.innerHTML = '<div class="progress-empty">A rota da Elite ainda não foi cadastrada — fale com um gerente.</div>';
         return;
     }
-    box.innerHTML = `
+    box.innerHTML = list.map(m => `
         <div class="elite-route-mat">
-            <label>${route.icon || '🔫'} ${escapeHtml(route.name)}</label>
-            <span class="elite-route-fixed">${route.amount}</span>
-        </div>`;
+            <label>${m.icon || '🔫'} ${escapeHtml(m.name)}</label>
+            <span class="elite-route-fixed">${m.amount}</span>
+        </div>`).join('');
 }
 
 async function submitEliteRoute(e) {
@@ -318,7 +319,7 @@ function renderEliteStatus(data, offset) {
     if (pend) pend.textContent = pending > 0 ? `${pending} aguardando` : '';
 
     // Rota de arma da Elite (cadastrada pelo gerente)
-    renderEliteRouteMaterials(data.eliteRoute || null);
+    renderEliteRouteMaterials(data.eliteRoute || []);
 
     // Dropdown de tipos de ação (catálogo)
     const typeSel = document.getElementById('eliteActionType');

@@ -974,24 +974,24 @@ router.get('/elite/status', requireAuth, async (req, res) => {
             SELECT id, name FROM elite_action_types WHERE active = 1 ORDER BY name
         `);
 
-        // Rota de arma da Elite: material + quantidade CADASTRADOS pelo gerente
-        // (separado da meta de armas dos membros). Fallback: 1ª arma ativa.
-        let eliteRoute = null;
+        // Rota de arma da Elite: LISTA de materiais CADASTRADA pelo gerente
+        // (separada da meta de armas dos membros).
+        let eliteRoute = [];
         try {
-            const cfg = await getAll("SELECT setting_key, setting_value FROM farm_settings WHERE setting_key IN ('elite_route_material_id','elite_route_amount')");
-            const cmap = {};
-            for (const c of cfg || []) cmap[c.setting_key] = c.setting_value;
-            let matId = cmap.elite_route_material_id ? parseInt(cmap.elite_route_material_id, 10) : null;
-            let amount = cmap.elite_route_amount ? parseInt(cmap.elite_route_amount, 10) : null;
-            let mat = matId ? await getOne('SELECT id, name, icon FROM materials WHERE id = ? AND active = 1', [matId]) : null;
-            if (!mat) {
-                mat = await getOne("SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1 AND farm_type = 'weapons' ORDER BY name LIMIT 1");
-                if (mat && !amount) amount = mat.weekly_goal || 100;
+            const row = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'elite_route_materials'");
+            let list = [];
+            try { list = row && row.setting_value ? JSON.parse(row.setting_value) : []; } catch (e) { list = []; }
+            if (Array.isArray(list) && list.length > 0) {
+                const ids = list.map(it => Number(it.material_id)).filter(Boolean);
+                const ph = ids.map(() => '?').join(',');
+                const mats = ids.length ? await getAll(`SELECT id, name, icon FROM materials WHERE id IN (${ph}) AND active = 1`, ids) : [];
+                const byId = new Map((mats || []).map(m => [Number(m.id), m]));
+                eliteRoute = list.map(it => {
+                    const m = byId.get(Number(it.material_id));
+                    return m ? { material_id: m.id, name: m.name, icon: m.icon || '🔫', amount: parseInt(it.amount, 10) || 0 } : null;
+                }).filter(Boolean);
             }
-            if (mat) {
-                eliteRoute = { material_id: mat.id, name: mat.name, icon: mat.icon || '🔫', amount: amount || 100 };
-            }
-        } catch (e) { eliteRoute = null; }
+        } catch (e) { eliteRoute = []; }
 
         const routesApproved = weeklyActions.filter(a => a.is_route && a.status === 'approved').length;
 
@@ -1105,19 +1105,20 @@ router.post('/elite/route', requireAuth, (req, res) => {
             }
             if (!req.file) return res.status(400).json({ error: 'Anexe o print da rota de arma' });
 
-            // A rota da Elite é a CADASTRADA pelo gerente (material + quantidade fixos).
-            const cfg = await getAll("SELECT setting_key, setting_value FROM farm_settings WHERE setting_key IN ('elite_route_material_id','elite_route_amount')");
-            const cmap = {};
-            for (const c of cfg || []) cmap[c.setting_key] = c.setting_value;
-            let matId = cmap.elite_route_material_id ? parseInt(cmap.elite_route_material_id, 10) : null;
-            let amount = cmap.elite_route_amount ? parseInt(cmap.elite_route_amount, 10) : null;
-            let mat = matId ? await getOne('SELECT id, name FROM materials WHERE id = ? AND active = 1', [matId]) : null;
-            if (!mat) {
-                mat = await getOne("SELECT id, name, weekly_goal FROM materials WHERE active = 1 AND farm_type = 'weapons' ORDER BY name LIMIT 1");
-                if (mat && !amount) amount = mat.weekly_goal || 100;
-            }
-            if (!mat) return res.status(400).json({ error: 'A rota da Elite ainda não foi cadastrada. Fale com um gerente.' });
-            const routeMaterials = [{ material_id: mat.id, name: mat.name, amount: amount || 100 }];
+            // A rota da Elite é a LISTA de materiais CADASTRADA pelo gerente (quantidades fixas).
+            const cfgRow = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'elite_route_materials'");
+            let cfgList = [];
+            try { cfgList = cfgRow && cfgRow.setting_value ? JSON.parse(cfgRow.setting_value) : []; } catch (e) { cfgList = []; }
+            const cfgIds = (Array.isArray(cfgList) ? cfgList : []).map(it => Number(it.material_id)).filter(Boolean);
+            if (cfgIds.length === 0) return res.status(400).json({ error: 'A rota da Elite ainda não foi cadastrada. Fale com um gerente.' });
+            const ph = cfgIds.map(() => '?').join(',');
+            const mats = await getAll(`SELECT id, name FROM materials WHERE id IN (${ph}) AND active = 1`, cfgIds);
+            const byId = new Map((mats || []).map(m => [Number(m.id), m]));
+            const routeMaterials = cfgList.map(it => {
+                const m = byId.get(Number(it.material_id));
+                return m ? { material_id: m.id, name: m.name, amount: parseInt(it.amount, 10) || 0 } : null;
+            }).filter(Boolean);
+            if (routeMaterials.length === 0) return res.status(400).json({ error: 'A rota da Elite ainda não foi cadastrada. Fale com um gerente.' });
 
             const week = getWeekWithOffset(0);
             const proofUrl = fileToDataUrl(req.file);

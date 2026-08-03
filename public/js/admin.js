@@ -8084,7 +8084,6 @@ async function loadGoalsTab() {
     populateGoalsIconSelects();
     await Promise.all([
         loadGoalsMaterials(),
-        loadGoalsPaymentTypes(),
         loadMetaExempt(),
         loadEliteGoal(),
         loadEliteRouteConfig()
@@ -8098,17 +8097,26 @@ async function loadEliteRouteConfig() {
         if (!res.ok) return;
         const data = await res.json();
         const sel = document.getElementById('eliteRouteMaterial');
-        const amt = document.getElementById('eliteRouteAmount');
         if (sel) {
             sel.innerHTML = '<option value="">Selecione o material...</option>' +
-                (data.materials || []).map(m => `<option value="${m.id}">${escapeHtml(m.icon || '')} ${escapeHtml(m.name)}${m.farm_type === 'weapons' ? ' (arma)' : ''}</option>`).join('');
-            if (data.material_id) sel.value = String(data.material_id);
+                (data.available || []).map(m => `<option value="${m.id}">${escapeHtml(m.icon || '')} ${escapeHtml(m.name)}${m.farm_type === 'weapons' ? ' (arma)' : ''}</option>`).join('');
         }
-        if (amt && data.amount) amt.value = data.amount;
+        const body = document.getElementById('eliteRouteBody');
+        if (body) {
+            const items = data.items || [];
+            body.innerHTML = items.length
+                ? items.map(it => `
+                    <tr>
+                        <td>${escapeHtml(it.icon || '🔫')} ${escapeHtml(it.name)}</td>
+                        <td>${it.amount}</td>
+                        <td><button type="button" class="btn btn-danger btn-small" onclick="removeEliteRouteMaterial(${it.material_id})">🗑️</button></td>
+                    </tr>`).join('')
+                : '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--text-secondary);">Nenhum material na rota ainda.</td></tr>';
+        }
     } catch (e) { /* silencioso */ }
 }
 
-async function saveEliteRoute() {
+async function addEliteRouteMaterial() {
     const sel = document.getElementById('eliteRouteMaterial');
     const amt = document.getElementById('eliteRouteAmount');
     const msg = document.getElementById('eliteRouteMsg');
@@ -8119,14 +8127,16 @@ async function saveEliteRoute() {
         return;
     }
     try {
-        const res = await fetch('/api/admin/elite/route-config', {
-            method: 'PUT',
+        const res = await fetch('/api/admin/elite/route-materials', {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ material_id, amount })
         });
         const data = await res.json();
         if (data.success) {
-            if (msg) { msg.textContent = '✅ Rota da Elite salva!'; msg.className = 'goals-message success'; }
+            if (msg) { msg.textContent = '✅ Material adicionado à rota!'; msg.className = 'goals-message success'; }
+            if (amt) amt.value = '';
+            loadEliteRouteConfig();
         } else {
             if (msg) { msg.textContent = '❌ ' + (data.error || 'Erro'); msg.className = 'goals-message error'; }
         }
@@ -8134,6 +8144,14 @@ async function saveEliteRoute() {
         if (msg) { msg.textContent = '❌ Erro de conexão'; msg.className = 'goals-message error'; }
     }
     setTimeout(() => { if (msg) msg.className = 'goals-message'; }, 4000);
+}
+
+async function removeEliteRouteMaterial(materialId) {
+    try {
+        const res = await fetch('/api/admin/elite/route-materials/' + materialId, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) loadEliteRouteConfig();
+    } catch (e) { /* silencioso */ }
 }
 
 // Isenção de meta (dois interruptores fixos: membros / gerência)
