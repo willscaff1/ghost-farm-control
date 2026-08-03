@@ -1907,36 +1907,24 @@ function renderMaterialsUI() {
             const remaining = Math.max(0, matGoal - delivered);
             const isComplete = remaining === 0;
             
+            // Quantidade fixa, no mesmo formato da rota da Elite
             container.innerHTML += `
                 <div class="material-card ${isComplete ? 'complete' : ''}">
                     <div class="material-icon">${mat.icon}</div>
                     <div class="material-info">
                         <div class="material-name">${mat.name}</div>
                         <div class="material-goal">Meta: ${matGoal}</div>
-                        ${isComplete 
-                            ? `<div class="material-complete-badge">✅ Meta completa!</div>`
-                            : `<div class="material-remaining">
-                                <span class="remaining-text">Faltam: <strong>${remaining}</strong></span>
-                                <button type="button" class="btn-fill-remaining" onclick="fillRemainingAmount(${mat.id}, ${remaining})" title="Preencher ${remaining}">
-                                    Completar meta
-                                </button>
-                               </div>`
-                        }
+                        ${isComplete ? `<div class="material-complete-badge">✅ Meta completa!</div>` : ''}
                     </div>
-                    <input type="number" 
+                    <span class="material-fixed ${isComplete ? 'is-complete' : ''}">${isComplete ? '✓' : remaining}</span>
+                    <input type="hidden"
                            id="material-input-${mat.id}"
-                           name="material_${mat.id}" 
+                           name="material_${mat.id}"
                            data-material-id="${mat.id}"
                            data-goal="${matGoal}"
                            data-remaining="${remaining}"
-                           class="material-input material-amount-input ${isComplete ? 'disabled' : ''}"
-                           min="0"
-                           max="${remaining}"
-                           value="${isComplete ? 0 : remaining}"
-                           placeholder="${isComplete ? '✓' : remaining}"
-                           ${isComplete ? 'disabled' : ''}
-                           onkeypress="return event.charCode >= 48 && event.charCode <= 57"
-                           oninput="validateMaterialInput(this, ${matGoal}); updateSubmitButton()">
+                           class="material-input material-amount-input"
+                           value="${isComplete ? 0 : remaining}">
                 </div>
                 `;
             });
@@ -1992,6 +1980,8 @@ function renderMaterialsUI() {
             const isComplete = remaining === 0;
             const inputDisabled = isComplete || groupLocked;
 
+            // Mesmo formato da rota da Elite: quantidade fixa, sem campo editável
+            // e sem botão. A meta só é paga completa.
             return `
                 <div class="material-card ${isComplete ? 'complete' : ''} ${groupLocked ? 'locked' : ''}">
                     <div class="material-icon">${mat.icon}</div>
@@ -2002,29 +1992,19 @@ function renderMaterialsUI() {
                             ? `<div class="material-complete-badge">Meta completa</div>`
                             : groupLocked
                                 ? `<div class="material-complete-badge pending">${groupStatusText}</div>`
-                                : `<div class="material-remaining">
-                                    <span class="remaining-text">Faltam: <strong>${remaining}</strong></span>
-                                    <button type="button" class="btn-fill-remaining" onclick="fillRemainingAmount(${mat.id}, ${remaining})" title="Preencher ${remaining}">
-                                        Completar meta
-                                    </button>
-                                   </div>`
+                                : ''
                         }
                     </div>
-                    <input type="number"
+                    <span class="material-fixed ${isComplete ? 'is-complete' : ''}">${isComplete ? '✓' : remaining}</span>
+                    <input type="hidden"
                            id="material-input-${mat.id}"
                            name="material_${mat.id}"
                            data-material-id="${mat.id}"
                            data-farm-type="${group.type}"
                            data-goal="${matGoal}"
                            data-remaining="${remaining}"
-                           class="material-input material-amount-input ${inputDisabled ? 'disabled' : ''}"
-                           min="0"
-                           max="${remaining}"
-                           value="${inputDisabled ? 0 : remaining}"
-                           placeholder="${isComplete ? 'ok' : remaining}"
-                           ${inputDisabled ? 'disabled' : ''}
-                           onkeypress="return event.charCode >= 48 && event.charCode <= 57"
-                           oninput="validateMaterialInput(this, ${matGoal}); updateSubmitButton()">
+                           class="material-input material-amount-input"
+                           value="${inputDisabled ? 0 : remaining}">
                 </div>
             `;
         }).join('');
@@ -2233,14 +2213,20 @@ function selectPaymentType(type, paymentTypeId = null) {
             
             document.getElementById('dirtyMoneyGoal').textContent = formatPaymentGoal(selectedPaymentType, selectedPaymentType.weekly_goal);
 
-            // Já vem preenchido com o que falta para bater a meta (dá para editar)
+            // Valor fixo (o que falta para bater a meta), igual à rota da Elite
             const moneyInput = document.getElementById('dirtyMoneyAmount');
+            const moneyFixed = document.getElementById('dirtyMoneyFixed');
             if (moneyInput) {
                 const goal = parseInt(selectedPaymentType.weekly_goal, 10) || 0;
                 const paid = parseInt(currentWeekData?.dirtyMoneyAmount, 10) || 0;
                 const remaining = Math.max(0, goal - paid);
                 moneyInput.value = remaining;
-                moneyInput.max = remaining;
+                if (moneyFixed) {
+                    const isUnit = selectedPaymentType.unit_type === 'unidade';
+                    moneyFixed.textContent = isUnit
+                        ? remaining.toLocaleString('pt-BR')
+                        : 'R$ ' + remaining.toLocaleString('pt-BR');
+                }
                 if (typeof updateDirtyMoneyButton === 'function') updateDirtyMoneyButton();
             }
         }

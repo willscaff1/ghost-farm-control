@@ -2985,3 +2985,23 @@
     background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
     color: #fff; font-weight: 700; font-variant-numeric: tabular-nums;
 }
+
+/* Quantidade fixa da meta — mesmo visual da rota da Elite */
+.material-fixed {
+    min-width: 90px;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #fff;
+    font-weight: 700;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+.material-fixed.is-complete {
+    background: rgba(39,174,96,0.18);
+    border-color: rgba(39,174,96,0.45);
+    color: #86efac;
+}
