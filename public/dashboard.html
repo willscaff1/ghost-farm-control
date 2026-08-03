@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260729drugs1">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260729rota2">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -141,58 +141,57 @@
                         <div class="elite-progress-bar"><div class="elite-progress-fill" id="eliteProgressFill"></div></div>
                     </div>
 
-                    <div class="elite-mode-toggle">
-                        <button type="button" class="elite-mode-btn active" id="eliteModeAction" onclick="setEliteMode('action')">⚔️ Fazer ação</button>
-                        <button type="button" class="elite-mode-btn" id="eliteModeRoute" onclick="setEliteMode('route')">🔫 Pagar rota de arma</button>
-                    </div>
-
                     <form id="eliteActionForm" enctype="multipart/form-data">
-                        <div class="form-group">
-                            <label>Qual ação você puxou? <span class="required">*</span></label>
-                            <select id="eliteActionType" name="action_type_id" required>
-                                <option value="">Selecione a ação...</option>
-                            </select>
-                        </div>
                         <div class="form-group">
                             <label>Resultado <span class="required">*</span></label>
                             <div class="elite-result-toggle">
                                 <label class="elite-result-opt win">
-                                    <input type="radio" name="elite_result" value="win"> 🏆 Vitória
+                                    <input type="radio" name="elite_result" value="win" onchange="onEliteResultChange()"> 🏆 Vitória
                                 </label>
                                 <label class="elite-result-opt loss">
-                                    <input type="radio" name="elite_result" value="loss"> 💀 Derrota
+                                    <input type="radio" name="elite_result" value="loss" onchange="onEliteResultChange()"> 💀 Derrota
+                                </label>
+                                <label class="elite-result-opt route">
+                                    <input type="radio" name="elite_result" value="route" onchange="onEliteResultChange()"> 🔫 Rota
                                 </label>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>💰 Dinheiro sujo ganho na ação <span class="required">*</span></label>
-                            <div class="elite-money-input">
-                                <span class="elite-money-prefix">R$</span>
-                                <input type="text" id="eliteDirtyMoney" name="dirty_money" inputmode="numeric"
-                                       placeholder="0" autocomplete="off" oninput="formatEliteMoney(this)">
+
+                        <!-- Ação (some quando o resultado é só Rota) -->
+                        <div id="eliteActionFields">
+                            <div class="form-group">
+                                <label>Qual ação você puxou? <span class="required">*</span></label>
+                                <select id="eliteActionType" name="action_type_id">
+                                    <option value="">Selecione a ação...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>💰 Dinheiro sujo ganho na ação <span class="required">*</span></label>
+                                <div class="elite-money-input">
+                                    <span class="elite-money-prefix">R$</span>
+                                    <input type="text" id="eliteDirtyMoney" name="dirty_money" inputmode="numeric"
+                                           placeholder="0" autocomplete="off" oninput="formatEliteMoney(this)">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Quem participou? <span class="optional">(qualquer membro ativo)</span></label>
+                                <div id="eliteParticipants" class="elite-participants"></div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Quem participou? <span class="optional">(qualquer membro ativo)</span></label>
-                            <div id="eliteParticipants" class="elite-participants"></div>
+
+                        <!-- Rota de arma: aparece em Derrota e em Rota -->
+                        <div id="eliteRouteBlock" class="form-group" style="display:none;">
+                            <label id="eliteRouteBlockLabel">🔫 Rota de arma</label>
+                            <p class="elite-route-hint" id="eliteRouteHint"></p>
+                            <div id="eliteRouteMaterials" class="elite-route-materials"></div>
                         </div>
+
                         <div class="form-group">
-                            <label>📷 Print da ação ou do dinheiro <span class="required">*</span></label>
+                            <label>📷 Print <span class="required">*</span></label>
                             <input type="file" id="eliteProof" name="proof" accept="image/*">
                         </div>
                         <button type="submit" id="eliteSubmitBtn" class="btn-submit">📤 Enviar para aprovação</button>
                         <div id="eliteFormMessage" class="form-message"></div>
-                    </form>
-
-                    <form id="eliteRouteForm" enctype="multipart/form-data" style="display:none;">
-                        <p class="elite-route-hint">🔫 A rota de arma <b>substitui 1 ação</b> na sua meta da semana. Informe os materiais e anexe o print.</p>
-                        <div id="eliteRouteMaterials" class="elite-route-materials"></div>
-                        <div class="form-group">
-                            <label>📷 Print da rota <span class="required">*</span></label>
-                            <input type="file" id="eliteRouteProof" name="proof" accept="image/*">
-                        </div>
-                        <button type="submit" id="eliteRouteSubmitBtn" class="btn-submit">📤 Enviar rota para aprovação</button>
-                        <div id="eliteRouteMessage" class="form-message"></div>
                     </form>
                 </div>
 
@@ -572,6 +571,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260729drugs1"></script>
+    <script src="js/dashboard.js?v=20260729rota2"></script>
 </body>
 </html>

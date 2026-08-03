@@ -1071,10 +1071,40 @@ router.post('/elite/action', requireAuth, (req, res) => {
             // Dinheiro sujo ganho na ação (inteiro, em reais)
             const dirtyMoney = Math.max(0, parseInt(String(req.body.dirty_money || '0').replace(/\D/g, ''), 10) || 0);
 
+            // Derrota: a família paga 1 rota de arma junto com a ação.
+            // Guarda os materiais na própria ação (sem virar uma ação extra na meta).
+            let lossRouteJson = null;
+            if (resultValue === 'loss' && req.body.route_materials) {
+                try {
+                    const sent = typeof req.body.route_materials === 'string'
+                        ? JSON.parse(req.body.route_materials)
+                        : req.body.route_materials;
+                    const cfgRow = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'elite_route_materials'");
+                    let cfgList = [];
+                    try { cfgList = cfgRow && cfgRow.setting_value ? JSON.parse(cfgRow.setting_value) : []; } catch (e) { cfgList = []; }
+                    const cfgIds = (Array.isArray(cfgList) ? cfgList : []).map(it => Number(it.material_id)).filter(Boolean);
+                    if (cfgIds.length > 0) {
+                        const ph = cfgIds.map(() => '?').join(',');
+                        const mats = await getAll(`SELECT id, name FROM materials WHERE id IN (${ph}) AND active = 1`, cfgIds);
+                        const byId = new Map((mats || []).map(m => [Number(m.id), m]));
+                        const list = cfgList.map(it => {
+                            const m = byId.get(Number(it.material_id));
+                            if (!m) return null;
+                            const informed = sent ? sent[String(m.id)] : undefined;
+                            const amount = informed !== undefined && informed !== null && String(informed) !== ''
+                                ? Math.max(0, parseInt(informed, 10) || 0)
+                                : (parseInt(it.amount, 10) || 0);
+                            return { material_id: m.id, name: m.name, amount };
+                        }).filter(Boolean);
+                        if (list.length > 0) lossRouteJson = JSON.stringify(list);
+                    }
+                } catch (e) { lossRouteJson = null; }
+            }
+
             const result = await runQuery(
-                `INSERT INTO elite_actions (registered_by, week_start, week_end, action_name, action_type_id, description, proof_url, result, dirty_money, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-                [userId, week.start, week.end, actionName, actionTypeId, null, proofUrl, resultValue, dirtyMoney]
+                `INSERT INTO elite_actions (registered_by, week_start, week_end, action_name, action_type_id, description, proof_url, result, dirty_money, status, route_materials)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+                [userId, week.start, week.end, actionName, actionTypeId, null, proofUrl, resultValue, dirtyMoney, lossRouteJson]
             );
             const actionId = result.lastID;
 

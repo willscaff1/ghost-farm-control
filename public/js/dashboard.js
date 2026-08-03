@@ -191,24 +191,42 @@ function enterEliteMode() {
         form.dataset.wired = '1';
         form.addEventListener('submit', submitEliteAction);
     }
-    const routeForm = document.getElementById('eliteRouteForm');
-    if (routeForm && !routeForm.dataset.wired) {
-        routeForm.dataset.wired = '1';
-        routeForm.addEventListener('submit', submitEliteRoute);
-    }
 }
 
-// Alterna entre "fazer ação" e "pagar rota de arma"
-function setEliteMode(mode) {
-    const actForm = document.getElementById('eliteActionForm');
-    const routeForm = document.getElementById('eliteRouteForm');
-    const btnAct = document.getElementById('eliteModeAction');
-    const btnRoute = document.getElementById('eliteModeRoute');
-    const isRoute = mode === 'route';
-    if (actForm) actForm.style.display = isRoute ? 'none' : '';
-    if (routeForm) routeForm.style.display = isRoute ? '' : 'none';
-    if (btnAct) btnAct.classList.toggle('active', !isRoute);
-    if (btnRoute) btnRoute.classList.toggle('active', isRoute);
+// Resultado da ação controla o que aparece no formulário
+// Resultado escolhido: Vitória | Derrota | Rota
+// - Vitória: só a ação
+// - Derrota: a ação + a rota de arma (perdeu, a família paga 1 rota)
+// - Rota: só a rota, que substitui 1 ação na meta
+function getEliteResult() {
+    const el = document.querySelector('input[name="elite_result"]:checked');
+    return el ? el.value : '';
+}
+
+function onEliteResultChange() {
+    const result = getEliteResult();
+    const isRouteOnly = result === 'route';
+    const showRoute = isRouteOnly || result === 'loss';
+
+    const actionFields = document.getElementById('eliteActionFields');
+    const routeBlock = document.getElementById('eliteRouteBlock');
+    const hint = document.getElementById('eliteRouteHint');
+    const submitBtn = document.getElementById('eliteSubmitBtn');
+
+    if (actionFields) actionFields.style.display = isRouteOnly ? 'none' : '';
+    if (routeBlock) routeBlock.style.display = showRoute ? '' : 'none';
+
+    if (hint) {
+        hint.textContent = isRouteOnly
+            ? 'A rota de arma substitui 1 ação na sua meta da semana.'
+            : 'A família perdeu a ação, então precisa pagar 1 rota de arma.';
+    }
+
+    if (submitBtn) {
+        submitBtn.textContent = isRouteOnly
+            ? '📤 Enviar rota para aprovação'
+            : '📤 Enviar para aprovação';
+    }
 }
 
 // Mostra a rota de arma da Elite cadastrada (material + quantidade fixos)
@@ -233,51 +251,6 @@ function renderEliteRouteMaterials(route) {
         </div>`).join('');
 }
 
-async function submitEliteRoute(e) {
-    e.preventDefault();
-    const btn = document.getElementById('eliteRouteSubmitBtn');
-    const msg = document.getElementById('eliteRouteMessage');
-    const proof = document.getElementById('eliteRouteProof');
-
-    if (!proof || !proof.files || !proof.files[0]) {
-        msg.textContent = '❌ Anexe o print da rota.';
-        msg.className = 'form-message show error';
-        return;
-    }
-
-    const fd = new FormData();
-    fd.append('proof', proof.files[0]);
-
-    // Quantidades editadas pelo membro (vazio = usa o cadastro do gerente)
-    const materials = {};
-    document.querySelectorAll('#eliteRouteMaterials .elite-route-input').forEach(input => {
-        materials[input.dataset.materialId] = parseInt(input.value, 10) || 0;
-    });
-    fd.append('materials', JSON.stringify(materials));
-
-    btn.disabled = true;
-    btn.textContent = 'Enviando...';
-    try {
-        const res = await fetch('/api/delivery/elite/route', { method: 'POST', body: fd });
-        const data = await res.json();
-        if (data.success) {
-            msg.textContent = '✅ Rota enviada para aprovação!';
-            msg.className = 'form-message show success';
-            document.getElementById('eliteRouteForm').reset();
-            loadEliteStatus(0);
-        } else {
-            msg.textContent = '❌ ' + (data.error || 'Erro ao enviar');
-            msg.className = 'form-message show error';
-        }
-    } catch {
-        msg.textContent = '❌ Erro de conexão. Tente novamente.';
-        msg.className = 'form-message show error';
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '📤 Enviar rota para aprovação';
-        setTimeout(() => { msg.className = 'form-message'; }, 5000);
-    }
-}
 
 async function loadEliteStatus(offset = 0) {
     try {
@@ -388,6 +361,10 @@ function renderEliteStatus(data, offset) {
                 const resultTag = a.result === 'win' ? '<span class="elite-result-tag win">🏆 Vitória</span>'
                     : a.result === 'loss' ? '<span class="elite-result-tag loss">💀 Derrota</span>' : '';
                 const parts = (a.participants || []).length ? `<div class="elite-action-parts">👥 ${a.participants.map(escapeHtml).join(', ')}</div>` : '';
+                // Derrota paga 1 rota de arma junto
+                const lossRoute = (a.result === 'loss' && (a.route_materials || []).length)
+                    ? `<div class="elite-action-parts">🔫 Rota paga: ${a.route_materials.map(m => `${escapeHtml(m.name)}: ${m.amount}`).join(' · ')}</div>`
+                    : '';
                 return `
                     <div class="elite-action-item">
                         <div class="elite-action-top">
@@ -396,6 +373,7 @@ function renderEliteStatus(data, offset) {
                         </div>
                         <div class="elite-action-meta">Registrou: ${who} · 💰 R$ ${(a.dirty_money || 0).toLocaleString('pt-BR')}</div>
                         ${parts}
+                        ${lossRoute}
                         ${when}
                         ${note}
                     </div>`;
@@ -482,34 +460,60 @@ async function submitEliteAction(e) {
     e.preventDefault();
     const msg = document.getElementById('eliteFormMessage');
     const btn = document.getElementById('eliteSubmitBtn');
-    const typeId = document.getElementById('eliteActionType').value;
-    const moneyRaw = (document.getElementById('eliteDirtyMoney').value || '').replace(/\D/g, '');
+    const result = getEliteResult();
     const proof = document.getElementById('eliteProof').files[0];
-    const resultEl = document.querySelector('input[name="elite_result"]:checked');
 
-    if (!typeId) { showEliteMsg(msg, 'Escolha qual ação você puxou', 'error'); return; }
-    if (!resultEl) { showEliteMsg(msg, 'Marque se foi vitória ou derrota', 'error'); return; }
-    if (moneyRaw === '') { showEliteMsg(msg, 'Informe o dinheiro sujo ganho na ação (pode ser 0)', 'error'); return; }
-    if (!proof) { showEliteMsg(msg, 'Anexe o print da ação ou do dinheiro', 'error'); return; }
+    if (!result) { showEliteMsg(msg, 'Marque o resultado: vitória, derrota ou rota', 'error'); return; }
+    if (!proof) { showEliteMsg(msg, 'Anexe o print', 'error'); return; }
 
-    const participants = [...eliteSelectedIds];
+    const isRouteOnly = result === 'route';
+    const needsRoute = isRouteOnly || result === 'loss';
+
+    // Quantidades da rota (aparecem em Derrota e em Rota)
+    let routeMaterials = null;
+    if (needsRoute) {
+        const inputs = document.querySelectorAll('#eliteRouteMaterials .elite-route-input');
+        if (inputs.length === 0) {
+            showEliteMsg(msg, 'A rota da Elite ainda não foi cadastrada — fale com um gerente.', 'error');
+            return;
+        }
+        routeMaterials = {};
+        inputs.forEach(input => { routeMaterials[input.dataset.materialId] = parseInt(input.value, 10) || 0; });
+    }
 
     const fd = new FormData();
-    fd.append('action_type_id', typeId);
-    fd.append('result', resultEl.value);
-    fd.append('dirty_money', moneyRaw);
-    fd.append('participants', JSON.stringify(participants));
     fd.append('proof', proof);
+
+    // Só rota: vai para o endpoint da rota (substitui 1 ação)
+    if (isRouteOnly) {
+        fd.append('materials', JSON.stringify(routeMaterials));
+    } else {
+        const typeId = document.getElementById('eliteActionType').value;
+        const moneyRaw = (document.getElementById('eliteDirtyMoney').value || '').replace(/\D/g, '');
+        if (!typeId) { showEliteMsg(msg, 'Escolha qual ação você puxou', 'error'); return; }
+        if (moneyRaw === '') { showEliteMsg(msg, 'Informe o dinheiro sujo ganho na ação (pode ser 0)', 'error'); return; }
+
+        fd.append('action_type_id', typeId);
+        fd.append('result', result);
+        fd.append('dirty_money', moneyRaw);
+        fd.append('participants', JSON.stringify([...eliteSelectedIds]));
+        // Derrota paga 1 rota junto
+        if (routeMaterials) fd.append('route_materials', JSON.stringify(routeMaterials));
+    }
+
+    const endpoint = isRouteOnly ? '/api/delivery/elite/route' : '/api/delivery/elite/action';
+    const okMsg = isRouteOnly ? '✅ Rota enviada para aprovação!' : '✅ Ação enviada para aprovação!';
 
     btn.disabled = true;
     btn.textContent = 'Enviando...';
     try {
-        const res = await fetch('/api/delivery/elite/action', { method: 'POST', body: fd });
+        const res = await fetch(endpoint, { method: 'POST', body: fd });
         const data = await res.json();
         if (data.success) {
-            showEliteMsg(msg, '✅ Ação enviada para aprovação!', 'success');
+            showEliteMsg(msg, okMsg, 'success');
             document.getElementById('eliteActionForm').reset();
             eliteSelectedIds = [];
+            onEliteResultChange();
             loadEliteStatus(currentWeekOffset || 0);
         } else {
             showEliteMsg(msg, data.error || 'Erro ao enviar', 'error');
@@ -518,7 +522,7 @@ async function submitEliteAction(e) {
         showEliteMsg(msg, 'Erro de conexão', 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = '📤 Enviar para aprovação';
+        onEliteResultChange();
     }
 }
 
