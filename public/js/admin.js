@@ -6976,9 +6976,7 @@ function openEditMemberModal(id, name, passport, email) {
     document.getElementById('editManagerSlot').value = selectedMember?.manager_slot || '';
     document.getElementById('editMemberPassword').value = '';
 
-    // "Não optante de drogas" (por membro)
-    const drugsOptEl = document.getElementById('editDrugsOptOut');
-    if (drugsOptEl) drugsOptEl.checked = (selectedMember?.drugs_opt_out === 1 || selectedMember?.drugs_opt_out === true);
+    // A escolha de pagar drogas é POR SEMANA — fica no Status da Semana, não aqui
 
     // Data de criação da conta (discreto)
     const createdEl = document.getElementById('editMemberCreatedAt');
@@ -7036,7 +7034,6 @@ async function saveEditMember() {
     const memberSlot = document.getElementById('editMemberSlot').value.trim();
     const managerSlot = document.getElementById('editManagerSlot').value.trim();
     const newPassword = document.getElementById('editMemberPassword').value;
-    const drugsOptOut = document.getElementById('editDrugsOptOut')?.checked ? 1 : 0;
 
     if (!name || !passport) {
         alert('Nome e passaporte são obrigatórios!');
@@ -7063,14 +7060,12 @@ async function saveEditMember() {
         const currentCapitalNickname = (member.capital_nickname || '').trim();
         const currentPassport = (member.passport || '').trim();
         const currentEmail = (member.email || '').trim();
-        const currentDrugsOptOut = (member.drugs_opt_out === 1 || member.drugs_opt_out === true) ? 1 : 0;
         const hasProfileChanges =
             name !== currentName ||
             capitalNickname !== currentCapitalNickname ||
             passport !== currentPassport ||
             email !== currentEmail ||
             relevantSlot !== currentRelevantSlot ||
-            drugsOptOut !== currentDrugsOptOut ||
             !!newPassword;
 
         // Atualizar dados básicos apenas quando houve alteração
@@ -7085,7 +7080,6 @@ async function saveEditMember() {
                     email,
                     member_slot: usesManagerSlot ? undefined : memberSlot,
                     manager_slot: usesManagerSlot ? managerSlot : undefined,
-                    drugs_opt_out: drugsOptOut,
                     newPassword: newPassword || undefined
                 })
             });
@@ -12029,31 +12023,34 @@ function getEditDeliveryFarmGroups(data) {
 // Abrir modal para editar entrega existente
 // Mostra o farm correto (uma entrega por vez, não soma) e status = espelho do Status da Semana
 // ── Flag "não paga drogas nesta semana" (gerente marca pelo lápis) ──
-function setDrugsOptOutState(on) {
-    const state = document.getElementById('editDeliveryDrugsOptOutState');
+// Serve aos dois modais: Editar Entrega e Lançar Farm do Membro.
+function setDrugsOptOutState(prefix, on) {
+    const state = document.getElementById(`${prefix}DrugsOptOutState`);
     if (!state) return;
     state.textContent = on ? 'Isento de drogas' : '';
     state.classList.toggle('on', !!on);
 }
 
-async function loadMemberDrugsOptOut(memberId, weekStart) {
-    const chk = document.getElementById('editDeliveryDrugsOptOut');
-    if (!chk) return;
+async function loadMemberDrugsOptOut(memberId, weekStart, prefix = 'editDelivery') {
+    const chk = document.getElementById(`${prefix}DrugsOptOut`);
+    if (!chk) return false;
     chk.dataset.memberId = memberId;
     chk.dataset.weekStart = weekStart;
+    chk.dataset.prefix = prefix;
     chk.checked = false;
-    setDrugsOptOutState(false);
+    setDrugsOptOutState(prefix, false);
     try {
         const res = await fetch(`/api/admin/members/${memberId}/drugs-optout?week_start=${weekStart}`);
-        if (!res.ok) return;
+        if (!res.ok) return false;
         const data = await res.json();
         chk.checked = !!data.optOut;
-        setDrugsOptOutState(!!data.optOut);
-    } catch (e) { /* silencioso */ }
+        setDrugsOptOutState(prefix, !!data.optOut);
+        return !!data.optOut;
+    } catch (e) { return false; }
 }
 
-async function saveMemberDrugsOptOut() {
-    const chk = document.getElementById('editDeliveryDrugsOptOut');
+async function saveDrugsOptOut(prefix) {
+    const chk = document.getElementById(`${prefix}DrugsOptOut`);
     if (!chk) return;
     const { memberId, weekStart } = chk.dataset;
     const optOut = chk.checked;
@@ -12065,8 +12062,12 @@ async function saveMemberDrugsOptOut() {
         });
         const data = await res.json();
         if (data.success) {
-            setDrugsOptOutState(optOut);
+            setDrugsOptOutState(prefix, optOut);
             showNotification(optOut ? 'Membro isento de drogas nesta semana' : 'Membro volta a pagar drogas', 'success');
+            // No lançamento, a seção de drogas some/volta na hora
+            if (prefix === 'createDelivery' && typeof reloadCreateDeliveryItems === 'function') {
+                reloadCreateDeliveryItems();
+            }
             if (typeof loadWeeklyStatus === 'function') loadWeeklyStatus();
         } else {
             chk.checked = !optOut;
@@ -12077,6 +12078,9 @@ async function saveMemberDrugsOptOut() {
         showNotification('Erro de conexão', 'error');
     }
 }
+
+function saveMemberDrugsOptOut() { return saveDrugsOptOut('editDelivery'); }
+function saveCreateDrugsOptOut() { return saveDrugsOptOut('createDelivery'); }
 
 async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) {
     // Qualquer admin pode editar entregas
@@ -13050,6 +13054,13 @@ async function openCreateDeliveryFromStatus(memberId, memberName, tableStatus) {
     openCreateDeliveryModal(memberId, selectedWeek.start, selectedWeek.end, tableStatus);
 }
 
+// Remonta a lista do modal de lançar (usado ao ligar/desligar a flag de drogas)
+function reloadCreateDeliveryItems() {
+    if (currentCreateMemberId && currentCreateWeekStart && currentCreateWeekEnd) {
+        openCreateDeliveryModal(currentCreateMemberId, currentCreateWeekStart, currentCreateWeekEnd);
+    }
+}
+
 // Abrir modal para criar entrega manual
 async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus) {
     // Qualquer admin pode criar entregas
@@ -13104,12 +13115,15 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
         const matsData = await matsRes.json();
         
         const materials = matsData.materials || matsData;
-        
+
+        // Flag da semana: se o membro não paga drogas, a seção de drogas nem aparece
+        const drugsOptOut = await loadMemberDrugsOptOut(memberId, weekStart, 'createDelivery');
+
         // Agrupar materiais por tipo de farm (Drogas / Armas / Geral)
         const activeMats = materials.filter(m => m.active === 1);
         const ftOf = (m) => { const t = (m.farm_type || 'drugs'); return (t === 'weapons' || t === 'general') ? t : 'drugs'; };
         const createGroups = [
-            { type: 'drugs',   title: '🍃 Farm de Drogas', printLabel: 'Print das Drogas', launchLabel: 'Drogas', color: '#2ecc71', items: activeMats.filter(m => ftOf(m) === 'drugs') },
+            { type: 'drugs',   title: '🍃 Farm de Drogas', printLabel: 'Print das Drogas', launchLabel: 'Drogas', color: '#2ecc71', items: drugsOptOut ? [] : activeMats.filter(m => ftOf(m) === 'drugs') },
             { type: 'weapons', title: '🔫 Farm de Armas',  printLabel: 'Print das Armas',  launchLabel: 'Armas',  color: '#e67e22', items: activeMats.filter(m => ftOf(m) === 'weapons') },
             { type: 'general', title: '📦 Farm Geral',     printLabel: 'Print do Farm',     launchLabel: 'Geral',  color: '#3498db', items: activeMats.filter(m => ftOf(m) === 'general') }
         ].filter(g => g.items.length > 0);

@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260729drugs1">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260729semana1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch2">
     
     
@@ -885,12 +885,6 @@
                                 Nova Senha <span class="optional">(deixe em branco para manter)</span>
                             </label>
                             <input type="password" id="editMemberPassword" placeholder="••••••••">
-                        </div>
-                        <div class="edit-form-group full-width">
-                            <label class="edit-drugs-optout">
-                                <input type="checkbox" id="editDrugsOptOut">
-                                <span>💊 Não optante de drogas <span class="optional">(o membro conclui a meta só pagando as armas)</span></span>
-                            </label>
                         </div>
                         <div id="editMemberCreatedAt" style="text-align:center; color:#6c6f82; font-size:11px; margin-top:8px;"></div>
                         <div class="edit-modal-actions">
@@ -1936,7 +1930,12 @@
                 <div id="createDeliveryInfo" style="margin-bottom: 20px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 10px;">
                     <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Membro:</strong> <span id="createDeliveryMemberName" style="color: #fff;">-</span></p>
                     <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Semana:</strong> <span id="createDeliveryWeek" style="color: #fff;">-</span></p>
-                    <p style="margin-bottom: 0;"><strong style="color: #aaa;">Status:</strong> <span id="createDeliveryStatusContainer">-</span></p>
+                    <p style="margin-bottom: 10px;"><strong style="color: #aaa;">Status:</strong> <span id="createDeliveryStatusContainer">-</span></p>
+                    <label class="drugs-optout-flag" title="Marque se o membro não vai pagar a meta de drogas nesta semana">
+                        <input type="checkbox" id="createDeliveryDrugsOptOut" onchange="saveCreateDrugsOptOut()">
+                        <span>🚫 Não paga <strong>drogas</strong> nesta semana (só a meta de armas)</span>
+                        <span class="drugs-optout-state" id="createDeliveryDrugsOptOutState"></span>
+                    </label>
                 </div>
                 
                 <!-- Seção de Screenshots para nova entrega -->
@@ -1977,7 +1976,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260729drugs1"></script>
+    <script src="js/admin.js?v=20260729semana1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();
