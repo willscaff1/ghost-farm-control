@@ -13078,7 +13078,7 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
                             <div style="font-weight:600; color:#fff;">${mat.name}</div>
                             <div style="font-size:12px; color:#888;">Meta: ${mat.weekly_goal}</div>
                         </div>
-                        <input type="number" min="0" value="0"
+                        <input type="number" min="0" value="${mat.weekly_goal || 0}"
                                data-launch-type="${group.type}" data-material-id="${mat.id}" data-goal="${mat.weekly_goal || 0}"
                                oninput="updateLaunchProgress('${group.type}')"
                                style="width:100px; padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.1); color:#fff; text-align:center; font-size:16px;">
@@ -13105,6 +13105,8 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
         }
 
         document.getElementById('createDeliveryItems').innerHTML = itemsHtml;
+        // Campos já nascem com a meta preenchida: atualiza as barras de progresso
+        (window.__launchGroups || []).forEach(t => updateLaunchProgress(t));
         updateLaunchButtons();
 
     } catch (error) {

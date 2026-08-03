@@ -1929,10 +1929,10 @@ function renderMaterialsUI() {
                            data-material-id="${mat.id}"
                            data-goal="${matGoal}"
                            data-remaining="${remaining}"
-                           class="material-input material-amount-input ${isComplete ? 'disabled' : ''}" 
-                           min="0" 
+                           class="material-input material-amount-input ${isComplete ? 'disabled' : ''}"
+                           min="0"
                            max="${remaining}"
-                           value="0"
+                           value="${isComplete ? 0 : remaining}"
                            placeholder="${isComplete ? '✓' : remaining}"
                            ${isComplete ? 'disabled' : ''}
                            onkeypress="return event.charCode >= 48 && event.charCode <= 57"
@@ -2020,7 +2020,7 @@ function renderMaterialsUI() {
                            class="material-input material-amount-input ${inputDisabled ? 'disabled' : ''}"
                            min="0"
                            max="${remaining}"
-                           value="0"
+                           value="${inputDisabled ? 0 : remaining}"
                            placeholder="${isComplete ? 'ok' : remaining}"
                            ${inputDisabled ? 'disabled' : ''}
                            onkeypress="return event.charCode >= 48 && event.charCode <= 57"
@@ -2232,6 +2232,17 @@ function selectPaymentType(type, paymentTypeId = null) {
             if (label) label.textContent = `${selectedPaymentType.icon} Valor de ${selectedPaymentType.name}${isUnidade ? ' (unidades)' : ' (R$)'}`;
             
             document.getElementById('dirtyMoneyGoal').textContent = formatPaymentGoal(selectedPaymentType, selectedPaymentType.weekly_goal);
+
+            // Já vem preenchido com o que falta para bater a meta (dá para editar)
+            const moneyInput = document.getElementById('dirtyMoneyAmount');
+            if (moneyInput) {
+                const goal = parseInt(selectedPaymentType.weekly_goal, 10) || 0;
+                const paid = parseInt(currentWeekData?.dirtyMoneyAmount, 10) || 0;
+                const remaining = Math.max(0, goal - paid);
+                moneyInput.value = remaining;
+                moneyInput.max = remaining;
+                if (typeof updateDirtyMoneyButton === 'function') updateDirtyMoneyButton();
+            }
         }
     }
     
