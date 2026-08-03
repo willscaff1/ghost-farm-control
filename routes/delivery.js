@@ -1114,9 +1114,22 @@ router.post('/elite/route', requireAuth, (req, res) => {
             const ph = cfgIds.map(() => '?').join(',');
             const mats = await getAll(`SELECT id, name FROM materials WHERE id IN (${ph}) AND active = 1`, cfgIds);
             const byId = new Map((mats || []).map(m => [Number(m.id), m]));
+            // O membro pode ajustar as quantidades no painel; o cadastro é só o padrão.
+            let sent = {};
+            try {
+                const raw = req.body.materials;
+                const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (parsed && typeof parsed === 'object') sent = parsed;
+            } catch (e) { sent = {}; }
+
             const routeMaterials = cfgList.map(it => {
                 const m = byId.get(Number(it.material_id));
-                return m ? { material_id: m.id, name: m.name, amount: parseInt(it.amount, 10) || 0 } : null;
+                if (!m) return null;
+                const informed = sent[String(m.id)];
+                const amount = informed !== undefined && informed !== null && String(informed) !== ''
+                    ? Math.max(0, parseInt(informed, 10) || 0)
+                    : (parseInt(it.amount, 10) || 0);
+                return { material_id: m.id, name: m.name, amount };
             }).filter(Boolean);
             if (routeMaterials.length === 0) return res.status(400).json({ error: 'A rota da Elite ainda não foi cadastrada. Fale com um gerente.' });
 

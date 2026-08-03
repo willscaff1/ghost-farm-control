@@ -12028,6 +12028,56 @@ function getEditDeliveryFarmGroups(data) {
 
 // Abrir modal para editar entrega existente
 // Mostra o farm correto (uma entrega por vez, não soma) e status = espelho do Status da Semana
+// ── Flag "não paga drogas nesta semana" (gerente marca pelo lápis) ──
+function setDrugsOptOutState(on) {
+    const state = document.getElementById('editDeliveryDrugsOptOutState');
+    if (!state) return;
+    state.textContent = on ? 'Isento de drogas' : '';
+    state.classList.toggle('on', !!on);
+}
+
+async function loadMemberDrugsOptOut(memberId, weekStart) {
+    const chk = document.getElementById('editDeliveryDrugsOptOut');
+    if (!chk) return;
+    chk.dataset.memberId = memberId;
+    chk.dataset.weekStart = weekStart;
+    chk.checked = false;
+    setDrugsOptOutState(false);
+    try {
+        const res = await fetch(`/api/admin/members/${memberId}/drugs-optout?week_start=${weekStart}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        chk.checked = !!data.optOut;
+        setDrugsOptOutState(!!data.optOut);
+    } catch (e) { /* silencioso */ }
+}
+
+async function saveMemberDrugsOptOut() {
+    const chk = document.getElementById('editDeliveryDrugsOptOut');
+    if (!chk) return;
+    const { memberId, weekStart } = chk.dataset;
+    const optOut = chk.checked;
+    try {
+        const res = await fetch(`/api/admin/members/${memberId}/drugs-optout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ week_start: weekStart, opt_out: optOut })
+        });
+        const data = await res.json();
+        if (data.success) {
+            setDrugsOptOutState(optOut);
+            showNotification(optOut ? 'Membro isento de drogas nesta semana' : 'Membro volta a pagar drogas', 'success');
+            if (typeof loadWeeklyStatus === 'function') loadWeeklyStatus();
+        } else {
+            chk.checked = !optOut;
+            showNotification(data.error || 'Erro ao salvar', 'error');
+        }
+    } catch {
+        chk.checked = !optOut;
+        showNotification('Erro de conexão', 'error');
+    }
+}
+
 async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) {
     // Qualquer admin pode editar entregas
     if (!currentUser) {
@@ -12046,7 +12096,10 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) 
     document.getElementById('editDeliveryScreenshotInput').value = '';
     const envioSelEl = document.getElementById('editDeliveryEnvioSelector');
     if (envioSelEl) { envioSelEl.style.display = 'none'; envioSelEl.innerHTML = ''; }
-    
+
+    // Flag "não paga drogas nesta semana" (mesma escolha que o membro faz no dashboard)
+    loadMemberDrugsOptOut(memberId, weekStart);
+
     try {
         const response = await fetch(`/api/admin/week-delivery-details?userId=${memberId}&week_start=${weekStart}&week_end=${weekEnd}`, {
             credentials: 'same-origin'

@@ -3005,3 +3005,11 @@
     border-color: rgba(39,174,96,0.45);
     color: #86efac;
 }
+
+/* Rota da Elite: quantidade editável (mesmo estilo dos campos de meta) */
+.elite-route-input {
+    width:110px; padding:8px 10px; border-radius:8px; text-align:center;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14);
+    color:#fff; font-weight:700; font-size:16px; font-variant-numeric:tabular-nums;
+    flex-shrink:0;
+}

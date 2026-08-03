@@ -766,6 +766,51 @@ router.get('/password-reset-log', requireSuperAdmin, async (req, res) => {
     }
 });
 
+// Gerente marca/desmarca "não paga drogas" de um membro numa semana.
+// Mesma tabela usada pela escolha do próprio membro (week_drug_optout).
+router.get('/members/:id/drugs-optout', requireAdmin, async (req, res) => {
+    try {
+        const weekStart = req.query.week_start;
+        if (!weekStart) return res.status(400).json({ error: 'week_start é obrigatório' });
+
+        const row = await getOne(
+            'SELECT opt_out FROM week_drug_optout WHERE user_id = ? AND week_start = ?',
+            [req.params.id, weekStart]
+        );
+        res.json({ optOut: !!(row && (row.opt_out === 1 || row.opt_out === true)) });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/members/:id/drugs-optout', requireAdmin, async (req, res) => {
+    try {
+        const { week_start, opt_out } = req.body || {};
+        if (!week_start) return res.status(400).json({ error: 'week_start é obrigatório' });
+
+        const optOut = (opt_out === true || opt_out === 1 || opt_out === '1' || opt_out === 'true') ? 1 : 0;
+        const existing = await getOne(
+            'SELECT id FROM week_drug_optout WHERE user_id = ? AND week_start = ?',
+            [req.params.id, week_start]
+        );
+
+        if (existing) {
+            await runQuery('UPDATE week_drug_optout SET opt_out = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [optOut, existing.id]);
+        } else {
+            await runQuery('INSERT INTO week_drug_optout (user_id, week_start, opt_out) VALUES (?, ?, ?)', [req.params.id, week_start, optOut]);
+        }
+
+        // Muda quem aparece como devendo na conferência
+        if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
+
+        console.log(`💊 ${req.session.user.name} marcou drogas opt-out=${optOut} para o membro ${req.params.id} na semana ${week_start}`);
+        res.json({ success: true, optOut: optOut === 1 });
+    } catch (error) {
+        console.error('Erro ao salvar opt-out de drogas:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ===== Ações da Elite: fila de aprovação (01/02/gerente geral) =====
 
 // Ações pendentes com registrante, participantes e print

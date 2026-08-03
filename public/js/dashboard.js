@@ -220,10 +220,16 @@ function renderEliteRouteMaterials(route) {
         box.innerHTML = '<div class="progress-empty">A rota da Elite ainda não foi cadastrada — fale com um gerente.</div>';
         return;
     }
+    // Já vem preenchido com a quantidade da rota, mas dá para editar
     box.innerHTML = list.map(m => `
         <div class="elite-route-mat">
             <label>${m.icon || '🔫'} ${escapeHtml(m.name)}</label>
-            <span class="elite-route-fixed">${m.amount}</span>
+            <input type="number"
+                   class="elite-route-input"
+                   data-material-id="${m.material_id}"
+                   min="0"
+                   value="${m.amount}"
+                   onkeypress="return event.charCode >= 48 && event.charCode <= 57">
         </div>`).join('');
 }
 
@@ -241,6 +247,13 @@ async function submitEliteRoute(e) {
 
     const fd = new FormData();
     fd.append('proof', proof.files[0]);
+
+    // Quantidades editadas pelo membro (vazio = usa o cadastro do gerente)
+    const materials = {};
+    document.querySelectorAll('#eliteRouteMaterials .elite-route-input').forEach(input => {
+        materials[input.dataset.materialId] = parseInt(input.value, 10) || 0;
+    });
+    fd.append('materials', JSON.stringify(materials));
 
     btn.disabled = true;
     btn.textContent = 'Enviando...';
@@ -1907,7 +1920,7 @@ function renderMaterialsUI() {
             const remaining = Math.max(0, matGoal - delivered);
             const isComplete = remaining === 0;
             
-            // Quantidade fixa, no mesmo formato da rota da Elite
+            // Meta já vem preenchida e editável (sem botão de completar)
             container.innerHTML += `
                 <div class="material-card ${isComplete ? 'complete' : ''}">
                     <div class="material-icon">${mat.icon}</div>
@@ -1916,15 +1929,20 @@ function renderMaterialsUI() {
                         <div class="material-goal">Meta: ${matGoal}</div>
                         ${isComplete ? `<div class="material-complete-badge">✅ Meta completa!</div>` : ''}
                     </div>
-                    <span class="material-fixed ${isComplete ? 'is-complete' : ''}">${isComplete ? '✓' : remaining}</span>
-                    <input type="hidden"
+                    <input type="number"
                            id="material-input-${mat.id}"
                            name="material_${mat.id}"
                            data-material-id="${mat.id}"
                            data-goal="${matGoal}"
                            data-remaining="${remaining}"
-                           class="material-input material-amount-input"
-                           value="${isComplete ? 0 : remaining}">
+                           class="material-input material-amount-input ${isComplete ? 'disabled' : ''}"
+                           min="0"
+                           max="${remaining}"
+                           value="${isComplete ? 0 : remaining}"
+                           placeholder="${isComplete ? '✓' : remaining}"
+                           ${isComplete ? 'disabled' : ''}
+                           onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                           oninput="validateMaterialInput(this, ${matGoal}); updateSubmitButton()">
                 </div>
                 `;
             });
@@ -1995,16 +2013,21 @@ function renderMaterialsUI() {
                                 : ''
                         }
                     </div>
-                    <span class="material-fixed ${isComplete ? 'is-complete' : ''}">${isComplete ? '✓' : remaining}</span>
-                    <input type="hidden"
+                    <input type="number"
                            id="material-input-${mat.id}"
                            name="material_${mat.id}"
                            data-material-id="${mat.id}"
                            data-farm-type="${group.type}"
                            data-goal="${matGoal}"
                            data-remaining="${remaining}"
-                           class="material-input material-amount-input"
-                           value="${inputDisabled ? 0 : remaining}">
+                           class="material-input material-amount-input ${inputDisabled ? 'disabled' : ''}"
+                           min="0"
+                           max="${remaining}"
+                           value="${inputDisabled ? 0 : remaining}"
+                           placeholder="${isComplete ? 'ok' : remaining}"
+                           ${inputDisabled ? 'disabled' : ''}
+                           onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                           oninput="validateMaterialInput(this, ${matGoal}); updateSubmitButton()">
                 </div>
             `;
         }).join('');
@@ -2213,20 +2236,14 @@ function selectPaymentType(type, paymentTypeId = null) {
             
             document.getElementById('dirtyMoneyGoal').textContent = formatPaymentGoal(selectedPaymentType, selectedPaymentType.weekly_goal);
 
-            // Valor fixo (o que falta para bater a meta), igual à rota da Elite
+            // Já vem preenchido com o que falta para bater a meta (dá para editar)
             const moneyInput = document.getElementById('dirtyMoneyAmount');
-            const moneyFixed = document.getElementById('dirtyMoneyFixed');
             if (moneyInput) {
                 const goal = parseInt(selectedPaymentType.weekly_goal, 10) || 0;
                 const paid = parseInt(currentWeekData?.dirtyMoneyAmount, 10) || 0;
                 const remaining = Math.max(0, goal - paid);
                 moneyInput.value = remaining;
-                if (moneyFixed) {
-                    const isUnit = selectedPaymentType.unit_type === 'unidade';
-                    moneyFixed.textContent = isUnit
-                        ? remaining.toLocaleString('pt-BR')
-                        : 'R$ ' + remaining.toLocaleString('pt-BR');
-                }
+                moneyInput.max = remaining;
                 if (typeof updateDirtyMoneyButton === 'function') updateDirtyMoneyButton();
             }
         }
