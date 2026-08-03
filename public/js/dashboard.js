@@ -1606,6 +1606,11 @@ function updateProgressBars(progress) {
     const container = document.getElementById('progressBars');
     if (!container) return;
 
+    // Optou por só armas: as barras de drogas somem junto com o formulário
+    if (progress && currentWeekData?.drugsOptOut) {
+        progress = progress.filter(p => normalizeFarmTypeClient(p.farm_type) !== 'drugs');
+    }
+
     if (!progress || progress.length === 0) {
         container.innerHTML = `
             <div class="progress-empty">
@@ -1971,8 +1976,12 @@ function renderMaterialsUI() {
         return;
     }
 
+    // Se o membro optou por fazer só armas nesta semana, o farm de drogas
+    // some do painel. Ele pode voltar atrás pelo seletor e as drogas voltam.
+    const drugsOptOut = !!currentWeekData?.drugsOptOut;
+
     const groupedMaterials = [
-        { type: 'drugs', title: getFarmTypeTitleClient('drugs'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'drugs') },
+        { type: 'drugs', title: getFarmTypeTitleClient('drugs'), items: drugsOptOut ? [] : materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'drugs') },
         { type: 'weapons', title: getFarmTypeTitleClient('weapons'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'weapons') },
         { type: 'general', title: getFarmTypeTitleClient('general'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'general') }
     ].filter(group => group.items.length > 0);
