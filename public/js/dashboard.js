@@ -167,6 +167,178 @@ function renderUserRoleBadge(role) {
 
 const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
+// ===== Competição semanal =====
+let competitionData = null;
+
+async function loadCompetition() {
+    const invite = document.getElementById('competitionInvite');
+    const panel = document.getElementById('competitionPanel');
+    if (!invite || !panel) return;
+
+    // Elite não entra na competição de materiais
+    if (window.IS_ELITE || currentWeekOffset !== 0) {
+        invite.style.display = 'none';
+        panel.style.display = 'none';
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/delivery/competition/status?_t=${Date.now()}`, { cache: 'no-cache' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        competitionData = await res.json();
+        renderCompetition(competitionData);
+    } catch (e) {
+        console.error('Erro ao carregar competição:', e);
+        invite.style.display = 'none';
+        panel.style.display = 'none';
+    }
+}
+
+function renderCompetition(data) {
+    const invite = document.getElementById('competitionInvite');
+    const panel = document.getElementById('competitionPanel');
+    if (!invite || !panel) return;
+
+    // Só aparece com a competição aberta e a meta paga
+    const eligible = data.enabled && data.metaPaid;
+    invite.style.display = (eligible && !data.optedIn) ? 'block' : 'none';
+    panel.style.display = (eligible && data.optedIn) ? 'block' : 'none';
+    if (!eligible) return;
+
+    // Prêmios no convite
+    const prizesBox = document.getElementById('competitionInvitePrizes');
+    if (prizesBox) {
+        const prizes = data.prizes || [];
+        prizesBox.innerHTML = prizes.length === 0 ? '' : prizes.map(p =>
+            `<div class="competition-prize"><span class="competition-prize-pos">${p.position}º</span><span>${escapeHtml(p.description)}</span></div>`
+        ).join('');
+    }
+
+    if (!data.optedIn) return;
+
+    // Placar
+    const pts = document.getElementById('competitionPoints');
+    if (pts) pts.textContent = data.points || 0;
+
+    const recipe = data.recipe || [];
+    const hint = document.getElementById('competitionRecipeHint');
+    if (hint) {
+        hint.innerHTML = recipe.length === 0
+            ? 'A receita da competição ainda não foi cadastrada — fale com um gerente.'
+            : `1 ponto = ${recipe.map(r => `${r.icon || '📦'} ${escapeHtml(r.name)} ${r.amount}`).join(' + ')}`;
+    }
+
+    // Progresso rumo ao próximo ponto
+    const prog = document.getElementById('competitionProgress');
+    if (prog) {
+        prog.innerHTML = (data.progress || []).map(p => {
+            const pct = p.required > 0 ? Math.min(100, Math.round((p.leftover / p.required) * 100)) : 0;
+            return `
+                <div class="competition-progress-row">
+                    <span class="competition-progress-name">${p.icon || '📦'} ${escapeHtml(p.name)}</span>
+                    <div class="competition-progress-bar"><div class="competition-progress-fill" style="width:${pct}%"></div></div>
+                    <span class="competition-progress-num">${p.leftover}/${p.required}</span>
+                </div>`;
+        }).join('');
+    }
+
+    // Campos de envio (só materiais da receita)
+    const mats = document.getElementById('competitionMaterials');
+    if (mats) {
+        mats.innerHTML = recipe.length === 0
+            ? '<p class="loading-placeholder">Sem receita cadastrada.</p>'
+            : recipe.map(r => `
+                <div class="material-card">
+                    <div class="material-icon">${r.icon || '📦'}</div>
+                    <div class="material-info">
+                        <div class="material-name">${escapeHtml(r.name)}</div>
+                        <div class="material-goal">${r.amount} por ponto</div>
+                    </div>
+                    <input type="number" min="0" value="0" class="material-input competition-input"
+                           data-material-id="${r.material_id}"
+                           onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+                </div>`).join('');
+    }
+
+    // Meus envios da semana
+    const list = document.getElementById('competitionMyFarms');
+    if (list) {
+        const farms = data.myFarms || [];
+        list.innerHTML = farms.length === 0 ? '' : `
+            <div class="competition-farms-title">Meus envios desta semana</div>
+            ${farms.map(f => {
+                const st = f.status === 'approved' ? '<span class="elite-badge ok">✅ Aprovado</span>'
+                    : f.status === 'rejected' ? '<span class="elite-badge no">❌ Recusado</span>'
+                    : '<span class="elite-badge wait">⏳ Aguardando</span>';
+                const itens = (f.materials || []).filter(m => m.amount > 0)
+                    .map(m => `${m.icon || '📦'} ${escapeHtml(m.name)}: ${m.amount}`).join(' · ') || '—';
+                const note = f.status === 'rejected' && f.review_note
+                    ? `<div class="elite-action-note">Motivo: ${escapeHtml(f.review_note)}</div>` : '';
+                return `<div class="competition-farm-item"><div class="elite-action-top"><span>${itens}</span>${st}</div>${note}</div>`;
+            }).join('')}`;
+    }
+}
+
+async function setCompetitionOptIn(optIn) {
+    const msg = document.getElementById('competitionInviteMsg');
+    try {
+        const res = await fetch('/api/delivery/competition/optin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ opt_in: !!optIn })
+        });
+        const data = await res.json();
+        if (data.success) {
+            loadCompetition();
+        } else if (msg) {
+            msg.textContent = data.error || 'Erro ao salvar';
+            msg.className = 'form-message show error';
+        }
+    } catch {
+        if (msg) { msg.textContent = 'Erro de conexão'; msg.className = 'form-message show error'; }
+    }
+}
+
+async function submitCompetitionFarm(e) {
+    e.preventDefault();
+    const msg = document.getElementById('competitionFormMsg');
+    const btn = document.getElementById('competitionSubmitBtn');
+    const proof = document.getElementById('competitionProof').files[0];
+
+    const materials = {};
+    let total = 0;
+    document.querySelectorAll('#competitionMaterials .competition-input').forEach(input => {
+        const amount = parseInt(input.value, 10) || 0;
+        if (amount > 0) { materials[input.dataset.materialId] = amount; total += amount; }
+    });
+
+    if (total === 0) { showEliteMsg(msg, 'Informe pelo menos um material', 'error'); return; }
+    if (!proof) { showEliteMsg(msg, 'Anexe o print do farm da competição', 'error'); return; }
+
+    const fd = new FormData();
+    fd.append('materials', JSON.stringify(materials));
+    fd.append('proof', proof);
+
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    try {
+        const res = await fetch('/api/delivery/competition/farm', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success) {
+            showEliteMsg(msg, '✅ Enviado para aprovação!', 'success');
+            document.getElementById('competitionForm').reset();
+            loadCompetition();
+        } else {
+            showEliteMsg(msg, data.error || 'Erro ao enviar', 'error');
+        }
+    } catch {
+        showEliteMsg(msg, 'Erro de conexão', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🏆 Enviar para aprovação';
+    }
+}
+
 // ===== Trilha Elite (registro de ações no lugar do farm) =====
 let eliteData = null;
 
@@ -174,7 +346,6 @@ function enterEliteMode() {
     const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
     hide('deliveryPanel');
     hide('lockedMessage');
-    hide('extraFarmPanel');
     hide('absenceCard');
     // Esconde o painel de progresso de farm (esquerda)
     const prog = document.getElementById('progressBars');
@@ -1246,6 +1417,9 @@ async function loadWeekData(offset = 0) {
             updateMetaSummary(data);
         }
 
+        // Competição da semana (convite aparece quando a meta está paga)
+        loadCompetition();
+
         // Atualizar barras de progresso
         updateProgressBars(data.progress);
         
@@ -1314,7 +1488,6 @@ async function loadWeekData(offset = 0) {
         // Atualizar painel de entrega baseado no status
         const deliveryPanel = document.getElementById('deliveryPanel');
         const lockedMessage = document.getElementById('lockedMessage');
-        const extraFarmPanel = document.getElementById('extraFarmPanel');
         
         // Farm está COMPLETO = aprovado E não é parcial (bateu a meta)
         const farmCompleto = data.deliveryStatus === 'approved' && !data.isPartial;
@@ -1325,7 +1498,6 @@ async function loadWeekData(offset = 0) {
             // META ISENTA - trava o registro e mostra o aviso (prioridade máxima)
             if (data.metaExempt) {
                 deliveryPanel.style.display = 'none';
-                if (extraFarmPanel) extraFarmPanel.style.display = 'none';
                 if (lockedMessage) {
                     const audienceText = data.metaExemptAudience === 'managers'
                         ? 'Essa semana a <strong>gerência</strong> está isenta de metas'
@@ -1337,19 +1509,10 @@ async function loadWeekData(offset = 0) {
                         <p class="meta-exempt-banner-text">${audienceText}. Você não precisa registrar farm nesta semana. 🎉</p>
                     `;
                 }
-            // Farm COMPLETO - meta batida, só mostra painel de farm extra se competição estiver ATIVA
-            } else if (farmCompleto && farmSettings.competition_enabled === 'true') {
-                deliveryPanel.style.display = 'none';
-                if (lockedMessage) lockedMessage.style.display = 'none';
-                
-                if (extraFarmPanel) {
-                    extraFarmPanel.style.display = 'block';
-                    loadExtraMaterialsInputs();
-                }
             } else if (farmCompleto) {
-                // Meta batida, competição desligada: bloquear TUDO (Materiais, Dinheiro Limpo, Dinheiro Sujo, prints) - semana finalizada
+                // Meta batida: fecha o farm. Se a competição da semana estiver aberta,
+                // o convite/painel da competição aparece por conta própria.
                 deliveryPanel.style.display = 'none';
-                if (extraFarmPanel) extraFarmPanel.style.display = 'none';
                 if (lockedMessage) {
                     lockedMessage.style.display = 'block';
                     lockedMessage.innerHTML = `
@@ -1364,7 +1527,6 @@ async function loadWeekData(offset = 0) {
                 deliveryPanel.style.opacity = '1';
                 deliveryPanel.style.pointerEvents = 'auto';
                 if (lockedMessage) lockedMessage.style.display = 'none';
-                if (extraFarmPanel) extraFarmPanel.style.display = 'none';
                 
                 const formTitle = document.getElementById('formTitle');
                 if (formTitle) {
@@ -1376,7 +1538,6 @@ async function loadWeekData(offset = 0) {
                 deliveryPanel.style.opacity = '1';
                 deliveryPanel.style.pointerEvents = 'auto';
                 if (lockedMessage) lockedMessage.style.display = 'none';
-                if (extraFarmPanel) extraFarmPanel.style.display = 'none';
                 
                 // Atualizar título do form
                 const formTitle = document.getElementById('formTitle');
@@ -1392,7 +1553,6 @@ async function loadWeekData(offset = 0) {
             } else {
                 // Não pode entregar - esconder formulário e mostrar mensagem
                 deliveryPanel.style.display = 'none';
-                if (extraFarmPanel) extraFarmPanel.style.display = 'none';
                 
                 // Mostrar mensagem de bloqueio
                 if (lockedMessage) {
@@ -4028,6 +4188,12 @@ function removeExtraScreenshot(index) {
         reader.readAsDataURL(file);
     });
 }
+
+// Liga o formulário da competição
+document.addEventListener('DOMContentLoaded', function() {
+    const compForm = document.getElementById('competitionForm');
+    if (compForm) compForm.addEventListener('submit', submitCompetitionFarm);
+});
 
 // Submeter farm extra para ranking
 document.addEventListener('DOMContentLoaded', function() {

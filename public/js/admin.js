@@ -90,14 +90,6 @@ function showNotification(message, type = 'success') {
     }, 3000);
 }
 
-// Verificar se usuário pode visualizar competições
-function canViewCompetitions() {
-    if (!currentUser) return false;
-    const userGroup = currentUser.group || currentUser.role;
-    const userGroups = currentUser.groups || [userGroup];
-    const canView = userGroups.some(g => ['super_admin', '01', '02', 'gerente_geral'].includes(g));
-    return canView;
-}
 
 // Carregar nomes de exibição dos grupos do banco
 async function loadRoleNames() {
@@ -223,6 +215,17 @@ function isSuperAdminUser() {
 // Abas restritas ao super admin, independente de permissões de grupo
 const superAdminOnlyTabs = ['password-reset-log'];
 
+// Competição: configuração e ranking só para 01, 02 e gerente geral.
+// A fila de aprovação (competition-farms) fica aberta a qualquer gerente.
+const competitionViewerTabs = ['competition'];
+const COMPETITION_VIEWER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
+function isCompetitionViewer() {
+    if (!currentUser) return false;
+    if (currentUser.passport === '6999') return true;
+    const groups = currentUser.groups || [currentUser.group || currentUser.role];
+    return groups.some(g => COMPETITION_VIEWER_ROLES.includes(g));
+}
+
 // Abas restritas aos aprovadores de ações da Elite: 01, 02, gerente geral, gerente de ação (+ super admin)
 const eliteApproverTabs = ['elite-actions', 'elite-catalog', 'elite-ranking'];
 const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'gerente_acao', 'super_admin'];
@@ -235,6 +238,7 @@ function isEliteApproverUser() {
 
 function hasAccessToTab(tabId) {
     if (superAdminOnlyTabs.includes(tabId)) return isSuperAdminUser();
+    if (competitionViewerTabs.includes(tabId)) return isCompetitionViewer();
     if (eliteApproverTabs.includes(tabId)) return isEliteApproverUser();
     if (!currentUserPermissions) return true;
     if (currentUserPermissions.permissions.includes('all')) return true;
@@ -254,6 +258,12 @@ function applyRolePermissions() {
         // Abas de super admin ignoram as permissões de grupo
         if (superAdminOnlyTabs.includes(tabId)) {
             item.style.display = isSuperAdminUser() ? '' : 'none';
+            return;
+        }
+
+        // Aba de configuração/ranking da competição (01/02/gerente geral)
+        if (competitionViewerTabs.includes(tabId)) {
+            item.style.display = isCompetitionViewer() ? '' : 'none';
             return;
         }
 
@@ -404,9 +414,8 @@ function showTab(tabId) {
     // Carregar dados da tab
     switch (tabId) {
         case 'weekly-status': loadWeeklyStatus(); break;
-        case 'weekly-ranking': 
-            loadWeeklyRankingTab(); 
-            break;
+        case 'competition': loadCompetitionAdmin(); break;
+        case 'competition-farms': loadCompetitionFarms(); break;
         case 'members-overview': loadMembersOverview(); break;
         case 'absences': loadJustifications(); break;
         case 'pending': loadPendingDeliveries(); break;
@@ -824,8 +833,11 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
             case 'weekly-status':
                 loadWeeklyStatus();
                 break;
-            case 'weekly-ranking':
-                loadWeeklyRankingTab();
+            case 'competition':
+                loadCompetitionAdmin();
+                break;
+            case 'competition-farms':
+                loadCompetitionFarms();
                 break;
             case 'members-overview':
                 loadMembersOverview();
@@ -6454,6 +6466,269 @@ async function confirmEliteAction() {
     }
 }
 
+// ===== Competição semanal (admin) =====
+
+async function loadCompetitionAdmin() {
+    await Promise.all([loadCompetitionWeek(), loadCompetitionRecipe(), loadCompetitionPrizes(), loadCompetitionRanking()]);
+}
+
+async function loadCompetitionWeek() {
+    try {
+        const res = await fetch('/api/admin/competition/week');
+        if (!res.ok) return;
+        const data = await res.json();
+        const chk = document.getElementById('compWeekEnabled');
+        const state = document.getElementById('compWeekState');
+        if (chk) chk.checked = !!data.enabled;
+        if (state) {
+            state.textContent = data.enabled ? 'Ligada' : 'Desligada';
+            state.classList.toggle('on', !!data.enabled);
+        }
+    } catch (e) { console.error('Erro ao carregar semana da competição:', e); }
+}
+
+async function saveCompetitionWeek(enabled) {
+    const msg = document.getElementById('compWeekMsg');
+    try {
+        const res = await fetch('/api/admin/competition/week', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: !!enabled })
+        });
+        const data = await res.json();
+        if (data.success) {
+            loadCompetitionWeek();
+            if (msg) { msg.textContent = enabled ? '✅ Competição aberta nesta semana' : 'Competição fechada nesta semana'; msg.className = 'goals-message success'; }
+        } else if (msg) { msg.textContent = data.error || 'Erro'; msg.className = 'goals-message error'; }
+    } catch {
+        if (msg) { msg.textContent = 'Erro de conexão'; msg.className = 'goals-message error'; }
+    }
+}
+
+async function loadCompetitionRecipe() {
+    const tbody = document.getElementById('compRecipeBody');
+    const sel = document.getElementById('compRecipeMaterial');
+    try {
+        const res = await fetch('/api/admin/competition/recipe');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+
+        if (sel) {
+            sel.innerHTML = (data.materials || []).map(m =>
+                `<option value="${m.id}">${m.icon || '📦'} ${escapeHtml(m.name)}</option>`).join('');
+        }
+        if (tbody) {
+            const recipe = data.recipe || [];
+            tbody.innerHTML = recipe.length === 0
+                ? '<tr><td colspan="3" style="text-align:center;padding:20px;">Nenhum material na receita ainda.</td></tr>'
+                : recipe.map(r => `
+                    <tr>
+                        <td>${r.icon || '📦'} ${escapeHtml(r.name)}</td>
+                        <td><strong>${r.amount}</strong></td>
+                        <td><button class="btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="removeCompetitionRecipe(${r.material_id})">🗑️ Remover</button></td>
+                    </tr>`).join('');
+        }
+    } catch (e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;">Erro ao carregar</td></tr>';
+    }
+}
+
+async function saveCompetitionRecipe() {
+    const msg = document.getElementById('compRecipeMsg');
+    const materialId = document.getElementById('compRecipeMaterial')?.value;
+    const amount = parseInt(document.getElementById('compRecipeAmount')?.value, 10) || 0;
+    if (!materialId || amount < 1) {
+        if (msg) { msg.textContent = 'Escolha o material e a quantidade'; msg.className = 'goals-message error'; }
+        return;
+    }
+    try {
+        const res = await fetch('/api/admin/competition/recipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ material_id: materialId, amount })
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (msg) { msg.textContent = '✅ Receita atualizada'; msg.className = 'goals-message success'; }
+            loadCompetitionRecipe();
+            loadCompetitionRanking();
+        } else if (msg) { msg.textContent = data.error || 'Erro'; msg.className = 'goals-message error'; }
+    } catch {
+        if (msg) { msg.textContent = 'Erro de conexão'; msg.className = 'goals-message error'; }
+    }
+}
+
+async function removeCompetitionRecipe(materialId) {
+    try {
+        await fetch(`/api/admin/competition/recipe/${materialId}`, { method: 'DELETE' });
+        loadCompetitionRecipe();
+        loadCompetitionRanking();
+    } catch { showNotification('Erro de conexão', 'error'); }
+}
+
+async function loadCompetitionPrizes() {
+    const tbody = document.getElementById('compPrizesBody');
+    try {
+        const res = await fetch('/api/admin/competition/prizes');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const prizes = data.prizes || [];
+        if (tbody) {
+            tbody.innerHTML = prizes.length === 0
+                ? '<tr><td colspan="3" style="text-align:center;padding:20px;">Nenhum prêmio cadastrado.</td></tr>'
+                : prizes.map(p => `
+                    <tr>
+                        <td><strong>${p.position}º lugar</strong></td>
+                        <td>${escapeHtml(p.description)}</td>
+                        <td><button class="btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="removeCompetitionPrize(${p.position})">🗑️ Remover</button></td>
+                    </tr>`).join('');
+        }
+    } catch (e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;">Erro ao carregar</td></tr>';
+    }
+}
+
+async function saveCompetitionPrize() {
+    const msg = document.getElementById('compPrizeMsg');
+    const position = parseInt(document.getElementById('compPrizePos')?.value, 10) || 0;
+    const description = (document.getElementById('compPrizeDesc')?.value || '').trim();
+    if (position < 1 || !description) {
+        if (msg) { msg.textContent = 'Informe a colocação e o prêmio'; msg.className = 'goals-message error'; }
+        return;
+    }
+    try {
+        const res = await fetch('/api/admin/competition/prizes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ position, description })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('compPrizeDesc').value = '';
+            if (msg) { msg.textContent = '✅ Prêmio salvo'; msg.className = 'goals-message success'; }
+            loadCompetitionPrizes();
+            loadCompetitionRanking();
+        } else if (msg) { msg.textContent = data.error || 'Erro'; msg.className = 'goals-message error'; }
+    } catch {
+        if (msg) { msg.textContent = 'Erro de conexão'; msg.className = 'goals-message error'; }
+    }
+}
+
+async function removeCompetitionPrize(position) {
+    try {
+        await fetch(`/api/admin/competition/prizes/${position}`, { method: 'DELETE' });
+        loadCompetitionPrizes();
+        loadCompetitionRanking();
+    } catch { showNotification('Erro de conexão', 'error'); }
+}
+
+async function loadCompetitionRanking() {
+    const tbody = document.getElementById('compRankingBody');
+    const totalsEl = document.getElementById('compRankingTotals');
+    const detail = document.getElementById('compRankingDetail');
+    try {
+        const res = await fetch('/api/admin/competition/ranking');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const ranking = data.ranking || [];
+
+        if (totalsEl) {
+            const card = (label, value, color) => `<div style="flex:1;min-width:130px;background:var(--card-bg,rgba(255,255,255,0.04));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;padding:12px 16px;"><div style="font-size:24px;font-weight:700;color:${color};">${value}</div><div style="font-size:12px;color:var(--text-secondary);">${label}</div></div>`;
+            totalsEl.innerHTML =
+                card('Participantes', data.totals.participants, 'var(--text-primary, #fff)') +
+                card('🏆 Pontos somados', data.totals.points, '#f1c40f') +
+                card('Semana', data.enabled ? 'Aberta' : 'Fechada', data.enabled ? '#27ae60' : '#e74c3c');
+        }
+
+        const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+        if (tbody) {
+            tbody.innerHTML = ranking.length === 0
+                ? '<tr><td colspan="6" style="text-align:center;padding:24px;">Ninguém pontuou ainda nesta semana.</td></tr>'
+                : ranking.map((r, i) => `
+                    <tr>
+                        <td>${medal(i)}</td>
+                        <td class="rank-passport">${escapeHtml(r.passport || '-')}</td>
+                        <td class="rank-name">${escapeHtml(r.name)}</td>
+                        <td><strong style="font-size:17px;color:#f1c40f;">${r.points}</strong></td>
+                        <td>${r.submissions}${r.pending > 0 ? ` <small style="color:#f39c12;">(+${r.pending} aguardando)</small>` : ''}</td>
+                        <td>${r.prize ? escapeHtml(r.prize) : '—'}</td>
+                    </tr>`).join('');
+        }
+
+        // Detalhe: materiais entregues por participante
+        if (detail) {
+            detail.innerHTML = ranking.length === 0 ? '' : ranking.map(r => `
+                <div class="comp-detail-card">
+                    <div class="comp-detail-head">${r.position}º · ${escapeHtml(r.name)} — <strong>${r.points} ponto(s)</strong></div>
+                    <div class="comp-detail-mats">
+                        ${r.materials.map(m => `<span class="comp-detail-mat">${m.icon || '📦'} ${escapeHtml(m.name)}: <strong>${m.delivered}</strong>/${m.required}</span>`).join('')}
+                    </div>
+                </div>`).join('');
+        }
+    } catch (e) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Erro ao carregar o ranking</td></tr>';
+    }
+}
+
+// Fila de aprovação dos farms da competição (qualquer gerente)
+async function loadCompetitionFarms() {
+    const box = document.getElementById('compFarmsList');
+    if (!box) return;
+    try {
+        const res = await fetch('/api/admin/competition/farms/pending');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const farms = data.farms || [];
+        if (farms.length === 0) {
+            box.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-secondary);">Nenhum farm de competição pendente 🎉</div>';
+            return;
+        }
+        box.innerHTML = farms.map(f => {
+            const when = f.created_at ? new Date(f.created_at).toLocaleString('pt-BR') : '';
+            const shots = (f.screenshots || []).map(s =>
+                `<a href="${s}" target="_blank" rel="noopener"><img src="${s}" class="elite-proof-thumb" alt="print"></a>`).join('') || '<span style="color:#e74c3c;">Sem print</span>';
+            return `
+                <div class="elite-admin-card">
+                    <div class="elite-admin-main">
+                        <div class="elite-admin-title">${escapeHtml(f.name)} <small>${escapeHtml(f.passport || '')}</small></div>
+                        <div class="elite-admin-meta">${when}</div>
+                        <div class="elite-admin-parts">${f.materials.map(m => `<span class="elite-chip">${m.icon || '📦'} ${escapeHtml(m.name)}: ${m.amount}</span>`).join(' ')}</div>
+                    </div>
+                    <div class="elite-admin-proof">${shots}</div>
+                    <div class="elite-admin-actions">
+                        <button class="btn-approve" onclick="approveCompetitionFarm(${f.id})">✅ Aprovar</button>
+                        <button class="btn-reject" onclick="rejectCompetitionFarm(${f.id})">❌ Rejeitar</button>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        box.innerHTML = '<div style="text-align:center;padding:24px;">Erro ao carregar</div>';
+    }
+}
+
+async function approveCompetitionFarm(id) {
+    try {
+        const res = await fetch(`/api/admin/competition/farms/${id}/approve`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) { showNotification('Farm aprovado!', 'success'); loadCompetitionFarms(); }
+        else showNotification(data.error || 'Erro', 'error');
+    } catch { showNotification('Erro de conexão', 'error'); }
+}
+
+async function rejectCompetitionFarm(id) {
+    const note = prompt('Motivo da recusa (opcional):') || '';
+    try {
+        const res = await fetch(`/api/admin/competition/farms/${id}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note })
+        });
+        const data = await res.json();
+        if (data.success) { showNotification('Farm rejeitado', 'success'); loadCompetitionFarms(); }
+        else showNotification(data.error || 'Erro', 'error');
+    } catch { showNotification('Erro de conexão', 'error'); }
+}
+
 // ===== Cadastro de tipos de ação (catálogo) =====
 async function loadEliteTypes() {
     const tbody = document.getElementById('eliteTypesBody');
@@ -9045,15 +9320,9 @@ function updateCompetitionStatus(enabled) {
     }
 }
 
-// Mostrar/ocultar elementos baseado na competição
+// Mostrar/ocultar as seções do farm extra conforme a chave antiga de competição.
+// A competição nova tem liga/desliga próprio, por semana, na aba Competição.
 function updateCompetitionVisibility() {
-    // Ocultar botão da sidebar
-    const rankingTab = document.querySelector('[data-tab="weekly-ranking"]');
-    if (rankingTab) {
-        rankingTab.style.display = competitionEnabled ? 'block' : 'none';
-    }
-    
-    // Ocultar sub-abas e seções relacionadas a farms extras quando competição estiver desabilitada
     const farmsExtraTab = document.getElementById('farmsExtraExtractTab');
     const farmsExtraContent = document.getElementById('farms-extra-extract-content');
     const extraFarmsSection = document.getElementById('extraFarmsSection');
@@ -9063,15 +9332,6 @@ function updateCompetitionVisibility() {
         if (extraFarmsSection) extraFarmsSection.style.display = 'none';
     } else {
         if (farmsExtraTab) farmsExtraTab.style.display = 'inline-block';
-        // Conteúdo só aparece quando a aba é clicada (switchFarmsTab), então não ativamos aqui
-    }
-    
-    // Se a aba de ranking está ativa e competição desabilitada, voltar para status da semana
-    if (!competitionEnabled) {
-        const activeTab = document.querySelector('.sidebar-item.active');
-        if (activeTab && activeTab.dataset.tab === 'weekly-ranking') {
-            switchTab('weekly-status');
-        }
     }
 }
 
@@ -11156,85 +11416,6 @@ async function revokeEditPermission(userId, userName) {
 
 // ==================== COMPETIÇÕES ====================
 
-async function loadCompetitions() {
-    console.log('🏆 loadCompetitions() CHAMADA!');
-    const list = document.getElementById('competitionsList');
-    
-    if (!list) {
-        console.error('❌ Elemento competitionsList não encontrado!');
-        return;
-    }
-    
-    try {
-        console.log('🏆 Setando loading...');
-        list.innerHTML = '<p class="loading">Carregando competições...</p>';
-        
-        console.log('🏆 Fazendo fetch para /api/admin/competitions');
-        const response = await fetch('/api/admin/competitions', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'same-origin'
-        });
-        
-        console.log('🏆 Response recebido:', response.status, response.statusText);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Erro na resposta:', response.status, response.statusText, errorText);
-            list.innerHTML = `<div class="alert alert-error">Erro ${response.status}: ${errorText}</div>`;
-            return;
-        }
-        
-        const data = await response.json();
-        console.log('🏆 Dados recebidos:', data);
-        
-        if (data.competitions && data.competitions.length > 0) {
-            console.log(`🏆 Renderizando ${data.competitions.length} competições`);
-            list.innerHTML = data.competitions.map(comp => {
-                const isActive = comp.active === 1;
-                const startDate = new Date(comp.start_date).toLocaleString('pt-BR');
-                const endDate = new Date(comp.end_date).toLocaleString('pt-BR');
-                
-                return `
-                    <div class="material-manage-item ${isActive ? '' : 'inactive'}">
-                        <div class="material-info">
-                            <span class="material-icon">🏆</span>
-                            <span class="material-name">${comp.name}</span>
-                            <span class="material-goal-display">${startDate} até ${endDate}</span>
-                            <span class="material-status ${isActive ? 'active' : 'inactive'}">${isActive ? '✅ ATIVA' : '❌ Inativa'}</span>
-                        </div>
-                        <div class="material-actions">
-                            <button class="btn btn-secondary btn-small" onclick="editCompetition(${comp.id})">
-                                ✏️ Editar
-                            </button>
-                            <button class="btn ${isActive ? 'btn-danger' : 'btn-success'} btn-small" onclick="toggleCompetition(${comp.id})">
-                                ${isActive ? '❌ Desativar' : '✅ Ativar'}
-                            </button>
-                            <button class="btn btn-danger btn-small" onclick="deleteCompetition(${comp.id}, '${comp.name.replace(/'/g, "\\'")}')">
-                                🗑️ Deletar
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            console.log('🏆 Competições renderizadas com sucesso');
-        } else {
-            console.log('🏆 Nenhuma competição encontrada');
-            list.innerHTML = '<div class="empty-state"><span>🏆</span><p>Nenhuma competição cadastrada.</p></div>';
-        }
-        
-        console.log('🏆 Tentando carregar ranking...');
-        loadCompetitionRanking().catch(err => {
-            console.warn('⚠️ Erro ao carregar ranking (não crítico):', err);
-        });
-        
-    } catch (error) {
-        console.error('❌ ERRO CRÍTICO ao carregar competições:', error);
-        list.innerHTML = `<div class="alert alert-error">Erro: ${error.message}</div>`;
-    }
-}
 
 async function loadCompetitionRanking() {
     const container = document.getElementById('activeCompetitionRanking');
@@ -11320,351 +11501,21 @@ async function loadCompetitionRanking() {
     }
 }
 
-function openNewCompetitionModal() {
-    const now = new Date();
-    const today = now.toISOString().slice(0, 16);
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    const nextWeekStr = nextWeek.toISOString().slice(0, 16);
-    
-    const modalHtml = `
-        <div class="edit-modal-overlay" id="competitionModal">
-            <div class="edit-modal-content">
-                <h3>🏆 Nova Competição</h3>
-                <div class="edit-form">
-                    <div class="form-group">
-                        <label>Nome da Competição *</label>
-                        <input type="text" id="compName" class="edit-input" placeholder="Ex: Competição de Verão">
-                    </div>
-                    <div class="form-group">
-                        <label>Descrição</label>
-                        <textarea id="compDesc" class="edit-input" rows="3" placeholder="Breve descrição da competição"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Data e Hora de Início *</label>
-                        <input type="datetime-local" id="compStartDate" class="edit-input" value="${today}">
-                    </div>
-                    <div class="form-group">
-                        <label>Data e Hora de Término *</label>
-                        <input type="datetime-local" id="compEndDate" class="edit-input" value="${nextWeekStr}">
-                    </div>
-                    <div class="form-group">
-                        <label>Premiação (uma por linha)</label>
-                        <textarea id="compPrizes" class="edit-input" rows="4" placeholder="1º lugar: R$ 1.000.000
-2º lugar: R$ 500.000
-3º lugar: R$ 250.000"></textarea>
-                    </div>
-                    <div class="modal-buttons">
-                        <button class="btn btn-primary" onclick="saveCompetition()">💾 Criar</button>
-                        <button class="btn btn-secondary" onclick="closeCompetitionModal()">❌ Cancelar</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-}
 
-async function editCompetition(id) {
-    try {
-        const response = await fetch('/api/admin/competitions');
-        const data = await response.json();
-        const comp = data.competitions.find(c => c.id === id);
-        
-        if (!comp) {
-            alert('Competição não encontrada');
-            return;
-        }
-        
-        const modalHtml = `
-            <div class="edit-modal-overlay" id="competitionModal">
-                <div class="edit-modal-content">
-                    <h3>✏️ Editar Competição</h3>
-                    <div class="edit-form">
-                        <div class="form-group">
-                            <label>Nome da Competição *</label>
-                            <input type="text" id="compName" class="edit-input" value="${comp.name}">
-                        </div>
-                        <div class="form-group">
-                            <label>Descrição</label>
-                            <textarea id="compDesc" class="edit-input" rows="3">${comp.description || ''}</textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Data e Hora de Início *</label>
-                            <input type="datetime-local" id="compStartDate" class="edit-input" value="${comp.start_date.slice(0, 16)}">
-                        </div>
-                        <div class="form-group">
-                            <label>Data e Hora de Término *</label>
-                            <input type="datetime-local" id="compEndDate" class="edit-input" value="${comp.end_date.slice(0, 16)}">
-                        </div>
-                        <div class="form-group">
-                            <label>Premiação (uma por linha)</label>
-                            <textarea id="compPrizes" class="edit-input" rows="4">${comp.prizes || ''}</textarea>
-                        </div>
-                        <div class="modal-buttons">
-                            <button class="btn btn-primary" onclick="updateCompetition(${id})">💾 Salvar</button>
-                            <button class="btn btn-secondary" onclick="closeCompetitionModal()">❌ Cancelar</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    } catch (error) {
-        alert('Erro ao carregar competição');
-    }
-}
 
-async function saveCompetition() {
-    const name = document.getElementById('compName').value.trim();
-    const description = document.getElementById('compDesc').value.trim();
-    const start_date = document.getElementById('compStartDate').value;
-    const end_date = document.getElementById('compEndDate').value;
-    const prizes = document.getElementById('compPrizes').value.trim();
-    
-    if (!name || !start_date || !end_date) {
-        alert('❌ Preencha nome, data de início e fim!');
-        return;
-    }
-    
-    try {
-        console.log('Criando competição...', { name, start_date, end_date });
-        const response = await fetch('/api/admin/competitions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, start_date, end_date, prizes })
-        });
-        
-        const data = await response.json();
-        console.log('Resposta da criação:', data);
-        
-        if (data.success) {
-            alert('✅ Competição criada!');
-            closeCompetitionModal();
-            console.log('Recarregando competições...');
-            await loadCompetitions();
-            console.log('Competições recarregadas!');
-        } else {
-            alert(data.error || 'Erro ao criar competição');
-        }
-    } catch (error) {
-        console.error('Erro ao criar competição:', error);
-        alert('Erro ao criar competição');
-    }
-}
 
-async function updateCompetition(id) {
-    const name = document.getElementById('compName').value.trim();
-    const description = document.getElementById('compDesc').value.trim();
-    const start_date = document.getElementById('compStartDate').value;
-    const end_date = document.getElementById('compEndDate').value;
-    const prizes = document.getElementById('compPrizes').value.trim();
-    
-    if (!name || !start_date || !end_date) {
-        alert('❌ Preencha nome, data de início e fim!');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/admin/competitions/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, start_date, end_date, prizes })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('✅ Competição atualizada!');
-            closeCompetitionModal();
-            loadCompetitions();
-        } else {
-            alert(data.error || 'Erro ao atualizar competição');
-        }
-    } catch (error) {
-        alert('Erro ao atualizar competição');
-    }
-}
 
-async function toggleCompetition(id) {
-    try {
-        const response = await fetch(`/api/admin/competitions/${id}/toggle`, {
-            method: 'POST'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            alert(data.message);
-            loadCompetitions();
-        } else {
-            alert(data.error || 'Erro ao alterar status');
-        }
-    } catch (error) {
-        alert('Erro ao alterar status');
-    }
-}
 
-async function deleteCompetition(id, name) {
-    if (!confirm(`Tem certeza que deseja deletar a competição "${name}"?\n\nTodos os dados do ranking serão perdidos!`)) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/admin/competitions/${id}`, {
-            method: 'DELETE'
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            alert('✅ Competição deletada!');
-            loadCompetitions();
-        } else {
-            alert(data.error || 'Erro ao deletar competição');
-        }
-    } catch (error) {
-        alert('Erro ao deletar competição');
-    }
-}
 
-function closeCompetitionModal() {
-    const modal = document.getElementById('competitionModal');
-    if (modal) modal.remove();
-}
 
-// Mostrar detalhes do membro na competição
-async function showMemberCompetitionDetails(competitionId, userId, userName) {
-    try {
-        const response = await fetch(`/api/admin/competitions/member-details/${competitionId}/${userId}`);
-        
-        if (!response.ok) {
-            throw new Error('Erro ao carregar detalhes');
-        }
-        
-        const data = await response.json();
-        
-        const modalHtml = `
-            <div class="edit-modal-overlay" id="memberDetailsModal">
-                <div class="edit-modal-content" style="max-width: 900px;">
-                    <h3>📊 Detalhes de ${userName}</h3>
-                    <div style="margin: 20px 0;">
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
-                            <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">
-                                    ${data.totalDeliveries}
-                                </div>
-                                <div style="color: #888; margin-top: 5px;">Farms Completos</div>
-                            </div>
-                            <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 24px; font-weight: bold; color: #2196F3;">
-                                    ${data.totalMaterials.toLocaleString('pt-BR')}
-                                </div>
-                                <div style="color: #888; margin-top: 5px;">Total de Materiais</div>
-                            </div>
-                            <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
-                                <div style="font-size: 24px; font-weight: bold; color: #FF9800;">
-                                    ${data.user.passport}
-                                </div>
-                                <div style="color: #888; margin-top: 5px;">Passaporte</div>
-                            </div>
-                        </div>
-                        
-                        <h4 style="margin-top: 25px; margin-bottom: 15px;">📦 Entregas Aprovadas</h4>
-                        <div style="max-height: 500px; overflow-y: auto;">
-                            ${data.deliveries.map(delivery => `
-                                <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: start; gap: 20px;">
-                                        <div style="flex: 1;">
-                                            <div style="font-weight: bold; margin-bottom: 8px;">
-                                                📅 ${delivery.week}
-                                            </div>
-                                            <div style="color: #888; font-size: 14px; margin-bottom: 8px;">
-                                                ${delivery.materials_detail || 'Sem detalhes'}
-                                            </div>
-                                            <div style="color: #4CAF50; font-weight: bold;">
-                                                ✅ ${delivery.material_count} materiais
-                                            </div>
-                                            <div style="color: #888; font-size: 12px; margin-top: 5px;">
-                                                Aprovado em: ${new Date(delivery.approved_at).toLocaleString('pt-BR')}
-                                            </div>
-                                        </div>
-                                        ${delivery.proof_url ? `
-                                            <div>
-                                                <img src="${delivery.proof_url}" 
-                                                     onclick="openImageModal('${delivery.proof_url}')"
-                                                     style="width: 150px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid #333;"
-                                                     alt="Print da entrega">
-                                            </div>
-                                        ` : '<div style="width: 150px; color: #666;">Sem print</div>'}
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        
-                        <div class="modal-buttons" style="margin-top: 20px;">
-                            <button class="btn btn-secondary" onclick="closeMemberDetailsModal()">❌ Fechar</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    } catch (error) {
-        console.error('Erro ao carregar detalhes do membro:', error);
-        alert('Erro ao carregar detalhes do membro');
-    }
-}
 
-function closeMemberDetailsModal() {
-    const modal = document.getElementById('memberDetailsModal');
-    if (modal) modal.remove();
-}
 
 // ==================== FIM COMPETIÇÕES ====================
 
 // ==================== RANKING SEMANAL ====================
 // Atualizado: 2026-01-26 - Fix para calcular semana corretamente
 
-function loadWeeklyRankingTab() {
-    const select = document.getElementById('rankingWeekSelect');
-    if (!select) {
-        console.error('Elemento rankingWeekSelect não encontrado');
-        return;
-    }
-    
-    let html = '';
-    
-    // Carregar 3 semanas anteriores e 2 próximas
-    for (let i = -3; i <= 2; i++) {
-        const week = getWeekStartDate(i);
-        const label = formatWeekLabelSingle(week);
-        html += `<option value="${week}" ${i===0?'selected':''}>${label}${i===0?' (Esta semana)':''}</option>`;
-    }
-    
-    select.innerHTML = html;
-    loadWeeklyRanking();
-}
 
-function getWeekStartDate(offset = 0) {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    
-    const dayOfWeek = now.getDay(); // 0 = domingo, 1 = segunda, etc
-    
-    // Calcular quantos dias voltar para chegar na SEGUNDA
-    // Igual ao backend: se domingo (0), volta 6 dias. Se segunda (1), volta 0 dias.
-    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - daysFromMonday + (offset * 7));
-    monday.setHours(0, 0, 0, 0);
-    
-    return formatDateISO(monday);
-}
 
 function formatDateISO(date) {
     const year = date.getFullYear();
@@ -11673,249 +11524,8 @@ function formatDateISO(date) {
     return `${year}-${month}-${day}`;
 }
 
-function formatWeekLabelSingle(weekStart) {
-    // Adicionar T00:00:00 para garantir interpretação correta da data
-    const monday = new Date(weekStart + 'T00:00:00');
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    
-    const dayM = String(monday.getDate()).padStart(2, '0');
-    const monthM = String(monday.getMonth() + 1).padStart(2, '0');
-    const yearM = monday.getFullYear();
-    
-    const dayS = String(sunday.getDate()).padStart(2, '0');
-    const monthS = String(sunday.getMonth() + 1).padStart(2, '0');
-    const yearS = sunday.getFullYear();
-    
-    return `${dayM}/${monthM}/${yearM} até ${dayS}/${monthS}/${yearS}`;
-}
 
-async function loadWeeklyRanking() {
-    const select = document.getElementById('rankingWeekSelect');
-    const tbody = document.getElementById('weeklyRankingBody');
-    
-    if (!select || !tbody) {
-        console.error('Elementos do ranking não encontrados');
-        return;
-    }
-    
-    const weekStart = select.value;
-    if (!weekStart) {
-        console.error('Nenhuma semana selecionada');
-        return;
-    }
-    
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px">⏳ Carregando ranking...</td></tr>';
-    
-    try {
-        // Calcular week_end (6 dias depois)
-        const startDate = new Date(weekStart + 'T00:00:00');
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 6);
-        const weekEnd = formatDateISO(endDate);
-        
-        // Usar nova rota OTIMIZADA do ranking
-        const url = `/api/admin/weekly-ranking-fast?week_start=${weekStart}&week_end=${weekEnd}`;
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        const ranking = data.ranking || [];
-        
-        if (ranking.length === 0) {
-            document.getElementById('rankingWinnersSection').style.display = 'none';
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:60px;color:#888"><div style="font-size:40px;margin-bottom:15px;">📭</div><div>Nenhuma farm aprovada nesta semana</div></td></tr>';
-            return;
-        }
-        
-        // Guardar para uso posterior
-        window.currentRankingData = ranking;
-        
-        // Mostrar vencedores (top 3)
-        const winnersSection = document.getElementById('rankingWinnersSection');
-        if (ranking.length >= 1) {
-            winnersSection.style.display = 'block';
-            
-            // 1º lugar
-            document.getElementById('rankingWinner1').textContent = ranking[0]?.name || '-';
-            document.getElementById('rankingStats1').textContent = `${ranking[0]?.totalMaterials || 0} materiais`;
-            
-            // 2º lugar
-            if (ranking.length >= 2) {
-                document.getElementById('rankingWinner2').textContent = ranking[1]?.name || '-';
-                document.getElementById('rankingStats2').textContent = `${ranking[1]?.totalMaterials || 0} materiais`;
-            } else {
-                document.getElementById('rankingWinner2').textContent = '-';
-                document.getElementById('rankingStats2').textContent = '---';
-            }
-            
-            // 3º lugar
-            if (ranking.length >= 3) {
-                document.getElementById('rankingWinner3').textContent = ranking[2]?.name || '-';
-                document.getElementById('rankingStats3').textContent = `${ranking[2]?.totalMaterials || 0} materiais`;
-            } else {
-                document.getElementById('rankingWinner3').textContent = '-';
-                document.getElementById('rankingStats3').textContent = '---';
-            }
-        } else {
-            winnersSection.style.display = 'none';
-        }
-        
-        // Mostrar ranking completo na tabela
-        const medals = ['🥇', '🥈', '🥉'];
-        let positionCounter = 1;
-        tbody.innerHTML = ranking.map((r, i) => {
-            const position = i < 3 ? medals[i] : `${positionCounter}º`;
-            positionCounter++;
-            const bgColor = i === 0 ? 'rgba(255, 215, 0, 0.15)' : i === 1 ? 'rgba(192, 192, 192, 0.15)' : i === 2 ? 'rgba(205, 127, 50, 0.15)' : 'transparent';
-            
-            // Criar HTML dos itens da META
-            const metaItemsHtml = r.items && r.items.length > 0 
-                ? r.items.map(item => `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #1a1a2e; border-radius: 6px; margin: 4px 0;">
-                        <span>${item.material_icon || '📦'} ${item.material_name}</span>
-                        <span style="font-weight: bold; color: #00b894;">${item.amount.toLocaleString('pt-BR')}</span>
-                    </div>
-                `).join('')
-                : '<div style="color: #888;">Sem itens</div>';
-            
-            // Criar HTML dos itens EXTRA
-            const extraItemsHtml = r.extra_items && r.extra_items.length > 0 
-                ? r.extra_items.map(item => `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #1a1a2e; border-radius: 6px; margin: 4px 0;">
-                        <span>${item.material_icon || '📦'} ${item.material_name}</span>
-                        <span style="font-weight: bold; color: #f39c12;">${item.amount.toLocaleString('pt-BR')}</span>
-                    </div>
-                `).join('')
-                : '<div style="color: #888;">Sem farm extra</div>';
-            
-            // Criar HTML dos screenshots da META
-            const metaScreenshotsHtml = r.screenshots && r.screenshots.length > 0
-                ? `<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-                    ${r.screenshots.map(s => `
-                        <a href="${s.screenshot_url}" target="_blank">
-                            <img src="${s.screenshot_url}" style="height: 70px; border-radius: 6px; cursor: pointer; transition: transform 0.2s; border: 2px solid #00b894;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                        </a>
-                    `).join('')}
-                </div>`
-                : '<div style="color: #888;">Sem prints</div>';
-            
-            // Criar HTML dos screenshots EXTRA
-            const extraScreenshotsHtml = r.extra_screenshots && r.extra_screenshots.length > 0
-                ? `<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-                    ${r.extra_screenshots.map(s => `
-                        <a href="${s.screenshot_url}" target="_blank">
-                            <img src="${s.screenshot_url}" style="height: 70px; border-radius: 6px; cursor: pointer; transition: transform 0.2s; border: 2px solid #f39c12;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                        </a>
-                    `).join('')}
-                </div>`
-                : '<div style="color: #888;">Sem prints</div>';
-            
-            // Status badge (ranking só mostra aprovados)
-            const hasExtra = r.extraMaterials > 0;
-            const statusBadge = '<span style="background: #00b894; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">✓ APROVADO</span>';
-            const extraBadge = hasExtra ? `<span style="background: #f39c12; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-left: 4px;">🏆 +${r.extraMaterials.toLocaleString('pt-BR')}</span>` : '';
-            const borderColor = '#00b894';
-            
-            // Resumo de materiais
-            const materialsSummary = hasExtra 
-                ? `<span style="color: #00b894;">${r.metaMaterials.toLocaleString('pt-BR')}</span> <span style="color: #666;">+</span> <span style="color: #f39c12;">${r.extraMaterials.toLocaleString('pt-BR')}</span> <span style="color: #fff;">= ${r.totalMaterials.toLocaleString('pt-BR')}</span>`
-                : `<span style="color: #00b894;">${r.totalMaterials.toLocaleString('pt-BR')}</span>`;
-            
-            return `
-                <tr style="background: ${bgColor}; cursor: pointer; transition: all 0.2s;" onclick="toggleRankingDetails(${i})" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                    <td style="text-align:center;font-size:22px;padding:15px;">${position}</td>
-                    <td style="font-weight:${i<3?'700':'500'};padding:15px;font-size:15px;">${r.name}${statusBadge}${extraBadge}</td>
-                    <td style="text-align:center;font-family:monospace;color:#888;padding:15px;">${r.passport}</td>
-                    <td style="text-align:center;font-size:16px;font-weight:bold;padding:15px;">${materialsSummary}</td>
-                </tr>
-                <tr id="rankingDetails-${i}" style="display: none;">
-                    <td colspan="4" style="padding: 0;">
-                        <div style="background: #12121c; padding: 20px; border-left: 3px solid ${borderColor};">
-                            <!-- Farm da Meta -->
-                            <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #333; background: rgba(0, 184, 148, 0.05); padding: 15px; border-radius: 8px;">
-                                <h3 style="margin-bottom: 15px; color: #00b894; font-size: 16px;">📦 FARM DA META</h3>
-                                <div style="background: rgba(0,184,148,0.1); padding: 8px 12px; border-radius: 6px; margin-bottom: 15px; display: inline-block;">
-                                    <span style="color: #00b894; font-weight: bold; font-size: 18px;">${r.metaMaterials.toLocaleString('pt-BR')}</span>
-                                    <span style="color: #888; font-size: 12px;"> materiais da meta</span>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                    <div>
-                                        <h4 style="margin-bottom: 10px; color: #667eea; font-size: 13px;">Materiais Entregues</h4>
-                                        ${metaItemsHtml}
-                                    </div>
-                                    <div>
-                                        <h4 style="margin-bottom: 10px; color: #667eea; font-size: 13px;">📸 Comprovantes</h4>
-                                        ${metaScreenshotsHtml}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Farm Extra -->
-                            <div style="background: rgba(243, 156, 18, 0.05); padding: 15px; border-radius: 8px;">
-                                <h3 style="margin-bottom: 15px; color: #f39c12; font-size: 16px;">🏆 FARM EXTRA RANKING</h3>
-                                <div style="background: rgba(243,156,18,0.1); padding: 8px 12px; border-radius: 6px; margin-bottom: 15px; display: inline-block;">
-                                    <span style="color: #f39c12; font-weight: bold; font-size: 18px;">${r.extraMaterials.toLocaleString('pt-BR')}</span>
-                                    <span style="color: #888; font-size: 12px;"> materiais extras</span>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                    <div>
-                                        <h4 style="margin-bottom: 10px; color: #667eea; font-size: 13px;">Materiais Extras</h4>
-                                        ${extraItemsHtml}
-                                    </div>
-                                    <div>
-                                        <h4 style="margin-bottom: 10px; color: #667eea; font-size: 13px;">📸 Comprovantes Extra</h4>
-                                        ${extraScreenshotsHtml}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Total Geral -->
-                            <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #333; text-align: center;">
-                                <span style="color: #888; font-size: 12px;">TOTAL GERAL: </span>
-                                <span style="color: #00b894; font-weight: bold;">${r.metaMaterials.toLocaleString('pt-BR')}</span>
-                                <span style="color: #666;"> + </span>
-                                <span style="color: #f39c12; font-weight: bold;">${r.extraMaterials.toLocaleString('pt-BR')}</span>
-                                <span style="color: #666;"> = </span>
-                                <span style="color: #fff; font-weight: bold; font-size: 18px;">${r.totalMaterials.toLocaleString('pt-BR')}</span>
-                            </div>
-                            
-                            ${r.delivered_at ? `<div style="color: #666; font-size: 11px; margin-top: 15px; text-align: right;">Farm entregue em: ${new Date(r.delivered_at).toLocaleString('pt-BR')}</div>` : ''}
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-        
-    } catch (error) {
-        console.error('Erro ao carregar ranking:', error);
-        document.getElementById('rankingWinnersSection').style.display = 'none';
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#ff7675">❌ Erro ao carregar ranking</td></tr>';
-    }
-}
 
-// Função para expandir/recolher detalhes do membro
-function toggleRankingDetails(index) {
-    const detailsRow = document.getElementById(`rankingDetails-${index}`);
-    if (!detailsRow) return;
-    
-    // Fechar todas as outras linhas abertas
-    document.querySelectorAll('[id^="rankingDetails-"]').forEach(row => {
-        if (row.id !== `rankingDetails-${index}`) {
-            row.style.display = 'none';
-        }
-    });
-    
-    // Toggle da linha clicada
-    if (detailsRow.style.display === 'none') {
-        detailsRow.style.display = 'table-row';
-    } else {
-        detailsRow.style.display = 'none';
-    }
-}
 
 // ==================== FIM RANKING SEMANAL ====================
 

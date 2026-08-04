@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260729semana1">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260723confirm1"><link rel="stylesheet" href="css/tables-clean.css?v=20260803comp1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch2">
     
     
@@ -72,12 +72,13 @@
             <div class="sidebar-section">
                 <div class="sidebar-section-title">📊 Dashboard</div>
                 <button class="sidebar-item active" data-tab="weekly-status">📅 Status da Semana</button>
-                <button class="sidebar-item" data-tab="weekly-ranking">🏆 Ranking Semanal</button>
+                <button class="sidebar-item" data-tab="competition" style="display:none;">🏆 Competição</button>
             </div>
 
             <div class="sidebar-section">
                 <div class="sidebar-section-title">✅ Aprovações</div>
                 <button class="sidebar-item" data-tab="pending">🕐 Farms</button>
+                <button class="sidebar-item" data-tab="competition-farms">🏆 Farms da Competição</button>
                 <button class="sidebar-item" data-tab="absences">📝 Justificativas</button>
                 <button class="sidebar-item" data-tab="elite-actions" style="display:none;">⚔️ Ações Elite</button>
                 <button class="sidebar-item" data-tab="elite-catalog" style="display:none;">📝 Cadastro de Ações</button>
@@ -114,58 +115,84 @@
         <main class="main-content">
 
             <!-- Weekly Ranking Tab -->
-            <div id="weekly-ranking-tab" class="tab-content">
+            <!-- Competição: configuração e ranking (01/02/gerente geral) -->
+            <div id="competition-tab" class="tab-content">
                 <div class="card">
-                    <h2>🏆 Ranking Semanal de Farm</h2>
-                    <p class="subtitle">Clique em um membro para ver os detalhes da entrega</p>
-                    
-                    <div class="week-selector-ranking" style="margin: 20px 0;">
-                        <label style="font-weight: 600; margin-right: 10px;">📅 Semana:</label>
-                        <select id="rankingWeekSelect" onchange="loadWeeklyRanking()" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #333; background: #1a1a2e; color: #fff; font-size: 14px; cursor: pointer;">
-                            <option>Carregando...</option>
-                        </select>
+                    <h2>🏆 Competição Semanal</h2>
+                    <p class="subtitle">Quem fizer mais pontos até o fim da semana vence.</p>
+
+                    <div class="comp-week-box">
+                        <label class="comp-toggle">
+                            <input type="checkbox" id="compWeekEnabled" onchange="saveCompetitionWeek(this.checked)">
+                            <span>Competição ligada nesta semana</span>
+                            <span class="comp-toggle-state" id="compWeekState">Desligada</span>
+                        </label>
+                        <div id="compWeekMsg" class="goals-message"></div>
                     </div>
-                    
-                    <div id="rankingWinnersSection" style="display:none; margin: 30px 0;">
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
-                            <div class="winner-card gold" style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #333; padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3); cursor: pointer; transition: transform 0.2s;" onclick="openRankingMemberDetails(0)">
-                                <div style="font-size: 50px; margin-bottom: 10px;">🥇</div>
-                                <h3 style="font-size: 18px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">1º LUGAR</h3>
-                                <div id="rankingWinner1" style="font-size: 18px; font-weight: 700; margin-bottom: 5px;">-</div>
-                                <div id="rankingStats1" style="font-size: 24px; font-weight: bold; margin-top: 10px;">0 materiais</div>
-                            </div>
-                            <div class="winner-card silver" style="background: linear-gradient(135deg, #E8E8E8 0%, #B8B8B8 100%); color: #333; padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 8px 25px rgba(192, 192, 192, 0.3); cursor: pointer; transition: transform 0.2s;" onclick="openRankingMemberDetails(1)">
-                                <div style="font-size: 50px; margin-bottom: 10px;">🥈</div>
-                                <h3 style="font-size: 18px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">2º LUGAR</h3>
-                                <div id="rankingWinner2" style="font-size: 18px; font-weight: 700; margin-bottom: 5px;">-</div>
-                                <div id="rankingStats2" style="font-size: 24px; font-weight: bold; margin-top: 10px;">0 materiais</div>
-                            </div>
-                            <div class="winner-card bronze" style="background: linear-gradient(135deg, #CD7F32 0%, #B87333 100%); color: #fff; padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 8px 25px rgba(205, 127, 50, 0.3); cursor: pointer; transition: transform 0.2s;" onclick="openRankingMemberDetails(2)">
-                                <div style="font-size: 50px; margin-bottom: 10px;">🥉</div>
-                                <h3 style="font-size: 18px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">3º LUGAR</h3>
-                                <div id="rankingWinner3" style="font-size: 18px; font-weight: 700; margin-bottom: 5px;">-</div>
-                                <div id="rankingStats3" style="font-size: 24px; font-weight: bold; margin-top: 10px;">0 materiais</div>
-                            </div>
-                        </div>
+                </div>
+
+                <div class="card">
+                    <h3>⚙️ Receita do ponto</h3>
+                    <p class="subtitle">Estes materiais, nestas quantidades, valem <strong>1 ponto</strong>.</p>
+                    <div class="goals-add-form">
+                        <label class="goals-label">Material</label>
+                        <select id="compRecipeMaterial" class="goals-input goals-dropdown"></select>
+                        <label class="goals-label">Quantidade</label>
+                        <input type="number" id="compRecipeAmount" min="1" value="1" class="goals-input goals-number">
+                        <button type="button" class="btn btn-primary goals-btn-add" onclick="saveCompetitionRecipe()">➕ Adicionar</button>
                     </div>
-                    
-                    <div class="table-container" style="margin-top: 20px;">
-                        <table class="weekly-table" style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                                    <th style="width: 80px; text-align: center; padding: 15px; color: #fff; font-weight: 600;">Posição</th>
-                                    <th style="text-align: left; padding: 15px; color: #fff; font-weight: 600;">Membro</th>
-                                    <th style="text-align: center; padding: 15px; color: #fff; font-weight: 600;">Passaporte</th>
-                                    <th style="text-align: center; padding: 15px; color: #fff; font-weight: 600;">📦 Total Materiais</th>
-                                </tr>
-                            </thead>
-                            <tbody id="weeklyRankingBody">
-                                <tr><td colspan="4" style="text-align: center; padding: 40px; color: #888;">Selecione uma semana</td></tr>
-                            </tbody>
+                    <div id="compRecipeMsg" class="goals-message"></div>
+                    <div class="table-container">
+                        <table class="weekly-table">
+                            <thead><tr><th>Material</th><th>Quantidade</th><th>Ações</th></tr></thead>
+                            <tbody id="compRecipeBody"><tr><td colspan="3" style="text-align:center;padding:20px;">Carregando...</td></tr></tbody>
                         </table>
                     </div>
                 </div>
+
+                <div class="card">
+                    <h3>🎁 Prêmios</h3>
+                    <p class="subtitle">Prêmio de cada colocação.</p>
+                    <div class="goals-add-form">
+                        <label class="goals-label">Colocação</label>
+                        <input type="number" id="compPrizePos" min="1" value="1" class="goals-input goals-number">
+                        <label class="goals-label">Prêmio</label>
+                        <input type="text" id="compPrizeDesc" placeholder="Ex: R$ 500.000 + IA2" class="goals-input goals-name">
+                        <button type="button" class="btn btn-primary goals-btn-add" onclick="saveCompetitionPrize()">➕ Salvar</button>
+                    </div>
+                    <div id="compPrizeMsg" class="goals-message"></div>
+                    <div class="table-container">
+                        <table class="weekly-table">
+                            <thead><tr><th>Colocação</th><th>Prêmio</th><th>Ações</th></tr></thead>
+                            <tbody id="compPrizesBody"><tr><td colspan="3" style="text-align:center;padding:20px;">Carregando...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>📊 Ranking da semana</h3>
+                    <div class="attendance-summary" id="compRankingTotals" style="display:flex; gap:12px; flex-wrap:wrap; margin:16px 0;"></div>
+                    <div class="table-container">
+                        <table class="weekly-table rank-table">
+                            <thead><tr><th>#</th><th>Passaporte</th><th>Membro</th><th>Pontos</th><th>Envios</th><th>Prêmio</th></tr></thead>
+                            <tbody id="compRankingBody"><tr><td colspan="6" style="text-align:center;padding:24px;">Carregando...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div id="compRankingDetail" class="comp-ranking-detail"></div>
+                </div>
             </div>
+
+            <!-- Aprovação dos farms da competição (todos os gerentes) -->
+            <div id="competition-farms-tab" class="tab-content">
+                <div class="card">
+                    <h2>🏆 Farms da Competição</h2>
+                    <p class="subtitle">Fila separada do farm padrão da semana.</p>
+                    <div id="compFarmsList" class="elite-admin-list">
+                        <div style="text-align:center;padding:24px;">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+
 
             <!-- Member Extract Modal -->
             <div id="memberExtractModal" class="modal-member-extract" style="display: none;">
@@ -1798,10 +1825,6 @@
                 </div>
             </div>
 
-            <!-- Competitions Tab -->
-            <div id="competitions-tab" class="tab-content">
-                <iframe id="competitionsFrame" src="/competitions.html" style="width:100%;border:none;border-radius:12px;display:block;" onload="resizeIframe(this)"></iframe>
-            </div>
 
             <!-- Tab Permissões de Grupos -->
             <div id="role-permissions-tab" class="tab-content">
@@ -1976,7 +1999,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260729semana1"></script>
+    <script src="js/admin.js?v=20260803comp1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260729rota2">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260803comp1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -325,28 +325,44 @@
                     <div id="formMessage" class="form-message"></div>
                 </div>
 
-                <!-- Farm Extra para Ranking -->
-                <div class="panel panel-ranking" id="extraFarmPanel" style="display: none;">
-                    <div class="panel-header">
-                        <h2>🏆 Farm Extra para Ranking</h2>
+                <!-- Convite da competição semanal (aparece com a meta paga) -->
+                <div class="panel competition-invite" id="competitionInvite" style="display: none;">
+                    <div class="competition-invite-icon">🏆</div>
+                    <h3>Você deseja participar da competição semanal?</h3>
+                    <p class="competition-invite-text">Sua meta já está paga! Na competição você farma materiais extras e ganha pontos — quem fizer mais pontos até o fim da semana vence.</p>
+                    <div id="competitionInvitePrizes" class="competition-prizes"></div>
+                    <div class="competition-invite-actions">
+                        <button type="button" class="competition-btn no" onclick="setCompetitionOptIn(false)">Agora não</button>
+                        <button type="button" class="competition-btn yes" onclick="setCompetitionOptIn(true)">🏆 Quero participar</button>
                     </div>
-                    <p class="ranking-hint">✅ Sua meta semanal já foi <strong>aprovada</strong>! Adicione mais materiais para subir no ranking.</p>
-                    
-                    <form id="extraFarmForm" enctype="multipart/form-data">
-                        <div class="materials-grid" id="extraMaterialsInputs"></div>
-                        
+                    <div id="competitionInviteMsg" class="form-message"></div>
+                </div>
+
+                <!-- Painel da competição (depois de aceitar) -->
+                <div class="panel panel-ranking" id="competitionPanel" style="display: none;">
+                    <div class="panel-header">
+                        <h2>🏆 Competição da Semana</h2>
+                    </div>
+
+                    <div class="competition-score">
+                        <div class="competition-score-value" id="competitionPoints">0</div>
+                        <div class="competition-score-label">pontos nesta semana</div>
+                    </div>
+                    <p class="competition-recipe-hint" id="competitionRecipeHint"></p>
+                    <div id="competitionProgress" class="competition-progress"></div>
+
+                    <form id="competitionForm" enctype="multipart/form-data">
+                        <div class="materials-grid" id="competitionMaterials"></div>
                         <div class="form-group">
-                            <label>📷 Print do Farm Extra</label>
-                            <div class="screenshots-area">
-                                <div id="extraScreenshotsPreview" class="screenshots-grid"></div>
-                                <button type="button" class="btn-add-screenshot" onclick="addExtraScreenshot()">+ Adicionar Print</button>
-                                <input type="file" id="extraScreenshotInput" accept="image/*" style="display: none;" onchange="handleExtraScreenshotSelect(event)">
-                            </div>
+                            <label>📷 Print do farm da competição <span class="required">*</span></label>
+                            <input type="file" id="competitionProof" accept="image/*">
                         </div>
-                        
-                        <button type="submit" id="submitExtraFarmBtn" class="btn-submit ranking-btn">🏆 Adicionar ao Ranking</button>
+                        <button type="submit" id="competitionSubmitBtn" class="btn-submit ranking-btn">🏆 Enviar para aprovação</button>
+                        <div id="competitionFormMsg" class="form-message"></div>
                     </form>
-                    <div id="extraFormMessage" class="form-message"></div>
+
+                    <div id="competitionMyFarms" class="competition-my-farms"></div>
+                    <button type="button" class="competition-leave" onclick="setCompetitionOptIn(false)">Sair da competição desta semana</button>
                 </div>
 
                 <!-- Justificativa -->
@@ -571,6 +587,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260729drogas1"></script>
+    <script src="js/dashboard.js?v=20260803comp1"></script>
 </body>
 </html>
