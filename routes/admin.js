@@ -731,6 +731,28 @@ const requireEliteApprover = async (req, res, next) => {
     }
 };
 
+// Competição: configuração e ranking são restritos a 01, 02 e gerente geral.
+// A APROVAÇÃO dos farms continua com qualquer gerente (requireAdmin).
+const COMPETITION_VIEWER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
+const requireCompetitionViewer = async (req, res, next) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: 'Não autenticado' });
+    }
+    try {
+        const rows = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [req.session.user.id]);
+        const groups = rows.map(g => g.group_name);
+        const allowed = isSuperAdminUser(req.session.user)
+            || COMPETITION_VIEWER_ROLES.includes(req.session.user.role)
+            || groups.some(g => COMPETITION_VIEWER_ROLES.includes(g));
+        if (!allowed) {
+            return res.status(403).json({ error: 'Apenas 01, 02 ou gerente geral podem ver a competição' });
+        }
+        next();
+    } catch (error) {
+        return res.status(500).json({ error: 'Erro ao verificar permissão' });
+    }
+};
+
 // Extrato de solicitações de reset de senha — só super admin
 router.get('/password-reset-log', requireSuperAdmin, async (req, res) => {
     try {
@@ -807,6 +829,286 @@ router.post('/members/:id/drugs-optout', requireAdmin, async (req, res) => {
         res.json({ success: true, optOut: optOut === 1 });
     } catch (error) {
         console.error('Erro ao salvar opt-out de drogas:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ===== Competição semanal =====
+
+// Helper: receita que vale 1 ponto
+const compRecipe = async () => {
+    try {
+        return await getAll(`
+            SELECT r.material_id, r.amount, m.name, m.icon
+            FROM competition_recipe r
+            JOIN materials m ON m.id = r.material_id
+            ORDER BY m.name
+        `) || [];
+    } catch (e) { return []; }
+};
+
+// Helper: kits completos a partir dos totais entregues
+const compPoints = (totals, recipe) => {
+    if (!recipe.length) return 0;
+    let pts = Infinity;
+    for (const r of recipe) {
+        const need = parseInt(r.amount, 10) || 0;
+        if (need <= 0) continue;
+        pts = Math.min(pts, Math.floor((parseInt(totals[String(r.material_id)], 10) || 0) / need));
+    }
+    return Number.isFinite(pts) ? pts : 0;
+};
+
+// --- Configuração (01/02/gerente geral) ---
+
+// Liga/desliga a competição de uma semana + estado atual
+router.get('/competition/week', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        const weekStart = req.query.week_start || getCurrentWeek().start;
+        const row = await getOne('SELECT enabled FROM competition_weeks WHERE week_start = ?', [weekStart]);
+        res.json({ week_start: weekStart, enabled: !!row && (row.enabled === 1 || row.enabled === true) });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/competition/week', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        const weekStart = req.body?.week_start || getCurrentWeek().start;
+        const enabled = (req.body?.enabled === true || req.body?.enabled === 'true') ? 1 : 0;
+        const existing = await getOne('SELECT id FROM competition_weeks WHERE week_start = ?', [weekStart]);
+        if (existing) {
+            await runQuery('UPDATE competition_weeks SET enabled = ? WHERE week_start = ?', [enabled, weekStart]);
+        } else {
+            await runQuery('INSERT INTO competition_weeks (week_start, enabled, created_by) VALUES (?, ?, ?)',
+                [weekStart, enabled, req.session.user.id]);
+        }
+        res.json({ success: true, week_start: weekStart, enabled: enabled === 1 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Receita: materiais e quantidades que valem 1 ponto
+router.get('/competition/recipe', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        const recipe = await compRecipe();
+        const materials = await getAll("SELECT id, name, icon, farm_type FROM materials WHERE active = 1 ORDER BY name");
+        res.json({ recipe, materials: materials || [] });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/competition/recipe', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        const materialId = parseInt(req.body?.material_id, 10);
+        const amount = Math.max(1, parseInt(req.body?.amount, 10) || 0);
+        if (!materialId) return res.status(400).json({ error: 'Escolha o material' });
+
+        const mat = await getOne('SELECT id FROM materials WHERE id = ? AND active = 1', [materialId]);
+        if (!mat) return res.status(404).json({ error: 'Material não encontrado' });
+
+        const existing = await getOne('SELECT id FROM competition_recipe WHERE material_id = ?', [materialId]);
+        if (existing) {
+            await runQuery('UPDATE competition_recipe SET amount = ? WHERE material_id = ?', [amount, materialId]);
+        } else {
+            await runQuery('INSERT INTO competition_recipe (material_id, amount) VALUES (?, ?)', [materialId, amount]);
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/competition/recipe/:materialId', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        await runQuery('DELETE FROM competition_recipe WHERE material_id = ?', [req.params.materialId]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Prêmios por colocação
+router.get('/competition/prizes', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        const prizes = await getAll('SELECT id, position, description FROM competition_prizes ORDER BY position');
+        res.json({ prizes: prizes || [] });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/competition/prizes', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        const position = Math.max(1, parseInt(req.body?.position, 10) || 0);
+        const description = String(req.body?.description || '').trim();
+        if (!position || !description) return res.status(400).json({ error: 'Informe a colocação e o prêmio' });
+
+        const existing = await getOne('SELECT id FROM competition_prizes WHERE position = ?', [position]);
+        if (existing) {
+            await runQuery('UPDATE competition_prizes SET description = ? WHERE position = ?', [description, position]);
+        } else {
+            await runQuery('INSERT INTO competition_prizes (position, description) VALUES (?, ?)', [position, description]);
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete('/competition/prizes/:position', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        await runQuery('DELETE FROM competition_prizes WHERE position = ?', [req.params.position]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Ranking detalhado da semana — vence quem tiver mais pontos
+router.get('/competition/ranking', requireAdmin, requireCompetitionViewer, async (req, res) => {
+    try {
+        const weekStart = req.query.week_start || getCurrentWeek().start;
+        const recipe = await compRecipe();
+        const weekRow = await getOne('SELECT enabled FROM competition_weeks WHERE week_start = ?', [weekStart]);
+        const prizes = await getAll('SELECT position, description FROM competition_prizes ORDER BY position') || [];
+        const prizeByPos = new Map(prizes.map(p => [Number(p.position), p.description]));
+
+        const farms = await getAll(`
+            SELECT f.user_id, f.materials, f.status,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                   u.passport
+            FROM competition_farms f
+            JOIN users u ON u.id = f.user_id
+            WHERE f.week_start = ?
+        `, [weekStart]);
+
+        const byUser = new Map();
+        for (const f of farms || []) {
+            if (!byUser.has(f.user_id)) {
+                byUser.set(f.user_id, { user_id: f.user_id, name: f.name, passport: f.passport, totals: {}, submissions: 0, pending: 0 });
+            }
+            const entry = byUser.get(f.user_id);
+            if (f.status === 'pending') { entry.pending++; continue; }
+            if (f.status !== 'approved') continue;
+            entry.submissions++;
+            let mats = {};
+            try { mats = JSON.parse(f.materials || '{}'); } catch (e) { mats = {}; }
+            for (const [mid, amount] of Object.entries(mats)) {
+                entry.totals[mid] = (entry.totals[mid] || 0) + (parseInt(amount, 10) || 0);
+            }
+        }
+
+        const ranking = [...byUser.values()].map(e => {
+            const points = compPoints(e.totals, recipe);
+            return {
+                user_id: e.user_id, name: e.name, passport: e.passport,
+                points, submissions: e.submissions, pending: e.pending,
+                materials: recipe.map(r => ({
+                    name: r.name, icon: r.icon,
+                    required: parseInt(r.amount, 10) || 0,
+                    delivered: parseInt(e.totals[String(r.material_id)], 10) || 0
+                }))
+            };
+        }).sort((a, b) => b.points - a.points || b.submissions - a.submissions);
+
+        ranking.forEach((r, i) => {
+            r.position = i + 1;
+            r.prize = prizeByPos.get(i + 1) || null;
+        });
+
+        res.json({
+            week_start: weekStart,
+            enabled: !!weekRow && (weekRow.enabled === 1 || weekRow.enabled === true),
+            recipe, prizes, ranking,
+            totals: { participants: ranking.length, points: ranking.reduce((s, r) => s + r.points, 0) }
+        });
+    } catch (error) {
+        console.error('Erro no ranking da competição:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Fila de aprovação (qualquer gerente, separada do farm padrão) ---
+
+router.get('/competition/farms/pending', requireAdmin, async (req, res) => {
+    try {
+        const recipe = await compRecipe();
+        const farms = await getAll(`
+            SELECT f.id, f.user_id, f.materials, f.week_start, f.created_at,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                   u.passport
+            FROM competition_farms f
+            JOIN users u ON u.id = f.user_id
+            WHERE f.status = 'pending'
+            ORDER BY f.created_at ASC, f.id ASC
+        `);
+
+        const ids = (farms || []).map(f => f.id);
+        const shotsByFarm = new Map();
+        if (ids.length > 0) {
+            const ph = ids.map(() => '?').join(',');
+            const shots = await getAll(
+                `SELECT farm_id, screenshot_url FROM competition_farm_screenshots WHERE farm_id IN (${ph})`, ids
+            );
+            for (const s of shots || []) {
+                if (!shotsByFarm.has(s.farm_id)) shotsByFarm.set(s.farm_id, []);
+                shotsByFarm.get(s.farm_id).push(s.screenshot_url);
+            }
+        }
+
+        res.json({
+            farms: (farms || []).map(f => {
+                let mats = {};
+                try { mats = JSON.parse(f.materials || '{}'); } catch (e) { mats = {}; }
+                return {
+                    id: f.id, name: f.name, passport: f.passport,
+                    week_start: f.week_start, created_at: f.created_at,
+                    screenshots: shotsByFarm.get(f.id) || [],
+                    materials: recipe.map(r => ({
+                        name: r.name, icon: r.icon,
+                        amount: parseInt(mats[String(r.material_id)], 10) || 0
+                    })).filter(m => m.amount > 0)
+                };
+            })
+        });
+    } catch (error) {
+        console.error('Erro na fila da competição:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/competition/farms/:id/approve', requireAdmin, async (req, res) => {
+    try {
+        const farm = await getOne('SELECT id, status FROM competition_farms WHERE id = ?', [req.params.id]);
+        if (!farm) return res.status(404).json({ error: 'Farm não encontrado' });
+        if (farm.status !== 'pending') return res.status(400).json({ error: 'Farm já foi analisado' });
+
+        await runQuery(
+            "UPDATE competition_farms SET status = 'approved', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            [req.session.user.id, req.params.id]
+        );
+        res.json({ success: true, message: 'Farm da competição aprovado!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/competition/farms/:id/reject', requireAdmin, async (req, res) => {
+    try {
+        const note = String(req.body?.note || '').trim();
+        const farm = await getOne('SELECT id, status FROM competition_farms WHERE id = ?', [req.params.id]);
+        if (!farm) return res.status(404).json({ error: 'Farm não encontrado' });
+        if (farm.status !== 'pending') return res.status(400).json({ error: 'Farm já foi analisado' });
+
+        await runQuery(
+            "UPDATE competition_farms SET status = 'rejected', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, review_note = ? WHERE id = ?",
+            [req.session.user.id, note || null, req.params.id]
+        );
+        res.json({ success: true, message: 'Farm da competição rejeitado' });
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });

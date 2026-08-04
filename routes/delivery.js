@@ -80,6 +80,105 @@ const getUserGroups = async (userId) => {
     }
 };
 
+// ===== Competição semanal =====
+
+// A semana está com competição ligada?
+const isCompetitionWeekEnabled = async (weekStart) => {
+    try {
+        const row = await getOne('SELECT enabled FROM competition_weeks WHERE week_start = ?', [weekStart]);
+        return !!row && (row.enabled === 1 || row.enabled === true);
+    } catch (e) { return false; }
+};
+
+// Receita que vale 1 ponto: [{material_id, name, icon, amount}]
+const getCompetitionRecipe = async () => {
+    try {
+        return await getAll(`
+            SELECT r.material_id, r.amount, m.name, m.icon
+            FROM competition_recipe r
+            JOIN materials m ON m.id = r.material_id
+            ORDER BY m.name
+        `) || [];
+    } catch (e) { return []; }
+};
+
+// A meta da semana está paga? (mesma regra usada para liberar o farm extra)
+const isWeekMetaPaid = async (userId, week, isManager, allMaterials) => {
+    const latestCompleteApproved = await getOne(`
+        SELECT * FROM deliveries
+        WHERE user_id = ? AND week_start = ? AND week_end = ?
+          AND status = 'approved' AND is_partial = 0
+        ORDER BY created_at DESC LIMIT 1
+    `, [userId, week.start, week.end]);
+    if (!latestCompleteApproved) return false;
+
+    if ((latestCompleteApproved.payment_type || 'material') === 'dirty_money') return true;
+
+    const approvedDeliveries = await getAll(`
+        SELECT id FROM deliveries
+        WHERE user_id = ? AND week_start = ? AND week_end = ? AND status = 'approved'
+    `, [userId, week.start, week.end]);
+    const approvedIds = (approvedDeliveries || []).map(d => d.id);
+    const byMaterial = new Map();
+    if (approvedIds.length > 0) {
+        const ph = approvedIds.map(() => '?').join(',');
+        const items = await getAll(
+            `SELECT material_id, amount FROM delivery_items WHERE delivery_id IN (${ph})`, approvedIds
+        );
+        for (const it of items || []) {
+            const mid = Number(it.material_id);
+            byMaterial.set(mid, (byMaterial.get(mid) || 0) + (parseInt(it.amount, 10) || 0));
+        }
+    }
+    return allMaterials.length > 0 && allMaterials.every(m =>
+        (byMaterial.get(Number(m.id)) || 0) >= resolveMaterialGoal(m, isManager));
+};
+
+// Pontos = quantos "kits" completos da receita o membro entregou (aprovados).
+// Só fecha ponto quem tem TODOS os materiais; a sobra fica para o próximo envio.
+const computeCompetitionPoints = (totals, recipe) => {
+    if (!recipe || recipe.length === 0) return { points: 0, missing: [], totals: totals || {} };
+    let points = Infinity;
+    for (const r of recipe) {
+        const need = parseInt(r.amount, 10) || 0;
+        if (need <= 0) continue;
+        const have = parseInt(totals[String(r.material_id)], 10) || 0;
+        points = Math.min(points, Math.floor(have / need));
+    }
+    if (!Number.isFinite(points)) points = 0;
+
+    // Quanto falta de cada material para fechar o próximo ponto
+    const missing = recipe.map(r => {
+        const need = parseInt(r.amount, 10) || 0;
+        const have = parseInt(totals[String(r.material_id)], 10) || 0;
+        const usedByPoints = points * need;
+        const left = Math.max(0, have - usedByPoints);
+        return {
+            material_id: r.material_id, name: r.name, icon: r.icon,
+            required: need, delivered: have, leftover: left,
+            missing_for_next: Math.max(0, need - left)
+        };
+    });
+    return { points, missing, totals: totals || {} };
+};
+
+// Soma os materiais dos farms aprovados de competição na semana
+const getCompetitionTotals = async (userId, weekStart) => {
+    const rows = await getAll(
+        "SELECT materials FROM competition_farms WHERE user_id = ? AND week_start = ? AND status = 'approved'",
+        [userId, weekStart]
+    );
+    const totals = {};
+    for (const row of rows || []) {
+        let mats = {};
+        try { mats = JSON.parse(row.materials || '{}'); } catch (e) { mats = {}; }
+        for (const [mid, amount] of Object.entries(mats)) {
+            totals[mid] = (totals[mid] || 0) + (parseInt(amount, 10) || 0);
+        }
+    }
+    return totals;
+};
+
 // Elite é um marcador (grupo 'elite') sobre o cargo — troca a meta para o modo de ações
 const isEliteGroupName = (groupName = '') => normalizeGroupName(groupName) === 'elite';
 
@@ -807,6 +906,179 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
         console.error('Erro ao carregar hierarquia da família:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+// ===== Competição semanal (membro) =====
+
+// Estado da competição para o membro na semana
+router.get('/competition/status', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const week = getWeekWithOffset(parseInt(req.query.offset) || 0);
+        const enabled = await isCompetitionWeekEnabled(week.start);
+
+        if (!enabled) {
+            return res.json({ enabled: false, metaPaid: false, optedIn: false, recipe: [], points: 0 });
+        }
+
+        const isManager = await isManagerUser(userId, req.session.user);
+        let allMaterials = [];
+        try {
+            allMaterials = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1');
+        } catch (e) {
+            allMaterials = await getAll('SELECT id, name, icon, weekly_goal FROM materials WHERE active = 1');
+        }
+        allMaterials = (allMaterials || []).filter(m => productAppliesToRole(m, isManager));
+
+        const metaPaid = await isWeekMetaPaid(userId, week, isManager, allMaterials);
+        const optRow = await getOne('SELECT id FROM competition_optin WHERE user_id = ? AND week_start = ?', [userId, week.start]);
+        const recipe = await getCompetitionRecipe();
+        const totals = await getCompetitionTotals(userId, week.start);
+        const score = computeCompetitionPoints(totals, recipe);
+
+        const myFarms = await getAll(`
+            SELECT id, materials, status, review_note, created_at
+            FROM competition_farms
+            WHERE user_id = ? AND week_start = ?
+            ORDER BY created_at DESC, id DESC
+        `, [userId, week.start]);
+
+        const prizes = await getAll('SELECT position, description FROM competition_prizes ORDER BY position') || [];
+
+        res.json({
+            enabled: true,
+            metaPaid,
+            optedIn: !!optRow,
+            recipe,
+            points: score.points,
+            progress: score.missing,
+            prizes,
+            week: { start: week.start, end: week.end, label: week.label },
+            myFarms: (myFarms || []).map(f => {
+                let mats = {};
+                try { mats = JSON.parse(f.materials || '{}'); } catch (e) { mats = {}; }
+                return {
+                    id: f.id, status: f.status, review_note: f.review_note, created_at: f.created_at,
+                    materials: recipe.map(r => ({ name: r.name, icon: r.icon, amount: parseInt(mats[String(r.material_id)], 10) || 0 }))
+                };
+            })
+        });
+    } catch (error) {
+        console.error('Erro no status da competição:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Aceitar ou recusar participar da competição da semana
+router.post('/competition/optin', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const week = getCurrentWeek();
+        const optIn = req.body?.opt_in === true || req.body?.opt_in === 'true';
+
+        if (!(await isCompetitionWeekEnabled(week.start))) {
+            return res.status(400).json({ error: 'A competição não está aberta nesta semana.' });
+        }
+
+        if (optIn) {
+            const isManager = await isManagerUser(userId, req.session.user);
+            let allMaterials = [];
+            try {
+                allMaterials = await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1');
+            } catch (e) {
+                allMaterials = await getAll('SELECT id, name, weekly_goal FROM materials WHERE active = 1');
+            }
+            allMaterials = (allMaterials || []).filter(m => productAppliesToRole(m, isManager));
+
+            if (!(await isWeekMetaPaid(userId, week, isManager, allMaterials))) {
+                return res.status(400).json({ error: 'Você precisa pagar a meta da semana para participar da competição.' });
+            }
+            // Checa antes de inserir: no Postgres o "OR IGNORE" é removido pelo convertSQL
+            const already = await getOne('SELECT id FROM competition_optin WHERE user_id = ? AND week_start = ?', [userId, week.start]);
+            if (!already) {
+                await runQuery('INSERT INTO competition_optin (user_id, week_start) VALUES (?, ?)', [userId, week.start]);
+            }
+        } else {
+            await runQuery('DELETE FROM competition_optin WHERE user_id = ? AND week_start = ?', [userId, week.start]);
+        }
+
+        res.json({ success: true, optedIn: optIn });
+    } catch (error) {
+        console.error('Erro no opt-in da competição:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Enviar materiais para a competição (print obrigatório)
+router.post('/competition/farm', requireAuth, (req, res) => {
+    uploadProof(req, res, async (err) => {
+        if (err) return res.status(400).json({ error: err.message || 'Falha no upload do print' });
+        try {
+            const userId = req.session.user.id;
+            const week = getCurrentWeek();
+
+            if (!(await isCompetitionWeekEnabled(week.start))) {
+                return res.status(400).json({ error: 'A competição não está aberta nesta semana.' });
+            }
+            const optRow = await getOne('SELECT id FROM competition_optin WHERE user_id = ? AND week_start = ?', [userId, week.start]);
+            if (!optRow) {
+                return res.status(400).json({ error: 'Você precisa aceitar participar da competição primeiro.' });
+            }
+
+            const isManager = await isManagerUser(userId, req.session.user);
+            let allMaterials = [];
+            try {
+                allMaterials = await getAll('SELECT id, name, weekly_goal, manager_weekly_goal, target_role, farm_type FROM materials WHERE active = 1');
+            } catch (e) {
+                allMaterials = await getAll('SELECT id, name, weekly_goal FROM materials WHERE active = 1');
+            }
+            allMaterials = (allMaterials || []).filter(m => productAppliesToRole(m, isManager));
+
+            if (!(await isWeekMetaPaid(userId, week, isManager, allMaterials))) {
+                return res.status(400).json({ error: 'Sua meta da semana precisa estar paga para enviar farm de competição.' });
+            }
+            if (!req.file) {
+                return res.status(400).json({ error: 'Anexe o print do farm da competição.' });
+            }
+
+            const recipe = await getCompetitionRecipe();
+            if (recipe.length === 0) {
+                return res.status(400).json({ error: 'A receita da competição ainda não foi cadastrada. Fale com um gerente.' });
+            }
+
+            // Só aceita materiais que fazem parte da receita
+            let sent = {};
+            try {
+                sent = typeof req.body.materials === 'string' ? JSON.parse(req.body.materials) : (req.body.materials || {});
+            } catch (e) { sent = {}; }
+
+            const materials = {};
+            let total = 0;
+            for (const r of recipe) {
+                const amount = Math.max(0, parseInt(sent[String(r.material_id)], 10) || 0);
+                if (amount > 0) { materials[String(r.material_id)] = amount; total += amount; }
+            }
+            if (total === 0) {
+                return res.status(400).json({ error: 'Informe pelo menos um material da receita.' });
+            }
+
+            const result = await runQuery(
+                `INSERT INTO competition_farms (user_id, week_start, week_end, materials, status)
+                 VALUES (?, ?, ?, ?, 'pending')`,
+                [userId, week.start, week.end, JSON.stringify(materials)]
+            );
+            await runQuery(
+                'INSERT INTO competition_farm_screenshots (farm_id, screenshot_url) VALUES (?, ?)',
+                [result.lastID, fileToDataUrl(req.file)]
+            );
+
+            console.log(`🏆 Farm de competição enviado por ${req.session.user.name} (id ${result.lastID})`);
+            res.json({ success: true, message: 'Farm da competição enviado para aprovação!', farmId: result.lastID });
+        } catch (error) {
+            console.error('Erro ao enviar farm de competição:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
 });
 
 // ===== Trilha Elite: registro de ações =====

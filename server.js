@@ -278,6 +278,149 @@ db.initialize().then(async () => {
         }
     }
 
+    // Competição semanal: liga/desliga por semana, receita de pontos, prêmios,
+    // adesão do membro e os farms enviados para a competição.
+    async function createCompetitionTables() {
+        try {
+            const { runQuery, getAll } = require('./database/db');
+            const isPostgres = process.env.DATABASE_URL ? true : false;
+
+            try {
+                await getAll('SELECT id FROM competition_farms LIMIT 1');
+                console.log('✅ Tabelas da competição já existem');
+                return;
+            } catch (e) {
+                console.log('🏆 Criando tabelas da competição semanal...');
+            }
+
+            if (isPostgres) {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_weeks (
+                        id SERIAL PRIMARY KEY,
+                        week_start DATE NOT NULL UNIQUE,
+                        enabled INTEGER DEFAULT 0,
+                        created_by INTEGER REFERENCES users(id),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_recipe (
+                        id SERIAL PRIMARY KEY,
+                        material_id INTEGER NOT NULL REFERENCES materials(id),
+                        amount INTEGER NOT NULL DEFAULT 1
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_prizes (
+                        id SERIAL PRIMARY KEY,
+                        position INTEGER NOT NULL,
+                        description TEXT NOT NULL
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_optin (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id),
+                        week_start DATE NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_farms (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id),
+                        week_start DATE NOT NULL,
+                        week_end DATE NOT NULL,
+                        materials TEXT NOT NULL,
+                        status TEXT DEFAULT 'pending',
+                        reviewed_by INTEGER REFERENCES users(id),
+                        reviewed_at TIMESTAMP,
+                        review_note TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_farm_screenshots (
+                        id SERIAL PRIMARY KEY,
+                        farm_id INTEGER NOT NULL REFERENCES competition_farms(id),
+                        screenshot_url TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+            } else {
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_weeks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        week_start DATE NOT NULL UNIQUE,
+                        enabled INTEGER DEFAULT 0,
+                        created_by INTEGER,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (created_by) REFERENCES users(id)
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_recipe (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        material_id INTEGER NOT NULL,
+                        amount INTEGER NOT NULL DEFAULT 1,
+                        FOREIGN KEY (material_id) REFERENCES materials(id)
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_prizes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        position INTEGER NOT NULL,
+                        description TEXT NOT NULL
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_optin (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        week_start DATE NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_farms (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        week_start DATE NOT NULL,
+                        week_end DATE NOT NULL,
+                        materials TEXT NOT NULL,
+                        status TEXT DEFAULT 'pending',
+                        reviewed_by INTEGER,
+                        reviewed_at DATETIME,
+                        review_note TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id),
+                        FOREIGN KEY (reviewed_by) REFERENCES users(id)
+                    )
+                `);
+                await runQuery(`
+                    CREATE TABLE IF NOT EXISTS competition_farm_screenshots (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        farm_id INTEGER NOT NULL,
+                        screenshot_url TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (farm_id) REFERENCES competition_farms(id)
+                    )
+                `);
+            }
+
+            await runQuery('CREATE UNIQUE INDEX IF NOT EXISTS idx_competition_optin_uw ON competition_optin (user_id, week_start)');
+            await runQuery('CREATE UNIQUE INDEX IF NOT EXISTS idx_competition_recipe_mat ON competition_recipe (material_id)');
+            await runQuery('CREATE UNIQUE INDEX IF NOT EXISTS idx_competition_prizes_pos ON competition_prizes (position)');
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_competition_farms_week ON competition_farms (week_start, status)');
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_competition_farms_user ON competition_farms (user_id, week_start)');
+            await runQuery('CREATE INDEX IF NOT EXISTS idx_competition_shots_farm ON competition_farm_screenshots (farm_id)');
+            console.log('✅ Tabelas da competição semanal criadas');
+        } catch (error) {
+            console.error('⚠️ Erro ao criar tabelas da competição:', error.message);
+        }
+    }
+
     // Catálogo de tipos de ação + colunas de resultado/tipo (roda em todo boot, idempotente)
     async function createEliteCatalog() {
         try {
@@ -406,84 +549,6 @@ db.initialize().then(async () => {
         }
     }
     
-    // Função para criar tabela de competições se não existir
-    async function createCompetitionsTable() {
-        try {
-            const { runQuery, getAll } = require('./database/db');
-            const isPostgres = process.env.DATABASE_URL ? true : false;
-            
-            // Verificar se tabela já existe
-            try {
-                await getAll('SELECT id FROM competitions LIMIT 1');
-                console.log('✅ Tabela competitions já existe');
-                return;
-            } catch (e) {
-                console.log('🏆 Criando tabela competitions...');
-            }
-            
-            if (isPostgres) {
-                // PostgreSQL syntax
-                await runQuery(`
-                    CREATE TABLE IF NOT EXISTS competitions (
-                        id SERIAL PRIMARY KEY,
-                        name TEXT NOT NULL,
-                        description TEXT,
-                        start_date DATE NOT NULL,
-                        end_date DATE NOT NULL,
-                        prizes TEXT,
-                        active INTEGER DEFAULT 0,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                `);
-                
-                await runQuery(`
-                    CREATE TABLE IF NOT EXISTS competition_entries (
-                        id SERIAL PRIMARY KEY,
-                        competition_id INTEGER NOT NULL,
-                        user_id INTEGER NOT NULL,
-                        delivery_id INTEGER NOT NULL,
-                        material_count INTEGER NOT NULL,
-                        approved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (competition_id) REFERENCES competitions(id),
-                        FOREIGN KEY (user_id) REFERENCES users(id),
-                        FOREIGN KEY (delivery_id) REFERENCES deliveries(id)
-                    )
-                `);
-            } else {
-                // SQLite syntax
-                await runQuery(`
-                    CREATE TABLE IF NOT EXISTS competitions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL,
-                        description TEXT,
-                        start_date DATE NOT NULL,
-                        end_date DATE NOT NULL,
-                        prizes TEXT,
-                        active INTEGER DEFAULT 0,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                `);
-                
-                await runQuery(`
-                    CREATE TABLE IF NOT EXISTS competition_entries (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        competition_id INTEGER NOT NULL,
-                        user_id INTEGER NOT NULL,
-                        delivery_id INTEGER NOT NULL,
-                        material_count INTEGER NOT NULL,
-                        approved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (competition_id) REFERENCES competitions(id),
-                        FOREIGN KEY (user_id) REFERENCES users(id),
-                        FOREIGN KEY (delivery_id) REFERENCES deliveries(id)
-                    )
-                `);
-            }
-            
-            console.log('✅ Tabelas competitions e competition_entries criadas!');
-        } catch (error) {
-            console.error('⚠️ Erro ao criar tabela competitions:', error.message);
-        }
-    }
 
     async function createWeaponSalesTable() {
         try {
@@ -541,46 +606,6 @@ db.initialize().then(async () => {
         }
     }
     
-    // Função para atualizar permissões do ranking
-    async function updateRankingPermissions() {
-        try {
-            const { runQuery, getAll } = require('./database/db');
-            
-            // Grupos que DEVEM ter acesso ao weekly-ranking
-            const groupsWithAccess = ['super_admin', 'gerente_geral', '01', '02'];
-            
-            const roles = await getAll('SELECT * FROM role_permissions');
-            let updated = 0;
-            
-            for (const role of roles) {
-                const permissions = JSON.parse(role.permissions || '[]');
-                const hasWeeklyRanking = permissions.includes('weekly-ranking');
-                const shouldHaveAccess = groupsWithAccess.includes(role.role_name);
-                
-                if (shouldHaveAccess && !hasWeeklyRanking) {
-                    permissions.push('weekly-ranking');
-                    await runQuery(
-                        'UPDATE role_permissions SET permissions = ? WHERE role_name = ?',
-                        [JSON.stringify(permissions), role.role_name]
-                    );
-                    updated++;
-                } else if (!shouldHaveAccess && hasWeeklyRanking) {
-                    const newPermissions = permissions.filter(p => p !== 'weekly-ranking');
-                    await runQuery(
-                        'UPDATE role_permissions SET permissions = ? WHERE role_name = ?',
-                        [JSON.stringify(newPermissions), role.role_name]
-                    );
-                    updated++;
-                }
-            }
-            
-            if (updated > 0) {
-                console.log(`🏆 Permissões do ranking semanal atualizadas (${updated} grupos)`);
-            }
-        } catch (error) {
-            console.error('⚠️ Erro ao atualizar permissões do ranking:', error.message);
-        }
-    }
 
     async function updateWeaponSalesPermissions() {
         try {
@@ -1143,14 +1168,11 @@ db.initialize().then(async () => {
         // Criar tabela de farm extra se não existir
         await createExtraFarmTable();
         
-        // Criar tabela de competições se não existir
-        await createCompetitionsTable();
+        // Competição semanal (sistema novo)
+        await createCompetitionTables();
 
         // Criar tabela de extrato de vendas de armas
         await createWeaponSalesTable();
-        
-        // Atualizar permissões do ranking semanal
-        await updateRankingPermissions();
 
         // Atualizar permissões do extrato de vendas
         await updateWeaponSalesPermissions();
