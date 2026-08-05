@@ -3048,3 +3048,57 @@
 .competition-farm-item { padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); font-size:12.5px; }
 .competition-leave { width:100%; margin-top:14px; padding:9px; border:1px solid rgba(255,255,255,0.14); border-radius:10px; background:transparent; color:var(--text-secondary,#9aa0b5); font-size:12.5px; cursor:pointer; }
 .competition-leave:hover { background:rgba(255,255,255,0.05); }
+
+/* Painel da competição travado aguardando aprovação */
+.competition-locked { text-align:center; padding:22px 16px; border-radius:12px; background:rgba(243,156,18,0.08); border:1px solid rgba(243,156,18,0.32); margin-bottom:14px; }
+.competition-locked-icon { font-size:38px; margin-bottom:6px; }
+.competition-locked h3 { margin:0 0 6px; font-size:17px; }
+.competition-locked p { margin:0; font-size:13px; line-height:1.5; color:var(--text-secondary,#9aa0b5); }
+/* Extrato do membro */
+.comp-extract-date { font-size:12px; color:var(--text-secondary,#9aa0b5); }
+.comp-extract-mats { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.comp-extract-mat { font-size:11.5px; padding:2px 9px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); }
+.comp-extract-meta { font-size:11.5px; color:var(--text-secondary,#9aa0b5); margin-top:5px; }
+
+/* Seletor de pontos da competição (múltiplos exatos da receita) */
+.comp-points-picker { display:flex; align-items:center; gap:14px; justify-content:center; margin:6px 0 4px; }
+.comp-points-btn {
+    width:42px; height:42px; border:none; border-radius:12px; cursor:pointer;
+    font-size:22px; font-weight:800; line-height:1;
+    background:rgba(241,196,15,0.18); border:1px solid rgba(241,196,15,0.4); color:#f1c40f;
+}
+.comp-points-btn:hover { filter:brightness(1.2); }
+.comp-points-value { min-width:70px; text-align:center; font-size:34px; font-weight:800; color:#f1c40f; font-variant-numeric:tabular-nums; }
+.comp-points-hint { font-size:11.5px; text-align:center; color:var(--text-secondary,#9aa0b5); margin:2px 0 0; }
+
+/* ===== Ranking da Competição (membro) ===== */
+.comp-rank-week { margin-bottom:14px; }
+.comp-rank-week-label { font-size:13px; color:var(--text-secondary,#9aa0b5); text-align:center; }
+.comp-rank-closed { text-align:center; padding:16px; border-radius:10px; background:rgba(255,255,255,0.04); border:1px dashed rgba(255,255,255,0.14); font-size:13px; color:var(--text-secondary,#9aa0b5); }
+.comp-rank-prizes { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+.comp-prize-card {
+    display:flex; align-items:center; gap:14px; padding:12px 14px; border-radius:14px;
+    background:linear-gradient(145deg,rgba(241,196,15,0.08),rgba(230,126,34,0.04));
+    border:1px solid rgba(241,196,15,0.28);
+}
+.comp-prize-card.won { border-color:rgba(39,174,96,0.5); background:linear-gradient(145deg,rgba(39,174,96,0.1),rgba(39,174,96,0.04)); }
+.comp-prize-img { width:72px; height:72px; object-fit:cover; border-radius:12px; border:1px solid rgba(255,255,255,0.14); flex-shrink:0; }
+.comp-prize-img.placeholder { display:flex; align-items:center; justify-content:center; font-size:30px; background:rgba(255,255,255,0.05); }
+.comp-prize-info { min-width:0; flex:1; }
+.comp-prize-pos { font-size:12px; font-weight:800; color:#f1c40f; text-transform:uppercase; letter-spacing:.5px; }
+.comp-prize-desc { font-size:14px; font-weight:600; margin:2px 0 5px; }
+.comp-prize-winner { font-size:12px; color:#86efac; }
+.comp-prize-winner.empty { color:var(--text-secondary,#9aa0b5); }
+.comp-prize-winner small { color:var(--text-secondary,#9aa0b5); }
+.comp-rank-search {
+    width:100%; padding:10px 14px; margin-bottom:14px; border-radius:10px; font-size:13px; color:inherit;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+}
+.comp-rank-table th:nth-child(1) { width:64px; text-align:center; }
+.comp-rank-table th:nth-child(2) { width:120px; }
+.comp-rank-table th:nth-child(4) { width:100px; text-align:center; }
+.comp-rank-pos { text-align:center; font-size:19px; }
+.comp-rank-pts { text-align:center; font-size:18px; font-weight:800; color:#f1c40f; font-variant-numeric:tabular-nums; }
+.comp-rank-top1 td { background:rgba(241,196,15,0.1); }
+.comp-rank-top2 td { background:rgba(189,195,199,0.09); }
+.comp-rank-top3 td { background:rgba(230,126,34,0.09); }

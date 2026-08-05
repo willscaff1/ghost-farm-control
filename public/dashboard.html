@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/dashboard.css?v=20260803comp1">
+    <link rel="stylesheet" href="css/dashboard.css?v=20260803comp4">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260707redesign2">
 </head>
 <body>
@@ -36,6 +36,7 @@
                     <a href="#" class="dropdown-item" onclick="showEditProfile(); closeUserDropdown();">👤 Editar Meus Dados</a>
                     <a href="#" class="dropdown-item" onclick="showChangePassword(); closeUserDropdown();">🔑 Trocar Senha</a>
                     <a href="#" class="dropdown-item" onclick="showEliteRankingPage(); closeUserDropdown();">🏆 Ranking da Elite</a>
+                    <a href="#" class="dropdown-item" onclick="showCompetitionRanking(); closeUserDropdown();">🥇 Ranking da Competição</a>
                     <a href="#" class="dropdown-item" onclick="showMyWarnings(); closeUserDropdown();">⚠️ Minhas Advertências</a>
                     <div class="dropdown-divider"></div>
                     <a href="#" class="dropdown-item dropdown-item-danger" onclick="logout()">🚪 Sair</a>
@@ -351,7 +352,23 @@
                     <p class="competition-recipe-hint" id="competitionRecipeHint"></p>
                     <div id="competitionProgress" class="competition-progress"></div>
 
+                    <!-- Travado enquanto um envio espera aprovação -->
+                    <div id="competitionLocked" class="competition-locked" style="display:none;">
+                        <div class="competition-locked-icon">⏳</div>
+                        <h3>Aguardando aprovação</h3>
+                        <p>Seu farm da competição foi enviado e está esperando um gerente analisar. Assim que for aprovado, você poderá enviar mais.</p>
+                    </div>
+
                     <form id="competitionForm" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label>Quantos pontos você vai lançar? <span class="required">*</span></label>
+                            <div class="comp-points-picker">
+                                <button type="button" class="comp-points-btn" onclick="changeCompetitionPoints(-1)">−</button>
+                                <div class="comp-points-value" id="competitionPointsInput">1</div>
+                                <button type="button" class="comp-points-btn" onclick="changeCompetitionPoints(1)">+</button>
+                            </div>
+                            <p class="comp-points-hint">Só dá para lançar a receita completa: 1 ponto, 2 pontos, 3 pontos...</p>
+                        </div>
                         <div class="materials-grid" id="competitionMaterials"></div>
                         <div class="form-group">
                             <label>📷 Print do farm da competição <span class="required">*</span></label>
@@ -553,6 +570,30 @@
     </div>
 
     <!-- Página: Ranking da Elite (membros) -->
+    <!-- Ranking da Competição (membro) -->
+    <div id="compRankPage" class="elite-rank-page" style="display:none;">
+        <div class="elite-rank-panel">
+            <div class="elite-rank-head">
+                <h2>🥇 Ranking da Competição</h2>
+                <button class="elite-rank-close" onclick="closeCompetitionRanking()">&times;</button>
+            </div>
+            <div class="elite-rank-body">
+                <div id="compRankWeek" class="comp-rank-week"></div>
+                <div id="compRankPrizes" class="comp-rank-prizes"></div>
+
+                <input type="text" id="compRankSearch" class="comp-rank-search"
+                       placeholder="🔍 Buscar por nome ou passaporte..." oninput="renderCompetitionRankingList()">
+
+                <div class="table-container">
+                    <table class="weekly-table comp-rank-table">
+                        <thead><tr><th>#</th><th>Passaporte</th><th>Membro</th><th>Pontos</th></tr></thead>
+                        <tbody id="compRankBody"><tr><td colspan="4" class="elite-rank-empty">Carregando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="eliteRankPage" class="elite-rank-page" style="display:none;">
         <div class="elite-rank-panel">
             <div class="elite-rank-head">
@@ -587,6 +628,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260803comp1"></script>
+    <script src="js/dashboard.js?v=20260803comp4"></script>
 </body>
 </html>

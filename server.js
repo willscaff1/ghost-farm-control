@@ -421,6 +421,25 @@ db.initialize().then(async () => {
         }
     }
 
+    // Colunas novas da competição (roda em todo boot, idempotente)
+    async function createCompetitionColumns() {
+        try {
+            const { runQuery } = require('./database/db');
+            // Foto do prêmio (data URL)
+            try {
+                await runQuery('ALTER TABLE competition_prizes ADD COLUMN image_url TEXT');
+                console.log('✅ Coluna competition_prizes.image_url criada');
+            } catch (e) { /* já existe */ }
+            // Vencedores congelados quando a semana fecha
+            try {
+                await runQuery('ALTER TABLE competition_weeks ADD COLUMN winners TEXT');
+                console.log('✅ Coluna competition_weeks.winners criada');
+            } catch (e) { /* já existe */ }
+        } catch (error) {
+            console.error('⚠️ Erro nas colunas da competição:', error.message);
+        }
+    }
+
     // Catálogo de tipos de ação + colunas de resultado/tipo (roda em todo boot, idempotente)
     async function createEliteCatalog() {
         try {
@@ -1170,6 +1189,7 @@ db.initialize().then(async () => {
         
         // Competição semanal (sistema novo)
         await createCompetitionTables();
+        await createCompetitionColumns();
 
         // Criar tabela de extrato de vendas de armas
         await createWeaponSalesTable();

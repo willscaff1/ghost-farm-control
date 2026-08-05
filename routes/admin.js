@@ -31,6 +31,18 @@ const upload = multer({
     }
 }).array('screenshots', 10); // Até 10 imagens
 
+// Upload de uma única imagem (foto do prêmio da competição)
+const uploadPrizeImage = multer({
+    storage,
+    limits: { fileSize: 3 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif|webp/;
+        const ok = allowedTypes.test(path.extname(file.originalname).toLowerCase())
+            && allowedTypes.test(file.mimetype);
+        return ok ? cb(null, true) : cb(new Error('Apenas imagens são permitidas'));
+    }
+}).single('image');
+
 // Cargos administrativos (qualquer um pode aprovar)
 const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
@@ -861,8 +873,9 @@ const compPoints = (totals, recipe) => {
 
 // --- Configuração (01/02/gerente geral) ---
 
-// Liga/desliga a competição de uma semana + estado atual
-router.get('/competition/week', requireAdmin, requireCompetitionViewer, async (req, res) => {
+// Estado da semana — leitura liberada a qualquer gerente (as abas dependem disso).
+// Quem liga/desliga continua sendo só 01/02/gerente geral (o PUT abaixo).
+router.get('/competition/week', requireAdmin, async (req, res) => {
     try {
         const weekStart = req.query.week_start || getCurrentWeek().start;
         const row = await getOne('SELECT enabled FROM competition_weeks WHERE week_start = ?', [weekStart]);
@@ -933,29 +946,41 @@ router.delete('/competition/recipe/:materialId', requireAdmin, requireCompetitio
 // Prêmios por colocação
 router.get('/competition/prizes', requireAdmin, requireCompetitionViewer, async (req, res) => {
     try {
-        const prizes = await getAll('SELECT id, position, description FROM competition_prizes ORDER BY position');
+        const prizes = await getAll('SELECT id, position, description, image_url FROM competition_prizes ORDER BY position');
         res.json({ prizes: prizes || [] });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-router.post('/competition/prizes', requireAdmin, requireCompetitionViewer, async (req, res) => {
-    try {
-        const position = Math.max(1, parseInt(req.body?.position, 10) || 0);
-        const description = String(req.body?.description || '').trim();
-        if (!position || !description) return res.status(400).json({ error: 'Informe a colocação e o prêmio' });
+// Prêmio com foto opcional (multipart)
+router.post('/competition/prizes', requireAdmin, requireCompetitionViewer, (req, res) => {
+    uploadPrizeImage(req, res, async (err) => {
+        if (err) return res.status(400).json({ error: err.message || 'Falha no upload da imagem' });
+        try {
+            const position = Math.max(1, parseInt(req.body?.position, 10) || 0);
+            const description = String(req.body?.description || '').trim();
+            if (!position || !description) return res.status(400).json({ error: 'Informe a colocação e o prêmio' });
 
-        const existing = await getOne('SELECT id FROM competition_prizes WHERE position = ?', [position]);
-        if (existing) {
-            await runQuery('UPDATE competition_prizes SET description = ? WHERE position = ?', [description, position]);
-        } else {
-            await runQuery('INSERT INTO competition_prizes (position, description) VALUES (?, ?)', [position, description]);
+            const imageUrl = req.file
+                ? `data:${req.file.mimetype || 'image/jpeg'};base64,${req.file.buffer.toString('base64')}`
+                : null;
+
+            const existing = await getOne('SELECT id FROM competition_prizes WHERE position = ?', [position]);
+            if (existing) {
+                if (imageUrl) {
+                    await runQuery('UPDATE competition_prizes SET description = ?, image_url = ? WHERE position = ?', [description, imageUrl, position]);
+                } else {
+                    await runQuery('UPDATE competition_prizes SET description = ? WHERE position = ?', [description, position]);
+                }
+            } else {
+                await runQuery('INSERT INTO competition_prizes (position, description, image_url) VALUES (?, ?, ?)', [position, description, imageUrl]);
+            }
+            res.json({ success: true });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
         }
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    });
 });
 
 router.delete('/competition/prizes/:position', requireAdmin, requireCompetitionViewer, async (req, res) => {
@@ -1027,6 +1052,70 @@ router.get('/competition/ranking', requireAdmin, requireCompetitionViewer, async
         });
     } catch (error) {
         console.error('Erro no ranking da competição:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Extrato completo dos lançamentos da competição (todos os membros)
+router.get('/competition/extract', requireAdmin, async (req, res) => {
+    try {
+        const weekStart = req.query.week_start || getCurrentWeek().start;
+        const recipe = await compRecipe();
+
+        const farms = await getAll(`
+            SELECT f.id, f.user_id, f.materials, f.status, f.review_note,
+                   f.created_at, f.reviewed_at,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                   u.passport,
+                   COALESCE(NULLIF(TRIM(rv.capital_nickname), ''), rv.name) as reviewed_by_name
+            FROM competition_farms f
+            JOIN users u ON u.id = f.user_id
+            LEFT JOIN users rv ON rv.id = f.reviewed_by
+            WHERE f.week_start = ?
+            ORDER BY f.created_at DESC, f.id DESC
+        `, [weekStart]);
+
+        const ids = (farms || []).map(f => f.id);
+        const shotsByFarm = new Map();
+        if (ids.length > 0) {
+            const ph = ids.map(() => '?').join(',');
+            const shots = await getAll(
+                `SELECT farm_id, screenshot_url FROM competition_farm_screenshots WHERE farm_id IN (${ph})`, ids
+            );
+            for (const s of shots || []) {
+                if (!shotsByFarm.has(s.farm_id)) shotsByFarm.set(s.farm_id, []);
+                shotsByFarm.get(s.farm_id).push(s.screenshot_url);
+            }
+        }
+
+        const entries = (farms || []).map(f => {
+            let mats = {};
+            try { mats = JSON.parse(f.materials || '{}'); } catch (e) { mats = {}; }
+            const items = recipe.map(r => ({
+                name: r.name, icon: r.icon,
+                amount: parseInt(mats[String(r.material_id)], 10) || 0
+            })).filter(i => i.amount > 0);
+            return {
+                id: f.id, name: f.name, passport: f.passport,
+                status: f.status, review_note: f.review_note,
+                created_at: f.created_at, reviewed_at: f.reviewed_at,
+                reviewed_by_name: f.reviewed_by_name || null,
+                screenshots: shotsByFarm.get(f.id) || [],
+                total: items.reduce((s, i) => s + i.amount, 0),
+                materials: items
+            };
+        });
+
+        const summary = {
+            total: entries.length,
+            approved: entries.filter(e => e.status === 'approved').length,
+            pending: entries.filter(e => e.status === 'pending').length,
+            rejected: entries.filter(e => e.status === 'rejected').length
+        };
+
+        res.json({ week_start: weekStart, entries, summary, recipe });
+    } catch (error) {
+        console.error('Erro no extrato da competição:', error);
         res.status(500).json({ error: error.message });
     }
 });

@@ -937,18 +937,24 @@ router.get('/competition/status', requireAuth, async (req, res) => {
         const score = computeCompetitionPoints(totals, recipe);
 
         const myFarms = await getAll(`
-            SELECT id, materials, status, review_note, created_at
-            FROM competition_farms
-            WHERE user_id = ? AND week_start = ?
-            ORDER BY created_at DESC, id DESC
+            SELECT f.id, f.materials, f.status, f.review_note, f.created_at, f.reviewed_at,
+                   COALESCE(NULLIF(TRIM(rv.capital_nickname), ''), rv.name) as reviewed_by_name
+            FROM competition_farms f
+            LEFT JOIN users rv ON rv.id = f.reviewed_by
+            WHERE f.user_id = ? AND f.week_start = ?
+            ORDER BY f.created_at DESC, f.id DESC
         `, [userId, week.start]);
 
         const prizes = await getAll('SELECT position, description FROM competition_prizes ORDER BY position') || [];
+
+        // Com um envio aguardando aprovação, o painel trava até o gerente analisar
+        const hasPending = (myFarms || []).some(f => f.status === 'pending');
 
         res.json({
             enabled: true,
             metaPaid,
             optedIn: !!optRow,
+            hasPending,
             recipe,
             points: score.points,
             progress: score.missing,
@@ -957,14 +963,85 @@ router.get('/competition/status', requireAuth, async (req, res) => {
             myFarms: (myFarms || []).map(f => {
                 let mats = {};
                 try { mats = JSON.parse(f.materials || '{}'); } catch (e) { mats = {}; }
+                const items = recipe.map(r => ({ name: r.name, icon: r.icon, amount: parseInt(mats[String(r.material_id)], 10) || 0 }));
                 return {
-                    id: f.id, status: f.status, review_note: f.review_note, created_at: f.created_at,
-                    materials: recipe.map(r => ({ name: r.name, icon: r.icon, amount: parseInt(mats[String(r.material_id)], 10) || 0 }))
+                    id: f.id, status: f.status, review_note: f.review_note,
+                    created_at: f.created_at, reviewed_at: f.reviewed_at,
+                    reviewed_by_name: f.reviewed_by_name || null,
+                    total: items.reduce((s, i) => s + i.amount, 0),
+                    materials: items
                 };
             })
         });
     } catch (error) {
         console.error('Erro no status da competição:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Ranking da competição visível no dashboard do membro.
+// Só passaporte, vulgo e pontos — sem os detalhes de material do admin.
+router.get('/competition/ranking', requireAuth, async (req, res) => {
+    try {
+        const week = getWeekWithOffset(parseInt(req.query.offset) || 0);
+        const weekRow = await getOne('SELECT enabled, winners FROM competition_weeks WHERE week_start = ?', [week.start]);
+        const enabled = !!weekRow && (weekRow.enabled === 1 || weekRow.enabled === true);
+
+        const prizes = await getAll('SELECT position, description, image_url FROM competition_prizes ORDER BY position') || [];
+        if (!enabled) {
+            return res.json({ enabled: false, ranking: [], prizes, finished: false, week: { start: week.start, end: week.end, label: week.label } });
+        }
+
+        const recipe = await getCompetitionRecipe();
+        const farms = await getAll(`
+            SELECT f.user_id, f.materials,
+                   COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
+                   u.passport
+            FROM competition_farms f
+            JOIN users u ON u.id = f.user_id
+            WHERE f.week_start = ? AND f.status = 'approved'
+        `, [week.start]);
+
+        const byUser = new Map();
+        for (const f of farms || []) {
+            if (!byUser.has(f.user_id)) byUser.set(f.user_id, { name: f.name, passport: f.passport, totals: {} });
+            const e = byUser.get(f.user_id);
+            let mats = {};
+            try { mats = JSON.parse(f.materials || '{}'); } catch (er) { mats = {}; }
+            for (const [mid, amount] of Object.entries(mats)) {
+                e.totals[mid] = (e.totals[mid] || 0) + (parseInt(amount, 10) || 0);
+            }
+        }
+
+        const ranking = [...byUser.values()]
+            .map(e => ({ name: e.name, passport: e.passport, points: computeCompetitionPoints(e.totals, recipe).points }))
+            .filter(r => r.points > 0)
+            .sort((a, b) => b.points - a.points);
+        ranking.forEach((r, i) => { r.position = i + 1; });
+
+        // Semana encerrada: os vencedores ficam preenchidos ao lado dos prêmios
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const finished = today > new Date(week.end);
+
+        const prizesWithWinner = prizes.map(p => {
+            const winner = ranking.find(r => r.position === p.position);
+            return {
+                position: p.position,
+                description: p.description,
+                image_url: p.image_url || null,
+                winner: winner ? { name: winner.name, passport: winner.passport, points: winner.points } : null
+            };
+        });
+
+        res.json({
+            enabled: true,
+            finished,
+            week: { start: week.start, end: week.end, label: week.label },
+            prizes: prizesWithWinner,
+            ranking
+        });
+    } catch (error) {
+        console.error('Erro no ranking da competição (membro):', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1025,6 +1102,15 @@ router.post('/competition/farm', requireAuth, (req, res) => {
                 return res.status(400).json({ error: 'Você precisa aceitar participar da competição primeiro.' });
             }
 
+            // Um envio por vez: trava até um gerente aprovar ou recusar
+            const pending = await getOne(
+                "SELECT id FROM competition_farms WHERE user_id = ? AND week_start = ? AND status = 'pending'",
+                [userId, week.start]
+            );
+            if (pending) {
+                return res.status(400).json({ error: 'Você já tem um farm de competição aguardando aprovação. Espere um gerente analisar.' });
+            }
+
             const isManager = await isManagerUser(userId, req.session.user);
             let allMaterials = [];
             try {
@@ -1046,20 +1132,19 @@ router.post('/competition/farm', requireAuth, (req, res) => {
                 return res.status(400).json({ error: 'A receita da competição ainda não foi cadastrada. Fale com um gerente.' });
             }
 
-            // Só aceita materiais que fazem parte da receita
-            let sent = {};
-            try {
-                sent = typeof req.body.materials === 'string' ? JSON.parse(req.body.materials) : (req.body.materials || {});
-            } catch (e) { sent = {}; }
+            // O envio é sempre um múltiplo exato da receita: 1x, 2x, 3x...
+            // As quantidades são calculadas aqui, não vêm do cliente.
+            const points = parseInt(req.body.points, 10) || 0;
+            if (points < 1) {
+                return res.status(400).json({ error: 'Escolha quantos pontos você vai lançar (1 ponto = a receita completa).' });
+            }
+            if (points > 500) {
+                return res.status(400).json({ error: 'Quantidade de pontos muito alta.' });
+            }
 
             const materials = {};
-            let total = 0;
             for (const r of recipe) {
-                const amount = Math.max(0, parseInt(sent[String(r.material_id)], 10) || 0);
-                if (amount > 0) { materials[String(r.material_id)] = amount; total += amount; }
-            }
-            if (total === 0) {
-                return res.status(400).json({ error: 'Informe pelo menos um material da receita.' });
+                materials[String(r.material_id)] = (parseInt(r.amount, 10) || 0) * points;
             }
 
             const result = await runQuery(

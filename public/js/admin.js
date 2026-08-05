@@ -217,7 +217,7 @@ const superAdminOnlyTabs = ['password-reset-log'];
 
 // Competição: configuração e ranking só para 01, 02 e gerente geral.
 // A fila de aprovação (competition-farms) fica aberta a qualquer gerente.
-const competitionViewerTabs = ['competition'];
+const competitionViewerTabs = ['competition', 'competition-ranking'];
 const COMPETITION_VIEWER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
 function isCompetitionViewer() {
     if (!currentUser) return false;
@@ -236,9 +236,13 @@ function isEliteApproverUser() {
     return groups.some(g => ELITE_APPROVER_ROLES.includes(g));
 }
 
+// Status e fila da competição: qualquer gerente (a visibilidade depende da semana estar ligada)
+const competitionManagerTabs = ['competition-status', 'competition-farms'];
+
 function hasAccessToTab(tabId) {
     if (superAdminOnlyTabs.includes(tabId)) return isSuperAdminUser();
     if (competitionViewerTabs.includes(tabId)) return isCompetitionViewer();
+    if (competitionManagerTabs.includes(tabId)) return true;
     if (eliteApproverTabs.includes(tabId)) return isEliteApproverUser();
     if (!currentUserPermissions) return true;
     if (currentUserPermissions.permissions.includes('all')) return true;
@@ -266,6 +270,10 @@ function applyRolePermissions() {
             item.style.display = isCompetitionViewer() ? '' : 'none';
             return;
         }
+
+        // Status e fila: qualquer gerente — quem decide a visibilidade é
+        // refreshCompetitionStatusTab, conforme a semana está ligada ou não
+        if (competitionManagerTabs.includes(tabId)) return;
 
         // Abas de aprovador da Elite (01/02/gerente geral)
         if (eliteApproverTabs.includes(tabId)) {
@@ -364,7 +372,10 @@ async function checkAuth() {
             
             // Aplicar permissões baseadas no cargo
             applyRolePermissions();
-            
+
+            // "Status da Competição" só aparece com a competição da semana ligada
+            refreshCompetitionStatusTab();
+
             // Carregar dados iniciais de forma otimizada (paralela)
             await loadInitialData();
         } else {
@@ -415,6 +426,8 @@ function showTab(tabId) {
     switch (tabId) {
         case 'weekly-status': loadWeeklyStatus(); break;
         case 'competition': loadCompetitionAdmin(); break;
+        case 'competition-status': loadCompetitionStatus(); break;
+        case 'competition-ranking': loadCompetitionRanking(); break;
         case 'competition-farms': loadCompetitionFarms(); break;
         case 'members-overview': loadMembersOverview(); break;
         case 'absences': loadJustifications(); break;
@@ -428,10 +441,6 @@ function showTab(tabId) {
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
         case 'family-commandments': loadFamilyCommandments(); break;
-        case 'competitions': 
-            // Iframe carrega automaticamente
-            console.log('🏆 Aba de competições aberta (iframe)');
-            break;
         case 'manage-materials': loadMaterials(); break;
         case 'manage-payment-types': loadPaymentTypes(); break;
         case 'goals':
@@ -835,6 +844,12 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
                 break;
             case 'competition':
                 loadCompetitionAdmin();
+                break;
+            case 'competition-status':
+                loadCompetitionStatus();
+                break;
+            case 'competition-ranking':
+                loadCompetitionRanking();
                 break;
             case 'competition-farms':
                 loadCompetitionFarms();
@@ -6468,8 +6483,120 @@ async function confirmEliteAction() {
 
 // ===== Competição semanal (admin) =====
 
+// Aba Competição (Configurações): liga/desliga, receita e prêmios — 01/02/gerente geral
 async function loadCompetitionAdmin() {
-    await Promise.all([loadCompetitionWeek(), loadCompetitionRecipe(), loadCompetitionPrizes(), loadCompetitionRanking()]);
+    await Promise.all([loadCompetitionWeek(), loadCompetitionRecipe(), loadCompetitionPrizes()]);
+}
+
+// Aba Status da Competição: os lançamentos da semana — qualquer gerente
+async function loadCompetitionStatus() {
+    await loadCompetitionExtract();
+}
+
+// Mostra/esconde a aba "Status da Competição" conforme a semana está ligada
+// Com a competição desligada, tudo relacionado a ela some do painel.
+// A aba de configuração fica de pé para 01/02/gerente geral poderem religar.
+async function refreshCompetitionStatusTab() {
+    const dependentTabs = ['competition-status', 'competition-ranking', 'competition-farms'];
+    const setVisible = (on) => {
+        dependentTabs.forEach(tab => {
+            const item = document.querySelector(`.sidebar-item[data-tab="${tab}"]`);
+            if (!item) return;
+            // Ranking continua restrito a 01/02/gerente geral mesmo com a semana aberta
+            const allowed = tab === 'competition-ranking' ? isCompetitionViewer() : true;
+            item.style.display = (on && allowed) ? '' : 'none';
+        });
+        if (!on) {
+            const active = document.querySelector('.sidebar-item.active');
+            if (active && dependentTabs.includes(active.dataset.tab)) showTab('weekly-status');
+        }
+    };
+
+    try {
+        const res = await fetch('/api/admin/competition/week');
+        if (!res.ok) { setVisible(false); return; }
+        const data = await res.json();
+        setVisible(!!data.enabled);
+    } catch (e) { setVisible(false); }
+}
+
+// ── Extrato detalhado dos lançamentos ──
+let compExtractData = [];
+let compExtractFilter = 'all';
+
+async function loadCompetitionExtract() {
+    const box = document.getElementById('compExtractList');
+    try {
+        const res = await fetch('/api/admin/competition/extract');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        compExtractData = data.entries || [];
+
+        const sum = document.getElementById('compExtractSummary');
+        if (sum && data.summary) {
+            const card = (label, value, color) => `<div style="flex:1;min-width:120px;background:var(--card-bg,rgba(255,255,255,0.04));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;padding:12px 16px;"><div style="font-size:24px;font-weight:700;color:${color};">${value}</div><div style="font-size:12px;color:var(--text-secondary);">${label}</div></div>`;
+            sum.innerHTML =
+                card('Lançamentos', data.summary.total, 'var(--text-primary, #fff)') +
+                card('✅ Aprovados', data.summary.approved, '#27ae60') +
+                card('⏳ Aguardando', data.summary.pending, '#f39c12') +
+                card('❌ Recusados', data.summary.rejected, '#e74c3c');
+        }
+        renderCompetitionExtract();
+    } catch (e) {
+        if (box) box.innerHTML = '<div style="text-align:center;padding:24px;">Erro ao carregar o extrato</div>';
+    }
+}
+
+function renderCompetitionExtract() {
+    const box = document.getElementById('compExtractList');
+    if (!box) return;
+    const term = (document.getElementById('compExtractSearch')?.value || '').toLowerCase().trim();
+
+    const rows = compExtractData.filter(e => {
+        if (compExtractFilter !== 'all' && e.status !== compExtractFilter) return false;
+        if (!term) return true;
+        return (e.name || '').toLowerCase().includes(term) || String(e.passport || '').includes(term);
+    });
+
+    if (rows.length === 0) {
+        box.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-secondary);">Nenhum lançamento encontrado.</div>';
+        return;
+    }
+
+    const fmt = v => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    box.innerHTML = rows.map(e => {
+        const st = e.status === 'approved' ? '<span class="elite-badge ok">✅ Aprovado</span>'
+            : e.status === 'rejected' ? '<span class="elite-badge no">❌ Recusado</span>'
+            : '<span class="elite-badge wait">⏳ Aguardando</span>';
+        const mats = (e.materials || []).map(m =>
+            `<span class="comp-detail-mat">${m.icon || '📦'} ${escapeHtml(m.name)}: <strong>${m.amount}</strong></span>`).join('') || '—';
+        const shots = (e.screenshots || []).map(s =>
+            `<a href="${s}" target="_blank" rel="noopener"><img src="${s}" class="elite-proof-thumb" alt="print"></a>`).join('');
+        const rev = e.reviewed_at
+            ? `<div class="comp-extract-meta">Analisado por ${escapeHtml(e.reviewed_by_name || '—')} em ${fmt(e.reviewed_at)}</div>` : '';
+        const note = e.status === 'rejected' && e.review_note
+            ? `<div class="elite-action-note">Motivo: ${escapeHtml(e.review_note)}</div>` : '';
+        return `
+            <div class="comp-extract-card">
+                <div class="comp-extract-main">
+                    <div class="comp-extract-head">
+                        <span><strong>${escapeHtml(e.name)}</strong> <small>${escapeHtml(e.passport || '')}</small></span>
+                        ${st}
+                    </div>
+                    <div class="comp-extract-meta">📅 ${fmt(e.created_at)} · total ${e.total} un.</div>
+                    <div class="comp-detail-mats">${mats}</div>
+                    ${rev}${note}
+                </div>
+                <div class="comp-extract-shots">${shots}</div>
+            </div>`;
+    }).join('');
+}
+
+function filterCompetitionExtract(type, btn) {
+    compExtractFilter = type;
+    document.querySelectorAll('#competition-tab .members-filters .filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderCompetitionExtract();
 }
 
 async function loadCompetitionWeek() {
@@ -6498,6 +6625,7 @@ async function saveCompetitionWeek(enabled) {
         const data = await res.json();
         if (data.success) {
             loadCompetitionWeek();
+            refreshCompetitionStatusTab();
             if (msg) { msg.textContent = enabled ? '✅ Competição aberta nesta semana' : 'Competição fechada nesta semana'; msg.className = 'goals-message success'; }
         } else if (msg) { msg.textContent = data.error || 'Erro'; msg.className = 'goals-message error'; }
     } catch {
@@ -6575,9 +6703,12 @@ async function loadCompetitionPrizes() {
         const prizes = data.prizes || [];
         if (tbody) {
             tbody.innerHTML = prizes.length === 0
-                ? '<tr><td colspan="3" style="text-align:center;padding:20px;">Nenhum prêmio cadastrado.</td></tr>'
+                ? '<tr><td colspan="4" style="text-align:center;padding:20px;">Nenhum prêmio cadastrado.</td></tr>'
                 : prizes.map(p => `
                     <tr>
+                        <td>${p.image_url
+                            ? `<a href="${p.image_url}" target="_blank" rel="noopener"><img src="${p.image_url}" class="comp-prize-thumb" alt="prêmio"></a>`
+                            : '<span style="color:var(--text-secondary);">—</span>'}</td>
                         <td><strong>${p.position}º lugar</strong></td>
                         <td>${escapeHtml(p.description)}</td>
                         <td><button class="btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="removeCompetitionPrize(${p.position})">🗑️ Remover</button></td>
@@ -6597,14 +6728,19 @@ async function saveCompetitionPrize() {
         return;
     }
     try {
-        const res = await fetch('/api/admin/competition/prizes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ position, description })
-        });
+        // multipart: a foto do prêmio é opcional
+        const fd = new FormData();
+        fd.append('position', String(position));
+        fd.append('description', description);
+        const img = document.getElementById('compPrizeImage')?.files?.[0];
+        if (img) fd.append('image', img);
+
+        const res = await fetch('/api/admin/competition/prizes', { method: 'POST', body: fd });
         const data = await res.json();
         if (data.success) {
             document.getElementById('compPrizeDesc').value = '';
+            const imgEl = document.getElementById('compPrizeImage');
+            if (imgEl) imgEl.value = '';
             if (msg) { msg.textContent = '✅ Prêmio salvo'; msg.className = 'goals-message success'; }
             loadCompetitionPrizes();
             loadCompetitionRanking();
@@ -6622,52 +6758,71 @@ async function removeCompetitionPrize(position) {
     } catch { showNotification('Erro de conexão', 'error'); }
 }
 
+// Ranking: só o ranking mesmo — pódio com os prêmios e a tabela pesquisável
+let competitionRankingData = [];
+
 async function loadCompetitionRanking() {
     const tbody = document.getElementById('compRankingBody');
-    const totalsEl = document.getElementById('compRankingTotals');
-    const detail = document.getElementById('compRankingDetail');
     try {
         const res = await fetch('/api/admin/competition/ranking');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        const ranking = data.ranking || [];
-
-        if (totalsEl) {
-            const card = (label, value, color) => `<div style="flex:1;min-width:130px;background:var(--card-bg,rgba(255,255,255,0.04));border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;padding:12px 16px;"><div style="font-size:24px;font-weight:700;color:${color};">${value}</div><div style="font-size:12px;color:var(--text-secondary);">${label}</div></div>`;
-            totalsEl.innerHTML =
-                card('Participantes', data.totals.participants, 'var(--text-primary, #fff)') +
-                card('🏆 Pontos somados', data.totals.points, '#f1c40f') +
-                card('Semana', data.enabled ? 'Aberta' : 'Fechada', data.enabled ? '#27ae60' : '#e74c3c');
-        }
-
-        const medal = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
-        if (tbody) {
-            tbody.innerHTML = ranking.length === 0
-                ? '<tr><td colspan="6" style="text-align:center;padding:24px;">Ninguém pontuou ainda nesta semana.</td></tr>'
-                : ranking.map((r, i) => `
-                    <tr>
-                        <td>${medal(i)}</td>
-                        <td class="rank-passport">${escapeHtml(r.passport || '-')}</td>
-                        <td class="rank-name">${escapeHtml(r.name)}</td>
-                        <td><strong style="font-size:17px;color:#f1c40f;">${r.points}</strong></td>
-                        <td>${r.submissions}${r.pending > 0 ? ` <small style="color:#f39c12;">(+${r.pending} aguardando)</small>` : ''}</td>
-                        <td>${r.prize ? escapeHtml(r.prize) : '—'}</td>
-                    </tr>`).join('');
-        }
-
-        // Detalhe: materiais entregues por participante
-        if (detail) {
-            detail.innerHTML = ranking.length === 0 ? '' : ranking.map(r => `
-                <div class="comp-detail-card">
-                    <div class="comp-detail-head">${r.position}º · ${escapeHtml(r.name)} — <strong>${r.points} ponto(s)</strong></div>
-                    <div class="comp-detail-mats">
-                        ${r.materials.map(m => `<span class="comp-detail-mat">${m.icon || '📦'} ${escapeHtml(m.name)}: <strong>${m.delivered}</strong>/${m.required}</span>`).join('')}
-                    </div>
-                </div>`).join('');
-        }
+        competitionRankingData = data.ranking || [];
+        renderCompetitionPodium(competitionRankingData, data.prizes || []);
+        renderCompetitionRankingTable();
     } catch (e) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;">Erro ao carregar o ranking</td></tr>';
+        competitionRankingData = [];
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Erro ao carregar o ranking</td></tr>';
     }
+}
+
+function renderCompetitionPodium(ranking, prizes) {
+    const box = document.getElementById('compPodium');
+    if (!box) return;
+    const prizeByPos = new Map((prizes || []).map(p => [Number(p.position), p]));
+
+    // Sempre mostra as três colocações, mesmo sem ninguém ainda
+    box.innerHTML = [1, 2, 3].map(pos => {
+        const r = ranking.find(x => x.position === pos);
+        const prize = prizeByPos.get(pos);
+        const medal = pos === 1 ? '🥇' : pos === 2 ? '🥈' : '🥉';
+        const photo = prize && prize.image_url
+            ? `<img src="${prize.image_url}" class="comp-podium-photo" alt="prêmio">`
+            : '<div class="comp-podium-photo empty">🎁</div>';
+        return `
+            <div class="comp-podium-card pos-${pos}">
+                <div class="comp-podium-medal">${medal}</div>
+                ${photo}
+                <div class="comp-podium-prize">${prize ? escapeHtml(prize.description) : 'Sem prêmio cadastrado'}</div>
+                <div class="comp-podium-winner">${r ? escapeHtml(r.name) : '—'}</div>
+                <div class="comp-podium-points">${r ? r.points + ' pts' : 'vago'}</div>
+            </div>`;
+    }).join('');
+}
+
+function renderCompetitionRankingTable() {
+    const tbody = document.getElementById('compRankingBody');
+    if (!tbody) return;
+    const term = (document.getElementById('compRankingSearch')?.value || '').toLowerCase().trim();
+
+    const rows = competitionRankingData.filter(r => !term
+        || (r.name || '').toLowerCase().includes(term)
+        || String(r.passport || '').toLowerCase().includes(term));
+
+    if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;">${term ? 'Ninguém encontrado' : 'Ninguém pontuou ainda nesta semana.'}</td></tr>`;
+        return;
+    }
+
+    const medal = pos => pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : pos;
+    tbody.innerHTML = rows.map(r => `
+        <tr class="${r.position <= 3 ? 'comp-rank-top comp-rank-' + r.position : ''}">
+            <td>${medal(r.position)}</td>
+            <td class="rank-passport">${escapeHtml(r.passport || '-')}</td>
+            <td class="rank-name">${escapeHtml(r.name)}</td>
+            <td><strong style="font-size:18px;color:#f1c40f;">${r.points}</strong></td>
+            <td>${r.prize ? escapeHtml(r.prize) : '—'}</td>
+        </tr>`).join('');
 }
 
 // Fila de aprovação dos farms da competição (qualquer gerente)
@@ -6710,7 +6865,7 @@ async function approveCompetitionFarm(id) {
     try {
         const res = await fetch(`/api/admin/competition/farms/${id}/approve`, { method: 'POST' });
         const data = await res.json();
-        if (data.success) { showNotification('Farm aprovado!', 'success'); loadCompetitionFarms(); }
+        if (data.success) { showNotification('Farm aprovado!', 'success'); loadCompetitionFarms(); loadCompetitionExtract(); loadCompetitionRanking(); }
         else showNotification(data.error || 'Erro', 'error');
     } catch { showNotification('Erro de conexão', 'error'); }
 }
@@ -6724,7 +6879,7 @@ async function rejectCompetitionFarm(id) {
             body: JSON.stringify({ note })
         });
         const data = await res.json();
-        if (data.success) { showNotification('Farm rejeitado', 'success'); loadCompetitionFarms(); }
+        if (data.success) { showNotification('Farm rejeitado', 'success'); loadCompetitionFarms(); loadCompetitionExtract(); loadCompetitionRanking(); }
         else showNotification(data.error || 'Erro', 'error');
     } catch { showNotification('Erro de conexão', 'error'); }
 }
@@ -11417,89 +11572,6 @@ async function revokeEditPermission(userId, userName) {
 // ==================== COMPETIÇÕES ====================
 
 
-async function loadCompetitionRanking() {
-    const container = document.getElementById('activeCompetitionRanking');
-    
-    try {
-        container.innerHTML = '<p class="loading">Carregando ranking...</p>';
-        
-        const response = await fetch('/api/admin/competitions/ranking');
-        
-        if (!response.ok) {
-            if (response.status === 403) {
-                container.innerHTML = '';
-                return;
-            }
-            throw new Error('Erro ao carregar ranking');
-        }
-        
-        const data = await response.json();
-        
-        if (data.competition && data.ranking && data.ranking.length > 0) {
-            const prizes = data.competition.prizes ? data.competition.prizes.split('\n').filter(p => p.trim()) : [];
-            
-            container.innerHTML = `
-                <div class="card">
-                    <h2>🏆 Ranking - ${data.competition.name}</h2>
-                    <p class="subtitle">${data.competition.description || ''}</p>
-                    
-                    ${prizes.length > 0 ? `
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                            <h4 style="margin-bottom: 10px;">🎁 Premiação:</h4>
-                            ${prizes.map((prize, i) => `<p style="margin: 5px 0;">${i + 1}º lugar: ${prize}</p>`).join('')}
-                        </div>
-                    ` : ''}
-                    
-                    <div class="table-container">
-                        <table class="weekly-table">
-                            <thead>
-                                <tr>
-                                    <th>Posição</th>
-                                    <th>Membro</th>
-                                    <th>Passaporte</th>
-                                    <th>Farms Completos</th>
-                                    <th>Total de Materiais</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.ranking.map((member, index) => {
-                                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
-                                    return `
-                                        <tr style="cursor: pointer;" onclick="showMemberCompetitionDetails(${data.competition.id}, ${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}')" 
-                                            onmouseover="this.style.backgroundColor='#2a2a3e'" 
-                                            onmouseout="this.style.backgroundColor=''">
-                                            <td><strong>${medal} ${index + 1}º</strong></td>
-                                            <td>${escapeHtml(member.name)}</td>
-                                            <td>${escapeHtml(member.passport)}</td>
-                                            <td><strong style="color: #4CAF50; font-size: 18px;">${member.total_farms}</strong></td>
-                                            <td>${member.total_materials.toLocaleString('pt-BR')}</td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        } else if (data.competition) {
-            container.innerHTML = `
-                <div class="card">
-                    <h2>🏆 Ranking - ${data.competition.name}</h2>
-                    <p class="subtitle">${data.competition.description || ''}</p>
-                    <div class="empty-state">
-                        <span>📊</span>
-                        <p>Ainda não há farms aprovados nesta competição.</p>
-                    </div>
-                </div>
-            `;
-        } else {
-            container.innerHTML = '';
-        }
-    } catch (error) {
-        console.error('Erro ao carregar ranking:', error);
-        container.innerHTML = '<div class="alert alert-error">Erro ao carregar ranking. Tente novamente.</div>';
-    }
-}
 
 
 

@@ -169,6 +169,37 @@ const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', '
 
 // ===== Competição semanal =====
 let competitionData = null;
+let competitionRecipe = [];
+let competitionPoints = 1;
+
+// O lançamento é sempre a receita inteira multiplicada pelos pontos
+function changeCompetitionPoints(delta) {
+    competitionPoints = Math.max(1, Math.min(500, competitionPoints + delta));
+    const el = document.getElementById('competitionPointsInput');
+    if (el) el.textContent = competitionPoints;
+    renderCompetitionMaterials();
+}
+
+function renderCompetitionMaterials() {
+    const box = document.getElementById('competitionMaterials');
+    if (!box) return;
+    if (!competitionRecipe.length) {
+        box.innerHTML = '<p class="loading-placeholder">Sem receita cadastrada.</p>';
+        return;
+    }
+    box.innerHTML = competitionRecipe.map(r => {
+        const total = (parseInt(r.amount, 10) || 0) * competitionPoints;
+        return `
+            <div class="material-card">
+                <div class="material-icon">${r.icon || '📦'}</div>
+                <div class="material-info">
+                    <div class="material-name">${escapeHtml(r.name)}</div>
+                    <div class="material-goal">${r.amount} × ${competitionPoints}</div>
+                </div>
+                <span class="material-fixed">${total}</span>
+            </div>`;
+    }).join('');
+}
 
 async function loadCompetition() {
     const invite = document.getElementById('competitionInvite');
@@ -242,39 +273,44 @@ function renderCompetition(data) {
         }).join('');
     }
 
-    // Campos de envio (só materiais da receita)
-    const mats = document.getElementById('competitionMaterials');
-    if (mats) {
-        mats.innerHTML = recipe.length === 0
-            ? '<p class="loading-placeholder">Sem receita cadastrada.</p>'
-            : recipe.map(r => `
-                <div class="material-card">
-                    <div class="material-icon">${r.icon || '📦'}</div>
-                    <div class="material-info">
-                        <div class="material-name">${escapeHtml(r.name)}</div>
-                        <div class="material-goal">${r.amount} por ponto</div>
-                    </div>
-                    <input type="number" min="0" value="0" class="material-input competition-input"
-                           data-material-id="${r.material_id}"
-                           onkeypress="return event.charCode >= 48 && event.charCode <= 57">
-                </div>`).join('');
-    }
+    // Envio aguardando aprovação: trava o formulário até o gerente analisar
+    const form = document.getElementById('competitionForm');
+    const lock = document.getElementById('competitionLocked');
+    if (form) form.style.display = data.hasPending ? 'none' : '';
+    if (lock) lock.style.display = data.hasPending ? 'block' : 'none';
 
-    // Meus envios da semana
+    // O envio é sempre a receita inteira × nº de pontos — nada de quantidade quebrada
+    competitionRecipe = recipe;
+    renderCompetitionMaterials();
+
+    // Extrato dos meus lançamentos da semana
     const list = document.getElementById('competitionMyFarms');
     if (list) {
         const farms = data.myFarms || [];
-        list.innerHTML = farms.length === 0 ? '' : `
-            <div class="competition-farms-title">Meus envios desta semana</div>
+        const fmt = v => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+        list.innerHTML = farms.length === 0
+            ? '<div class="competition-farms-title">Meus lançamentos</div><div class="competition-farm-item" style="text-align:center;color:var(--text-secondary);">Nenhum lançamento nesta semana ainda.</div>'
+            : `
+            <div class="competition-farms-title">Meus lançamentos (${farms.length})</div>
             ${farms.map(f => {
                 const st = f.status === 'approved' ? '<span class="elite-badge ok">✅ Aprovado</span>'
                     : f.status === 'rejected' ? '<span class="elite-badge no">❌ Recusado</span>'
                     : '<span class="elite-badge wait">⏳ Aguardando</span>';
                 const itens = (f.materials || []).filter(m => m.amount > 0)
-                    .map(m => `${m.icon || '📦'} ${escapeHtml(m.name)}: ${m.amount}`).join(' · ') || '—';
+                    .map(m => `<span class="comp-extract-mat">${m.icon || '📦'} ${escapeHtml(m.name)}: <strong>${m.amount}</strong></span>`).join('') || '—';
                 const note = f.status === 'rejected' && f.review_note
                     ? `<div class="elite-action-note">Motivo: ${escapeHtml(f.review_note)}</div>` : '';
-                return `<div class="competition-farm-item"><div class="elite-action-top"><span>${itens}</span>${st}</div>${note}</div>`;
+                const rev = f.reviewed_at
+                    ? `<div class="comp-extract-meta">Analisado por ${escapeHtml(f.reviewed_by_name || '—')} em ${fmt(f.reviewed_at)}</div>` : '';
+                return `
+                    <div class="competition-farm-item">
+                        <div class="elite-action-top">
+                            <span class="comp-extract-date">📅 ${fmt(f.created_at)} · ${f.total} un.</span>
+                            ${st}
+                        </div>
+                        <div class="comp-extract-mats">${itens}</div>
+                        ${rev}${note}
+                    </div>`;
             }).join('')}`;
     }
 }
@@ -305,18 +341,12 @@ async function submitCompetitionFarm(e) {
     const btn = document.getElementById('competitionSubmitBtn');
     const proof = document.getElementById('competitionProof').files[0];
 
-    const materials = {};
-    let total = 0;
-    document.querySelectorAll('#competitionMaterials .competition-input').forEach(input => {
-        const amount = parseInt(input.value, 10) || 0;
-        if (amount > 0) { materials[input.dataset.materialId] = amount; total += amount; }
-    });
-
-    if (total === 0) { showEliteMsg(msg, 'Informe pelo menos um material', 'error'); return; }
+    if (!competitionRecipe.length) { showEliteMsg(msg, 'A receita ainda não foi cadastrada', 'error'); return; }
+    if (competitionPoints < 1) { showEliteMsg(msg, 'Escolha quantos pontos vai lançar', 'error'); return; }
     if (!proof) { showEliteMsg(msg, 'Anexe o print do farm da competição', 'error'); return; }
 
     const fd = new FormData();
-    fd.append('materials', JSON.stringify(materials));
+    fd.append('points', String(competitionPoints));
     fd.append('proof', proof);
 
     btn.disabled = true;
@@ -327,6 +357,9 @@ async function submitCompetitionFarm(e) {
         if (data.success) {
             showEliteMsg(msg, '✅ Enviado para aprovação!', 'success');
             document.getElementById('competitionForm').reset();
+            competitionPoints = 1;
+            const pi = document.getElementById('competitionPointsInput');
+            if (pi) pi.textContent = '1';
             loadCompetition();
         } else {
             showEliteMsg(msg, data.error || 'Erro ao enviar', 'error');
@@ -4314,6 +4347,97 @@ async function submitExtraFarm(materials, messageEl, submitBtn, inputs) {
 }
 
 // ===== Página: Ranking da Elite (membros) =====
+// ===== Ranking da Competição (membro) =====
+let compRankData = null;
+
+async function showCompetitionRanking() {
+    const page = document.getElementById('compRankPage');
+    if (!page) return;
+    page.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    page.onclick = (e) => { if (e.target === page) closeCompetitionRanking(); };
+    try {
+        const res = await fetch('/api/delivery/competition/ranking');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        compRankData = await res.json();
+        renderCompetitionRankingPage();
+    } catch (e) {
+        console.error('Erro ao carregar ranking da competição:', e);
+        const b = document.getElementById('compRankBody');
+        if (b) b.innerHTML = '<tr><td colspan="4" class="elite-rank-empty">Erro ao carregar</td></tr>';
+    }
+}
+
+function closeCompetitionRanking() {
+    const page = document.getElementById('compRankPage');
+    if (page) page.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function renderCompetitionRankingPage() {
+    const data = compRankData || {};
+    const weekEl = document.getElementById('compRankWeek');
+    const prizesEl = document.getElementById('compRankPrizes');
+
+    if (weekEl) {
+        weekEl.innerHTML = !data.enabled
+            ? '<div class="comp-rank-closed">A competição não está aberta nesta semana.</div>'
+            : `<div class="comp-rank-week-label">📅 ${escapeHtml(data.week?.label || '')}${data.finished ? ' · <strong>encerrada</strong>' : ''}</div>`;
+    }
+
+    // Prêmios no topo, com foto e o vencedor preenchido quando a semana fecha
+    if (prizesEl) {
+        const prizes = data.prizes || [];
+        prizesEl.innerHTML = prizes.length === 0 ? '' : prizes.map(p => {
+            const img = p.image_url
+                ? `<img src="${p.image_url}" class="comp-prize-img" alt="prêmio">`
+                : '<div class="comp-prize-img placeholder">🎁</div>';
+            const medal = p.position === 1 ? '🥇' : p.position === 2 ? '🥈' : p.position === 3 ? '🥉' : `${p.position}º`;
+            const winner = p.winner
+                ? `<div class="comp-prize-winner ${data.finished ? 'final' : ''}">${data.finished ? '🏆 Vencedor: ' : 'Liderando: '}<strong>${escapeHtml(p.winner.name)}</strong> <small>${escapeHtml(p.winner.passport || '')}</small> · ${p.winner.points} pts</div>`
+                : '<div class="comp-prize-winner empty">Sem ninguém nesta colocação ainda</div>';
+            return `
+                <div class="comp-prize-card ${data.finished && p.winner ? 'won' : ''}">
+                    ${img}
+                    <div class="comp-prize-info">
+                        <div class="comp-prize-pos">${medal} lugar</div>
+                        <div class="comp-prize-desc">${escapeHtml(p.description)}</div>
+                        ${winner}
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    renderCompetitionRankingList();
+}
+
+function renderCompetitionRankingList() {
+    const body = document.getElementById('compRankBody');
+    if (!body) return;
+    const data = compRankData || {};
+    const term = (document.getElementById('compRankSearch')?.value || '').toLowerCase().trim();
+
+    const rows = (data.ranking || []).filter(r =>
+        !term || (r.name || '').toLowerCase().includes(term) || String(r.passport || '').includes(term));
+
+    if (rows.length === 0) {
+        body.innerHTML = `<tr><td colspan="4" class="elite-rank-empty">${term ? 'Ninguém encontrado' : 'Ninguém pontuou ainda nesta semana.'}</td></tr>`;
+        return;
+    }
+
+    body.innerHTML = rows.map(r => {
+        const medal = r.position === 1 ? '🥇' : r.position === 2 ? '🥈' : r.position === 3 ? '🥉' : r.position;
+        const cls = r.position <= 3 ? ` class="comp-rank-top comp-rank-top${r.position}"` : '';
+        return `
+            <tr${cls}>
+                <td class="comp-rank-pos">${medal}</td>
+                <td class="rank-passport">${escapeHtml(r.passport || '-')}</td>
+                <td class="rank-name">${escapeHtml(r.name)}</td>
+                <td class="comp-rank-pts">${r.points}</td>
+            </tr>`;
+    }).join('');
+}
+
 async function showEliteRankingPage() {
     const page = document.getElementById('eliteRankPage');
     if (!page) return;
