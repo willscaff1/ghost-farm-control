@@ -2531,3 +2531,22 @@ tr.status-rejected {
 .comp-rank-3 { background:rgba(205,127,50,0.07) !important; }
 
 @media (max-width:720px) { .comp-podium { grid-template-columns:1fr; } .comp-podium-card.pos-1 { transform:none; } }
+
+/* ===== Informativo da receita do ponto ===== */
+.comp-recipe-info {
+    display:flex; gap:14px; align-items:flex-start;
+    padding:16px 18px; margin:14px 0 18px; border-radius:14px;
+    background:rgba(52,152,219,0.08); border:1px solid rgba(52,152,219,0.3);
+}
+.comp-recipe-info-icon { font-size:24px; line-height:1; flex-shrink:0; }
+.comp-recipe-info p { margin:0 0 6px; font-size:13.5px; line-height:1.55; }
+.comp-recipe-info p:last-child { margin-bottom:0; }
+.comp-recipe-info-note { color:var(--text-secondary,#9aa0b5); font-size:12.5px !important; }
+.comp-recipe-preview { margin-bottom:18px; }
+.comp-recipe-preview-title {
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--text-secondary,#9aa0b5); margin-bottom:8px;
+}
+.comp-recipe-preview th:not(:first-child),
+.comp-recipe-preview td:not(:first-child) { text-align:center; width:120px; }
+.comp-recipe-preview td:nth-child(2) { color:#f1c40f; }

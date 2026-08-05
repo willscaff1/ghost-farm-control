@@ -6645,8 +6645,8 @@ async function loadCompetitionRecipe() {
             sel.innerHTML = (data.materials || []).map(m =>
                 `<option value="${m.id}">${m.icon || '📦'} ${escapeHtml(m.name)}</option>`).join('');
         }
+        const recipe = data.recipe || [];
         if (tbody) {
-            const recipe = data.recipe || [];
             tbody.innerHTML = recipe.length === 0
                 ? '<tr><td colspan="3" style="text-align:center;padding:20px;">Nenhum material na receita ainda.</td></tr>'
                 : recipe.map(r => `
@@ -6655,6 +6655,34 @@ async function loadCompetitionRecipe() {
                         <td><strong>${r.amount}</strong></td>
                         <td><button class="btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="removeCompetitionRecipe(${r.material_id})">🗑️ Remover</button></td>
                     </tr>`).join('');
+        }
+
+        // Exemplo prático: quanto o membro entrega para 1, 2 e 3 pontos
+        const preview = document.getElementById('compRecipePreview');
+        if (preview) {
+            preview.innerHTML = recipe.length === 0 ? '' : `
+                <div class="comp-recipe-preview-title">Como fica na prática</div>
+                <div class="table-container">
+                    <table class="weekly-table">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>1 ponto</th>
+                                <th>2 pontos</th>
+                                <th>3 pontos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${recipe.map(r => `
+                                <tr>
+                                    <td>${r.icon || '📦'} ${escapeHtml(r.name)}</td>
+                                    <td><strong>${r.amount}</strong></td>
+                                    <td>${r.amount * 2}</td>
+                                    <td>${r.amount * 3}</td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
         }
     } catch (e) {
         if (tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;">Erro ao carregar</td></tr>';
