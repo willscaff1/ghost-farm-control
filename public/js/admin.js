@@ -29,7 +29,6 @@ function roleBadgeClass(group) {
         .replace(/^_+|_+$/g, '');
 }
 
-const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 const advRemovalRoles = new Set([
     'super_admin',
     '01',
@@ -60,6 +59,29 @@ function canRemoveAdvWarnings() {
 
 // Nomes de exibição dos grupos (carregados dinamicamente do banco)
 let roleNames = {};
+let managerRoleNames = new Set(['super_admin', '01', '02']);
+
+function groupsIndicateManager(groups = []) {
+    return groups.some(group => {
+        const normalized = roleBadgeClass(group);
+        return managerRoleNames.has(normalized) || normalized.startsWith('gerente_');
+    });
+}
+
+function isManagerEntity(entity = {}, groupsOverride = null) {
+    if (!groupsOverride && typeof entity.is_manager === 'boolean') return entity.is_manager;
+    const groups = Array.isArray(groupsOverride)
+        ? groupsOverride
+        : ((entity.groups && entity.groups.length) ? entity.groups : (entity.role ? [entity.role] : []));
+    return groupsIndicateManager(groups);
+}
+
+function isCurrentUserManager() {
+    if (isSuperAdminUser()) return true;
+    if (currentUserPermissions?.permissions?.includes('all') ||
+        currentUserPermissions?.permissions?.includes('manager-goals')) return true;
+    return isManagerEntity(currentUser || {});
+}
 
 // Função para mostrar notificação toast
 function showNotification(message, type = 'success') {
@@ -98,8 +120,14 @@ async function loadRoleNames() {
         if (response.ok) {
             const data = await response.json();
             roleNames = {};
+            managerRoleNames = new Set(['super_admin', '01', '02']);
             data.roles.forEach(role => {
                 roleNames[role.role_name] = role.display_name;
+                const permissions = Array.isArray(role.permissions) ? role.permissions : [];
+                const displayName = roleBadgeClass(role.display_name);
+                if (permissions.includes('manager-goals') || displayName.includes('gerente') || displayName.includes('lider')) {
+                    managerRoleNames.add(roleBadgeClass(role.role_name));
+                }
             });
             console.log('📋 Nomes dos grupos carregados:', roleNames);
         }
@@ -123,7 +151,9 @@ function canChangeRoles() {
     // Passaporte 6999 (superadmin) sempre pode
     if (currentUser.passport === '6999') return true;
     
-    // Verificar se tem grupos 01, 02 ou gerente_geral
+    if (currentUserPermissions?.can_config) return true;
+
+    // Fallback enquanto as permissões ainda estão carregando
     const userGroups = currentUser.groups || [currentUser.role];
     return userGroups.some(g => ['01', '02', 'gerente_geral', 'super_admin'].includes(g));
 }
@@ -345,10 +375,9 @@ async function checkAuth() {
             return;
         }
         
-        // Verificar se o usuário tem pelo menos um grupo administrativo
+        // O backend calcula o acesso efetivo somando as permissões de todos os grupos.
         const userGroups = data.user?.groups || [data.user?.role];
-        // Considerar admin qualquer grupo que não seja apenas "member" (elite é marcador, não concede painel)
-        const hasAdminAccess = userGroups.some(group => group !== 'member' && group !== 'elite');
+        const hasAdminAccess = data.user?.is_admin === true;
         
         if (data.user && hasAdminAccess) {
             currentUser = data.user;
@@ -357,7 +386,7 @@ async function checkAuth() {
             }
             
             // Usar o primeiro grupo administrativo para display
-            const primaryAdminRole = userGroups.find(g => adminRoles.includes(g)) || userGroups[0];
+            const primaryAdminRole = userGroups.find(g => g && g !== 'member' && g !== 'elite') || userGroups[0];
             
             document.getElementById('userName').textContent = currentUser.name;
             document.getElementById('userRole').textContent = roleNames[primaryAdminRole] || primaryAdminRole;
@@ -2467,10 +2496,9 @@ function getWeeklyStatusSlotInfo(member) {
     const groups = Array.isArray(member.groups) && member.groups.length > 0
         ? member.groups
         : (member.role ? [member.role] : []);
-    const managerRoles = ['super_admin', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
     const isManager = member.storage_slot_type
         ? member.storage_slot_type === 'manager'
-        : groups.some(group => managerRoles.includes(roleBadgeClass(group)) || roleBadgeClass(group).startsWith('gerente_'));
+        : isManagerEntity(member);
     const slot = member.storage_slot !== undefined && member.storage_slot !== null
         ? member.storage_slot
         : (isManager ? member.manager_slot : member.member_slot);
@@ -5837,16 +5865,16 @@ let membersTableData = [];
 let membersSortColumn = 'passport';
 let membersSortDirection = 'asc';
 let membersStatusFilter = 'all';
-const memberManagerSlotRoles = ['super_admin', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
-
 function memberUsesManagerSlot(member = {}, roleOverride = null) {
-    const groups = roleOverride
+    if (roleOverride === null && typeof member.is_manager === 'boolean') {
+        return member.is_manager;
+    }
+    const groups = Array.isArray(roleOverride)
+        ? roleOverride
+        : roleOverride
         ? [roleOverride]
         : ((member.groups && member.groups.length > 0) ? member.groups : (member.role ? [member.role] : []));
-    return groups.some(group => {
-        const normalized = roleBadgeClass(group);
-        return memberManagerSlotRoles.includes(normalized) || normalized.startsWith('gerente_');
-    });
+    return isManagerEntity(member, groups);
 }
 
 function renderMemberSlotCell(member) {
@@ -5887,22 +5915,8 @@ async function loadMembers() {
 function renderMembersTable() {
     const tbody = document.getElementById('membersTableBody');
     const searchTerm = document.getElementById('searchMembers')?.value?.toLowerCase() || '';
-    const isSuperAdmin = currentUser && currentUser.passport === '6999';
-    const isManager = currentUser && (
-        isSuperAdmin ||
-        currentUser.groups?.some(g => 
-            roleBadgeClass(g) === 'gerente_geral' ||
-            roleBadgeClass(g) === 'gerente_farm' ||
-            roleBadgeClass(g) === 'gerente_acao' ||
-            roleBadgeClass(g) === 'gerente_recrutamento' ||
-            roleBadgeClass(g) === 'gerente_encomendas' ||
-            roleBadgeClass(g) === 'gerente_vendas' ||
-            roleBadgeClass(g) === 'gerente_de_vendas' ||
-            roleBadgeClass(g) === 'gerente_de_fabricacao' ||
-            roleBadgeClass(g) === '01' ||
-            roleBadgeClass(g) === '02'
-        )
-    );
+    const isSuperAdmin = isSuperAdminUser();
+    const isManager = !!currentUser && (isSuperAdmin || isCurrentUserManager());
     
     // Filtrar por busca
     let filtered = membersTableData.filter(m => {
@@ -5972,7 +5986,7 @@ function renderMembersTable() {
         }
         
         const groupsDisplay = groups.length > 0 
-            ? groups.map(g => `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`).join(' ')
+            ? `<div class="member-role-badges">${groups.map(g => `<span class="role-badge badge-${roleBadgeClass(g)}">${roleNames[g] || g}</span>`).join('')}</div>`
             : '<span class="no-role">Sem grupo</span>';
 
         
@@ -6004,12 +6018,8 @@ function renderMembersTable() {
     // Contagem discreta no rodapé (apenas ativos)
     const footerEl = document.getElementById('membersFooterStats');
     if (footerEl) {
-        const managerRoles = ['gerente_farm','gerente_acao','gerente_recrutamento','gerente_encomendas','gerente_vendas','gerente_de_vendas','gerente_de_fabricacao'];
         const activeMembers = membersTableData.filter(m => m.active);
-        const activeManagers = activeMembers.filter(m => {
-            const g = m.groups || (m.role ? [m.role] : []);
-            return g.some(r => managerRoles.includes(roleBadgeClass(r)));
-        });
+        const activeManagers = activeMembers.filter(m => isManagerEntity(m));
         const regularCount = activeMembers.length - activeManagers.length;
         footerEl.innerHTML = `<span>👥 ${regularCount} membros</span><span>🛡️ ${activeManagers.length} gerentes</span><span>Total: ${activeMembers.length} ativos</span>`;
     }
@@ -7408,16 +7418,43 @@ async function deleteSelectedMembers() {
 // Abrir modal de edição de membro
 let editingMemberId = null;
 
+function getSelectedEditMemberGroups() {
+    return Array.from(document.querySelectorAll('#editMemberGroups input[type="checkbox"]:checked'))
+        .map(input => input.value);
+}
+
+function sameMemberGroups(left = [], right = []) {
+    const normalize = groups => [...new Set(groups)].sort();
+    return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+}
+
+function renderEditMemberGroups(member) {
+    const container = document.getElementById('editMemberGroups');
+    if (!container) return;
+
+    const currentGroups = new Set((member?.groups?.length ? member.groups : [member?.role || 'member']));
+    container.innerHTML = Object.keys(roleNames).map(groupName => `
+        <label class="edit-member-group-option">
+            <input type="checkbox" value="${escapeHtml(groupName)}" ${currentGroups.has(groupName) ? 'checked' : ''}>
+            <span>${escapeHtml(roleNames[groupName] || groupName)}</span>
+        </label>
+    `).join('');
+
+    container.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', () => updateEditMemberSlotVisibility(member));
+    });
+}
+
 function updateEditMemberSlotVisibility(member) {
     const memberSlotGroup = document.getElementById('editMemberSlot')?.closest('.edit-form-group');
     const managerSlotGroup = document.getElementById('editManagerSlot')?.closest('.edit-form-group');
     if (!memberSlotGroup || !managerSlotGroup) return;
 
-    const roleSelect = document.getElementById('editMemberRole');
-    const roleOverride = roleSelect && roleSelect.closest('.edit-form-group')?.style.display !== 'none'
-        ? roleSelect.value
+    const groupsField = document.getElementById('editMemberGroupsField');
+    const groupOverride = groupsField && groupsField.style.display !== 'none'
+        ? getSelectedEditMemberGroups()
         : null;
-    const isManagerSlot = memberUsesManagerSlot(member, roleOverride);
+    const isManagerSlot = memberUsesManagerSlot(member, groupOverride);
 
     memberSlotGroup.style.display = isManagerSlot ? 'none' : 'block';
     managerSlotGroup.style.display = isManagerSlot ? 'block' : 'none';
@@ -7445,28 +7482,11 @@ function openEditMemberModal(id, name, passport, email) {
     
     // Verificar se pode alterar cargos
     const canChange = canChangeRoles();
-    const roleContainer = document.getElementById('editMemberRole').closest('.edit-form-group');
+    const roleContainer = document.getElementById('editMemberGroupsField');
     
     if (canChange) {
         roleContainer.style.display = 'block';
-        
-        // Preencher dropdown de grupos
-        const roleSelect = document.getElementById('editMemberRole');
-        roleSelect.innerHTML = Object.keys(roleNames).map(groupName => {
-            return `<option value="${groupName}">${roleNames[groupName] || groupName}</option>`;
-        }).join('');
-        
-        // Carregar grupo atual do membro
-        const member = selectedMember;
-        if (member && member.groups) {
-            let groups = member.groups || [];
-            if (groups.length > 1 && groups.includes('member')) {
-                groups = groups.filter(g => g !== 'member');
-            }
-            const primaryGroup = groups.length > 0 ? groups[0] : 'member';
-            roleSelect.value = primaryGroup;
-        }
-        roleSelect.onchange = () => updateEditMemberSlotVisibility(selectedMember);
+        renderEditMemberGroups(selectedMember);
     } else {
         // Ocultar campo de cargo se não tiver permissão
         roleContainer.style.display = 'none';
@@ -7484,6 +7504,7 @@ function closeEditMemberModal() {
 // Salvar edição do membro
 async function saveEditMember() {
     if (!editingMemberId) return;
+    const editedMemberId = editingMemberId;
     
     const name = document.getElementById('editMemberName').value.trim();
     const capitalNickname = document.getElementById('editMemberCapitalNickname').value.trim().replace(/\s+/g, ' ');
@@ -7509,8 +7530,13 @@ async function saveEditMember() {
             return;
         }
 
-        const selectedRole = canChangeRoles() ? document.getElementById('editMemberRole').value : null;
-        const usesManagerSlot = memberUsesManagerSlot(member, selectedRole);
+        const selectedGroups = canChangeRoles() ? getSelectedEditMemberGroups() : (member.groups || [member.role || 'member']);
+        if (canChangeRoles() && selectedGroups.length === 0) {
+            alert('Selecione pelo menos um cargo ou grupo.');
+            return;
+        }
+
+        const usesManagerSlot = memberUsesManagerSlot(member, selectedGroups);
         const relevantSlot = usesManagerSlot ? managerSlot : memberSlot;
         const currentRelevantSlot = ((usesManagerSlot ? member.manager_slot : member.member_slot) || '').trim();
 
@@ -7549,32 +7575,32 @@ async function saveEditMember() {
             }
         }
 
-        // Atualizar grupo se mudou e se tiver permissão
+        // Atualizar todos os grupos em uma única operação, usando a mesma fonte
+        // da tela "Permissões de Grupos".
         let roleChanged = false;
-        if (canChangeRoles()) {
-            const newRole = selectedRole;
-            let currentGroups = member.groups || [];
-            if (currentGroups.length > 1 && currentGroups.includes('member')) {
-                currentGroups = currentGroups.filter(g => g !== 'member');
+        const currentGroups = member.groups?.length ? member.groups : [member.role || 'member'];
+        if (canChangeRoles() && !sameMemberGroups(currentGroups, selectedGroups)) {
+            const response = await fetch(`/api/admin/members/${editingMemberId}/groups`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ groups: selectedGroups })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                alert(data.error || 'Não foi possível atualizar os cargos. Dados básicos podem ter sido atualizados.');
+                return;
             }
-            const currentPrimaryGroup = currentGroups.length > 0 ? currentGroups[0] : 'member';
-            
-            if (currentPrimaryGroup !== newRole) {
-                const ok = await changeMemberRole(editingMemberId, newRole, name, { silent: true, reload: false });
-                if (!ok) {
-                    alert('❌ Não foi possível trocar o cargo. Dados básicos podem ter sido atualizados.');
-                }
-                roleChanged = ok;
-            }
+            roleChanged = true;
         }
         
         alert('✅ Membro atualizado com sucesso!');
         closeEditMemberModal();
         if (typeof weekDataCache !== 'undefined' && roleChanged) weekDataCache.clear();
         await loadMembers();
+        if (roleChanged) notifyRolePermissionsMembersChanged();
         
         // Se editou o próprio usuário, recarregar a página para atualizar sessão
-        if (editingMemberId === currentUser?.id) {
+        if (editedMemberId === currentUser?.id) {
             window.location.reload();
         }
     } catch (error) {
@@ -7617,87 +7643,21 @@ async function toggleMember(id) {
     }
 }
 
-// Trocar grupo/cargo do membro
-// Retorna true/false para quem chama decidir se recarrega a UI.
-async function changeMemberRole(memberId, newGroup, memberName, { silent = false, reload = true } = {}) {
-    try {
-        const member = membersTableData.find(m => m.id === memberId);
-        if (!member) {
-            if (!silent) alert('Erro: Membro não encontrado');
-            return false;
-        }
-        
-        let currentGroups = (member.groups || []).slice();
-        if (currentGroups.length > 1 && currentGroups.includes('member')) {
-            currentGroups = currentGroups.filter(g => g !== 'member');
-        }
-        const currentPrimaryGroup = currentGroups.length > 0 ? currentGroups[0] : 'member';
-        
-        if (currentPrimaryGroup === newGroup) {
-            return true;
-        }
-        
-        // Remover dos grupos atuais (exceto 'member' padrão)
-        for (const group of currentGroups) {
-            if (group !== 'member') {
-                const removeResponse = await fetch(`/api/admin/role-permissions/${group}/members/${memberId}`, {
-                    method: 'DELETE'
-                });
-                if (!removeResponse.ok && removeResponse.status !== 404) {
-                    const removeData = await removeResponse.json().catch(() => ({}));
-                    throw new Error(removeData.error || `Falha ao remover do grupo ${group}`);
-                }
-            }
-        }
-        
-        // Atualizar coluna role (compatibilidade). Falha silenciosa se sem permissão.
-        try {
-            const roleResponse = await fetch(`/api/admin/members/${memberId}/role`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role: newGroup })
-            });
-            if (!roleResponse.ok && roleResponse.status !== 403) {
-                const roleData = await roleResponse.json().catch(() => ({}));
-                console.warn('Falha ao atualizar users.role:', roleData.error || roleResponse.status);
-            }
-        } catch (e) {
-            console.warn('Erro ao atualizar users.role:', e);
-        }
-        
-        // Adicionar ao novo grupo (se não for 'member')
-        if (newGroup !== 'member') {
-            const response = await fetch(`/api/admin/role-permissions/${newGroup}/members`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: memberId })
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok || !data.success) {
-                throw new Error(data.error || 'Falha ao trocar grupo');
-            }
-        }
-        
-        if (!silent) {
-            alert(`✅ ${memberName} agora é ${roleNames[newGroup] || newGroup}`);
-        }
-        
-        if (reload) {
-            if (typeof weekDataCache !== 'undefined') weekDataCache.clear();
-            if (typeof loadMembers === 'function') await loadMembers();
-        }
-        return true;
-    } catch (error) {
-        console.error('Erro ao trocar grupo:', error);
-        if (!silent) {
-            alert(`❌ Erro ao trocar grupo: ${error.message || 'falha desconhecida'}`);
-        }
-        if (reload && typeof loadMembers === 'function') {
-            await loadMembers();
-        }
-        return false;
+function notifyRolePermissionsMembersChanged() {
+    const frame = document.getElementById('permissoesFrame');
+    if (frame?.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'ghost-farm-members-updated' }, window.location.origin);
     }
 }
+
+// Quando a associação é alterada dentro de "Permissões de Grupos", a Lista
+// de Membros recebe a mesma atualização sem precisar recarregar a página.
+window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin) return;
+    if (event.data?.type !== 'ghost-farm-members-updated') return;
+    if (typeof weekDataCache !== 'undefined') weekDataCache.clear();
+    loadMembers();
+});
 
 // Carregar ranking (da semana selecionada)
 async function loadRanking() {

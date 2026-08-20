@@ -6,6 +6,7 @@ const {
     getUserCommandmentStatus,
     recordCommandmentResponse
 } = require('../services/familyCommandments');
+const { getUserAccessProfile, hasPermission } = require('../services/accessControl');
 const router = express.Router();
 
 // Senha temporária aplicada quando o membro clica em "Esqueci minha senha".
@@ -88,6 +89,9 @@ router.post('/login', async (req, res) => {
             capital_nickname: user.capital_nickname || null
         };
 
+        const accessProfile = await getUserAccessProfile(req.session.user);
+        req.session.user.groups = accessProfile.groups;
+
         await runQuery('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
         const commandments = await getUserCommandmentStatus(user.id);
         
@@ -95,6 +99,10 @@ router.post('/login', async (req, res) => {
             success: true, 
             user: {
                 ...req.session.user,
+                permissions: accessProfile.permissions,
+                can_config: accessProfile.canConfig,
+                is_manager: accessProfile.isManager,
+                is_admin: accessProfile.isAdmin,
                 commandments_required: commandments.requiresAcceptance,
                 requires_capital_nickname: !commandments.requiresAcceptance && needsCapitalNickname(user)
             }
@@ -146,12 +154,17 @@ router.get('/me', async (req, res) => {
             req.session.user.created_at = userCheck.created_at || null;
             
             const commandments = await getUserCommandmentStatus(req.session.user.id);
+            const accessProfile = await getUserAccessProfile(req.session.user);
 
             res.json({
                 user: {
                     ...req.session.user,
                     groups: groups,
                     role: primaryRole,
+                    permissions: accessProfile.permissions,
+                    can_config: accessProfile.canConfig,
+                    is_manager: accessProfile.isManager,
+                    is_admin: accessProfile.isAdmin,
                     commandments_required: commandments.requiresAcceptance,
                     requires_capital_nickname: !commandments.requiresAcceptance && needsCapitalNickname(userCheck, groups)
                 }
@@ -273,14 +286,12 @@ router.post('/commandments-response', async (req, res) => {
             });
         }
 
-        res.json({ success: true, accepted: true, redirect: req.session.user.role === 'member' ? '/dashboard' : '/admin' });
+        const accessProfile = await getUserAccessProfile(req.session.user);
+        res.json({ success: true, accepted: true, redirect: accessProfile.isAdmin ? '/admin' : '/dashboard' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
-
-// Cargos que podem gerenciar membros
-const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
 // Cadastro público (membros se cadastram)
 router.post('/register-public', async (req, res) => {
@@ -302,9 +313,13 @@ router.post('/register-public', async (req, res) => {
         
         const hashedPassword = bcrypt.hashSync(password, 10);
         
-        await runQuery(
+        const result = await runQuery(
             'INSERT INTO users (name, passport, email, password, role) VALUES (?, ?, ?, ?, ?)',
             [name.trim(), passport.toUpperCase(), email || null, hashedPassword, 'member']
+        );
+        await runQuery(
+            'INSERT INTO user_groups (user_id, group_name) VALUES (?, ?)',
+            [result.lastID, 'member']
         );
         
         res.json({ success: true, message: 'Cadastro realizado com sucesso!' });
@@ -316,8 +331,11 @@ router.post('/register-public', async (req, res) => {
 // Register (apenas cargos administrativos podem registrar novos membros com cargos especiais)
 router.post('/register', async (req, res) => {
     try {
-        // Verifica se tem cargo administrativo
-        if (!req.session.user || !adminRoles.includes(req.session.user.role)) {
+        if (!req.session.user) {
+            return res.status(401).json({ error: 'Não autenticado' });
+        }
+        const accessProfile = await getUserAccessProfile(req.session.user);
+        if (!hasPermission(accessProfile, 'new-member')) {
             return res.status(403).json({ error: 'Sem permissão para registrar membros' });
         }
         
@@ -361,6 +379,10 @@ router.post('/register', async (req, res) => {
                 member_slot ? String(member_slot).trim() : null,
                 manager_slot ? String(manager_slot).trim() : null
             ]
+        );
+        await runQuery(
+            'INSERT INTO user_groups (user_id, group_name) VALUES (?, ?)',
+            [result.lastID, userRole]
         );
         
         console.log('Usuário criado:', { name: name.trim(), passport: passportUpper, role: userRole, id: result.lastID });

@@ -53,28 +53,12 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     }
 });
 
-function normalizeRoleName(role) {
-    return String(role || '')
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '');
-}
-
-function isAdminRole(role) {
-    const normalizedRole = normalizeRoleName(role);
-    const adminRoles = ['01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
-    return adminRoles.includes(normalizedRole) || normalizedRole.includes('gerente') || normalizedRole.includes('admin');
-}
-
 // Verifica se já está logado
 fetch('/api/auth/me')
     .then(res => res.json())
     .then(data => {
         if (data.user) {
-            if (isAdminRole(data.user.role)) {
+            if (data.user.is_admin === true) {
                 window.location.href = '/admin';
             } else {
                 window.location.href = '/dashboard';

@@ -9,6 +9,16 @@ const {
     saveCommandments
 } = require('../services/familyCommandments');
 const emailService = require('../services/email');
+const {
+    normalizeGroupName,
+    invalidateRoleAccessCache,
+    refreshRoleAccessCache,
+    isManagerGroupName,
+    isManagerByGroups,
+    getUserAccessProfile,
+    getUsersAccessProfiles,
+    hasPermission
+} = require('../services/accessControl');
 
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
 
@@ -42,48 +52,6 @@ const uploadPrizeImage = multer({
         return ok ? cb(null, true) : cb(new Error('Apenas imagens são permitidas'));
     }
 }).single('image');
-
-// Cargos administrativos (qualquer um pode aprovar)
-const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
-
-// Cargos considerados gerência (para metas específicas)
-const managerGroups = new Set([
-    'super_admin',
-    '01',
-    '02',
-    'gerente_farm',
-    'gerente_acao',
-    'gerente_recrutamento',
-    'gerente_encomendas',
-    'gerente_vendas',
-    'gerente_de_vendas',
-    'gerente_geral',
-    'gerente_de_fabricacao'
-]);
-
-const weaponSalesGroups = new Set([
-    'super_admin',
-    '01',
-    '02',
-    'gerente_geral',
-    'gerente_vendas',
-    'gerente_de_vendas'
-]);
-
-const normalizeGroupName = (groupName = '') => String(groupName)
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-const isManagerGroupName = (groupName = '') => {
-    const normalized = normalizeGroupName(groupName);
-    return managerGroups.has(normalized) || normalized.startsWith('gerente_');
-};
-
-const isManagerByGroups = (groups = []) => groups.some(isManagerGroupName);
 
 // Separação total por cargo:
 // - Gerente (gerência/01/02) conta SOMENTE produtos marcados como 'manager'
@@ -211,29 +179,9 @@ const requireWeaponSalesAccess = async (req, res, next) => {
     }
 
     try {
-        const sessionGroups = Array.isArray(req.session.user.groups) ? req.session.user.groups : [];
-        const dbGroups = await getUserGroups(req.session.user.id).catch(() => []);
-        const groups = [...new Set([...sessionGroups, ...dbGroups, req.session.user.role]
-            .map(normalizeGroupName)
-            .filter(Boolean)
-        )];
-        let allowed = isSuperAdminUser(req.session.user) || groups.some(g => weaponSalesGroups.has(g));
-
-        if (!allowed && groups.length > 0) {
-            const placeholders = groups.map(() => '?').join(',');
-            const roleRows = await getAll(
-                `SELECT role_name, permissions FROM role_permissions WHERE role_name IN (${placeholders}) AND active = 1`,
-                groups
-            );
-
-            allowed = (roleRows || []).some(role => {
-                const permissions = JSON.parse(role.permissions || '[]');
-                return permissions.includes('all') ||
-                    permissions.includes('weapon-sales') ||
-                    permissions.includes('weapon-freebies') ||
-                    permissions.includes('weapon-catalog');
-            });
-        }
+        const profile = await getUserAccessProfile(req.session.user);
+        const allowed = ['weapon-sales', 'weapon-freebies', 'weapon-catalog']
+            .some(permission => hasPermission(profile, permission));
 
         if (!allowed) {
             return res.status(403).json({ error: 'Sem permissão para acessar o extrato de vendas' });
@@ -565,7 +513,25 @@ async function getUserGroupsMap(userIds = null) {
 // Função auxiliar para buscar todos os grupos do banco
 async function getAllRoles() {
     try {
-        const roles = await getAll('SELECT role_name, display_name FROM role_permissions WHERE active = 1');
+        let roles = await getAll('SELECT role_name, display_name FROM role_permissions WHERE active = 1 ORDER BY id');
+        const existingRoleNames = new Set(roles.map(role => role.role_name));
+        const missingRoles = defaultRolePermissions.filter(role => !existingRoleNames.has(role.role_name));
+
+        for (const role of missingRoles) {
+            try {
+                await runQuery(
+                    'INSERT INTO role_permissions (role_name, display_name, permissions, can_config) VALUES (?, ?, ?, ?)',
+                    [role.role_name, role.display_name, role.permissions, role.can_config]
+                );
+            } catch (error) {
+                // Outra requisição pode ter criado o mesmo grupo entre a leitura e o insert.
+                if (!String(error.message || '').toUpperCase().includes('UNIQUE')) throw error;
+            }
+        }
+
+        if (missingRoles.length > 0) {
+            roles = await getAll('SELECT role_name, display_name FROM role_permissions WHERE active = 1 ORDER BY id');
+        }
         return roles || [];
     } catch (error) {
         console.error('Erro ao buscar roles:', error);
@@ -579,6 +545,82 @@ async function getAllRoles() {
             { role_name: 'gerente_geral', display_name: 'Gerente Geral' }
         ];
     }
+}
+
+const memberGroupManagerRoles = new Set(['super_admin', 'gerente_geral', '01', '02']);
+
+async function canManageMemberGroups(user) {
+    if (!user) return false;
+    const profile = await getUserAccessProfile(user);
+    return profile.canConfig || profile.groups.some(group => memberGroupManagerRoles.has(group));
+}
+
+async function canConfigureGroups(user) {
+    if (!user) return false;
+    return (await getUserAccessProfile(user)).canConfig;
+}
+
+function chooseLegacyRole(groups, currentRole = 'member') {
+    const primaryGroups = groups.filter(group => group !== 'member' && group !== 'elite');
+    if (primaryGroups.includes(currentRole)) return currentRole;
+    if (primaryGroups.length > 0) return primaryGroups[0];
+    if (groups.includes('member')) return 'member';
+    return groups[0] || 'member';
+}
+
+// Fonte única para alterar cargos: user_groups guarda todos os grupos e users.role
+// acompanha apenas o cargo principal por compatibilidade com trechos legados.
+async function replaceMemberGroups(memberId, requestedGroups) {
+    const member = await getOne('SELECT id, role FROM users WHERE id = ?', [memberId]);
+    if (!member) {
+        const error = new Error('Membro não encontrado');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const validRoles = await getAllRoles();
+    const validRoleNames = new Set(validRoles.map(role => role.role_name));
+    const groups = [...new Set((Array.isArray(requestedGroups) ? requestedGroups : [])
+        .map(group => String(group || '').trim().toLowerCase())
+        .filter(Boolean))];
+
+    const invalidGroups = groups.filter(group => !validRoleNames.has(group));
+    if (invalidGroups.length > 0) {
+        const error = new Error(`Cargo inválido: ${invalidGroups.join(', ')}`);
+        error.statusCode = 400;
+        throw error;
+    }
+
+    // Todo usuário precisa manter ao menos um cargo-base. "elite" é apenas
+    // marcador de trilha e, sozinho, continua acompanhado de "member".
+    const targetGroups = groups.length > 0 ? groups.slice() : ['member'];
+    if (targetGroups.every(group => group === 'elite') && !targetGroups.includes('member')) {
+        targetGroups.unshift('member');
+    }
+    const persistedRows = await getAll('SELECT group_name FROM user_groups WHERE user_id = ?', [memberId]);
+    const persistedGroups = persistedRows.map(row => row.group_name);
+
+    for (const group of persistedGroups) {
+        if (!targetGroups.includes(group)) {
+            await runQuery('DELETE FROM user_groups WHERE user_id = ? AND group_name = ?', [memberId, group]);
+        }
+    }
+
+    for (const group of targetGroups) {
+        if (!persistedGroups.includes(group)) {
+            await runQuery('INSERT INTO user_groups (user_id, group_name) VALUES (?, ?)', [memberId, group]);
+        }
+    }
+
+    await refreshRoleAccessCache(true);
+    const legacyRole = chooseLegacyRole(targetGroups, member.role);
+    if (isManagerByGroups(targetGroups)) {
+        await runQuery('UPDATE users SET role = ? WHERE id = ?', [legacyRole, memberId]);
+    } else {
+        await runQuery('UPDATE users SET role = ?, manager_slot = NULL WHERE id = ?', [legacyRole, memberId]);
+    }
+
+    return { groups: targetGroups, role: legacyRole };
 }
 
 // Função auxiliar para buscar mapeamento de nomes de grupos
@@ -673,34 +715,11 @@ const requireAdmin = async (req, res, next) => {
     }
     
     try {
-        // Buscar grupos do usuário
-        const userGroups = await getAll(
-            'SELECT group_name FROM user_groups WHERE user_id = ?',
-            [req.session.user.id]
-        );
-        
-        // Considerar admin qualquer usuário com grupos que não sejam apenas "member"
-        // 'elite' é marcador de trilha (não concede painel), então não conta como admin
-        const groups = userGroups.map(g => g.group_name);
-        const nonMemberGroups = groups.filter(g => g !== 'member' && g !== 'elite');
-        const hasAdminGroups = nonMemberGroups.length > 0;
-        
-        // Verificar se tem role de gerente/admin no nome do grupo
-        const hasAdminRole = groups.some(g => 
-            g.includes('gerente') || 
-            g.includes('admin') || 
-            g === '01' || 
-            g === '02' || 
-            g === 'super_admin'
-        );
-        
-        // Fallback para role antigo se não tiver grupos
-        const legacyAccess = groups.length === 0 && adminRoles.includes(req.session.user.role);
-        
-        const hasAccess = hasAdminGroups || hasAdminRole || legacyAccess;
-        
-        if (!hasAccess) {
-            console.log(`❌ Acesso negado para ${req.session.user.name} - Grupos:`, groups);
+        const profile = await getUserAccessProfile(req.session.user);
+        req.accessProfile = profile;
+
+        if (!profile.isAdmin) {
+            console.log(`❌ Acesso negado para ${req.session.user.name} - Grupos:`, profile.groups);
             return res.status(403).json({ error: 'Acesso negado' });
         }
         
@@ -2153,12 +2172,14 @@ router.get('/members', requireAdmin, async (req, res) => {
         // Buscar grupos de TODOS os usuários de uma vez (otimizado)
         const userIds = members.map(m => m.id);
         const groupsMap = await getUserGroupsMap(userIds);
+        const accessProfiles = await getUsersAccessProfiles(members);
         
         for (const member of members) {
             member.groups = groupsMap.get(member.id) || [];
             if (member.groups.length === 0 && member.role) {
                 member.groups = [member.role];
             }
+            member.is_manager = accessProfiles.get(member.id)?.isManager || false;
         }
 
         // Escolha "não optante de drogas" da SEMANA ATUAL (é por semana)
@@ -2288,18 +2309,49 @@ router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
     }
 });
 
-// Alterar cargo do membro (super admin, gerente_geral e 01 podem alterar)
+// Alterar todos os cargos/grupos de um membro de uma vez.
+router.put('/members/:id/groups', requireAdmin, async (req, res) => {
+    try {
+        const sessionUser = req.session.user || {};
+        if (!await canManageMemberGroups(sessionUser)) {
+            return res.status(403).json({ error: 'Sem permissão para alterar cargos' });
+        }
+
+        const memberId = req.params.id;
+        const member = await getOne('SELECT id, passport, role FROM users WHERE id = ?', [memberId]);
+        if (!member) {
+            return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+        if (member.role === 'super_admin' || member.passport === '6999') {
+            return res.status(400).json({ error: 'Não é possível alterar este usuário' });
+        }
+        if (!Array.isArray(req.body?.groups)) {
+            return res.status(400).json({ error: 'Informe a lista de cargos do membro' });
+        }
+
+        const currentGroups = await getUserGroups(memberId);
+        const touchesSuperAdmin = currentGroups.includes('super_admin') || req.body.groups.includes('super_admin');
+        if (touchesSuperAdmin && !isSuperAdminUser(sessionUser)) {
+            return res.status(403).json({ error: 'Apenas o Super Admin pode alterar o grupo Super Admin' });
+        }
+
+        const result = await replaceMemberGroups(memberId, req.body.groups);
+        res.json({
+            success: true,
+            message: 'Cargos do membro atualizados com sucesso',
+            groups: result.groups,
+            role: result.role
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({ error: error.message });
+    }
+});
+
+// Alterar cargo único (compatibilidade com clientes antigos)
 router.post('/members/:id/role', requireAdmin, async (req, res) => {
     try {
-        // Permitir super admin, gerente_geral e 01 (mesmo conjunto que gerencia grupos)
         const sessionUser = req.session.user || {};
-        const sessionGroups = sessionUser.groups || [];
-        const canChangeRole = isSuperAdminUser(sessionUser)
-            || sessionUser.role === 'gerente_geral'
-            || sessionUser.role === '01'
-            || sessionGroups.includes('gerente_geral')
-            || sessionGroups.includes('01');
-        if (!canChangeRole) {
+        if (!await canManageMemberGroups(sessionUser)) {
             return res.status(403).json({ error: 'Sem permissão para alterar cargos' });
         }
         
@@ -2325,14 +2377,7 @@ router.post('/members/:id/role', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Não é possível alterar este usuário' });
         }
         
-        if (role === 'member') {
-            // Rebaixado para membro: libera os slots (member e manager) que ocupava
-            // E remove de todos os grupos de gerência (some de "Permissões e Grupos").
-            await runQuery('UPDATE users SET role = ?, member_slot = NULL, manager_slot = NULL WHERE id = ?', [role, memberId]);
-            await runQuery("DELETE FROM user_groups WHERE user_id = ? AND group_name != 'member'", [memberId]);
-        } else {
-            await runQuery('UPDATE users SET role = ? WHERE id = ?', [role, memberId]);
-        }
+        await replaceMemberGroups(memberId, [role]);
 
         const roleNamesMap = await getRoleNames();
         res.json({ success: true, message: `Cargo alterado para ${roleNamesMap[role] || role}${role === 'member' ? ' (slot e permissões de gerente liberados)' : ''}` });
@@ -4890,7 +4935,7 @@ router.get('/role-permissions/:roleName', requireAuth, async (req, res) => {
     try {
         const { roleName } = req.params;
         const sessionGroups = await getUserGroups(req.session.user.id);
-        const isAdminUser = sessionGroups.some(g => adminRoles.includes(g));
+        const isAdminUser = (await getUserAccessProfile(req.session.user)).isAdmin;
 
         if (!isAdminUser && !sessionGroups.includes(roleName)) {
             return res.status(403).json({ error: 'Sem permissão para consultar este grupo' });
@@ -4935,8 +4980,8 @@ router.get('/role-permissions/:roleName', requireAuth, async (req, res) => {
 router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
-        if (req.session.user.role !== 'super_admin' && req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
-            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral e 01 podem alterar permissões' });
+        if (!await canConfigureGroups(req.session.user)) {
+            return res.status(403).json({ error: 'Seu grupo não tem permissão para alterar configurações' });
         }
         
         const { roleName } = req.params;
@@ -4944,7 +4989,7 @@ router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
         const cleanRoleName = String(roleName || '').trim().toLowerCase();
         
         // Não permitir editar permissões do super_admin (só ele mesmo pode)
-        if (cleanRoleName === 'super_admin' && req.session.user.role !== 'super_admin') {
+        if (cleanRoleName === 'super_admin' && !(await getUserAccessProfile(req.session.user)).isSuperAdmin) {
             return res.status(403).json({ error: 'Apenas o Super Admin pode alterar suas próprias permissões' });
         }
         
@@ -4959,6 +5004,7 @@ router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
             SET display_name = ?, permissions = ?, can_config = ?, updated_at = CURRENT_TIMESTAMP
             WHERE role_name = ?
         `, [display_name, permissionsJson, can_config ? 1 : 0, cleanRoleName]);
+        invalidateRoleAccessCache();
         
         console.log(`🔐 Permissões do grupo ${roleName} atualizadas por ${req.session.user.name}`);
         
@@ -4972,8 +5018,8 @@ router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
 router.put('/role-permissions/:roleName/rename', requireAdmin, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
-        if (req.session.user.role !== 'super_admin' && req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
-            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral e 01 podem renomear grupos' });
+        if (!await canConfigureGroups(req.session.user)) {
+            return res.status(403).json({ error: 'Seu grupo não tem permissão para renomear grupos' });
         }
         
         const { roleName } = req.params;
@@ -5010,6 +5056,7 @@ router.put('/role-permissions/:roleName/rename', requireAdmin, async (req, res) 
             SET group_name = ?
             WHERE group_name = ?
         `, [new_role_name, roleName]);
+        invalidateRoleAccessCache();
         
         // Atualizar tabela users (role antigo - legacy, mas ainda usado em alguns lugares)
         await runQuery(`
@@ -5031,8 +5078,8 @@ router.put('/role-permissions/:roleName/rename', requireAdmin, async (req, res) 
 router.post('/role-permissions', requireAdmin, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
-        if (req.session.user.role !== 'super_admin' && req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
-            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral e 01 podem criar grupos' });
+        if (!await canConfigureGroups(req.session.user)) {
+            return res.status(403).json({ error: 'Seu grupo não tem permissão para criar grupos' });
         }
         
         const { role_name, display_name, permissions, can_config } = req.body;
@@ -5053,6 +5100,7 @@ router.post('/role-permissions', requireAdmin, async (req, res) => {
             INSERT INTO role_permissions (role_name, display_name, permissions, can_config)
             VALUES (?, ?, ?, ?)
         `, [cleanRoleName, cleanDisplayName, permissionsJson, can_config ? 1 : 0]);
+        invalidateRoleAccessCache();
         
         console.log(`🔐 Novo grupo ${cleanRoleName} criado por ${req.session.user.name}`);
         
@@ -5070,8 +5118,8 @@ router.post('/role-permissions', requireAdmin, async (req, res) => {
 router.delete('/role-permissions/:roleName', requireAdmin, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
-        if (req.session.user.role !== 'super_admin' && req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
-            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral e 01 podem deletar grupos' });
+        if (!await canConfigureGroups(req.session.user)) {
+            return res.status(403).json({ error: 'Seu grupo não tem permissão para deletar grupos' });
         }
         
         const { roleName } = req.params;
@@ -5086,6 +5134,7 @@ router.delete('/role-permissions/:roleName', requireAdmin, async (req, res) => {
         await runQuery('DELETE FROM user_groups WHERE group_name = ?', [cleanRoleName]);
         await runQuery("UPDATE users SET role = 'member' WHERE role = ?", [cleanRoleName]);
         await runQuery('DELETE FROM role_permissions WHERE role_name = ?', [cleanRoleName]);
+        invalidateRoleAccessCache();
         
         console.log(`🔐 Grupo ${roleName} deletado por ${req.session.user.name}`);
         
@@ -5099,8 +5148,8 @@ router.delete('/role-permissions/:roleName', requireAdmin, async (req, res) => {
 router.post('/role-permissions/reset', requireAdmin, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
-        if (req.session.user.role !== 'super_admin' && req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
-            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral e 01 podem resetar permissões' });
+        if (!await canConfigureGroups(req.session.user)) {
+            return res.status(403).json({ error: 'Seu grupo não tem permissão para resetar permissões' });
         }
         
         // Atualizar cada grupo padrão
@@ -5111,6 +5160,7 @@ router.post('/role-permissions/reset', requireAdmin, async (req, res) => {
                 WHERE role_name = ?
             `, [role.display_name, role.permissions, role.can_config, role.role_name]);
         }
+        invalidateRoleAccessCache();
         
         console.log(`🔐 Permissões resetadas para padrão por ${req.session.user.name}`);
         
@@ -5145,8 +5195,8 @@ router.get('/role-permissions/:roleName/members', requireAdmin, async (req, res)
 // Adicionar usuário a um grupo
 router.post('/role-permissions/:roleName/members', requireAdmin, async (req, res) => {
     try {
-        if (req.session.user.role !== 'super_admin' && req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
-            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral e 01 podem adicionar membros a grupos' });
+        if (!await canManageMemberGroups(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral, 01 e 02 podem adicionar membros a grupos' });
         }
         
         const { roleName } = req.params;
@@ -5167,6 +5217,9 @@ router.post('/role-permissions/:roleName/members', requireAdmin, async (req, res
         if (!group) {
             return res.status(404).json({ error: 'Grupo não encontrado' });
         }
+        if (roleName === 'super_admin' && !isSuperAdminUser(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas o Super Admin pode alterar o grupo Super Admin' });
+        }
         
         // Verificar se já está no grupo
         const existing = await getOne('SELECT id FROM user_groups WHERE user_id = ? AND group_name = ?', [user_id, roleName]);
@@ -5174,22 +5227,23 @@ router.post('/role-permissions/:roleName/members', requireAdmin, async (req, res
             return res.status(400).json({ error: 'Usuário já está neste grupo' });
         }
         
-        // Adicionar ao grupo
-        await runQuery('INSERT INTO user_groups (user_id, group_name) VALUES (?, ?)', [user_id, roleName]);
+        // Adicionar usando a mesma fonte da Lista de Membros.
+        const currentGroups = await getUserGroups(user_id);
+        const result = await replaceMemberGroups(user_id, [...currentGroups, roleName]);
         
         console.log(`👥 Usuário ${user.name} adicionado ao grupo ${roleName} por ${req.session.user.name}`);
         
-        res.json({ success: true, message: `${user.name} adicionado ao grupo com sucesso!` });
+        res.json({ success: true, message: `${user.name} adicionado ao grupo com sucesso!`, groups: result.groups, role: result.role });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(error.statusCode || 500).json({ error: error.message });
     }
 });
 
 // Remover usuário de um grupo
 router.delete('/role-permissions/:roleName/members/:userId', requireAdmin, async (req, res) => {
     try {
-        if (req.session.user.role !== 'super_admin' && req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
-            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral e 01 podem remover membros de grupos' });
+        if (!await canManageMemberGroups(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral, 01 e 02 podem remover membros de grupos' });
         }
         
         const { roleName, userId } = req.params;
@@ -5201,24 +5255,24 @@ router.delete('/role-permissions/:roleName/members/:userId', requireAdmin, async
         const user = await getOne(`SELECT role, COALESCE(NULLIF(TRIM(capital_nickname), ''), name) as name FROM users WHERE id = ?`, [userId]);
         const roleMatches = !!user && user.role === roleName;
 
+        if (roleName === 'super_admin' && !isSuperAdminUser(req.session.user)) {
+            return res.status(403).json({ error: 'Apenas o Super Admin pode alterar o grupo Super Admin' });
+        }
+
         if (!membership && !roleMatches) {
             return res.status(404).json({ error: 'Usuário não está neste grupo' });
         }
 
-        // Remove da tabela de grupos (se houver linha) e/ou zera o cargo legado
-        if (membership) {
-            await runQuery('DELETE FROM user_groups WHERE user_id = ? AND group_name = ?', [userId, roleName]);
-        }
-        if (roleMatches) {
-            // Vira membro comum: libera o slot de gerente que ocupava
-            await runQuery('UPDATE users SET role = ?, manager_slot = NULL WHERE id = ?', ['member', userId]);
-        }
+        // Remove pela mesma rotina da Lista de Membros. Se era o último grupo,
+        // o usuário permanece no grupo-base "member".
+        const currentGroups = await getUserGroups(userId);
+        const result = await replaceMemberGroups(userId, currentGroups.filter(group => group !== roleName));
 
         console.log(`👥 Usuário ${user?.name || userId} removido do grupo ${roleName} por ${req.session.user.name}`);
 
-        res.json({ success: true, message: 'Usuário removido do grupo com sucesso!' });
+        res.json({ success: true, message: 'Usuário removido do grupo com sucesso!', groups: result.groups, role: result.role });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(error.statusCode || 500).json({ error: error.message });
     }
 });
 
@@ -5399,12 +5453,11 @@ router.post('/password-resets/:id/reject', requireAdmin, async (req, res) => {
     }
 });
 
-// Alterar senha de um usuário diretamente (só gerente_geral e 01)
+// Alterar senha de um usuário diretamente (grupos com permissão de configuração)
 router.post('/users/:id/reset-password', requireAdmin, async (req, res) => {
     try {
-        // Verificar permissão
-        if (req.session.user.role !== 'super_admin' && req.session.user.role !== 'gerente_geral' && req.session.user.role !== '01') {
-            return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral e 01 podem resetar senhas diretamente' });
+        if (!await canConfigureGroups(req.session.user)) {
+            return res.status(403).json({ error: 'Seu grupo não tem permissão para resetar senhas diretamente' });
         }
         
         const { id } = req.params;
@@ -7052,15 +7105,12 @@ router.get('/weapon-sellers', requireAdmin, requireWeaponSalesAccess, async (req
             ORDER BY COALESCE(NULLIF(TRIM(capital_nickname), ''), name) ASC
         `);
 
-        const groupsMap = await getUserGroupsMap((users || []).map(u => u.id));
-        const sellers = (users || []).filter(user => {
-            const groups = groupsMap.get(user.id) || (user.role ? [user.role] : []);
-            return groups.some(g => managerGroups.has(normalizeGroupName(g)));
-        }).map(user => ({
+        const accessProfiles = await getUsersAccessProfiles(users || []);
+        const sellers = (users || []).filter(user => accessProfiles.get(user.id)?.isManager).map(user => ({
             id: user.id,
             name: user.name,
             passport: user.passport,
-            groups: groupsMap.get(user.id) || (user.role ? [user.role] : [])
+            groups: accessProfiles.get(user.id)?.groups || (user.role ? [user.role] : [])
         }));
 
         res.json({ success: true, sellers });

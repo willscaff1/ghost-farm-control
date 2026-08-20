@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { runQuery, getOne, getAll, getCurrentWeek } = require('../database/db');
+const { normalizeGroupName, getUserAccessProfile } = require('../services/accessControl');
 
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
 
@@ -38,34 +39,6 @@ router.use(requireSameOrigin);
 
 // Meta semanal padrão (fallback)
 const DEFAULT_WEEKLY_GOAL = 700;
-
-// Cargos considerados gerência
-const MANAGER_GROUPS = new Set([
-    'super_admin',
-    '01',
-    '02',
-    'gerente_farm',
-    'gerente_acao',
-    'gerente_recrutamento',
-    'gerente_encomendas',
-    'gerente_vendas',
-    'gerente_de_vendas',
-    'gerente_geral',
-    'gerente_de_fabricacao'
-]);
-
-const normalizeGroupName = (groupName = '') => String(groupName)
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-const isManagerGroupName = (groupName = '') => {
-    const normalized = normalizeGroupName(groupName);
-    return MANAGER_GROUPS.has(normalized) || normalized.startsWith('gerente_');
-};
 
 const getUserGroups = async (userId) => {
     try {
@@ -191,11 +164,11 @@ const isEliteUser = async (userId, sessionUser) => {
 };
 
 const isManagerUser = async (userId, sessionUser) => {
-    if (sessionUser && sessionUser.id === userId && Array.isArray(sessionUser.groups)) {
-        return sessionUser.groups.some(isManagerGroupName);
-    }
-    const groups = await getUserGroups(userId);
-    return groups.some(isManagerGroupName);
+    const user = sessionUser && Number(sessionUser.id) === Number(userId)
+        ? sessionUser
+        : await getOne('SELECT id, role, passport FROM users WHERE id = ?', [userId]);
+    if (!user) return false;
+    return (await getUserAccessProfile(user)).isManager;
 };
 
 const resolveMaterialGoal = (material, isManager) => {
