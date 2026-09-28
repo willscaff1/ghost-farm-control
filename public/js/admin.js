@@ -675,7 +675,7 @@ async function loadWeekData() {
             
             // Contadores
             const statusData = cached.statusData;
-$1updateWeeklyStatusCounters(statusData);
+            updateWeeklyStatusCounters(statusData);
             
             // Renderizar tabela
             renderWeeklyTable(currentFilter);
@@ -727,7 +727,7 @@ $1updateWeeklyStatusCounters(statusData);
         weeklyStatusData = statusData;
         
         // Contadores - separar completos de parciais
-$1updateWeeklyStatusCounters(statusData);
+            updateWeeklyStatusCounters(statusData);
         
         // Renderizar tabela
         renderWeeklyTable(currentFilter);
@@ -829,7 +829,7 @@ async function loadInitialData() {
             weeklyStatusData = statusData;
             
             // Contadores
-$1updateWeeklyStatusCounters(statusData);
+            updateWeeklyStatusCounters(statusData);
             
             // Renderizar tabela
             renderWeeklyTable(currentFilter);
