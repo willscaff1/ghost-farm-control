@@ -58,6 +58,9 @@ const getUserGroups = async (userId) => {
 // A semana está com competição ligada?
 const isCompetitionWeekEnabled = async (weekStart) => {
     try {
+        // Chave geral desligada (Config. do Farm) = competição não existe pra ninguém
+        const master = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'competition_enabled'").catch(() => null);
+        if (!master || master.setting_value !== 'true') return false;
         const row = await getOne('SELECT enabled FROM competition_weeks WHERE week_start = ?', [weekStart]);
         return !!row && (row.enabled === 1 || row.enabled === true);
     } catch (e) { return false; }
@@ -1635,6 +1638,7 @@ router.get('/farm-settings', requireAuth, async (req, res) => {
         settingsObj.farm_materials_enabled = 'true';
         settingsObj.farm_payment_enabled = 'false';
         if (!settingsObj.competition_enabled) settingsObj.competition_enabled = 'false';
+        if (!settingsObj.elite_enabled) settingsObj.elite_enabled = 'false';
         
         res.json({ settings: settingsObj });
     } catch (error) {

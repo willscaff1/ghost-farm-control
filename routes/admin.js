@@ -837,6 +837,11 @@ const compPoints = (totals, recipe) => {
 router.get('/competition/week', requireAdmin, async (req, res) => {
     try {
         const weekStart = req.query.week_start || getCurrentWeek().start;
+        // Chave geral desligada (Config. do Farm) = competição não existe, mesmo com a semana marcada
+        const master = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'competition_enabled'").catch(() => null);
+        if (!master || master.setting_value !== 'true') {
+            return res.json({ week_start: weekStart, enabled: false, masterOff: true });
+        }
         const row = await getOne('SELECT enabled FROM competition_weeks WHERE week_start = ?', [weekStart]);
         res.json({ week_start: weekStart, enabled: !!row && (row.enabled === 1 || row.enabled === true) });
     } catch (error) {
@@ -2835,6 +2840,8 @@ router.get('/farm-settings', requireAdmin, async (req, res) => {
             settingsObj[s.setting_key] = s.setting_value;
         });
         if (!settingsObj.weapon_sales_enabled) settingsObj.weapon_sales_enabled = 'false';
+        if (!settingsObj.competition_enabled) settingsObj.competition_enabled = 'false';
+        if (!settingsObj.elite_enabled) settingsObj.elite_enabled = 'false';
         res.json({ settings: settingsObj });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -2847,7 +2854,7 @@ router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
         const { key } = req.params;
         const { value } = req.body;
         
-        const validKeys = ['competition_enabled', 'meta_exempt_members', 'meta_exempt_managers', 'elite_weekly_goal', 'weapon_sales_enabled'];
+        const validKeys = ['competition_enabled', 'elite_enabled', 'meta_exempt_members', 'meta_exempt_managers', 'elite_weekly_goal', 'weapon_sales_enabled'];
         if (!validKeys.includes(key)) {
             return res.status(400).json({ error: 'Configuração inválida' });
         }

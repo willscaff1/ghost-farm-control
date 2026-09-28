@@ -276,8 +276,10 @@ function hasAccessToTab(tabId) {
 // Vendas de armas (extrato, brindes, catálogo): ligam/desligam na Config. do Farm
 const weaponSalesTabs = ['weapon-sales', 'weapon-freebies', 'weapon-catalog'];
 let weaponSalesEnabled = false;
+let eliteEnabled = false;
 let weaponSalesFlagLoaded = false;
 
+// Lê as chaves de recurso (vendas de armas, Elite, competição) uma vez e reaplica os menus
 async function loadWeaponSalesFlag() {
     if (weaponSalesFlagLoaded) return;
     weaponSalesFlagLoaded = true;
@@ -285,9 +287,21 @@ async function loadWeaponSalesFlag() {
         const res = await fetch('/api/admin/farm-settings');
         if (!res.ok) return;
         const data = await res.json();
-        weaponSalesEnabled = (data.settings || {}).weapon_sales_enabled === 'true';
+        const s = data.settings || {};
+        weaponSalesEnabled = s.weapon_sales_enabled === 'true';
+        eliteEnabled = s.elite_enabled === 'true';
+        competitionEnabled = s.competition_enabled === 'true';
         applyRolePermissions();
+        applyEliteSections();
+        if (typeof refreshCompetitionStatusTab === 'function') refreshCompetitionStatusTab();
     } catch (e) { /* mantém desligado */ }
+}
+
+// Partes da tela ligadas à Elite (fora da sidebar): a seção "Meta da Elite" na aba Metas
+function applyEliteSections() {
+    document.querySelectorAll('.elite-goal-section').forEach(el => {
+        el.style.display = eliteEnabled ? '' : 'none';
+    });
 }
 
 function applyRolePermissions() {
@@ -301,6 +315,16 @@ function applyRolePermissions() {
 
         // Vendas de armas desligadas: as abas somem do painel
         if (weaponSalesTabs.includes(tabId) && !weaponSalesEnabled) {
+            item.style.display = 'none';
+            return;
+        }
+
+        // Competição e Elite só aparecem com a chave ligada na Config. do Farm
+        if ((competitionViewerTabs.includes(tabId) || competitionManagerTabs.includes(tabId)) && !competitionEnabled) {
+            item.style.display = 'none';
+            return;
+        }
+        if (eliteApproverTabs.includes(tabId) && !eliteEnabled) {
             item.style.display = 'none';
             return;
         }
@@ -759,7 +783,10 @@ async function loadInitialData() {
             if (settingsRes.ok) {
                 const settingsData = await settingsRes.json();
                 competitionEnabled = settingsData.settings?.competition_enabled === 'true';
+                eliteEnabled = settingsData.settings?.elite_enabled === 'true';
                 updateCompetitionVisibility();
+                applyRolePermissions();
+                applyEliteSections();
             }
         } catch (e) {
             console.log('Erro ao carregar config de competição:', e);
@@ -6525,6 +6552,7 @@ async function refreshCompetitionStatusTab() {
         }
     };
 
+    if (!competitionEnabled) { setVisible(false); return; }
     try {
         const res = await fetch('/api/admin/competition/week');
         if (!res.ok) { setVisible(false); return; }
@@ -8428,6 +8456,7 @@ document.getElementById('matQty')?.addEventListener('keydown', (e) => { if (e.ke
 
 async function loadGoalsTab() {
     populateGoalsIconSelects();
+    applyEliteSections();
     await Promise.all([
         loadGoalsMaterials(),
         loadMetaExempt(),
@@ -9112,6 +9141,8 @@ async function loadFarmSettings() {
         const competitionEnabledEl = document.getElementById('competitionEnabled');
         const weaponSalesEl = document.getElementById('weaponSalesEnabled');
         if (weaponSalesEl) weaponSalesEl.checked = settings.weapon_sales_enabled === 'true';
+        const eliteEl = document.getElementById('eliteEnabled');
+        if (eliteEl) eliteEl.checked = settings.elite_enabled === 'true';
         
         if (materialsEnabled) {
             materialsEnabled.checked = settings.farm_materials_enabled === 'true';
@@ -9193,6 +9224,16 @@ async function updateFarmSetting(key, value) {
             if (key === 'weapon_sales_enabled') {
                 weaponSalesEnabled = value === true || value === 'true';
                 applyRolePermissions();
+            }
+            if (key === 'elite_enabled') {
+                eliteEnabled = value === true || value === 'true';
+                applyRolePermissions();
+                applyEliteSections();
+            }
+            if (key === 'competition_enabled') {
+                competitionEnabled = value === true || value === 'true';
+                applyRolePermissions();
+                if (typeof refreshCompetitionStatusTab === 'function') refreshCompetitionStatusTab();
             }
 
             // Se mudou a competição, atualizar visibilidade

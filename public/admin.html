@@ -1069,14 +1069,14 @@
             <div id="farm-settings-tab" class="tab-content">
                 <div class="card">
                     <h2>🎛️ Configurações do Farm</h2>
-                    <p class="subtitle">Liga e desliga a competição semanal e as vendas de armas. As metas ficam na aba Metas.</p>
+                    <p class="subtitle">Chaves dos recursos: Competição, Elite e Vendas de Armas. Desligado = some dos menus de todo mundo. As metas ficam na aba Metas.</p>
 
                     <div class="settings-section competition-section">
                         <h3>🏆 Competição Semanal (Ranking)</h3>
                         <div class="setting-item">
                             <div class="setting-info">
                                 <span class="setting-label">Ativar Competição</span>
-                                <span class="setting-description">Quando ativo, libera o ranking semanal e painel de farm extra para membros competirem além da meta</span>
+                                <span class="setting-description">Chave geral. Desligada, a competição some dos menus de membros e do painel. Ligada, você ainda escolhe a semana na aba Competição.</span>
                             </div>
                             <label class="toggle-switch">
                                 <input type="checkbox" id="competitionEnabled" onchange="updateFarmSetting('competition_enabled', this.checked)">
@@ -1085,6 +1085,20 @@
                         </div>
                         <div class="competition-status" id="competitionStatus">
                             <span class="status-indicator off">⚪ Competição DESATIVADA</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>⚔️ Elite</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Habilitar Elite</span>
+                                <span class="setting-description">Liga a trilha Elite (ações no lugar do farm pra quem tem a tag), o Ranking da Elite e as abas de aprovação. Desligada, nada disso aparece pra membros nem no painel.</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="eliteEnabled" onchange="updateFarmSetting('elite_enabled', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
                     </div>
 
@@ -1909,7 +1923,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260928metas4"></script>
+    <script src="js/admin.js?v=20260928flags1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

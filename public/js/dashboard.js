@@ -193,8 +193,8 @@ async function loadCompetition() {
     const panel = document.getElementById('competitionPanel');
     if (!invite || !panel) return;
 
-    // Elite não entra na competição de materiais
-    if (window.IS_ELITE || currentWeekOffset !== 0) {
+    // Só com a competição habilitada; Elite não entra na competição de materiais
+    if (farmSettings.competition_enabled !== 'true' || window.IS_ELITE || currentWeekOffset !== 0) {
         invite.style.display = 'none';
         panel.style.display = 'none';
         return;
@@ -823,11 +823,14 @@ async function checkAuth() {
                 ensureCapitalNicknameModal(currentUser);
             }
 
-            // Trilha Elite: no lugar do farm, registra ações
-            window.IS_ELITE = Array.isArray(currentUser.groups) && currentUser.groups.includes('elite');
+            // Trilha Elite: só existe quando está habilitada na Config. do Farm
+            await loadFarmSettings();
+            const eliteEnabled = farmSettings.elite_enabled === 'true';
+            window.IS_ELITE = eliteEnabled && Array.isArray(currentUser.groups) && currentUser.groups.includes('elite');
             if (window.IS_ELITE) {
                 enterEliteMode();
             }
+            applyFeatureMenus();
 
             // Usar grupos se disponível, senão usar role
             const userGroups = data.user.groups || [data.user.role];
@@ -876,7 +879,6 @@ async function checkAuth() {
             
             loadAvailableWeeks();
             loadMaterials();
-            loadFarmSettings(); // Carregar configurações do farm primeiro
             loadStats();
             loadMyDeliveries();
             // checkNotifications será chamado após loadWeekData carregar os dados
@@ -892,8 +894,16 @@ async function checkAuth() {
 let farmSettings = {
     farm_materials_enabled: 'true',
     farm_payment_enabled: 'false',
-    competition_enabled: 'false'
+    competition_enabled: 'false',
+    elite_enabled: 'false'
 };
+
+// Menus que só aparecem com a chave ligada na Config. do Farm (Elite e Competição)
+function applyFeatureMenus() {
+    const show = (id, on) => { const el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+    show('dropdownEliteRankBtn', farmSettings.elite_enabled === 'true');
+    show('dropdownCompRankBtn', farmSettings.competition_enabled === 'true');
+}
 
 // Carregar configurações do farm
 async function loadFarmSettings() {
