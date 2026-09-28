@@ -142,6 +142,11 @@ db.initialize().then(async () => {
                 await runQuery('ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0');
                 console.log('✅ Coluna users.must_change_password criada');
             } catch (e) { /* já existe */ }
+            // Ocultar da hierarquia (ex.: usuário de teste)
+            try {
+                await runQuery('ALTER TABLE users ADD COLUMN hidden_from_hierarchy INTEGER DEFAULT 0');
+                console.log('✅ Coluna users.hidden_from_hierarchy criada');
+            } catch (e) { /* já existe */ }
             // Não optante de drogas (por membro): 1 = só as armas concluem a meta
             try {
                 await runQuery('ALTER TABLE users ADD COLUMN drugs_opt_out INTEGER DEFAULT 0');

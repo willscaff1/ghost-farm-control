@@ -2113,7 +2113,7 @@ router.get('/members', requireAdmin, async (req, res) => {
                    COALESCE(NULLIF(TRIM(u.capital_nickname), ''), u.name) as name,
                    u.name as original_name,
                    u.capital_nickname,
-                   u.passport, u.email, u.role, u.member_slot, u.manager_slot, u.created_at, u.active, u.drugs_opt_out,
+                   u.passport, u.email, u.role, u.member_slot, u.manager_slot, u.created_at, u.active, u.drugs_opt_out, u.hidden_from_hierarchy,
                    COALESCE((
                        SELECT SUM(di.amount) 
                        FROM delivery_items di 
@@ -2350,6 +2350,13 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
         if (!member) {
             return res.status(404).json({ error: 'Membro não encontrado' });
+        }
+
+        // Ocultar da hierarquia (ex.: usuário de teste): salva e responde, sem mexer no resto
+        if (req.body.hidden_from_hierarchy !== undefined && Object.keys(req.body).length === 1) {
+            const hidden = (req.body.hidden_from_hierarchy === true || req.body.hidden_from_hierarchy === 1 || req.body.hidden_from_hierarchy === '1' || req.body.hidden_from_hierarchy === 'true') ? 1 : 0;
+            await runQuery('UPDATE users SET hidden_from_hierarchy = ? WHERE id = ?', [hidden, memberId]);
+            return res.json({ success: true, message: hidden ? 'Membro oculto da hierarquia' : 'Membro visível na hierarquia' });
         }
         
         // Não pode editar usuários de super admin

@@ -7381,6 +7381,8 @@ function openEditMemberModal(id, name, passport, email) {
     const selectedMember = membersTableData.find(m => m.id === id);
     document.getElementById('editMemberName').value = selectedMember?.original_name || selectedMember?.name || name || '';
     document.getElementById('editMemberCapitalNickname').value = selectedMember?.capital_nickname || '';
+    const hiddenEl = document.getElementById('editMemberHidden');
+    if (hiddenEl) hiddenEl.checked = !!(selectedMember?.hidden_from_hierarchy && selectedMember.hidden_from_hierarchy !== '0');
     document.getElementById('editMemberPassport').value = selectedMember?.passport || passport || '';
     document.getElementById('editMemberEmail').value = selectedMember?.email || email || '';
     document.getElementById('editMemberSlot').value = selectedMember?.member_slot || '';
@@ -7467,6 +7469,21 @@ async function saveEditMember() {
             email !== currentEmail ||
             relevantSlot !== currentRelevantSlot ||
             !!newPassword;
+
+        // Ocultar da hierarquia: salva separado, só se mudou
+        const hiddenEl = document.getElementById('editMemberHidden');
+        const currentMember = membersTableData.find(m => m.id === editingMemberId);
+        if (hiddenEl) {
+            const wanted = hiddenEl.checked ? 1 : 0;
+            const current = (currentMember?.hidden_from_hierarchy && currentMember.hidden_from_hierarchy !== '0') ? 1 : 0;
+            if (wanted !== current) {
+                await fetch(`/api/admin/members/${editingMemberId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hidden_from_hierarchy: wanted })
+                });
+            }
+        }
 
         // Atualizar dados básicos apenas quando houve alteração
         if (hasProfileChanges) {

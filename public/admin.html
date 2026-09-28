@@ -924,6 +924,12 @@
                             </label>
                             <input type="text" id="editMemberCapitalNickname" maxlength="40" placeholder="Vulgo usado na Capital">
                         </div>
+                        <div class="edit-form-group full-width">
+                            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                                <input type="checkbox" id="editMemberHidden" style="width:auto;">
+                                <span>🙈 Ocultar da hierarquia <span class="optional">(ex.: usuário de teste)</span></span>
+                            </label>
+                        </div>
                         <div class="edit-form-group full-width" id="editMemberGroupsField">
                             <label>
                                 <span class="label-icon">👔</span>
@@ -1912,7 +1918,7 @@
     <script src="js/family-commandments.js?v=20260928merc7"></script>
     <script src="js/capital-nickname.js?v=20260928merc7"></script>
     <script src="js/name-format.js?v=20260928names1"></script>
-    <script src="js/admin.js?v=20260928merc7"></script>
+    <script src="js/admin.js?v=20260928hide1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

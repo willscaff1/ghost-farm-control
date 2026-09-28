@@ -760,6 +760,7 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
             SELECT id, name, passport, capital_nickname, role, member_slot, manager_slot
             FROM users
             WHERE active = 1 AND passport NOT IN ('0', 'admin')
+              AND COALESCE(hidden_from_hierarchy, 0) = 0
         `);
 
         const groups = await getAll('SELECT user_id, group_name FROM user_groups');
