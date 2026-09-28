@@ -4831,7 +4831,7 @@ body.admin-layout {
     max-width: 340px;
     background-color: #0c0a06;
     color: #f8fafc;
-    border: 1px solid rgba(148,163,184,0.35);
+    border: 1px solid rgba(214,190,120,0.35);
     cursor: pointer;
     appearance: auto;
 }
@@ -4855,7 +4855,7 @@ body.admin-layout {
     gap: 10px;
     padding: 8px 10px;
     background: rgba(15,23,42,0.55);
-    border: 1px solid rgba(148,163,184,0.18);
+    border: 1px solid rgba(214,190,120,0.18);
     border-radius: 8px;
 }
 .goals-new-name-wrap .goals-label { margin-right: 0; }
@@ -7298,7 +7298,7 @@ body.admin-layout {
 
 .farm-type-status-chip.in_progress {
     color: #8fcaff;
-    background: rgba(52,152,219,0.14);
+    background: rgba(224,168,26,0.14);
 }
 
 .farm-type-status-chip.missing {

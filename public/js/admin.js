@@ -6285,7 +6285,7 @@ function renderEliteActionsAdmin(actions) {
             return `
             <div class="elite-admin-card">
                 <div class="elite-admin-main">
-                    <div class="elite-admin-title">🔫 Rota de Arma <span class="status-badge" style="background:rgba(52,152,219,0.9);color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">substitui 1 ação</span></div>
+                    <div class="elite-admin-title">🔫 Rota de Arma <span class="status-badge" style="background:rgba(224,168,26,0.9);color:#fff;padding:2px 9px;border-radius:999px;font-size:11px;margin-left:8px;">substitui 1 ação</span></div>
                     <div class="elite-admin-meta">Registrou: <strong>${escapeHtml(a.registered_by_name)}</strong> <small>${escapeHtml(a.registered_by_passport || '')}</small> · ${when}</div>
                     <div class="elite-admin-parts">🔫 ${mats}</div>
                 </div>

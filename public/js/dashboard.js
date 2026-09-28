@@ -71,7 +71,7 @@ const ROLE_BADGE_COLORS = {
     '02':                   { bg: 'rgba(249,115,22,0.2)',  bd: 'rgba(249,115,22,0.4)',  fg: '#fdba74' },
     gerente_geral:          { bg: 'rgba(59,130,246,0.2)',  bd: 'rgba(59,130,246,0.4)',  fg: '#93c5fd' },
     gerente_farm:           { bg: 'rgba(34,197,94,0.2)',   bd: 'rgba(34,197,94,0.4)',   fg: '#86efac' },
-    _gerente:               { bg: 'rgba(168,85,247,0.2)',  bd: 'rgba(168,85,247,0.4)',  fg: '#c4b5fd' },
+    _gerente:               { bg: 'rgba(245,185,28,0.2)',  bd: 'rgba(245,185,28,0.4)',  fg: '#c4b5fd' },
     member:                 { bg: 'rgba(107,114,128,0.2)', bd: 'rgba(107,114,128,0.4)', fg: '#9ca3af' }
 };
 
@@ -1640,9 +1640,9 @@ function fillFormWithExistingValues(progress) {
             }
         });
     } else {
-        // Modo adição - zerar inputs
+        // Modo adição - já vem com o que falta pra meta (o membro só ajusta se quiser)
         document.querySelectorAll('.material-amount-input').forEach(input => {
-            input.value = 0;
+            input.value = input.disabled ? 0 : (parseInt(input.dataset.remaining, 10) || 0);
         });
     }
     updateSubmitButton();
@@ -2087,6 +2087,15 @@ function renderMaterialsUI() {
         }
 }
 
+// Chave "Completar meta automaticamente": campos vêm com o que falta e travados (só enviar).
+// Desligada, o membro digita as quantidades. Fica salva no navegador.
+let autoCompleteMeta = (() => { try { return localStorage.getItem('mc_auto_meta') !== '0'; } catch (e) { return true; } })();
+function setAutoCompleteMeta(on) {
+    autoCompleteMeta = !!on;
+    try { localStorage.setItem('mc_auto_meta', on ? '1' : '0'); } catch (e) { /* sem storage */ }
+    renderMaterialsUI();
+}
+
 // Versao separada por tipo de farm. Esta declaracao substitui a anterior.
 function renderMaterialsUI() {
     const container = document.getElementById('materialsInputs');
@@ -2151,12 +2160,13 @@ function renderMaterialsUI() {
                            data-farm-type="${group.type}"
                            data-goal="${matGoal}"
                            data-remaining="${remaining}"
-                           class="material-input material-amount-input ${inputDisabled ? 'disabled' : ''}"
+                           class="material-input material-amount-input ${inputDisabled ? 'disabled' : ''} ${autoCompleteMeta && !inputDisabled ? 'auto' : ''}"
                            min="0"
                            max="${remaining}"
                            value="${inputDisabled ? 0 : remaining}"
                            placeholder="${isComplete ? 'ok' : remaining}"
                            ${inputDisabled ? 'disabled' : ''}
+                           ${autoCompleteMeta && !inputDisabled ? 'readonly title="Meta automática — desligue a chave acima para digitar"' : ''}
                            onkeypress="return event.charCode >= 48 && event.charCode <= 57"
                            oninput="validateMaterialInput(this, ${matGoal}); updateSubmitButton()">
                 </div>
@@ -2179,7 +2189,8 @@ function renderMaterialsUI() {
                 <div class="material-group-header">
                     <div>
                         <div class="material-group-title">${group.title}</div>
-                        <div class="material-group-subtitle">Quantidades já vêm com a meta; ajuste se precisar</div>
+                        <div class="material-group-subtitle">${autoCompleteMeta ? 'Meta preenchida automaticamente — anexe o print e envie' : 'Digite as quantidades que você farmou'}</div>
+                        ${groupLocked ? '' : `<label class="auto-meta-toggle"><input type="checkbox" id="autoMetaToggle" ${autoCompleteMeta ? 'checked' : ''} onchange="setAutoCompleteMeta(this.checked)"><span class="auto-meta-switch"></span>⚡ Completar meta automaticamente</label>`}
                     </div>
                     <span class="material-group-status ${groupStatus.status || 'missing'}">${groupStatusText}</span>
                 </div>

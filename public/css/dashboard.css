@@ -2739,7 +2739,7 @@
 }
 
 /* ===== Painel Elite (dashboard do membro) ===== */
-.elite-panel { border:1px solid rgba(168,85,247,0.28); }
+.elite-panel { border:1px solid rgba(245,185,28,0.28); }
 .elite-progress { margin-bottom:16px; }
 .elite-progress-head { display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-bottom:6px; }
 .elite-pending { color:#f39c12; font-weight:600; }
@@ -2790,7 +2790,7 @@
     color:var(--text-secondary,#b9ad8c);
 }
 .elite-pick-count {
-    background:rgba(168,85,247,0.25); color:#c4b5fd;
+    background:rgba(245,185,28,0.25); color:#c4b5fd;
     padding:1px 8px; border-radius:999px; font-size:11px;
 }
 .elite-pick-search {
@@ -2807,7 +2807,7 @@
     padding:7px 10px; border-radius:10px;
     background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09);
 }
-.elite-pick-row.is-selected { background:rgba(168,85,247,0.12); border-color:rgba(168,85,247,0.35); }
+.elite-pick-row.is-selected { background:rgba(245,185,28,0.12); border-color:rgba(245,185,28,0.35); }
 .elite-pick-name {
     flex:1; min-width:0; font-size:13px; font-weight:600;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -2831,7 +2831,7 @@
 /* Badges na hierarquia (cargo + Elite) */
 .hierarchy-badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
 .hierarchy-role-badge.elite-badge {
-    background:rgba(168,85,247,0.2); border:1px solid rgba(168,85,247,0.45); color:#c4b5fd;
+    background:rgba(245,185,28,0.2); border:1px solid rgba(245,185,28,0.45); color:#c4b5fd;
 }
 
 /* Badge Elite alinhada na hierarquia (a do cargo base fica livre) */
@@ -2876,7 +2876,7 @@
 .elite-rank-title:first-of-type { margin-top: 6px; }
 .elite-rank-count {
     display: inline-block; margin-left: 6px; font-size: 12px; font-weight: 700;
-    background: rgba(168,85,247,0.22); color: #c4b5fd;
+    background: rgba(245,185,28,0.22); color: #c4b5fd;
     padding: 1px 9px; border-radius: 999px; vertical-align: middle;
 }
 
@@ -2929,9 +2929,9 @@
     font-size: 11.5px; font-weight: 700; white-space: nowrap;
     border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: #e6e8f0;
 }
-.er-badge-elite { background: rgba(168,85,247,0.22); border-color: rgba(168,85,247,0.45); color: #c4b5fd; }
+.er-badge-elite { background: rgba(245,185,28,0.22); border-color: rgba(245,185,28,0.45); color: #c4b5fd; }
 .er-badge-lead  { background: rgba(231,76,60,0.18);  border-color: rgba(231,76,60,0.42);  color: #ff9b8f; }
-.er-badge-ger   { background: rgba(52,152,219,0.18); border-color: rgba(52,152,219,0.42); color: #8fd0ff; }
+.er-badge-ger   { background: rgba(224,168,26,0.18); border-color: rgba(224,168,26,0.42); color: #8fd0ff; }
 .er-badge-member{ background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.16); color: #c7cbd8; }
 
 @media (max-width: 620px) {
@@ -2947,7 +2947,7 @@
     background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.14);
     color:#c7cbd8; font-weight:700; font-size:13px;
 }
-.elite-mode-btn.active { background:rgba(168,85,247,0.22); border-color:rgba(168,85,247,0.5); color:#e9ddff; }
+.elite-mode-btn.active { background:rgba(245,185,28,0.22); border-color:rgba(245,185,28,0.5); color:#e9ddff; }
 .elite-route-hint { font-size:13px; color:var(--text-secondary,#b9ad8c); margin:0 0 12px; }
 .elite-route-hint b { color:#e9ddff; }
 .elite-route-materials { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
@@ -2961,7 +2961,7 @@
 }
 .elite-route-tag {
     font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px; margin-left:6px;
-    background:rgba(52,152,219,0.18); border:1px solid rgba(52,152,219,0.4); color:#8fd0ff; white-space:nowrap;
+    background:rgba(224,168,26,0.18); border:1px solid rgba(224,168,26,0.4); color:#8fd0ff; white-space:nowrap;
 }
 
 /* ===== Escolha de drogas por semana (membro) ===== */
@@ -2976,7 +2976,7 @@
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
     color: #c7cbd8; font-weight: 700; font-size: 12.5px;
 }
-.drugs-choice-btn.active { background: rgba(168,85,247,0.22); border-color: rgba(168,85,247,0.5); color: #e9ddff; }
+.drugs-choice-btn.active { background: rgba(245,185,28,0.22); border-color: rgba(245,185,28,0.5); color: #e9ddff; }
 .drugs-choice-hint { font-size: 11.5px; color: var(--text-secondary,#b9ad8c); margin-top: 8px; }
 
 /* Rota da Elite: valor fixo (não editável) */
@@ -3015,7 +3015,7 @@
 }
 
 /* Terceira opção do resultado: Rota */
-.elite-result-opt.route:has(input:checked) { background:rgba(52,152,219,0.2); border-color:#e0a81a; }
+.elite-result-opt.route:has(input:checked) { background:rgba(224,168,26,0.2); border-color:#e0a81a; }
 #eliteRouteBlock .elite-route-hint { font-size:12.5px; color:var(--text-secondary,#b9ad8c); margin:0 0 10px; }
 
 /* ===== Competição semanal (membro) ===== */
