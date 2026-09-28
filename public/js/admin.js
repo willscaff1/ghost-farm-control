@@ -512,7 +512,6 @@ function showTab(tabId) {
         case 'new-member': break;
         case 'farm-settings': loadFarmSettings(); break;
         case 'family-commandments': loadFamilyCommandments(); break;
-        case 'manage-materials': loadMaterials(); break;
         case 'manage-payment-types': loadPaymentTypes(); break;
         case 'goals':
             loadGoalsTab();
@@ -8308,7 +8307,8 @@ function fillIconSelect(id, options) {
 }
 
 function populateGoalsIconSelects() {
-    fillIconSelect('matIcon', GOAL_ICON_OPTIONS);
+    fillIconSelect('matIconM', GOAL_ICON_OPTIONS);
+    fillIconSelect('matIconG', GOAL_ICON_OPTIONS);
 }
 
 function setGoalsMsg(id, text, type) {
@@ -8319,15 +8319,15 @@ function setGoalsMsg(id, text, type) {
     setTimeout(() => { if (el) el.className = 'goals-message'; }, 4000);
 }
 
-// Cadastro livre da meta: nome (material, dinheiro, produto...), ícone, quantidade e pra quem
-async function addGoalMaterial() {
-    const nameEl = document.getElementById('matName');
-    const qtyEl = document.getElementById('matQty');
+// Cadastro por público: membros ('member') ou gerência ('manager') — listas independentes
+async function addGoalMaterial(audience) {
+    const sfx = audience === 'manager' ? 'G' : 'M';
+    const nameEl = document.getElementById('matName' + sfx);
+    const qtyEl = document.getElementById('matQty' + sfx);
     const name = (nameEl?.value || '').trim();
-    const icon = document.getElementById('matIcon')?.value || '📦';
+    const icon = document.getElementById('matIcon' + sfx)?.value || '📦';
     const quantity = Math.max(0, parseInt(qtyEl?.value, 10) || 0);
-    const audience = document.getElementById('matAudience')?.value === 'manager' ? 'manager' : 'member';
-    const msgId = 'matMsg';
+    const msgId = 'matMsg' + sfx;
 
     if (!name) { setGoalsMsg(msgId, 'Digite o nome (material, dinheiro, produto...).', 'error'); return; }
     if (quantity <= 0) { setGoalsMsg(msgId, 'Informe a quantidade.', 'error'); return; }
@@ -8336,7 +8336,7 @@ async function addGoalMaterial() {
         const resp = await fetch('/api/admin/materials', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, icon, quantity, audience })
+            body: JSON.stringify({ name, icon, quantity, audience: audience === 'manager' ? 'manager' : 'member' })
         });
         const data = await resp.json();
         if (data.success) {
@@ -8352,9 +8352,13 @@ async function addGoalMaterial() {
     }
 }
 
-document.getElementById('btnAddMat')?.addEventListener('click', () => addGoalMaterial());
-document.getElementById('matName')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addGoalMaterial(); } });
-document.getElementById('matQty')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addGoalMaterial(); } });
+['M', 'G'].forEach(sfx => {
+    const audience = sfx === 'G' ? 'manager' : 'member';
+    document.getElementById('btnAddMat' + sfx)?.addEventListener('click', () => addGoalMaterial(audience));
+    ['matName' + sfx, 'matQty' + sfx].forEach(id => document.getElementById(id)?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addGoalMaterial(audience); }
+    }));
+});
 
 async function loadGoalsTab() {
     populateGoalsIconSelects();
@@ -8485,8 +8489,9 @@ function targetRoleLabel(target) {
 }
 
 async function loadGoalsMaterials() {
-    const tbody = document.getElementById('goalsMaterialsBody');
-    if (!tbody) return;
+    const tbodyM = document.getElementById('goalsMaterialsBodyM');
+    const tbodyG = document.getElementById('goalsMaterialsBodyG');
+    if (!tbodyM || !tbodyG) return;
     try {
         const response = await fetch('/api/admin/materials');
         const data = await response.json();
@@ -8494,37 +8499,30 @@ async function loadGoalsMaterials() {
         window.goalsMaterialsById = Object.fromEntries(all.map(m => [String(m.id), m]));
         populateMaterialSelectDropdown(all);
         const inGoals = all.filter(m => m.active === 1 || m.active === true || m.active === '1');
+        const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''));
 
-        // Uma linha por público: o mesmo item pode valer pra membros e pra gerência com quantidades diferentes
-        const rows = [];
-        inGoals.forEach(m => {
-            const gm = parseInt(m.weekly_goal, 10) || 0;
-            const gg = parseInt(m.manager_weekly_goal, 10) || 0;
-            if (gm > 0) rows.push({ m, audience: 'member', qty: gm });
-            if (gg > 0) rows.push({ m, audience: 'manager', qty: gg });
-        });
-        rows.sort((a, b) => {
-            if (a.audience !== b.audience) return a.audience === 'member' ? -1 : 1;
-            return String(a.m.name || '').localeCompare(String(b.m.name || ''));
-        });
+        // Cada lista só enxerga a própria coluna: membros = weekly_goal, gerência = manager_weekly_goal
+        const membros = inGoals.filter(m => (parseInt(m.weekly_goal, 10) || 0) > 0).sort(byName);
+        const gerencia = inGoals.filter(m => (parseInt(m.manager_weekly_goal, 10) || 0) > 0).sort(byName);
 
-        const rowHtml = ({ m, audience, qty }) => `<tr>
+        const rowHtml = (m, audience) => {
+            const qty = parseInt(audience === 'manager' ? m.manager_weekly_goal : m.weekly_goal, 10) || 0;
+            return `<tr>
                 <td class="goals-cell-icon">${m.icon || '📦'}</td>
                 <td class="goals-cell-name">${escapeHtml(m.name || '-')}</td>
                 <td class="goals-cell-meta">${Number(qty).toLocaleString('pt-BR')}</td>
-                <td>${audience === 'manager' ? '🛡️ Gerência' : '👤 Membros'}</td>
                 <td class="goals-actions">
                     <button type="button" class="btn btn-secondary btn-small" onclick="openEditMaterialGoalsModal(${m.id}, '${audience}')">✏️ Editar</button>
                     <button type="button" class="btn btn-danger btn-small goals-btn-remove" onclick="removeMaterialFromGoals(${m.id}, '${audience}')" title="Tirar este item da meta">Excluir</button>
                 </td>
             </tr>`;
-
-        tbody.innerHTML = rows.length
-            ? rows.map(rowHtml).join('')
-            : '<tr><td colspan="5" style="text-align:center;color:#888;padding:24px;">Nenhum item na meta ainda. Cadastre acima o que a família farma: material, dinheiro, produto...</td></tr>';
+        };
+        const empty = (txt) => `<tr><td colspan="4" style="text-align:center;color:#888;padding:24px;">${txt}</td></tr>`;
+        tbodyM.innerHTML = membros.length ? membros.map(m => rowHtml(m, 'member')).join('') : empty('Nenhum item na meta dos membros ainda.');
+        tbodyG.innerHTML = gerencia.length ? gerencia.map(m => rowHtml(m, 'manager')).join('') : empty('Nenhum item na meta da gerência ainda.');
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
+        tbodyM.innerHTML = tbodyG.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#e74c3c;">Erro ao carregar.</td></tr>';
     }
 }
 

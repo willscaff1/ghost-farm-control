@@ -59,7 +59,7 @@ const uploadPrizeImage = multer({
 const productAppliesToRole = (product, isManager) => {
     if (!product) return false;
     const goal = isManager
-        ? (product.manager_weekly_goal ?? product.weekly_goal ?? 0)
+        ? (product.manager_weekly_goal ?? 0)
         : (product.weekly_goal ?? 0);
     return (parseInt(goal, 10) || 0) > 0;
 };
@@ -1960,7 +1960,7 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
                 for (const mat of requiredMaterials) {
                     const item = items.find(i => i.material_id === mat.id);
                     const amount = item ? item.amount : 0;
-                    const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
+                    const goal = isManager ? (mat.manager_weekly_goal ?? 0) : (mat.weekly_goal ?? 700);
                     if (amount < goal) {
                         metaAtingida = false;
                         break;
@@ -2623,7 +2623,7 @@ router.get('/materials', requireAdmin, async (req, res) => {
                     .filter(m => materialAppliesToFarmWeek(m, isManager, farmSettingsObj, weekStart))
                     .map(m => ({
                         ...m,
-                        weekly_goal: isManager ? (m.manager_weekly_goal ?? m.weekly_goal) : m.weekly_goal
+                        weekly_goal: isManager ? (m.manager_weekly_goal ?? 0) : m.weekly_goal
                     }));
             }
         }
@@ -2798,7 +2798,7 @@ router.post('/materials', requireAdmin, requireConfig, async (req, res) => {
 router.put('/materials/:id', requireAdmin, requireConfig, async (req, res) => {
     try {
         const materialId = req.params.id;
-        const { name, icon, quantity, audience, weekly_goal, manager_weekly_goal } = req.body;
+        const { name, icon, quantity, audience } = req.body; // só quantity+audience mudam meta (nunca as duas de uma vez)
 
         const material = await getOne('SELECT * FROM materials WHERE id = ?', [materialId]);
         if (!material) {
@@ -2813,8 +2813,6 @@ router.put('/materials/:id', requireAdmin, requireConfig, async (req, res) => {
             const qty = Math.max(0, parseInt(quantity, 10) || 0);
             if (audience === 'manager') managerGoal = qty; else memberGoal = qty;
         }
-        if (weekly_goal !== undefined) memberGoal = Math.max(0, parseInt(weekly_goal, 10) || 0);
-        if (manager_weekly_goal !== undefined) managerGoal = Math.max(0, parseInt(manager_weekly_goal, 10) || 0);
 
         if (newName.trim() !== (material.name || '').trim()) {
             const dup = await getOne('SELECT id FROM materials WHERE name = ? AND id != ?', [newName.trim(), materialId]);
@@ -3211,7 +3209,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     }
                 }
                 const complete = mats.length > 0 && mats.every(mat => {
-                    const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
+                    const goal = isManager ? (mat.manager_weekly_goal ?? 0) : (mat.weekly_goal ?? 700);
                     return (approvedByMaterial.get(Number(mat.id)) || 0) >= (parseInt(goal, 10) || 700);
                 });
                 const activeTotal = Array.from(activeByMaterial.values()).reduce((sum, value) => sum + value, 0);
@@ -3230,7 +3228,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                     .filter(item => materialAppliesToFarmWeek(item, isManager, farmSettingsObj, weekStart))
                     .map(item => ({
                         ...item,
-                        weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
+                        weekly_goal: isManager ? (item.manager_weekly_goal ?? 0) : item.weekly_goal
                     }));
 
                 // Se não há itens de materiais e tem dinheiro, tratar como pagamento em dinheiro
@@ -3276,7 +3274,7 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                             for (const mat of applicableMaterials) {
                                 const matId = mat.id != null ? Number(mat.id) : mat.id;
                                 const total = sumByMaterial.get(matId) || 0;
-                                const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
+                                const goal = isManager ? (mat.manager_weekly_goal ?? 0) : (mat.weekly_goal ?? 700);
                                 const numGoal = parseInt(goal, 10) || 700;
                                 if (total < numGoal) {
                                     all100 = false;
@@ -3704,7 +3702,7 @@ router.get('/member-extract/:memberId', requireAdmin, async (req, res) => {
                 .filter(item => productAppliesToRole(item, isManager))
                 .map(item => ({
                     ...item,
-                    weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
+                    weekly_goal: isManager ? (item.manager_weekly_goal ?? 0) : item.weekly_goal
                 }));
             
             // Farms extras relacionados
@@ -5747,7 +5745,7 @@ router.get('/week-submissions', requireAdmin, async (req, res) => {
             if (!itemsByDid.has(it.delivery_id)) itemsByDid.set(it.delivery_id, []);
             itemsByDid.get(it.delivery_id).push({
                 ...it,
-                weekly_goal: isManager ? (it.manager_weekly_goal ?? it.weekly_goal) : it.weekly_goal
+                weekly_goal: isManager ? (it.manager_weekly_goal ?? 0) : it.weekly_goal
             });
         }
         const screenshotsByDid = new Map();
@@ -5838,7 +5836,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
                     material_id: item.material_id,
                     material_name: item.material_name,
                     icon: item.material_icon,
-                    weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal,
+                    weekly_goal: isManager ? (item.manager_weekly_goal ?? 0) : item.weekly_goal,
                     amount: 0,
                     deliveries: [] // Lista de deliveries que contêm esse material
                 });
@@ -5870,7 +5868,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
             if (!itemsByDeliveryId.has(did)) itemsByDeliveryId.set(did, []);
             itemsByDeliveryId.get(did).push({
                 ...item,
-                weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
+                weekly_goal: isManager ? (item.manager_weekly_goal ?? 0) : item.weekly_goal
             });
         }
         const screenshotsByDeliveryId = new Map();
@@ -5897,7 +5895,7 @@ router.get('/week-delivery-details', requireAdmin, async (req, res) => {
             .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, week_start))
             .map(mat => ({
                 ...mat,
-                weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal
+                weekly_goal: isManager ? (mat.manager_weekly_goal ?? 0) : mat.weekly_goal
             }));
         
         // Determinar status agregado com prioridade correta:
@@ -6016,7 +6014,7 @@ router.get('/delivery/:deliveryId/details', requireAdmin, async (req, res) => {
             .filter(item => productAppliesToRole(item, isManager))
             .map(item => ({
                 ...item,
-                weekly_goal: isManager ? (item.manager_weekly_goal ?? item.weekly_goal) : item.weekly_goal
+                weekly_goal: isManager ? (item.manager_weekly_goal ?? 0) : item.weekly_goal
             }));
         
         // Buscar screenshots da entrega
@@ -6036,7 +6034,7 @@ router.get('/delivery/:deliveryId/details', requireAdmin, async (req, res) => {
             .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, delivery.week_start))
             .map(mat => ({
                 ...mat,
-                weekly_goal: isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal
+                weekly_goal: isManager ? (mat.manager_weekly_goal ?? 0) : mat.weekly_goal
             }));
         
         res.json({ 
@@ -6114,7 +6112,7 @@ router.put('/delivery/:deliveryId/item', requireAdmin, async (req, res) => {
         let metGoal = true;
         for (const mat of materials) {
             const item = allItems.find(i => i.material_id === mat.id);
-            const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal) : mat.weekly_goal;
+            const goal = isManager ? (mat.manager_weekly_goal ?? 0) : mat.weekly_goal;
             if (!item || item.amount < goal) {
                 metGoal = false;
                 break;
@@ -6567,7 +6565,7 @@ router.post('/delivery/launch-for-member', requireAdmin, async (req, res) => {
             for (const mat of typeMaterials) {
                 const it = items.find(i => i.materialId === Number(mat.id));
                 const amount = it ? it.amount : 0;
-                const goal = isManager ? (mat.manager_weekly_goal ?? mat.weekly_goal ?? 700) : (mat.weekly_goal ?? 700);
+                const goal = isManager ? (mat.manager_weekly_goal ?? 0) : (mat.weekly_goal ?? 700);
                 if (amount < goal) { complete = false; break; }
             }
             const isPartial = complete ? 0 : 1;

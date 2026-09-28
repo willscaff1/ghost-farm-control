@@ -40,7 +40,6 @@
                     <a href="#" class="dropdown-item" onclick="showEditProfile(); closeUserDropdown();">👤 Editar Meus Dados</a>
                     <a href="#" class="dropdown-item" onclick="showChangePassword(); closeUserDropdown();">🔑 Trocar Senha</a>
                     <a href="#" class="dropdown-item" onclick="showTab('new-member'); closeUserDropdown();">➕ Cadastrar Membro</a>
-                    <a href="#" class="dropdown-item" onclick="showTab('manage-materials'); closeUserDropdown();">📦 Gerenciar Materiais</a>
                     <div class="dropdown-divider"></div>
                     <a href="#" class="dropdown-item dropdown-item-danger" onclick="logout()">🚪 Sair</a>
                 </div>
@@ -1248,38 +1247,51 @@
                         </div>
                     </div>
 
-                    <!-- Meta da semana: cadastro livre (material, dinheiro, produto...) -->
+                    <!-- Metas separadas: membros e gerência (listas independentes) -->
                     <div class="goals-section">
-                        <h3>📦 Itens da Meta</h3>
-                        <p class="subtitle" style="margin-top:-6px;">Nome livre, ícone, quantidade semanal e pra quem vale (membros ou gerência).</p>
+                        <h3>👤 Meta dos Membros</h3>
+                        <p class="subtitle" style="margin-top:-6px;">O que os membros farmam por semana. Independente da gerência.</p>
                         <div class="goals-add-form">
                             <label class="goals-label">Ícone</label>
-                            <select id="matIcon" class="goals-input goals-icon"></select>
+                            <select id="matIconM" class="goals-input goals-icon"></select>
                             <label class="goals-label">Nome</label>
-                            <input type="text" id="matName" placeholder="Ex: Dinheiro Sujo, Agulha, Capofol" class="goals-input goals-name">
+                            <input type="text" id="matNameM" placeholder="Ex: Dinheiro Sujo, Agulha, Capofol" class="goals-input goals-name">
                             <label class="goals-label">Quantidade</label>
-                            <input type="number" id="matQty" placeholder="Ex: 700" min="1" max="99999999" class="goals-input goals-number">
-                            <label class="goals-label">Para</label>
-                            <select id="matAudience" class="goals-input goals-dropdown goals-type">
-                                <option value="member">👤 Membros</option>
-                                <option value="manager">🛡️ Gerência</option>
-                            </select>
-                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMat">➕ Adicionar</button>
+                            <input type="number" id="matQtyM" placeholder="Ex: 700" min="1" max="99999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMatM">➕ Adicionar</button>
                         </div>
-                        <div id="matMsg" class="goals-message"></div>
+                        <div id="matMsgM" class="goals-message"></div>
                         <div class="goals-table-wrap">
                             <table class="goals-table">
                                 <thead>
-                                    <tr>
-                                        <th>Ícone</th>
-                                        <th>Nome</th>
-                                        <th>Quantidade</th>
-                                        <th>Para</th>
-                                        <th>Ações</th>
-                                    </tr>
+                                    <tr><th>Ícone</th><th>Nome</th><th>Quantidade</th><th>Ações</th></tr>
                                 </thead>
-                                <tbody id="goalsMaterialsBody">
-                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
+                                <tbody id="goalsMaterialsBodyM">
+                                    <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="goals-section">
+                        <h3>🛡️ Meta da Gerência</h3>
+                        <p class="subtitle" style="margin-top:-6px;">O que a gerência (gerentes, 01 e 02) farma por semana. Independente dos membros.</p>
+                        <div class="goals-add-form">
+                            <label class="goals-label">Ícone</label>
+                            <select id="matIconG" class="goals-input goals-icon"></select>
+                            <label class="goals-label">Nome</label>
+                            <input type="text" id="matNameG" placeholder="Ex: Dinheiro Sujo, Agulha, Capofol" class="goals-input goals-name">
+                            <label class="goals-label">Quantidade</label>
+                            <input type="number" id="matQtyG" placeholder="Ex: 700" min="1" max="99999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMatG">➕ Adicionar</button>
+                        </div>
+                        <div id="matMsgG" class="goals-message"></div>
+                        <div class="goals-table-wrap">
+                            <table class="goals-table">
+                                <thead>
+                                    <tr><th>Ícone</th><th>Nome</th><th>Quantidade</th><th>Ações</th></tr>
+                                </thead>
+                                <tbody id="goalsMaterialsBodyG">
+                                    <tr><td colspan="4" class="loading">Carregando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1918,7 +1930,7 @@
     <script src="js/family-commandments.js?v=20260928merc7"></script>
     <script src="js/capital-nickname.js?v=20260928merc7"></script>
     <script src="js/name-format.js?v=20260928names1"></script>
-    <script src="js/admin.js?v=20260928hide1"></script>
+    <script src="js/admin.js?v=20260928sep1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

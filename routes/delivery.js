@@ -176,7 +176,7 @@ const isManagerUser = async (userId, sessionUser) => {
 
 const resolveMaterialGoal = (material, isManager) => {
     if (isManager) {
-        return material.manager_weekly_goal ?? material.weekly_goal ?? DEFAULT_WEEKLY_GOAL;
+        return material.manager_weekly_goal ?? 0; // metas separadas: gerência não herda a dos membros
     }
     return material.weekly_goal ?? DEFAULT_WEEKLY_GOAL;
 };
@@ -193,7 +193,7 @@ const resolvePaymentGoal = (paymentType, isManager) => {
 const productAppliesToRole = (product, isManager) => {
     if (!product) return false;
     const goal = isManager
-        ? (product.manager_weekly_goal ?? product.weekly_goal ?? 0)
+        ? (product.manager_weekly_goal ?? 0)
         : (product.weekly_goal ?? 0);
     return (parseInt(goal, 10) || 0) > 0;
 };
