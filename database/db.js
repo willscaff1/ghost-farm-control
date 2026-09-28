@@ -5,6 +5,8 @@ const isProduction = process.env.DATABASE_URL ? true : false;
 // Senha de bootstrap para super admin: deve ser sempre definida explicitamente via ambiente
 const superAdminBootstrapPassword = process.env.SUPERADMIN_BOOTSTRAP_PASSWORD || null;
 const FARM_ROLE_SPLIT_MARKER = 'farm_product_role_split_capofol_v1_done';
+// Marcador do reset geral (mudança de cidade, 28/09/2026) — gravado pelo one-shot no server.js
+const SYSTEM_RESET_MARKER = 'system_reset_2026_09_28_done';
 const MANAGER_DEFAULT_MATERIAL = {
     name: 'Capofol',
     icon: 'C',
@@ -601,7 +603,13 @@ const initializePostgres = async () => {
         console.log('✅ Tabela member_observations verificada/criada');
 
         // Inserir tipos de pagamento padrão (R$ = Dinheiro; unidade = Pepita, Ruby, Safira)
-        const defaultPaymentTypes = [
+        // Depois do reset geral (mudança de cidade) o catálogo é todo novo: não re-semear.
+        const resetDone = await pool.query(
+            `SELECT setting_value FROM farm_settings WHERE setting_key = $1`,
+            [SYSTEM_RESET_MARKER]
+        );
+        const skipDefaultPaymentTypes = resetDone.rows.length > 0 && resetDone.rows[0].setting_value === 'true';
+        const defaultPaymentTypes = skipDefaultPaymentTypes ? [] : [
             ['Dinheiro Limpo', '💵', 50000, 'R$'],
             ['Dinheiro Sujo', '💰', 50000, 'R$'],
             ['Pepita de Ouro', '🪙', 700, 'unidade'],
@@ -616,7 +624,7 @@ const initializePostgres = async () => {
                 [name, icon, goal, goal, unitType]
             );
         }
-        console.log('✅ Tipos de pagamento padrão inseridos');
+        console.log(skipDefaultPaymentTypes ? 'ℹ️ Tipos de pagamento padrão não re-semeados (sistema resetado)' : '✅ Tipos de pagamento padrão inseridos');
 
         // Inserir configurações padrão do farm
         const defaultSettings = [
@@ -1048,19 +1056,23 @@ const initializeSQLite = () => {
             pool.run(`INSERT OR IGNORE INTO farm_settings (setting_key, setting_value) VALUES (?, 'true')`, [FARM_ROLE_SPLIT_MARKER]);
 
             // Inserir tipos de pagamento padrão (R$ = Dinheiro; unidade = Pepita, Ruby, Safira)
-            const defaultPaymentTypes = [
-                ['Dinheiro Limpo', '💵', 50000, 'R$'],
-                ['Dinheiro Sujo', '💰', 50000, 'R$'],
-                ['Pepita de Ouro', '🪙', 700, 'unidade'],
-                ['Pepita de Prata', '💸', 700, 'unidade'],
-                ['Ruby', '💎', 700, 'unidade'],
-                ['Safira', '💠', 700, 'unidade']
-            ];
-            defaultPaymentTypes.forEach(([name, icon, goal, unitType]) => {
-                pool.run(`INSERT OR IGNORE INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role) VALUES (?, ?, ?, ?, ?, 'member')`, [name, icon, goal, goal, unitType]);
+            // Depois do reset geral (mudança de cidade) o catálogo é todo novo: não re-semear.
+            pool.get(`SELECT setting_value FROM farm_settings WHERE setting_key = ?`, [SYSTEM_RESET_MARKER], (resetErr, resetRow) => {
+                if (resetRow && resetRow.setting_value === 'true') return;
+                const defaultPaymentTypes = [
+                    ['Dinheiro Limpo', '💵', 50000, 'R$'],
+                    ['Dinheiro Sujo', '💰', 50000, 'R$'],
+                    ['Pepita de Ouro', '🪙', 700, 'unidade'],
+                    ['Pepita de Prata', '💸', 700, 'unidade'],
+                    ['Ruby', '💎', 700, 'unidade'],
+                    ['Safira', '💠', 700, 'unidade']
+                ];
+                defaultPaymentTypes.forEach(([name, icon, goal, unitType]) => {
+                    pool.run(`INSERT OR IGNORE INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role) VALUES (?, ?, ?, ?, ?, 'member')`, [name, icon, goal, goal, unitType]);
+                });
+                // Corrigir tipos em unidade que estavam com 50000
+                pool.run(`UPDATE payment_types SET unit_type = 'unidade', weekly_goal = 700, manager_weekly_goal = 700 WHERE name IN ('Pepita de Ouro', 'Pepita de Prata', 'Ruby', 'Safira')`);
             });
-            // Corrigir tipos em unidade que estavam com 50000
-            pool.run(`UPDATE payment_types SET unit_type = 'unidade', weekly_goal = 700, manager_weekly_goal = 700 WHERE name IN ('Pepita de Ouro', 'Pepita de Prata', 'Ruby', 'Safira')`);
 
             // Inserir configurações padrão do farm
             const defaultSettings = [
@@ -1160,5 +1172,6 @@ module.exports = {
     getAll,
     getCurrentWeek,
     dbType,
-    cleanupOldImages
+    cleanupOldImages,
+    SYSTEM_RESET_MARKER
 };

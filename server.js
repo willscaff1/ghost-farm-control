@@ -1248,8 +1248,109 @@ db.initialize().then(async () => {
         console.error('⚠️ Erro na auto-migração (sistema continuará funcionando):', migrationError.message);
     }
     
+    // ============================================================
+    // RESET GERAL DO SISTEMA — mudança de cidade (28/09/2026)
+    // Apaga todos os dados operacionais (usuários, metas, entregas, Elite,
+    // competição, armas, whitelist...), guarda uma cópia em system_backups
+    // (sem imagens) e deixa só o usuário admin/admin como Super Admin.
+    // Mantém: role_permissions (definições de cargo) e farm_settings (flags).
+    // Roda uma única vez: marcador em farm_settings.
+    // ============================================================
+    async function runSystemResetOneShot() {
+        const { runQuery, getOne, getAll, dbType, pool, SYSTEM_RESET_MARKER } = require('./database/db');
+        const bcryptReset = require('bcryptjs');
+        const isPg = dbType === 'postgres';
+        const KEEP = new Set(['farm_settings', 'role_permissions', 'system_backups']);
+
+        try {
+            const done = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [SYSTEM_RESET_MARKER]);
+            if (done?.setting_value === 'true') {
+                console.log('✅ Reset geral (28/09/2026) já executado');
+                return;
+            }
+
+            console.log('🧨 RESET GERAL DO SISTEMA: iniciando...');
+
+            // 1) Tabelas reais do banco (não a lista do código — prod pode ter tabela antiga)
+            const tableRows = isPg
+                ? await getAll(`SELECT table_name AS name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`)
+                : await getAll(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`);
+            const tables = tableRows.map(r => r.name).filter(Boolean);
+            const toWipe = tables.filter(t => !KEEP.has(t));
+
+            // 2) Backup dentro do próprio banco (imagens base64 ficam de fora)
+            await runQuery(`
+                CREATE TABLE IF NOT EXISTS system_backups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    label TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    payload TEXT NOT NULL
+                )
+            `);
+            const backup = { label: 'antes_do_reset_2026_09_28', counts: {}, tables: {} };
+            for (const t of toWipe) {
+                if (/screenshot/i.test(t)) { // imagens pesam demais: só a contagem
+                    try { backup.counts[t] = Number((await getOne(`SELECT COUNT(*) AS c FROM ${t}`))?.c || 0); } catch (e) { backup.counts[t] = -1; }
+                    continue;
+                }
+                let rows = [];
+                try { rows = await getAll(`SELECT * FROM ${t}`); } catch (e) { rows = []; }
+                backup.counts[t] = rows.length;
+                backup.tables[t] = rows.map(row => {
+                    const out = {};
+                    for (const [k, v] of Object.entries(row)) {
+                        out[k] = (typeof v === 'string' && v.startsWith('data:')) ? '[imagem removida do backup]' : v;
+                    }
+                    return out;
+                });
+            }
+            await runQuery('INSERT INTO system_backups (label, payload) VALUES (?, ?)', [backup.label, JSON.stringify(backup)]);
+            console.log('💾 Backup gravado em system_backups:', JSON.stringify(backup.counts));
+
+            // 3) Apagar tudo
+            if (isPg) {
+                if (toWipe.length > 0) {
+                    await pool.query(`TRUNCATE TABLE ${toWipe.map(t => '"' + t + '"').join(', ')} RESTART IDENTITY CASCADE`);
+                }
+            } else {
+                for (const t of toWipe) await runQuery(`DELETE FROM ${t}`);
+                try { await runQuery(`DELETE FROM sqlite_sequence WHERE name IN (${toWipe.map(() => '?').join(',')})`, toWipe); } catch (e) { /* sem autoincrement */ }
+            }
+            console.log('🧹 Tabelas zeradas:', toWipe.join(', '));
+
+            // 4) farm_settings: some o que referencia dados antigos e desliga estados da cidade antiga
+            await runQuery(`DELETE FROM farm_settings WHERE setting_key = 'elite_route_materials'`);
+            for (const key of ['competition_enabled', 'meta_exempt_members', 'meta_exempt_managers']) {
+                await runQuery('UPDATE farm_settings SET setting_value = ? WHERE setting_key = ?', ['false', key]);
+            }
+
+            // 5) Único usuário: admin / admin (Super Admin)
+            const hashed = bcryptReset.hashSync('admin', 10);
+            const ins = await runQuery(
+                'INSERT INTO users (name, passport, password, role, active) VALUES (?, ?, ?, ?, ?)',
+                ['Admin Admin', 'admin', hashed, 'super_admin', 1]
+            );
+            let adminId = ins?.lastID;
+            if (!adminId) {
+                const row = await getOne('SELECT id FROM users WHERE passport = ?', ['admin']);
+                adminId = row?.id;
+            }
+            await runQuery('INSERT INTO user_groups (user_id, group_name) VALUES (?, ?)', [adminId, 'super_admin']);
+
+            // 6) Marcador (nunca mais roda)
+            await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [SYSTEM_RESET_MARKER, 'true']);
+            if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
+
+            console.log('✅ RESET GERAL concluído. Usuário admin/admin criado como Super Admin.');
+        } catch (e) {
+            console.error('❌ RESET GERAL falhou:', e.message);
+        }
+    }
+
     app.listen(PORT, async () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
+        await runSystemResetOneShot();
+
         
         // Criar super admin "Admin Admin" se não existir (one-shot, remover depois)
         try {
