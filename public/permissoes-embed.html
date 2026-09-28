@@ -267,6 +267,12 @@
             });
         }
 
+        function notifyParentMembersChanged(){
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'ghost-farm-members-updated' }, window.location.origin);
+            }
+        }
+
         function renderGroups(){
             if (roles.length === 0){ document.getElementById('container').innerHTML = '<div class="empty">Nenhum grupo ainda. Clique em “Novo Grupo”.</div>'; return; }
             var html = '<div class="groups-list">';
@@ -434,7 +440,7 @@
             fetch('/api/admin/role-permissions/' + rn + '/members', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: userId }) })
                 .then(function(r){return r.json();})
                 .then(function(d){
-                    if (d.success){ refreshMembers(); }
+                    if (d.success){ refreshMembers().then(notifyParentMembersChanged); }
                     else alert('Erro: ' + (d.error || 'falha ao adicionar'));
                 })
                 .catch(function(e){ alert('Erro: ' + e.message); });
@@ -445,7 +451,7 @@
             fetch('/api/admin/role-permissions/' + rn + '/members/' + userId, { method:'DELETE' })
                 .then(function(r){return r.json();})
                 .then(function(d){
-                    if (d.success){ refreshMembers(); }
+                    if (d.success){ refreshMembers().then(notifyParentMembersChanged); }
                     else alert('Erro: ' + (d.error || 'falha ao remover'));
                 })
                 .catch(function(e){ alert('Erro: ' + e.message); });
@@ -461,6 +467,12 @@
 
         document.addEventListener('click', function(e){
             if (e.target.classList && e.target.classList.contains('modal')) e.target.classList.remove('show');
+        });
+
+        window.addEventListener('message', function(event){
+            if (event.origin !== window.location.origin) return;
+            if (!event.data || event.data.type !== 'ghost-farm-members-updated') return;
+            refreshMembers();
         });
 
         loadAll();

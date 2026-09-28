@@ -3819,14 +3819,21 @@ body.admin-layout {
 /* Edit Member Modal - Redesigned */
 .edit-member-modal {
     z-index: 10000;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .edit-member-content {
-    max-width: 520px !important;
+    width: min(680px, calc(100vw - 40px));
+    max-width: 680px !important;
+    max-height: min(92vh, 900px) !important;
     background: linear-gradient(180deg, #1e1e32 0%, #151525 100%) !important;
     border: 1px solid rgba(102, 126, 234, 0.3) !important;
     border-radius: 20px !important;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
 }
 
 .edit-member-header {
@@ -3836,6 +3843,8 @@ body.admin-layout {
     align-items: center;
     gap: 15px;
     border-bottom: none !important;
+    flex: 0 0 auto;
+    position: relative;
 }
 
 .edit-member-header .header-icon {
@@ -3858,6 +3867,7 @@ body.admin-layout {
 }
 
 .edit-member-header .modal-close {
+    position: static !important;
     background: rgba(255, 255, 255, 0.2) !important;
     color: #fff !important;
     width: 36px;
@@ -3871,6 +3881,23 @@ body.admin-layout {
 
 .edit-member-body {
     padding: 25px 30px 30px !important;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.edit-member-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.edit-member-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.edit-member-body::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.42);
+    border-radius: 999px;
 }
 
 .edit-form-row {
@@ -3948,6 +3975,62 @@ body.admin-layout {
     padding: 10px;
 }
 
+.edit-member-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    max-height: 230px;
+    overflow-y: auto;
+    padding: 11px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.edit-form-group .edit-member-group-option {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 11px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #d9dbea;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.edit-form-group .edit-member-group-option:hover,
+.edit-form-group .edit-member-group-option:has(input:checked) {
+    border-color: rgba(102, 126, 234, 0.85);
+    background: rgba(102, 126, 234, 0.14);
+}
+
+.edit-form-group .edit-member-group-option input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 17px;
+    height: 17px;
+    margin: 0;
+    padding: 0;
+    accent-color: #667eea;
+    box-shadow: none;
+}
+
+.edit-member-group-option span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+    .edit-member-groups {
+        grid-template-columns: 1fr;
+    }
+}
+
 .password-group {
     margin-top: 5px;
     padding-top: 15px;
@@ -3958,9 +4041,13 @@ body.admin-layout {
     display: flex;
     gap: 12px;
     justify-content: flex-end;
-    margin-top: 25px;
-    padding-top: 20px;
+    align-items: center;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 16px 30px 18px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(15, 15, 29, 0.96);
+    box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.2);
 }
 
 .btn-cancel-edit {
@@ -4004,22 +4091,71 @@ body.admin-layout {
 }
 
 @media (max-width: 500px) {
+    .edit-member-modal {
+        padding: 8px;
+        align-items: center;
+    }
+
     .edit-form-row {
         grid-template-columns: 1fr;
     }
     
     .edit-member-content {
-        margin: 10px;
+        width: 100%;
+        height: calc(100dvh - 16px);
+        max-height: calc(100dvh - 16px) !important;
+        margin: 0;
+        border-radius: 16px !important;
+    }
+
+    .edit-member-header {
+        padding: 14px 16px !important;
+        gap: 10px;
+    }
+
+    .edit-member-header .header-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 22px;
+    }
+
+    .edit-member-body {
+        padding: 16px !important;
+    }
+
+    .edit-member-groups {
+        max-height: 180px;
     }
     
     .edit-modal-actions {
-        flex-direction: column;
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+        gap: 8px;
     }
     
     .btn-cancel-edit,
     .btn-save-edit {
-        width: 100%;
-        justify-content: center;
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 12px 10px;
+        white-space: nowrap;
+    }
+}
+
+@media (max-height: 720px) and (min-width: 501px) {
+    .edit-member-header {
+        padding: 16px 24px !important;
+    }
+
+    .edit-member-body {
+        padding: 18px 24px !important;
+    }
+
+    .edit-member-groups {
+        max-height: 165px;
+    }
+
+    .edit-modal-actions {
+        padding: 13px 24px 15px;
     }
 }
 

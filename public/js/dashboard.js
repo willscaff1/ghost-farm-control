@@ -783,9 +783,7 @@ function renderWelcomeAndSlot(user) {
     if (nameEl) nameEl.textContent = vulgo;
 
     // Determina o slot correto conforme o cargo
-    const managerRoles = ['super_admin', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
-    const groups = (user.groups && user.groups.length) ? user.groups : (user.role ? [user.role] : []);
-    const isManager = groups.some(g => managerRoles.includes(g) || String(g || '').startsWith('gerente_'));
+    const isManager = user.is_manager === true;
     const slot = isManager ? user.manager_slot : user.member_slot;
     const slotLabel = isManager ? '📦 Baú da Gerência' : '📦 Baú dos Membros';
     const slotText = (slot !== null && slot !== undefined && String(slot).trim() !== '') ? `#${String(slot).trim()}` : null;
@@ -4050,8 +4048,7 @@ function showEditProfile() {
         roleNames[badgeRole] || roleNames[roleKey] || DEFAULT_ROLE_LABELS[roleKey] || badgeRole || 'Membro';
 
     // Slot conforme o cargo (mesma regra do banner de boas-vindas)
-    const managerRoles = ['super_admin', 'gerente_geral', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_de_fabricacao', '01', '02'];
-    const isManager = groups.some(g => managerRoles.includes(g) || String(g || '').startsWith('gerente_'));
+    const isManager = currentUser.is_manager === true;
     const slot = isManager ? currentUser.manager_slot : currentUser.member_slot;
     document.getElementById('editSlotLabel').innerHTML = isManager ? '🛡️ Slot (Baú da Gerência)' : '📦 Slot (Baú dos Membros)';
     const slotVal = (slot !== null && slot !== undefined && String(slot).trim() !== '') ? `#${String(slot).trim()}` : '—';

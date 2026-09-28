@@ -7,8 +7,8 @@
     "start": "node server.js",
     "dev": "node server.js",
     "migrate": "node migrate-production.js",
-    "test": "node test-smoke.js",
-    "precommit": "node test-smoke.js"
+    "test": "node test-access-control.js && node test-smoke.js",
+    "precommit": "node test-access-control.js && node test-smoke.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
