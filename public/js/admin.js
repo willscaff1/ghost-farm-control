@@ -675,15 +675,7 @@ async function loadWeekData() {
             
             // Contadores
             const statusData = cached.statusData;
-            const completedFull = (statusData.completed || []).filter(m => !m.is_partial).length;
-            const completedPartial = (statusData.completed || []).filter(m => m.is_partial).length;
-            const partialFromList = statusData.partial ? statusData.partial.length : 0;
-            
-            document.getElementById('completedCount').textContent = completedFull;
-            document.getElementById('partialCount').textContent = completedPartial + partialFromList;
-            document.getElementById('pendingApprovalCount').textContent = statusData.pendingApproval.length;
-            document.getElementById('notDeliveredCount').textContent = statusData.notDelivered.length;
-            document.getElementById('justifiedCount').textContent = statusData.justified.length;
+$1updateWeeklyStatusCounters(statusData);
             
             // Renderizar tabela
             renderWeeklyTable(currentFilter);
@@ -735,15 +727,7 @@ async function loadWeekData() {
         weeklyStatusData = statusData;
         
         // Contadores - separar completos de parciais
-        const completedFull = (statusData.completed || []).filter(m => !m.is_partial).length;
-        const completedPartial = (statusData.completed || []).filter(m => m.is_partial).length;
-        const partialFromList = statusData.partial ? statusData.partial.length : 0;
-        
-        document.getElementById('completedCount').textContent = completedFull;
-        document.getElementById('partialCount').textContent = completedPartial + partialFromList;
-        document.getElementById('pendingApprovalCount').textContent = statusData.pendingApproval.length;
-        document.getElementById('notDeliveredCount').textContent = statusData.notDelivered.length;
-        document.getElementById('justifiedCount').textContent = statusData.justified.length;
+$1updateWeeklyStatusCounters(statusData);
         
         // Renderizar tabela
         renderWeeklyTable(currentFilter);
@@ -845,15 +829,7 @@ async function loadInitialData() {
             weeklyStatusData = statusData;
             
             // Contadores
-            const completedFull = (statusData.completed || []).filter(m => !m.is_partial).length;
-            const completedPartial = (statusData.completed || []).filter(m => m.is_partial).length;
-            const partialFromList = statusData.partial ? statusData.partial.length : 0;
-            
-            document.getElementById('completedCount').textContent = completedFull;
-            document.getElementById('partialCount').textContent = completedPartial + partialFromList;
-            document.getElementById('pendingApprovalCount').textContent = statusData.pendingApproval.length;
-            document.getElementById('notDeliveredCount').textContent = statusData.notDelivered.length;
-            document.getElementById('justifiedCount').textContent = statusData.justified.length;
+$1updateWeeklyStatusCounters(statusData);
             
             // Renderizar tabela
             renderWeeklyTable(currentFilter);
@@ -2526,7 +2502,22 @@ let currentFilter = 'all';
 let weeklyStatusSearchTerm = '';
 let weeklyStatusSearchUserEditing = false;
 let weeklyStatusSortState = { key: 'member', direction: 'asc' };
-const WEEKLY_STATUS_FILTERS = new Set(['all', 'completed', 'partial', 'pending', 'missing', 'justified']);
+const WEEKLY_STATUS_FILTERS = new Set(['all', 'completed', 'pending', 'missing']);
+
+// Contadores dos 3 estados: Entregou / Aguardando aprovação / Não entregou
+function updateWeeklyStatusCounters(statusData) {
+    const isPartialFlag = (m) => !!m.is_partial || m.is_partial === 1 || m.is_partial === '1';
+    const completed = (statusData.completed || []).filter(m => !isPartialFlag(m)).length;
+    const pending = (statusData.pendingApproval || []).length;
+    const missing = (statusData.completed || []).filter(isPartialFlag).length
+        + (statusData.partial || []).length
+        + (statusData.notDelivered || []).length
+        + (statusData.justified || []).length;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('completedCount', completed);
+    set('pendingApprovalCount', pending);
+    set('notDeliveredCount', missing);
+}
 const WEEKLY_STATUS_SORT_KEYS = new Set(['passport', 'slot', 'member', 'role', 'status']);
 
 function normalizeWeeklyStatusFilter(filter, fallback = 'all') {
@@ -2604,11 +2595,7 @@ async function loadWeeklyStatus() {
         weeklyStatusData = data;
         
         // Contadores
-        document.getElementById('completedCount').textContent = data.completed.length;
-        document.getElementById('partialCount').textContent = data.partial ? data.partial.length : 0;
-        document.getElementById('pendingApprovalCount').textContent = data.pendingApproval.length;
-        document.getElementById('notDeliveredCount').textContent = data.notDelivered.length;
-        document.getElementById('justifiedCount').textContent = data.justified.length;
+        updateWeeklyStatusCounters(data);
         
         // Renderizar tabela
         renderWeeklyTable(currentFilter);
@@ -2619,28 +2606,8 @@ async function loadWeeklyStatus() {
     }
 }
 
-function renderFarmTypeStatusChips(member) {
-    const summary = member.farm_status_summary || {};
-    const order = [
-        { key: 'general', label: 'Meta' }
-    ];
-    const chips = order
-        .filter(item => summary[item.key])
-        .map(item => {
-            const status = summary[item.key].status || 'missing';
-            const text = status === 'complete'
-                ? 'Pago'
-                : status === 'pending'
-                    ? 'Aguardando'
-                    : status === 'in_progress'
-                        ? 'Em progresso'
-                        : status === 'rejected'
-                            ? 'Recusado'
-                            : 'Pendente';
-            return `<span class="farm-type-status-chip ${status}">${item.label}: ${text}</span>`;
-        });
-    return chips.length ? `<div class="farm-type-status-chips">${chips.join('')}</div>` : '';
-}
+// Status limpo: só o badge (sem chips de progresso por material)
+function renderFarmTypeStatusChips() { return ''; }
 
 function normalizeWeeklyStatusSearch(value) {
     return String(value || '')
@@ -2837,7 +2804,6 @@ function renderWeeklyStatusMemberRows(members) {
         // Botões específicos por status (Elite não usa os fluxos de farm)
         switch (isEliteRow ? '' : member.status) {
             case 'completed':
-            case 'partial':
                 buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})">👁️</button>`);
                 break;
             case 'pending':
@@ -2848,13 +2814,12 @@ function renderWeeklyStatusMemberRows(members) {
                     buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})">👁️</button>`);
                 }
                 break;
-            case 'justified':
-                buttons.push(`<button class="action-btn view" onclick="showJustifiedDetailsById(${member.id})">📋</button>`);
-                break;
             case 'missing':
-                // Se foi rejeitado, mostrar botão para ver histórico da rejeição
-                if (member.was_rejected) {
+                // Tem algo lançado (parcial ou recusado): dá pra ver o extrato
+                if (member.delivery_id || member.was_rejected) {
                     buttons.push(`<button class="action-btn view" onclick="showDeliveryExtractById(${member.id})" title="Ver extrato">👁️</button>`);
+                } else if (member.justification_id) {
+                    buttons.push(`<button class="action-btn view" onclick="showJustifiedDetailsById(${member.id})" title="Ver justificativa">📋</button>`);
                 }
                 break;
         }
@@ -2920,100 +2885,20 @@ function renderWeeklyTable(filter) {
     // Combinar todos os membros com seus status
     let allMembers = [];
     
-    // Adicionar completos (aprovados: is_partial = false = Completo, is_partial = true = Em progresso)
-    data.completed.forEach(member => {
-        const isPartial = !!member.is_partial || member.is_partial === 1 || member.is_partial === '1';
-        if (isPartial) {
-            // Farm aprovado mas não completo = Em Progresso
-            if (weekPassed) {
-                allMembers.push({
-                    ...member,
-                    status: 'partial',
-                    statusLabel: '⚡ Em Progresso',
-                    statusClass: 'partial'
-                });
-            } else {
-                allMembers.push({
-                    ...member,
-                    status: 'partial',
-                    statusLabel: '⚡ Em Progresso',
-                    statusClass: 'partial'
-                });
-            }
-        } else {
-            // Farm aprovado completo (bateu meta em todos os materiais)
-            allMembers.push({
-                ...member,
-                status: 'completed',
-                statusLabel: '✅ Completo',
-                statusClass: 'completed'
-            });
-        }
-    });
-    
-    // Adicionar em progresso (lista separada - caso exista)
-    if (data.partial) {
-        data.partial.forEach(member => {
-            // Se a semana passou e está em progresso, mudar para "Não Entregou"
-            if (weekPassed) {
-                allMembers.push({
-                    ...member,
-                    status: 'partial',
-                    statusLabel: '❌ Não Entregou',
-                    statusClass: 'missing'
-                });
-            } else {
-                allMembers.push({
-                    ...member,
-                    status: 'partial',
-                    statusLabel: '⚡ Em Progresso',
-                    statusClass: 'partial'
-                });
-            }
-        });
-    }
-    
-    // Adicionar pendentes de aprovação
-    data.pendingApproval.forEach(member => {
-        allMembers.push({
-            ...member,
-            status: 'pending',
-            statusLabel: member.has_justification_pending ? '📝 Justificativa' : '⏳ Aguardando',
-            statusClass: 'pending'
-        });
-    });
-    
-    // Adicionar não entregaram (incluindo rejeitados)
-    data.notDelivered.forEach(member => {
-        if (member.was_rejected) {
-            // Farm foi rejeitado - mostrar como "Não Entregou" para permitir nova entrega
-            // Mas manter a info de rejeição para visualização
-            allMembers.push({
-                ...member,
-                status: 'missing',
-                statusLabel: '❌ Não Entregou',
-                statusClass: 'missing',
-                was_rejected: true // Manter flag para mostrar histórico
-            });
-        } else {
-            allMembers.push({
-                ...member,
-                status: 'missing',
-                statusLabel: '❌ Não Entregou',
-                statusClass: 'missing'
-            });
-        }
-    });
-    
-    // Adicionar justificados
-    data.justified.forEach(member => {
-        allMembers.push({
-            ...member,
-            status: 'justified',
-            statusLabel: '📋 Justificado',
-            statusClass: 'justified'
-        });
-    });
+    // Três estados só: Entregou / Aguardando aprovação / Não entregou
+    const entregou = { status: 'completed', statusLabel: '✅ Entregou', statusClass: 'completed' };
+    const aguardando = { status: 'pending', statusLabel: '⏳ Aguardando aprovação', statusClass: 'pending' };
+    const naoEntregou = { status: 'missing', statusLabel: '❌ Não entregou', statusClass: 'missing' };
+    const isPartialFlag = (m) => !!m.is_partial || m.is_partial === 1 || m.is_partial === '1';
+
+    // Aprovado completo = entregou; aprovado incompleto = ainda não entregou a meta
+    (data.completed || []).forEach(member => allMembers.push({ ...member, ...(isPartialFlag(member) ? naoEntregou : entregou) }));
+    (data.partial || []).forEach(member => allMembers.push({ ...member, ...naoEntregou }));
+    // Farm ou justificativa esperando um gerente
+    (data.pendingApproval || []).forEach(member => allMembers.push({ ...member, ...aguardando }));
+    (data.notDelivered || []).forEach(member => allMembers.push({ ...member, ...naoEntregou }));
+    // Justificado não é mais um estado próprio: conta como não entregou
+    (data.justified || []).forEach(member => allMembers.push({ ...member, ...naoEntregou }));
     
     // Aplicar filtro
     if (currentFilter !== 'all') {

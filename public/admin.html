@@ -6,7 +6,7 @@
     <title>Ghosts Farm Control - Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260820editmodal1"><link rel="stylesheet" href="css/tables-clean.css?v=20260820badges1">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260928status1"><link rel="stylesheet" href="css/tables-clean.css?v=20260820badges1">
     <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch2">
     
     
@@ -379,35 +379,24 @@
                     <h2>📅 Status da Semana: <span id="currentWeekLabel">Carregando...</span></h2>
                 </div>
                 
-                <!-- Summary Cards - mantém os contadores -->
+                <!-- Summary Cards: só 3 estados -->
                 <div class="weekly-summary-cards">
                     <div class="summary-card completed">
                         <div class="summary-icon">✅</div>
                         <div class="summary-number" id="completedCount">0</div>
-                        <div class="summary-label">Completo</div>
-                    </div>
-                    <div class="summary-card partial">
-                        <div class="summary-icon">⚡</div>
-                        <div class="summary-number" id="partialCount">0</div>
-                        <div class="summary-label">Em Progresso</div>
+                        <div class="summary-label">Entregou</div>
                     </div>
                     <div class="summary-card pending">
                         <div class="summary-icon">⏳</div>
                         <div class="summary-number" id="pendingApprovalCount">0</div>
-                        <div class="summary-label">Aguardando</div>
+                        <div class="summary-label">Aguardando aprovação</div>
                     </div>
                     <div class="summary-card missing">
                         <div class="summary-icon">❌</div>
                         <div class="summary-number" id="notDeliveredCount">0</div>
-                        <div class="summary-label">Não Entregou</div>
+                        <div class="summary-label">Não entregou</div>
                     </div>
-                    <div class="summary-card justified">
-                        <div class="summary-icon">📋</div>
-                        <div class="summary-number" id="justifiedCount">0</div>
-                        <div class="summary-label">Justificado</div>
-                    </div>
-                </div>
-                
+                </div>                
                 <!-- Filtros do Status da Semana -->
                 <div class="card weekly-status-controls-card">
                     <div class="weekly-table-header">
@@ -418,11 +407,9 @@
                         </div>
                         <div class="weekly-table-filters">
                             <button class="filter-btn active" data-filter="all" onclick="filterWeeklyTable('all')">Todos</button>
-                            <button class="filter-btn" data-filter="completed" onclick="filterWeeklyTable('completed')">✅ Completos</button>
-                            <button class="filter-btn" data-filter="partial" onclick="filterWeeklyTable('partial')">⚡ Em Progresso</button>
+                            <button class="filter-btn" data-filter="completed" onclick="filterWeeklyTable('completed')">✅ Entregou</button>
                             <button class="filter-btn" data-filter="pending" onclick="filterWeeklyTable('pending')">⏳ Aguardando</button>
-                            <button class="filter-btn" data-filter="missing" onclick="filterWeeklyTable('missing')">❌ Não Entregou</button>
-                            <button class="filter-btn" data-filter="justified" onclick="filterWeeklyTable('justified')">📋 Justificado</button>
+                            <button class="filter-btn" data-filter="missing" onclick="filterWeeklyTable('missing')">❌ Não entregou</button>
                         </div>
                     </div>
                 </div>
@@ -1923,7 +1910,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260928flags1"></script>
+    <script src="js/admin.js?v=20260928status1"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();
