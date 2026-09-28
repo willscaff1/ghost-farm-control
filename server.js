@@ -1381,10 +1381,36 @@ db.initialize().then(async () => {
         }
     }
 
+    // Padrão de nomes (28/09/2026): nome e vulgo com Primeira Maiúscula em cada palavra — one-shot nos dados existentes
+    async function runNamesTitleCaseOneShot() {
+        const { runQuery, getOne, getAll } = require('./database/db');
+        const { toTitleCase } = require('./services/names');
+        const markerKey = 'names_title_case_2026_09_28_done';
+        try {
+            const done = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [markerKey]);
+            if (done?.setting_value === 'true') return;
+            const users = await getAll('SELECT id, name, capital_nickname FROM users');
+            let changed = 0;
+            for (const u of users || []) {
+                const name = toTitleCase(u.name);
+                const nick = u.capital_nickname ? toTitleCase(u.capital_nickname) : u.capital_nickname;
+                if (name !== u.name || nick !== u.capital_nickname) {
+                    await runQuery('UPDATE users SET name = ?, capital_nickname = ? WHERE id = ?', [name || u.name, nick, u.id]);
+                    changed++;
+                }
+            }
+            await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [markerKey, 'true']);
+            console.log('🔤 Nomes padronizados (Primeira Maiúscula): ' + changed + ' usuário(s) ajustado(s)');
+        } catch (e) {
+            console.error('⚠️ Padrão de nomes:', e.message);
+        }
+    }
+
     app.listen(PORT, async () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
         await runSystemResetOneShot();
         await runRolePermissionsV3OneShot();
+        await runNamesTitleCaseOneShot();
 
         
         // Criar super admin "Admin Admin" se não existir (one-shot, remover depois)

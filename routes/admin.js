@@ -19,6 +19,7 @@ const {
     getUsersAccessProfiles,
     hasPermission
 } = require('../services/accessControl');
+const { toTitleCase } = require('../services/names');
 
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.DATABASE_URL;
 
@@ -2341,7 +2342,10 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
     try {
         const isSuperAdmin = isSuperAdminUser(req.session.user);
         const memberId = req.params.id;
-        const { name, passport, email, role, newPassword, member_slot, manager_slot, capital_nickname } = req.body;
+        const { passport, email, role, newPassword, member_slot, manager_slot } = req.body;
+        // Padrão da família: nome e vulgo com Primeira Maiúscula em cada palavra
+        const name = req.body.name ? toTitleCase(req.body.name) : req.body.name;
+        const capital_nickname = typeof req.body.capital_nickname === 'string' ? toTitleCase(req.body.capital_nickname) : req.body.capital_nickname;
         
         const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
         if (!member) {

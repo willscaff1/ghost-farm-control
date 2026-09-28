@@ -7,6 +7,7 @@ const {
     recordCommandmentResponse
 } = require('../services/familyCommandments');
 const { getUserAccessProfile, hasPermission } = require('../services/accessControl');
+const { toTitleCase } = require('../services/names');
 const router = express.Router();
 
 // Senha temporária aplicada quando o membro clica em "Esqueci minha senha".
@@ -185,7 +186,7 @@ router.post('/capital-nickname', async (req, res) => {
             return res.status(401).json({ error: 'Nao autenticado' });
         }
 
-        const nickname = String(req.body?.capital_nickname || '').trim().replace(/\s+/g, ' ');
+        const nickname = toTitleCase(req.body?.capital_nickname);
         if (!nickname) {
             return res.status(400).json({ error: 'Informe seu vulgo na Capital' });
         }
@@ -296,7 +297,8 @@ router.post('/commandments-response', async (req, res) => {
 // Cadastro público (membros se cadastram)
 router.post('/register-public', async (req, res) => {
     try {
-        const { name, passport, email, password } = req.body;
+        const { passport, email, password } = req.body;
+        const name = toTitleCase(req.body.name); // padrão: Primeira Maiúscula em cada palavra
         
         if (!name || !passport || !password) {
             return res.status(400).json({ error: 'Nome, passaporte e senha são obrigatórios' });
@@ -339,7 +341,8 @@ router.post('/register', async (req, res) => {
             return res.status(403).json({ error: 'Sem permissão para registrar membros' });
         }
         
-        const { name, passport, email, password, role, member_slot, manager_slot } = req.body;
+        const { passport, email, password, role, member_slot, manager_slot } = req.body;
+        const name = toTitleCase(req.body.name); // padrão: Primeira Maiúscula em cada palavra
         
         if (!name || !passport || !password) {
             return res.status(400).json({ error: 'Nome, passaporte e senha são obrigatórios' });
@@ -446,13 +449,14 @@ router.put('/update-profile', async (req, res) => {
             return res.status(401).json({ error: 'Não autenticado' });
         }
 
-        const { name, email, capital_nickname, newPassword } = req.body;
+        const { email, capital_nickname, newPassword } = req.body;
+        const name = toTitleCase(req.body.name);
 
         if (!name || name.trim().length === 0) {
             return res.status(400).json({ error: 'Nome é obrigatório' });
         }
 
-        const nickname = String(capital_nickname || '').trim().replace(/\s+/g, ' ');
+        const nickname = toTitleCase(capital_nickname);
         if (nickname && (nickname.length < 2 || nickname.length > 40)) {
             return res.status(400).json({ error: 'O vulgo deve ter entre 2 e 40 caracteres' });
         }
