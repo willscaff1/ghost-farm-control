@@ -1186,7 +1186,7 @@
             <div id="goals-tab" class="tab-content">
                 <div class="card goals-card">
                     <h2>🎯 Metas</h2>
-                    <p class="subtitle">Dois tipos de farm: 🔫 Armas e 💰 Dinheiro. Cada material tem a meta semanal de membros e de gerência. A Elite paga em ações e só vale pra quem tem a tag.</p>
+                    <p class="subtitle">Cadastro livre da meta semanal: material, dinheiro, produto — o que a família farmar. A Elite paga em ações e só vale pra quem tem a tag.</p>
 
                     <!-- Isenção de meta -->
                     <div class="goals-section meta-exempt-section">
@@ -1240,28 +1240,22 @@
                         </div>
                     </div>
 
-                    <!-- Materiais (lista única: meta de membros + meta de gerência) -->
+                    <!-- Meta da semana: cadastro livre (material, dinheiro, produto...) -->
                     <div class="goals-section">
-                        <h3>📦 Materiais da Meta</h3>
-                        <p class="subtitle" style="margin-top:-6px;">Cada material tem a meta dos membros e a meta da gerência. Meta 0 = aquele grupo não farma esse material.</p>
+                        <h3>📦 Itens da Meta</h3>
+                        <p class="subtitle" style="margin-top:-6px;">Nome livre, ícone, quantidade semanal e pra quem vale (membros ou gerência).</p>
                         <div class="goals-add-form">
-                            <label class="goals-label">Material</label>
-                            <select id="matSelect" class="goals-input goals-dropdown"></select>
-                            <span id="matNewFields" class="goals-new-name-wrap" style="display:none;">
-                                <label class="goals-label">Novo</label>
-                                <input type="text" id="matName" placeholder="Ex: Dinheiro Sujo, Agulha" class="goals-input goals-name">
-                                <label class="goals-label">Ícone</label>
-                                <select id="matIcon" class="goals-input goals-icon"></select>
-                            </span>
-                            <label class="goals-label">Tipo</label>
-                            <select id="matFarmType" class="goals-input goals-dropdown goals-type">
-                                <option value="weapons">🔫 Armas</option>
-                                <option value="money">💰 Dinheiro</option>
+                            <label class="goals-label">Ícone</label>
+                            <select id="matIcon" class="goals-input goals-icon"></select>
+                            <label class="goals-label">Nome</label>
+                            <input type="text" id="matName" placeholder="Ex: Dinheiro Sujo, Agulha, Capofol" class="goals-input goals-name">
+                            <label class="goals-label">Quantidade</label>
+                            <input type="number" id="matQty" placeholder="Ex: 700" min="1" max="99999999" class="goals-input goals-number">
+                            <label class="goals-label">Para</label>
+                            <select id="matAudience" class="goals-input goals-dropdown goals-type">
+                                <option value="member">👤 Membros</option>
+                                <option value="manager">🛡️ Gerência</option>
                             </select>
-                            <label class="goals-label">👤 Meta membros</label>
-                            <input type="number" id="matGoalMembros" value="700" min="0" max="9999999" class="goals-input goals-number">
-                            <label class="goals-label">🛡️ Meta gerência</label>
-                            <input type="number" id="matGoalGerentes" value="500" min="0" max="9999999" class="goals-input goals-number">
                             <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMat">➕ Adicionar</button>
                         </div>
                         <div id="matMsg" class="goals-message"></div>
@@ -1271,15 +1265,13 @@
                                     <tr>
                                         <th>Ícone</th>
                                         <th>Nome</th>
-                                        <th>Tipo</th>
-                                        <th>👤 Meta membros</th>
-                                        <th>🛡️ Meta gerência</th>
-                                        <th>Status</th>
+                                        <th>Quantidade</th>
+                                        <th>Para</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody id="goalsMaterialsBody">
-                                    <tr><td colspan="7" class="loading">Carregando...</td></tr>
+                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1917,7 +1909,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260928metas2"></script>
+    <script src="js/admin.js?v=20260928metas3"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

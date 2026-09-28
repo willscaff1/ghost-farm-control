@@ -63,8 +63,8 @@ const productAppliesToRole = (product, isManager) => {
     return (parseInt(goal, 10) || 0) > 0;
 };
 
-// Dois tipos de farm: armas e dinheiro (qualquer valor legado cai em armas).
-const normalizeFarmType = (farmType = '') => String(farmType || '').trim().toLowerCase() === 'money' ? 'money' : 'weapons';
+// Sem tipo de farm: tudo que a família farma (material, dinheiro, produto) é um farm só.
+const normalizeFarmType = () => 'general';
 
 // Sem interruptores por tipo de farm nem data de início: material ativo vale sempre.
 const materialAppliesToFarmSettings = () => true;
@@ -2579,7 +2579,7 @@ router.get('/materials', requireAdmin, async (req, res) => {
     try {
         let materials = await getAll('SELECT * FROM materials ORDER BY name');
         // Lista única: sem tipo de farm nem destino por cargo (a meta 0 é que decide)
-        materials = (materials || []).map(m => ({ ...m, farm_type: normalizeFarmType(m.farm_type), target_role: 'both' }));
+        materials = (materials || []).map(m => ({ ...m, farm_type: 'general', target_role: 'both' }));
         const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings').catch(() => []);
         const farmSettingsObj = {};
         (settingsRows || []).forEach(s => {
@@ -2730,45 +2730,40 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
 
 router.post('/materials', requireAdmin, async (req, res) => {
     try {
-        const { name, icon, weekly_goal, manager_weekly_goal, farm_type } = req.body;
-        
-        if (!name) {
-            return res.status(400).json({ error: 'Nome do material é obrigatório' });
+        // Cadastro livre: nome (material, dinheiro, produto...), ícone, quantidade e pra quem
+        const { name, icon, quantity, audience } = req.body;
+        if (!name || !String(name).trim()) {
+            return res.status(400).json({ error: 'Nome é obrigatório' });
         }
-        
-        const trimmedName = name.trim();
-        // Lista única: meta de membro e de gerente no mesmo material (0 = aquele público não farma)
-        const goal = Math.max(0, parseInt(weekly_goal, 10) || 0);
-        const managerGoal = Math.max(0, parseInt(manager_weekly_goal, 10) || 0);
-        if (goal === 0 && managerGoal === 0) {
-            return res.status(400).json({ error: 'Informe a meta de membros ou de gerentes (pelo menos uma maior que 0)' });
+        const trimmedName = String(name).trim();
+        const qty = Math.max(0, parseInt(quantity, 10) || 0);
+        if (qty <= 0) {
+            return res.status(400).json({ error: 'Informe a quantidade (maior que 0)' });
         }
-        const targetRole = 'both';
-        const farmType = normalizeFarmType(farm_type); // 'weapons' ou 'money'
-        
-        const existing = await getOne('SELECT id, active FROM materials WHERE name = ?', [trimmedName]);
+        const forManager = audience === 'manager';
+        const cleanIcon = icon || '📦';
+
+        // Mesmo nome já cadastrado: só preenche a quantidade daquele público
+        const existing = await getOne('SELECT * FROM materials WHERE name = ?', [trimmedName]);
         if (existing) {
-            const isInactive = existing.active === 0 || existing.active === '0' || existing.active === false || existing.active == null;
-            if (isInactive) {
-                await runQuery(
-                    'UPDATE materials SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ?, farm_type = ? WHERE id = ?',
-                    [icon || '📦', goal, managerGoal, targetRole, farmType, existing.id]
-                );
-                return res.json({ success: true, message: 'Material reativado e meta atualizada' });
-            }
-            return res.status(400).json({ error: 'Este material já está na tabela abaixo. Use "Editar metas" ou "Excluir da meta" na linha dele.' });
+            const memberGoal = forManager ? (parseInt(existing.weekly_goal, 10) || 0) : qty;
+            const managerGoal = forManager ? qty : (parseInt(existing.manager_weekly_goal, 10) || 0);
+            await runQuery(
+                'UPDATE materials SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ?, farm_type = ? WHERE id = ?',
+                [cleanIcon, memberGoal, managerGoal, 'both', 'general', existing.id]
+            );
+            return res.json({ success: true, message: `${trimmedName} atualizado para ${forManager ? 'a gerência' : 'os membros'}` });
         }
-        
+
         await runQuery(
             'INSERT INTO materials (name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type) VALUES (?, ?, ?, ?, ?, ?)',
-            [trimmedName, icon || '📦', goal, managerGoal, targetRole, farmType]
+            [trimmedName, cleanIcon, forManager ? 0 : qty, forManager ? qty : 0, 'both', 'general']
         );
-        
-        res.json({ success: true, message: 'Material adicionado' });
+        res.json({ success: true, message: 'Adicionado à meta' });
     } catch (error) {
         const msg = (error && error.message) ? String(error.message) : '';
         if (msg.includes('UNIQUE constraint failed') || (msg.includes('SQLITE_CONSTRAINT') && msg.includes('materials'))) {
-            return res.status(400).json({ error: 'Este material já está na lista. Use a tabela para editar ou remover.' });
+            return res.status(400).json({ error: 'Já existe um item com esse nome. Edite ou exclua na tabela.' });
         }
         res.status(500).json({ error: error.message });
     }
@@ -2778,38 +2773,39 @@ router.post('/materials', requireAdmin, async (req, res) => {
 router.put('/materials/:id', requireAdmin, async (req, res) => {
     try {
         const materialId = req.params.id;
-        const { name, icon, weekly_goal, manager_weekly_goal, farm_type } = req.body;
-        
+        const { name, icon, quantity, audience, weekly_goal, manager_weekly_goal } = req.body;
+
         const material = await getOne('SELECT * FROM materials WHERE id = ?', [materialId]);
         if (!material) {
-            return res.status(404).json({ error: 'Material não encontrado' });
+            return res.status(404).json({ error: 'Item não encontrado' });
         }
-        
-        const newName = name || material.name;
+
+        const newName = (name && String(name).trim()) || material.name;
         const newIcon = icon || material.icon;
-        const newGoal = weekly_goal !== undefined ? Math.max(0, parseInt(weekly_goal, 10) || 0) : (material.weekly_goal ?? 0);
-        const newManagerGoal = manager_weekly_goal !== undefined
-            ? Math.max(0, parseInt(manager_weekly_goal, 10) || 0)
-            : (material.manager_weekly_goal ?? 0);
-        if (newGoal === 0 && newManagerGoal === 0) {
-            return res.status(400).json({ error: 'Informe a meta de membros ou de gerentes (pelo menos uma maior que 0)' });
+        let memberGoal = parseInt(material.weekly_goal, 10) || 0;
+        let managerGoal = parseInt(material.manager_weekly_goal, 10) || 0;
+        if (quantity !== undefined) {
+            const qty = Math.max(0, parseInt(quantity, 10) || 0);
+            if (audience === 'manager') managerGoal = qty; else memberGoal = qty;
         }
-        const newTargetRole = 'both';
-        const newFarmType = farm_type !== undefined ? normalizeFarmType(farm_type) : normalizeFarmType(material.farm_type);
-        
+        if (weekly_goal !== undefined) memberGoal = Math.max(0, parseInt(weekly_goal, 10) || 0);
+        if (manager_weekly_goal !== undefined) managerGoal = Math.max(0, parseInt(manager_weekly_goal, 10) || 0);
+
         if (newName.trim() !== (material.name || '').trim()) {
-            const existing = await getOne('SELECT id FROM materials WHERE name = ? AND id != ?', [newName.trim(), materialId]);
-            if (existing) {
-                return res.status(400).json({ error: 'Já existe outro material com esse nome. Escolha outro nome.' });
+            const dup = await getOne('SELECT id FROM materials WHERE name = ? AND id != ?', [newName.trim(), materialId]);
+            if (dup) {
+                return res.status(400).json({ error: 'Já existe outro item com esse nome.' });
             }
         }
-        
+
+        // Sem quantidade pra ninguém = sai da meta
+        const active = (memberGoal > 0 || managerGoal > 0) ? 1 : 0;
         await runQuery(
-            'UPDATE materials SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ?, farm_type = ? WHERE id = ?',
-            [newName.trim(), newIcon, newGoal, newManagerGoal, newTargetRole, newFarmType, materialId]
+            'UPDATE materials SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, target_role = ?, farm_type = ?, active = ? WHERE id = ?',
+            [newName.trim(), newIcon, memberGoal, managerGoal, 'both', 'general', active, materialId]
         );
-        
-        res.json({ success: true, message: 'Material atualizado' });
+
+        res.json({ success: true, message: active ? 'Meta atualizada' : 'Item removido da meta' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

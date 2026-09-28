@@ -195,8 +195,8 @@ const productAppliesToRole = (product, isManager) => {
     return (parseInt(goal, 10) || 0) > 0;
 };
 
-// Dois tipos de farm: armas e dinheiro (qualquer valor legado cai em armas).
-const normalizeFarmType = (farmType = '') => String(farmType || '').trim().toLowerCase() === 'money' ? 'money' : 'weapons';
+// Sem tipo de farm: tudo que a família farma (material, dinheiro, produto) é um farm só.
+const normalizeFarmType = () => 'general';
 
 // Sem interruptores por tipo de farm nem data de início: material ativo vale sempre.
 const materialAppliesToFarmSettings = () => true;

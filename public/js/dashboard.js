@@ -10,18 +10,12 @@ let currentPaymentType = 'material'; // 'material' ou tipo de pagamento ID
 let currentPaymentTypeId = null; // ID do tipo de pagamento selecionado
 let paymentTypes = []; // Lista de tipos de pagamento carregados do banco
 let screenshotFilesDirty = []; // Screenshots para pagamento alternativo
-let farmScreenshotFiles = { weapons: [], money: [] };
+let farmScreenshotFiles = { general: [] };
 
-// Dois tipos de farm: armas e dinheiro (qualquer valor legado cai em armas).
-function normalizeFarmTypeClient(type) {
-    return String(type || '').trim().toLowerCase() === 'money' ? 'money' : 'weapons';
-}
-function getFarmTypeLabelClient(type) {
-    return normalizeFarmTypeClient(type) === 'money' ? 'Dinheiro' : 'Armas';
-}
-function getFarmTypeTitleClient(type) {
-    return normalizeFarmTypeClient(type) === 'money' ? '💰 Farm de Dinheiro' : '🔫 Farm de Armas';
-}
+// Sem tipo de farm: tudo que a família farma (material, dinheiro, produto) é um farm só.
+function normalizeFarmTypeClient() { return 'general'; }
+function getFarmTypeLabelClient() { return 'Meta'; }
+function getFarmTypeTitleClient() { return '📦 Farm da Meta'; }
 
 function formatPaymentGoal(pt, value) {
     if (!pt) return String(value || 0);
@@ -1781,8 +1775,7 @@ function updateProgressBars(progress) {
     }
 
     const groups = [
-        { type: 'weapons', title: '🔫 Meta de Armas', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'weapons') },
-        { type: 'money', title: '💰 Meta de Dinheiro', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'money') }
+        { type: 'general', title: '🎯 Meta da Semana', items: progress.slice() }
     ].filter(group => group.items.length > 0);
 
     container.innerHTML = groups.map(group => `
@@ -2028,8 +2021,7 @@ function renderMaterialsUI() {
     
     if (materialsData && materialsData.length > 0) {
         const groupedMaterials = [
-            { type: 'weapons', title: getFarmTypeTitleClient('weapons'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'weapons') },
-            { type: 'money', title: getFarmTypeTitleClient('money'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'money') }
+            { type: 'general', title: getFarmTypeTitleClient('general'), items: materialsData }
         ].filter(group => group.items.length > 0);
 
         groupedMaterials.forEach(group => {
@@ -2097,11 +2089,10 @@ function renderMaterialsUI() {
         return;
     }
 
-    // Dois farms separados, cada um com seu print: Armas e Dinheiro
+    // Um farm só: todos os itens da meta (material, dinheiro, produto...)
     const groupedMaterials = [
-        { type: 'weapons', title: getFarmTypeTitleClient('weapons'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'weapons') },
-        { type: 'money', title: getFarmTypeTitleClient('money'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'money') }
-    ].filter(group => group.items.length > 0);
+        { type: 'general', title: getFarmTypeTitleClient('general'), items: materialsData }
+    ];
 
     const farmGroupsHtml = groupedMaterials.map(group => {
         const groupStatus = currentWeekData?.farmTypeStatus?.[group.type] || {};
@@ -2324,11 +2315,7 @@ function updateSubmitButton() {
         return;
     }
 
-    if (selectedFarmTypes.size === 1) {
-        btn.textContent = `📤 Lançar meta de ${getFarmTypeLabelClient(Array.from(selectedFarmTypes)[0])}`;
-    } else {
-        btn.textContent = '📤 Lançar metas de Armas e Dinheiro';
-    }
+    btn.textContent = '📤 Lançar meta para aprovação';
     btn.classList.remove('secondary');
     btn.classList.add('primary');
 }
