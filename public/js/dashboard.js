@@ -3625,16 +3625,16 @@ function showUnpaidPreviousWeekPrompt(unpaidWeeks, onContinueCurrent) {
     overlay.id = 'unpaidWeekPromptOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:10000;padding:16px;';
     overlay.innerHTML = `
-        <div style="background:var(--card-bg,#1e1e2e);color:var(--text-primary,#fff);max-width:440px;width:100%;border-radius:14px;padding:24px;border:1px solid var(--border-color,rgba(255,255,255,0.12));box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+        <div style="background:var(--card-bg,#15110a);color:var(--text-primary,#fff);max-width:440px;width:100%;border-radius:14px;padding:24px;border:1px solid var(--border-color,rgba(255,255,255,0.12));box-shadow:0 10px 40px rgba(0,0,0,0.5);">
             <h3 style="margin:0 0 12px;font-size:19px;">⚠️ Farm da semana anterior não pago</h3>
             <p style="margin:0 0 6px;line-height:1.5;">Você ainda não pagou o farm da semana anterior:</p>
             <p style="margin:0;font-weight:700;font-size:15px;">📅 ${escapeHtml(week.label)}</p>
             ${extra}
             <p style="margin:14px 0 0;line-height:1.5;">Onde você quer registrar este farm?</p>
             <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
-                <button id="unpaidBtnPrevious" style="background:#9b59b6;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">📅 Registrar na semana anterior</button>
+                <button id="unpaidBtnPrevious" style="background:#d29a14;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">📅 Registrar na semana anterior</button>
                 <button id="unpaidBtnCurrent" style="background:#27ae60;color:#fff;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">✅ Continuar na semana atual mesmo</button>
-                <button id="unpaidBtnCancel" style="background:transparent;color:var(--text-secondary,#aaa);border:1px solid var(--border-color,rgba(255,255,255,0.15));padding:10px;border-radius:8px;font-size:14px;cursor:pointer;">Cancelar</button>
+                <button id="unpaidBtnCancel" style="background:transparent;color:var(--text-secondary,#b9ad8c);border:1px solid var(--border-color,rgba(255,255,255,0.15));padding:10px;border-radius:8px;font-size:14px;cursor:pointer;">Cancelar</button>
             </div>
         </div>
     `;

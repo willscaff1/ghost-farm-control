@@ -1629,12 +1629,12 @@ async function openMemberExtract(memberId) {
         ));
                 const firstDelivery = recordDeliveries[0];
                 const editButton = canEditDeliveries && firstDelivery?.id
-                    ? `<button class="btn-edit-delivery" onclick="openEditDeliveryModal(${firstDelivery.id}, ${data.member.id})" style="background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px;">✏️ Editar</button>`
+                    ? `<button class="btn-edit-delivery" onclick="openEditDeliveryModal(${firstDelivery.id}, ${data.member.id})" style="background: #e0a81a; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px;">✏️ Editar</button>`
                     : '';
                 
                 // Botão para criar entrega (quando não existe)
                 const createButton = canEditDeliveries && !record.id && record.status === 'not_delivered'
-                    ? `<button class="btn-create-delivery" onclick="openCreateDeliveryModal(${data.member.id}, '${record.week_start}', '${record.week_end}')" style="background: #9b59b6; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px;">✏️ Editar</button>`
+                    ? `<button class="btn-create-delivery" onclick="openCreateDeliveryModal(${data.member.id}, '${record.week_start}', '${record.week_end}')" style="background: #d29a14; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-right: 5px;">✏️ Editar</button>`
                     : '';
                 
                 // Verificar se tem farms extras
@@ -2795,9 +2795,9 @@ function renderWeeklyStatusMemberRows(members) {
         // Botão de editar sempre primeiro (se admin)
         if (canEditDeliveries && !isEliteRow) {
             if (member.delivery_id) {
-                buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}', '${member.status}')" style="background: #9b59b6;" title="Editar Entrega">✏️</button>`);
+                buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}', '${member.status}')" style="background: #d29a14;" title="Editar Entrega">✏️</button>`);
             } else {
-                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', '${member.status}')" style="background: #9b59b6;" title="Criar Entrega">✏️</button>`);
+                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', '${member.status}')" style="background: #d29a14;" title="Criar Entrega">✏️</button>`);
             }
         }
 
@@ -2972,9 +2972,9 @@ function renderWeeklyTable(filter) {
         // Botão de editar sempre primeiro (se admin)
         if (canEditDeliveries) {
             if (member.delivery_id) {
-                buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}', '${member.status}')" style="background: #9b59b6;" title="Editar Entrega">✏️</button>`);
+                buttons.push(`<button class="action-btn" onclick="openEditDeliveryModal(${member.id}, '${selectedWeek.start}', '${selectedWeek.end}', '${member.status}')" style="background: #d29a14;" title="Editar Entrega">✏️</button>`);
             } else {
-                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', '${member.status}')" style="background: #9b59b6;" title="Criar Entrega">✏️</button>`);
+                buttons.push(`<button class="action-btn" onclick="openCreateDeliveryFromStatus(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', '${member.status}')" style="background: #d29a14;" title="Criar Entrega">✏️</button>`);
             }
         }
         
@@ -5116,12 +5116,12 @@ async function loadPasswordResets() {
                     </div>
                 </div>
                 ${r.reset_code ? `
-                <div class="reset-code-display" style="background: #0f0f1a; border: 1px solid #6c5ce7; border-radius: 8px; padding: 12px 16px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div class="reset-code-display" style="background: #0a0805; border: 1px solid #f5b91c; border-radius: 8px; padding: 12px 16px; margin: 10px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                     <div>
-                        <span style="color: #a29bfe; font-size: 0.85rem;">🔑 Código de Recuperação:</span>
+                        <span style="color: #ffd54a; font-size: 0.85rem;">🔑 Código de Recuperação:</span>
                         <span style="font-size: 1.4rem; font-weight: bold; font-family: monospace; letter-spacing: 3px; color: #fff; margin-left: 8px;">${r.reset_code}</span>
                     </div>
-                    <button class="btn" style="background: #6c5ce7; color: white; font-size: 0.8rem; padding: 6px 12px;" onclick="navigator.clipboard.writeText('${r.reset_code}').then(() => this.textContent = '✅ Copiado!').catch(() => prompt('Copie o código:', '${r.reset_code}'))">📋 Copiar</button>
+                    <button class="btn" style="background: #f5b91c; color: white; font-size: 0.8rem; padding: 6px 12px;" onclick="navigator.clipboard.writeText('${r.reset_code}').then(() => this.textContent = '✅ Copiado!').catch(() => prompt('Copie o código:', '${r.reset_code}'))">📋 Copiar</button>
                 </div>
                 ` : ''}
                 <div class="password-reset-actions">
@@ -7200,7 +7200,7 @@ async function testEmailSend() {
     const to = (input?.value || '').trim();
     if (!to) { if (result) result.innerHTML = '<span style="color:#e67e22;">Digite um email para testar.</span>'; return; }
     if (btn) { btn.disabled = true; btn.dataset.orig = btn.textContent; btn.textContent = 'Enviando...'; }
-    if (result) result.innerHTML = '<span style="color:#9aa0b5;">Enviando email de teste...</span>';
+    if (result) result.innerHTML = '<span style="color:#b9ad8c;">Enviando email de teste...</span>';
     try {
         const res = await fetch('/api/admin/test-email', {
             method: 'POST',
@@ -7738,7 +7738,7 @@ async function editMaterial(id, currentName, currentIcon, currentGoal) {
                 <div class="edit-form">
                     <div class="form-group">
                         <label>Material:</label>
-                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #1a1a2e; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #14110a; border-radius: 8px;">
                             <span style="font-size: 32px;">${currentIcon}</span>
                             <span style="font-size: 18px; font-weight: 600;">${currentName}</span>
                         </div>
@@ -8695,7 +8695,7 @@ function editManagerMaterialGoal(id, currentName, currentIcon, currentGoal) {
                 <div class="edit-form">
                     <div class="form-group">
                         <label>Material:</label>
-                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #1a1a2e; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #14110a; border-radius: 8px;">
                             <span style="font-size: 32px;">${currentIcon}</span>
                             <span style="font-size: 18px; font-weight: 600;">${currentName}</span>
                         </div>
@@ -8797,7 +8797,7 @@ function editManagerPaymentGoal(id, currentName, currentIcon, currentGoal) {
                 <div class="edit-form">
                     <div class="form-group">
                         <label>Tipo:</label>
-                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #1a1a2e; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #14110a; border-radius: 8px;">
                             <span style="font-size: 32px;">${currentIcon}</span>
                             <span style="font-size: 18px; font-weight: 600;">${currentName}</span>
                         </div>
@@ -9289,7 +9289,7 @@ document.getElementById('changePasswordForm').addEventListener('submit', async f
     }
     
     try {
-        messageEl.innerHTML = '<span style="color: #3498db;">Alterando senha...</span>';
+        messageEl.innerHTML = '<span style="color: #e0a81a;">Alterando senha...</span>';
         
         const response = await fetch('/api/auth/change-password', {
             method: 'POST',
@@ -9343,7 +9343,7 @@ document.getElementById('editProfileForm').addEventListener('submit', async func
     }
     
     try {
-        messageEl.innerHTML = '<span style="color: #3498db;">Salvando alterações...</span>';
+        messageEl.innerHTML = '<span style="color: #e0a81a;">Salvando alterações...</span>';
         
         const response = await fetch('/api/auth/update-profile', {
             method: 'PUT',
@@ -9738,7 +9738,7 @@ async function loadRolePermissions() {
         for (var j = 0; j < window.permTabs.length; j++) {
             var t = window.permTabs[j];
             var chk = all || p.indexOf(t.id) >= 0;
-            h += '<label style="display:inline-block;margin:5px;padding:5px 10px;background:#2a2a4a;border-radius:4px;cursor:pointer;"><input type="checkbox" class="tcb_'+r.role_name+'" data-tab="'+t.id+'" '+(chk?'checked':'')+' '+(gg?'disabled':'')+'> '+t.icon+' '+t.name+'</label>';
+            h += '<label style="display:inline-block;margin:5px;padding:5px 10px;background:#2a2214;border-radius:4px;cursor:pointer;"><input type="checkbox" class="tcb_'+r.role_name+'" data-tab="'+t.id+'" '+(chk?'checked':'')+' '+(gg?'disabled':'')+'> '+t.icon+' '+t.name+'</label>';
         }
         h += '</div>';
         
@@ -11389,7 +11389,7 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) 
         if (deliveriesWithItems.length > 1 && envioSelEl) {
             envioSelEl.style.display = 'block';
             envioSelEl.innerHTML = `
-                <label style="color: #aaa; margin-right: 8px;">Envio:</label>
+                <label style="color: #b9ad8c; margin-right: 8px;">Envio:</label>
                 <select id="editEnvioSelect" onchange="switchEditDeliveryEnvio(this.selectedIndex)" style="background: #2d2d44; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 14px; min-width: 120px;">
                     ${deliveriesWithItems.map((_, i) => `<option value="${i}">Envio #${i + 1}</option>`).join('')}
                 </select>
@@ -11401,7 +11401,7 @@ async function openEditDeliveryModal(memberId, weekStart, weekEnd, tableStatus) 
         // Status (espelho da tabela)
         const statusOptions = [
             { value: 'approved', label: '✅ Completo', color: '#27ae60' },
-            { value: 'in_progress', label: '⚡ Em Progresso', color: '#3498db' },
+            { value: 'in_progress', label: '⚡ Em Progresso', color: '#e0a81a' },
             { value: 'pending', label: '⏳ Aguardando', color: '#f39c12' },
             { value: 'not_delivered', label: '🚫 Não Entregou', color: '#e74c3c' }
         ];
@@ -12322,7 +12322,7 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
         // Select para status (espelho da tabela: se veio "Não Entregou", já deixa selecionado)
         const statusOptions = [
             { value: 'approved', label: '✅ Completo', color: '#27ae60' },
-            { value: 'in_progress', label: '⚡ Em Progresso', color: '#3498db' },
+            { value: 'in_progress', label: '⚡ Em Progresso', color: '#e0a81a' },
             { value: 'pending', label: '⏳ Aguardando', color: '#f39c12' },
             { value: 'not_delivered', label: '🚫 Não Entregou', color: '#e74c3c' }
         ];
@@ -12342,7 +12342,7 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
         // Um farm só: todos os itens da meta do membro
         const activeMats = materials.filter(m => m.active === 1);
         const createGroups = [
-            { type: 'general', title: '📦 Farm da Meta', printLabel: 'Print do Farm', launchLabel: 'Meta', color: '#3498db', items: activeMats }
+            { type: 'general', title: '📦 Farm da Meta', printLabel: 'Print do Farm', launchLabel: 'Meta', color: '#e0a81a', items: activeMats }
         ].filter(g => g.items.length > 0);
         window.__launchGroups = createGroups.map(g => g.type);
 
@@ -12350,7 +12350,7 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
             <div class="launch-section" data-type="${group.type}" style="border: 1px solid ${group.color}44; border-radius: 12px; padding: 14px; margin-bottom: 16px; background: rgba(255,255,255,0.02);">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
                     <div style="color:${group.color}; font-weight:700; font-size:15px;">${group.title}</div>
-                    <div style="font-size:12px; color:#9aa0b5;"><span id="lfPct_${group.type}">0%</span> da meta</div>
+                    <div style="font-size:12px; color:#b9ad8c;"><span id="lfPct_${group.type}">0%</span> da meta</div>
                 </div>
                 <div style="height:8px; border-radius:99px; background:rgba(255,255,255,0.08); overflow:hidden; margin-bottom:14px;">
                     <div id="lfBar_${group.type}" style="height:100%; width:0%; background:${group.color}; transition:width .2s ease;"></div>
@@ -12369,7 +12369,7 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
                     </div>
                 `).join('')}
                 <div style="margin-top:12px;">
-                    <div style="font-size:13px; color:#cfd2e2; margin-bottom:6px;">📷 ${group.printLabel}</div>
+                    <div style="font-size:13px; color:#d8cfb0; margin-bottom:6px;">📷 ${group.printLabel}</div>
                     <div onclick="document.getElementById('lfPrint_${group.type}').click()" style="border:2px dashed rgba(255,255,255,0.25); border-radius:10px; padding:14px; text-align:center; cursor:pointer;">
                         <input type="file" id="lfPrint_${group.type}" multiple accept="image/*" style="display:none;" onchange="previewLaunchScreens('${group.type}')">
                         <div id="lfPrintPreview_${group.type}" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:8px;"></div>
@@ -12385,7 +12385,7 @@ async function openCreateDeliveryModal(memberId, weekStart, weekEnd, tableStatus
 
         let itemsHtml = createGroups.map(sectionHtml).join('');
         if (createGroups.length > 1) {
-            itemsHtml += `<button id="lfBtnAll" onclick="launchFarm(window.__launchGroups)" disabled style="width:100%; margin-top:6px; background:#9b59b6; color:#fff; border:none; padding:13px 20px; border-radius:8px; cursor:not-allowed; font-size:16px; font-weight:700; opacity:0.45;">🎯 Lançar os 2 (tudo completo + prints)</button>`;
+            itemsHtml += `<button id="lfBtnAll" onclick="launchFarm(window.__launchGroups)" disabled style="width:100%; margin-top:6px; background:#d29a14; color:#fff; border:none; padding:13px 20px; border-radius:8px; cursor:not-allowed; font-size:16px; font-weight:700; opacity:0.45;">🎯 Lançar os 2 (tudo completo + prints)</button>`;
         }
 
         document.getElementById('createDeliveryItems').innerHTML = itemsHtml;

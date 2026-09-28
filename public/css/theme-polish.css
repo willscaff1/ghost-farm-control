@@ -12,7 +12,7 @@
     --tp-r-pill: 999px;
     --tp-border: rgba(148, 163, 184, 0.16);
     --tp-border-strong: rgba(148, 163, 184, 0.28);
-    --tp-accent: #6c5ce7;
+    --tp-accent: #f5b91c;
     --tp-accent-soft: rgba(108, 92, 231, 0.35);
     --tp-card-shadow: 0 10px 34px rgba(0, 0, 0, 0.35);
     --tp-focus-ring: 0 0 0 3px rgba(108, 92, 231, 0.25);
@@ -329,7 +329,7 @@ button.btn,
 
 .card .subtitle {
     margin-bottom: 20px;
-    color: #8a93b8;
+    color: #a89c7a;
 }
 
 .form-row {
@@ -590,7 +590,7 @@ button.btn,
 
 .weekly-status-search span {
     flex: 0 0 auto;
-    color: #94a3b8;
+    color: #b9ad8c;
     font-size: 14px;
 }
 
@@ -605,7 +605,7 @@ button.btn,
 }
 
 .weekly-status-search input::placeholder {
-    color: #94a3b8;
+    color: #b9ad8c;
 }
 
 .weekly-status-search input:-webkit-autofill,

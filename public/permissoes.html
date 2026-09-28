@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Permissões de Grupos - Mercenários</title>
-    <link rel="stylesheet" href="css/theme-polish.css?v=20260612theme1">
-    <link rel="stylesheet" href="css/theme-mercenarios.css?v=20260928merc3">
+    <link rel="stylesheet" href="css/theme-polish.css?v=20260928merc7">
+    <link rel="stylesheet" href="css/theme-mercenarios.css?v=20260928merc7">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f0f1a; color: #fff; padding: 20px; min-height: 100vh; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0805; color: #fff; padding: 20px; min-height: 100vh; }
         h1 { margin-bottom: 10px; }
         .subtitle { color: #888; margin-bottom: 20px; }
         .top-actions { display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
         .btn-new { background: #4CAF50; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
         .btn-new:hover { background: #45a049; }
-        .card { background: #1a1a2e; border-radius: 12px; margin-bottom: 15px; overflow: hidden; border: 2px solid transparent; transition: border 0.3s; }
+        .card { background: #14110a; border-radius: 12px; margin-bottom: 15px; overflow: hidden; border: 2px solid transparent; transition: border 0.3s; }
         .card.custom { border-color: #4CAF50; }
-        .card-header { padding: 15px 20px; background: #16213e; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .card-header { padding: 15px 20px; background: #1a1408; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .card-header:hover { background: #1a2744; }
         .card-header-left { display: flex; align-items: center; gap: 12px; flex: 1; }
         .card-header-left b { font-size: 16px; }
@@ -25,10 +25,10 @@
         .btn-icon:hover { background: rgba(255,255,255,0.1); }
         .btn-delete { color: #ff6b6b; }
         .btn-delete:hover { background: rgba(255, 107, 107, 0.2); }
-        .card-body { display: none; padding: 20px; border-top: 1px solid #2a2a4a; }
-        .edit-name-section { margin-bottom: 20px; padding: 15px; background: #0f0f1a; border-radius: 8px; }
+        .card-body { display: none; padding: 20px; border-top: 1px solid #2a2214; }
+        .edit-name-section { margin-bottom: 20px; padding: 15px; background: #0a0805; border-radius: 8px; }
         .edit-name-section label { display: block; color: #888; margin-bottom: 8px; font-size: 14px; }
-        .edit-name-section input { width: 100%; padding: 10px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 6px; color: #fff; font-size: 15px; }
+        .edit-name-section input { width: 100%; padding: 10px; background: #14110a; border: 1px solid #2a2214; border-radius: 6px; color: #fff; font-size: 15px; }
         .edit-name-section input:focus { outline: none; border-color: #4CAF50; }
         .option { margin: 15px 0; }
         .option label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; }
@@ -36,8 +36,8 @@
         .tabs-section { margin: 20px 0; }
         .tabs-section p { color: #888; margin-bottom: 10px; font-size: 14px; }
         .tabs-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-        .tab-label { display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: #0f0f1a; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background 0.2s; }
-        .tab-label:hover { background: #1f1f3a; }
+        .tab-label { display: flex; align-items: center; gap: 5px; padding: 8px 12px; background: #0a0805; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background 0.2s; }
+        .tab-label:hover { background: #1a1408; }
         .tab-label input { cursor: pointer; }
         .btn-save { background: #4CAF50; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 15px; font-weight: 600; }
         .btn-save:hover { background: #45a049; }
@@ -53,13 +53,13 @@
         /* Modal Criar Grupo */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center; }
         .modal.show { display: flex; }
-        .modal-content { background: #1a1a2e; border-radius: 12px; padding: 30px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-content { background: #14110a; border-radius: 12px; padding: 30px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
         .modal-header { margin-bottom: 20px; }
         .modal-header h2 { font-size: 22px; }
         .modal-body { margin-bottom: 20px; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; color: #888; margin-bottom: 8px; font-size: 14px; }
-        .form-group input { width: 100%; padding: 12px; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 6px; color: #fff; font-size: 15px; }
+        .form-group input { width: 100%; padding: 12px; background: #0a0805; border: 1px solid #2a2214; border-radius: 6px; color: #fff; font-size: 15px; }
         .form-group input:focus { outline: none; border-color: #4CAF50; }
         .form-group small { color: #666; font-size: 12px; display: block; margin-top: 5px; }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }

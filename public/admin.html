@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mercenários - Painel Admin</title>
     <link rel="icon" type="image/png" href="/img/favicon-mercenarios.png">
-    <link rel="stylesheet" href="css/style.css?v=20260622approvalsplit1">
-    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260928status1"><link rel="stylesheet" href="css/tables-clean.css?v=20260820badges1">
-    <link rel="stylesheet" href="css/theme-polish.css?v=20260624weeklysearch2">
-    <link rel="stylesheet" href="css/theme-mercenarios.css?v=20260928merc3">
+    <link rel="stylesheet" href="css/style.css?v=20260928merc7">
+    <link rel="stylesheet" href="css/admin-sidebar.css?v=20260928merc7"><link rel="stylesheet" href="css/tables-clean.css?v=20260928merc7">
+    <link rel="stylesheet" href="css/theme-polish.css?v=20260928merc7">
+    <link rel="stylesheet" href="css/theme-mercenarios.css?v=20260928merc7">
     
     
     
@@ -1822,21 +1822,21 @@
     <div id="editDeliveryModal" class="modal warnings-modal" style="display: none;">
         <div class="warnings-modal-content" style="max-width: 940px; position: relative;">
             <button class="modal-close-btn" onclick="closeEditDeliveryModal()" style="position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; line-height: 1;">&times;</button>
-            <div class="warnings-modal-header" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); padding-right: 60px;">
+            <div class="warnings-modal-header" style="background: linear-gradient(135deg, #d29a14 0%, #a3760a 100%); padding-right: 60px;">
                 <h2>✏️ Editar Entrega</h2>
             </div>
             <div class="warnings-modal-body">
                 <div id="editDeliveryInfo" style="margin-bottom: 20px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 10px;">
-                    <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Membro:</strong> <span id="editDeliveryMemberName" style="color: #fff;">-</span></p>
-                    <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Semana:</strong> <span id="editDeliveryWeek" style="color: #fff;">-</span></p>
+                    <p style="margin-bottom: 8px;"><strong style="color: #b9ad8c;">Membro:</strong> <span id="editDeliveryMemberName" style="color: #fff;">-</span></p>
+                    <p style="margin-bottom: 8px;"><strong style="color: #b9ad8c;">Semana:</strong> <span id="editDeliveryWeek" style="color: #fff;">-</span></p>
                     <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <strong style="color: #aaa;">Mover para semana:</strong>
+                        <strong style="color: #b9ad8c;">Mover para semana:</strong>
                         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                             <select id="editWeekSelect" style="background: #2d2d44; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 13px; min-width: 230px;" onchange="onEditWeekChange()"></select>
                             <span id="editWeekChangedBadge" style="display:none; background: #e67e22; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠️ semana alterada</span>
                         </div>
                     </div>
-                    <p style="margin-bottom: 10px;"><strong style="color: #aaa;">Status:</strong> <span id="editDeliveryStatus">Status separado por farm abaixo</span></p>
+                    <p style="margin-bottom: 10px;"><strong style="color: #b9ad8c;">Status:</strong> <span id="editDeliveryStatus">Status separado por farm abaixo</span></p>
                 </div>
                 <div id="editDeliveryEnvioSelector" style="margin-bottom: 16px; display: none;"></div>
                 
@@ -1844,7 +1844,7 @@
                 <div id="editDeliveryScreenshotsSection" style="margin-bottom: 20px; display: none;">
                     <h4 style="color: #fff; margin-bottom: 12px;">📷 Prints do Farm</h4>
                     <div id="editDeliveryExistingScreenshots" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;"></div>
-                    <div onclick="document.getElementById('editDeliveryScreenshotInput').click()" style="border: 2px dashed rgba(255,255,255,0.3); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#3498db'; this.style.background='rgba(52,152,219,0.1)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.3)'; this.style.background='transparent'">
+                    <div onclick="document.getElementById('editDeliveryScreenshotInput').click()" style="border: 2px dashed rgba(255,255,255,0.3); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#e0a81a'; this.style.background='rgba(52,152,219,0.1)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.3)'; this.style.background='transparent'">
                         <input type="file" id="editDeliveryScreenshotInput" multiple accept="image/*" style="display: none;" onchange="previewNewScreenshots(this)">
                         <div id="editDeliveryNewScreenshotsPreview" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; justify-content: center;"></div>
                         <span style="color: #888; font-size: 14px;">📷 Clique para adicionar prints</span>
@@ -1863,20 +1863,20 @@
     <div id="createDeliveryModal" class="modal warnings-modal" style="display: none;">
         <div class="warnings-modal-content" style="max-width: 700px; position: relative;">
             <button class="modal-close-btn" onclick="closeCreateDeliveryModal()" style="position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; line-height: 1;">&times;</button>
-            <div class="warnings-modal-header" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); padding-right: 60px;">
+            <div class="warnings-modal-header" style="background: linear-gradient(135deg, #d29a14 0%, #a3760a 100%); padding-right: 60px;">
                 <h2>🎯 Lançar Farm do Membro</h2>
             </div>
             <div class="warnings-modal-body">
                 <div id="createDeliveryInfo" style="margin-bottom: 20px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 10px;">
-                    <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Membro:</strong> <span id="createDeliveryMemberName" style="color: #fff;">-</span></p>
-                    <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Semana:</strong> <span id="createDeliveryWeek" style="color: #fff;">-</span></p>
-                    <p style="margin-bottom: 10px;"><strong style="color: #aaa;">Status:</strong> <span id="createDeliveryStatusContainer">-</span></p>
+                    <p style="margin-bottom: 8px;"><strong style="color: #b9ad8c;">Membro:</strong> <span id="createDeliveryMemberName" style="color: #fff;">-</span></p>
+                    <p style="margin-bottom: 8px;"><strong style="color: #b9ad8c;">Semana:</strong> <span id="createDeliveryWeek" style="color: #fff;">-</span></p>
+                    <p style="margin-bottom: 10px;"><strong style="color: #b9ad8c;">Status:</strong> <span id="createDeliveryStatusContainer">-</span></p>
                 </div>
                 
                 <!-- Seção de Screenshots para nova entrega -->
                 <div id="createDeliveryScreenshotsSection" style="margin-bottom: 20px;">
                     <h4 style="color: #fff; margin-bottom: 12px;">📷 Prints do Farm <span style="color:#888;font-weight:400;font-size:12px;">(pode adicionar o print de drogas e o de armas)</span></h4>
-                    <div onclick="document.getElementById('createDeliveryScreenshotInput').click()" style="border: 2px dashed rgba(255,255,255,0.3); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#3498db'; this.style.background='rgba(52,152,219,0.1)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.3)'; this.style.background='transparent'">
+                    <div onclick="document.getElementById('createDeliveryScreenshotInput').click()" style="border: 2px dashed rgba(255,255,255,0.3); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#e0a81a'; this.style.background='rgba(52,152,219,0.1)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.3)'; this.style.background='transparent'">
                         <input type="file" id="createDeliveryScreenshotInput" multiple accept="image/*" style="display: none;" onchange="previewCreateScreenshots(this)">
                         <div id="createDeliveryScreenshotsPreview" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; justify-content: center;"></div>
                         <span style="color: #888; font-size: 14px;">📷 Clique para adicionar prints</span>
@@ -1909,9 +1909,9 @@
             if (iframe) resizeIframe(iframe);
         });
     </script>
-    <script src="js/family-commandments.js?v=20260608gate"></script>
-    <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260928status2"></script>
+    <script src="js/family-commandments.js?v=20260928merc7"></script>
+    <script src="js/capital-nickname.js?v=20260928merc7"></script>
+    <script src="js/admin.js?v=20260928merc7"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

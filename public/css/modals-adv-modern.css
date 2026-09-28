@@ -24,7 +24,7 @@
 }
 
 #advMemberModal .modal-content {
-    background: linear-gradient(145deg, #1e1e2e 0%, #252538 100%);
+    background: linear-gradient(145deg, #15110a 0%, #1d1810 100%);
     border-radius: 20px;
     width: 90%;
     max-width: 520px;
@@ -115,7 +115,7 @@
 }
 
 .modal-member-info {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background: linear-gradient(135deg, #14110a 0%, #1a1408 100%);
     padding: 24px;
     border-radius: 16px;
     margin-bottom: 28px;
@@ -132,7 +132,7 @@
     top: 0;
     bottom: 0;
     width: 5px;
-    background: linear-gradient(180deg, #6c5ce7, #a29bfe);
+    background: linear-gradient(180deg, #f5b91c, #ffd54a);
     box-shadow: 0 0 20px rgba(108, 92, 231, 0.5);
 }
 
@@ -202,7 +202,7 @@
     padding: 16px;
     border-radius: 12px;
     border: 2px solid #2d2d3d;
-    background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+    background: linear-gradient(145deg, #14110a 0%, #1a1408 100%);
     color: #fff;
     font-size: 15px;
     font-family: inherit;
@@ -314,7 +314,7 @@
 }
 
 #memberWarningsModal .modal-content {
-    background: linear-gradient(145deg, #1e1e2e 0%, #252538 100%);
+    background: linear-gradient(145deg, #15110a 0%, #1d1810 100%);
     border-radius: 20px;
     width: 90%;
     max-width: 650px;
@@ -413,7 +413,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 20px 24px;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background: linear-gradient(135deg, #14110a 0%, #1a1408 100%);
     border-radius: 16px;
     margin-bottom: 24px;
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -476,7 +476,7 @@
 }
 
 .adv-item {
-    background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+    background: linear-gradient(145deg, #14110a 0%, #1a1408 100%);
     border-radius: 16px;
     padding: 20px;
     border-left: 5px solid #e74c3c;
@@ -554,7 +554,7 @@
 }
 
 .adv-by strong {
-    color: #a29bfe;
+    color: #ffd54a;
     font-weight: 700;
 }
 

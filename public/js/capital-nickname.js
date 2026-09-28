@@ -71,7 +71,7 @@
                 outline: none;
             }
             .capital-nickname-input:focus {
-                border-color: #667eea;
+                border-color: #f5b91c;
                 box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.22);
             }
             .capital-nickname-confirm {
