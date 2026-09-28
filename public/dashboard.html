@@ -217,28 +217,6 @@
                     <div class="panel-header">
                         <h2 id="formTitle">📦 Registrar Farm</h2>
                     </div>
-
-                    <!-- Escolha da semana: fazer drogas ou só armas -->
-                    <div class="drugs-choice" id="drugsChoiceBox" style="display:none;">
-                        <div class="drugs-choice-label">💊 Meta de drogas desta semana</div>
-                        <div class="drugs-choice-toggle">
-                            <button type="button" class="drugs-choice-btn" id="drugsChoiceIn" onclick="setDrugsChoice(false)">🧪 Vou fazer drogas</button>
-                            <button type="button" class="drugs-choice-btn" id="drugsChoiceOut" onclick="setDrugsChoice(true)">🔫 Só armas</button>
-                        </div>
-                        <div class="drugs-choice-hint" id="drugsChoiceHint"></div>
-                    </div>
-
-                    <!-- Seletor de Tipo de Pagamento -->
-                    <div class="payment-type-selector">
-                        <button type="button" class="payment-type-btn active" data-type="material" onclick="selectPaymentType('material')">
-                            <span class="payment-icon">📦</span>
-                            <span class="payment-label">Materiais</span>
-                        </button>
-                        <button type="button" class="payment-type-btn" data-type="dirty_money" onclick="selectPaymentType('dirty_money')">
-                            <span class="payment-icon">💰</span>
-                            <span class="payment-label">Dinheiro Sujo</span>
-                        </button>
-                    </div>
                     
                     <!-- Form de Materiais -->
                     <form id="deliveryForm" enctype="multipart/form-data">
@@ -529,8 +507,7 @@
                     <input type="hidden" id="pastWeekEnd" name="week_end">
                     
                     <!-- Seletor de tipo de pagamento -->
-                    <div class="form-group">
-                        <label>Tipo de Pagamento</label>
+                    <div class="form-group" style="display:none;">$1<label>Tipo de Pagamento</label>
                         <select id="pastPaymentType" onchange="togglePastPaymentType()">
                             <option value="material">📦 Materiais</option>
                         </select>
@@ -628,6 +605,6 @@
 
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/dashboard.js?v=20260928roles1"></script>
+    <script src="js/dashboard.js?v=20260928metas2"></script>
 </body>
 </html>

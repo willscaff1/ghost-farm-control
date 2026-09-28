@@ -10,24 +10,17 @@ let currentPaymentType = 'material'; // 'material' ou tipo de pagamento ID
 let currentPaymentTypeId = null; // ID do tipo de pagamento selecionado
 let paymentTypes = []; // Lista de tipos de pagamento carregados do banco
 let screenshotFilesDirty = []; // Screenshots para pagamento alternativo
-let farmScreenshotFiles = { drugs: [], weapons: [], general: [] };
+let farmScreenshotFiles = { weapons: [], money: [] };
 
+// Dois tipos de farm: armas e dinheiro (qualquer valor legado cai em armas).
 function normalizeFarmTypeClient(type) {
-    return ['weapons', 'general'].includes(type) ? type : 'drugs';
+    return String(type || '').trim().toLowerCase() === 'money' ? 'money' : 'weapons';
 }
-
 function getFarmTypeLabelClient(type) {
-    const normalized = normalizeFarmTypeClient(type);
-    if (normalized === 'weapons') return 'Armas';
-    if (normalized === 'general') return 'Geral';
-    return 'Drogas';
+    return normalizeFarmTypeClient(type) === 'money' ? 'Dinheiro' : 'Armas';
 }
-
 function getFarmTypeTitleClient(type) {
-    const normalized = normalizeFarmTypeClient(type);
-    if (normalized === 'weapons') return 'Farm de Material de Armas';
-    if (normalized === 'general') return 'Farm de Materiais';
-    return 'Farm de Material de Drogas';
+    return normalizeFarmTypeClient(type) === 'money' ? '💰 Farm de Dinheiro' : '🔫 Farm de Armas';
 }
 
 function formatPaymentGoal(pt, value) {
@@ -904,10 +897,7 @@ async function checkAuth() {
 // Configurações do farm
 let farmSettings = {
     farm_materials_enabled: 'true',
-    member_drug_farm_enabled: 'true',
-    member_weapon_farm_enabled: 'true',
-    farm_payment_enabled: 'true',
-    farm_payment_mode: 'either',
+    farm_payment_enabled: 'false',
     competition_enabled: 'false'
 };
 
@@ -926,23 +916,10 @@ async function loadFarmSettings() {
     }
 }
 
-// Carregar tipos de pagamento do banco
+// Pagamento em dinheiro como tipo separado foi removido: dinheiro é um material da meta.
 async function loadPaymentTypes() {
-    try {
-        const response = await fetch('/api/delivery/payment-types');
-        const data = await response.json();
-        paymentTypes = data.paymentTypes || [];
-        
-        // Atualizar o seletor de tipos de pagamento
-        updatePaymentTypeSelector();
-    } catch (error) {
-        console.error('Erro ao carregar tipos de pagamento:', error);
-        // Fallback com valores padrão
-        paymentTypes = [
-            { id: 1, name: 'Dinheiro Sujo', icon: '💰', weekly_goal: 50000 }
-        ];
-        updatePaymentTypeSelector();
-    }
+    paymentTypes = [];
+    updatePaymentTypeSelector();
 }
 
 // Atualizar o seletor de tipos de pagamento
@@ -1298,41 +1275,6 @@ async function loadAvailableWeeks() {
 }
 
 // Mudar semana (botões de navegação)
-// Escolha do membro: fazer drogas (optante) ou só armas (não optante) nesta semana
-function renderDrugsChoice(data) {
-    const box = document.getElementById('drugsChoiceBox');
-    if (!box) return;
-    const elitePanelVisible = document.getElementById('elitePanel')?.style.display === 'block';
-    const show = currentWeekOffset === 0 && !elitePanelVisible;
-    box.style.display = show ? '' : 'none';
-    if (!show) return;
-    const out = !!(data && data.drugsOptOut);
-    document.getElementById('drugsChoiceIn')?.classList.toggle('active', !out);
-    document.getElementById('drugsChoiceOut')?.classList.toggle('active', out);
-    const hint = document.getElementById('drugsChoiceHint');
-    if (hint) hint.textContent = out
-        ? '🔫 Você conclui a meta só pagando as armas (drogas opcional esta semana).'
-        : '🧪 Meta normal desta semana: drogas + armas.';
-}
-
-async function setDrugsChoice(optOut) {
-    try {
-        const res = await fetch('/api/delivery/drugs-optout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ opt_out: !!optOut, offset: currentWeekOffset })
-        });
-        const data = await res.json();
-        if (data.success) {
-            loadWeekData(currentWeekOffset);
-        } else {
-            alert(data.error || 'Erro ao salvar a escolha');
-        }
-    } catch (e) {
-        console.error('Erro ao salvar escolha de drogas:', e);
-    }
-}
-
 function changeWeek(direction) {
     const newOffset = currentWeekOffset + direction;
     
@@ -1389,7 +1331,6 @@ async function loadWeekData(offset = 0) {
         });
         const data = await response.json();
         currentWeekData = data;
-        renderDrugsChoice(data);
 
         // Atualizar label da semana com indicador
         const weekLabel = document.getElementById('weekLabel');
@@ -1793,11 +1734,6 @@ function updateProgressBars(progress) {
     const container = document.getElementById('progressBars');
     if (!container) return;
 
-    // Optou por só armas: as barras de drogas somem junto com o formulário
-    if (progress && currentWeekData?.drugsOptOut) {
-        progress = progress.filter(p => normalizeFarmTypeClient(p.farm_type) !== 'drugs');
-    }
-
     if (!progress || progress.length === 0) {
         container.innerHTML = `
             <div class="progress-empty">
@@ -1845,9 +1781,8 @@ function updateProgressBars(progress) {
     }
 
     const groups = [
-        { type: 'drugs', title: 'Meta de Drogas', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'drugs') },
-        { type: 'weapons', title: 'Meta de Armas', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'weapons') },
-        { type: 'general', title: 'Meta Geral', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'general') }
+        { type: 'weapons', title: '🔫 Meta de Armas', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'weapons') },
+        { type: 'money', title: '💰 Meta de Dinheiro', items: progress.filter(p => normalizeFarmTypeClient(p.farm_type) === 'money') }
     ].filter(group => group.items.length > 0);
 
     container.innerHTML = groups.map(group => `
@@ -2093,9 +2028,8 @@ function renderMaterialsUI() {
     
     if (materialsData && materialsData.length > 0) {
         const groupedMaterials = [
-            { type: 'drugs', title: 'Farm de Material de Drogas', items: materialsData.filter(m => (m.farm_type || 'drugs') !== 'weapons' && (m.farm_type || 'drugs') !== 'general') },
-            { type: 'weapons', title: 'Farm de Material de Armas', items: materialsData.filter(m => (m.farm_type || 'drugs') === 'weapons') },
-            { type: 'general', title: 'Farm de Materiais', items: materialsData.filter(m => (m.farm_type || 'drugs') === 'general') }
+            { type: 'weapons', title: getFarmTypeTitleClient('weapons'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'weapons') },
+            { type: 'money', title: getFarmTypeTitleClient('money'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'money') }
         ].filter(group => group.items.length > 0);
 
         groupedMaterials.forEach(group => {
@@ -2163,14 +2097,10 @@ function renderMaterialsUI() {
         return;
     }
 
-    // Se o membro optou por fazer só armas nesta semana, o farm de drogas
-    // some do painel. Ele pode voltar atrás pelo seletor e as drogas voltam.
-    const drugsOptOut = !!currentWeekData?.drugsOptOut;
-
+    // Dois farms separados, cada um com seu print: Armas e Dinheiro
     const groupedMaterials = [
-        { type: 'drugs', title: getFarmTypeTitleClient('drugs'), items: drugsOptOut ? [] : materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'drugs') },
         { type: 'weapons', title: getFarmTypeTitleClient('weapons'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'weapons') },
-        { type: 'general', title: getFarmTypeTitleClient('general'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'general') }
+        { type: 'money', title: getFarmTypeTitleClient('money'), items: materialsData.filter(m => normalizeFarmTypeClient(m.farm_type) === 'money') }
     ].filter(group => group.items.length > 0);
 
     const farmGroupsHtml = groupedMaterials.map(group => {
@@ -2248,7 +2178,7 @@ function renderMaterialsUI() {
                 <div class="material-group-header">
                     <div>
                         <div class="material-group-title">${group.title}</div>
-                        <div class="material-group-subtitle">Materiais para o membro lançar</div>
+                        <div class="material-group-subtitle">Quantidades já vêm com a meta; ajuste se precisar</div>
                     </div>
                     <span class="material-group-status ${groupStatus.status || 'missing'}">${groupStatusText}</span>
                 </div>
@@ -2388,18 +2318,16 @@ function updateSubmitButton() {
     btn.disabled = selectedFarmTypes.size === 0;
 
     if (selectedFarmTypes.size === 0) {
-        btn.textContent = 'Informe uma meta para lancar';
+        btn.textContent = 'Informe a quantidade para lançar';
         btn.classList.remove('primary');
         btn.classList.add('secondary');
         return;
     }
 
     if (selectedFarmTypes.size === 1) {
-        const farmType = Array.from(selectedFarmTypes)[0];
-        btn.textContent = `Lancar apenas meta de ${getFarmTypeLabelClient(farmType)}`;
+        btn.textContent = `📤 Lançar meta de ${getFarmTypeLabelClient(Array.from(selectedFarmTypes)[0])}`;
     } else {
-        const orderedTypes = ['drugs', 'weapons', 'general'].filter(type => selectedFarmTypes.has(type));
-        btn.textContent = `Lancar metas de ${orderedTypes.map(getFarmTypeLabelClient).join(' e ')}`;
+        btn.textContent = '📤 Lançar metas de Armas e Dinheiro';
     }
     btn.classList.remove('secondary');
     btn.classList.add('primary');

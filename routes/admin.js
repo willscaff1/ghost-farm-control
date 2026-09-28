@@ -53,38 +53,22 @@ const uploadPrizeImage = multer({
     }
 }).single('image');
 
-// Separação total por cargo:
-// - Gerente (gerência/01/02) conta SOMENTE produtos marcados como 'manager'
-// - Membro conta o resto ('member' e os legados 'both')
+// Lista única de materiais: cada um tem meta de membro (weekly_goal) e de
+// gerente (manager_weekly_goal). Meta 0 = aquele público não farma o material.
 const productAppliesToRole = (product, isManager) => {
-    const t = (product && product.target_role) || 'both';
-    if (isManager) return t === 'manager';
-    return t !== 'manager';
+    if (!product) return false;
+    const goal = isManager
+        ? (product.manager_weekly_goal ?? product.weekly_goal ?? 0)
+        : (product.weekly_goal ?? 0);
+    return (parseInt(goal, 10) || 0) > 0;
 };
 
-const normalizeFarmType = (farmType = '') => {
-    const normalized = normalizeGroupName(farmType);
-    return ['drugs', 'weapons', 'general'].includes(normalized) ? normalized : 'drugs';
-};
+// Dois tipos de farm: armas e dinheiro (qualquer valor legado cai em armas).
+const normalizeFarmType = (farmType = '') => String(farmType || '').trim().toLowerCase() === 'money' ? 'money' : 'weapons';
 
-const materialAppliesToFarmSettings = (material, isManager, settings = {}) => {
-    if (isManager) return true;
-    if ((settings.farm_materials_enabled || 'true') !== 'true') return false;
-    const farmType = normalizeFarmType(material.farm_type);
-    if (farmType === 'weapons') return (settings.member_weapon_farm_enabled || 'true') === 'true';
-    if (farmType === 'drugs') return (settings.member_drug_farm_enabled || 'true') === 'true';
-    return true;
-};
-
-const MEMBER_WEAPON_FARM_START_WEEK = process.env.MEMBER_WEAPON_FARM_START_WEEK || '2026-06-22';
-
-const materialAppliesToFarmWeek = (material, isManager, settings = {}, weekStart = null) => {
-    if (!materialAppliesToFarmSettings(material, isManager, settings)) return false;
-    if (!isManager && normalizeFarmType(material.farm_type) === 'weapons' && weekStart && String(weekStart) < MEMBER_WEAPON_FARM_START_WEEK) {
-        return false;
-    }
-    return true;
-};
+// Sem interruptores por tipo de farm nem data de início: material ativo vale sempre.
+const materialAppliesToFarmSettings = () => true;
+const materialAppliesToFarmWeek = () => true;
 
 const weeklyStatusCache = new Map();
 const WEEKLY_STATUS_CACHE_TTL_MS = parseInt(process.env.WEEKLY_STATUS_CACHE_TTL_MS, 10) || 60000;
@@ -179,6 +163,12 @@ const requireWeaponSalesAccess = async (req, res, next) => {
     }
 
     try {
+        // Vendas de armas podem ser desligadas na Config. do Farm (a família não mexe mais com isso)
+        const flag = await getOne("SELECT setting_value FROM farm_settings WHERE setting_key = 'weapon_sales_enabled'").catch(() => null);
+        if (!flag || flag.setting_value !== 'true') {
+            return res.status(403).json({ error: 'Vendas de armas estão desativadas nas configurações do farm' });
+        }
+
         const profile = await getUserAccessProfile(req.session.user);
         const allowed = ['weapon-sales', 'weapon-freebies', 'weapon-catalog']
             .some(permission => hasPermission(profile, permission));
@@ -815,51 +805,6 @@ router.get('/password-reset-log', requireSuperAdmin, async (req, res) => {
         res.json({ entries, summary: { total, success: ok, failed: total - ok } });
     } catch (error) {
         console.error('Erro ao carregar extrato de reset de senha:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Gerente marca/desmarca "não paga drogas" de um membro numa semana.
-// Mesma tabela usada pela escolha do próprio membro (week_drug_optout).
-router.get('/members/:id/drugs-optout', requireAdmin, async (req, res) => {
-    try {
-        const weekStart = req.query.week_start;
-        if (!weekStart) return res.status(400).json({ error: 'week_start é obrigatório' });
-
-        const row = await getOne(
-            'SELECT opt_out FROM week_drug_optout WHERE user_id = ? AND week_start = ?',
-            [req.params.id, weekStart]
-        );
-        res.json({ optOut: !!(row && (row.opt_out === 1 || row.opt_out === true)) });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.post('/members/:id/drugs-optout', requireAdmin, async (req, res) => {
-    try {
-        const { week_start, opt_out } = req.body || {};
-        if (!week_start) return res.status(400).json({ error: 'week_start é obrigatório' });
-
-        const optOut = (opt_out === true || opt_out === 1 || opt_out === '1' || opt_out === 'true') ? 1 : 0;
-        const existing = await getOne(
-            'SELECT id FROM week_drug_optout WHERE user_id = ? AND week_start = ?',
-            [req.params.id, week_start]
-        );
-
-        if (existing) {
-            await runQuery('UPDATE week_drug_optout SET opt_out = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [optOut, existing.id]);
-        } else {
-            await runQuery('INSERT INTO week_drug_optout (user_id, week_start, opt_out) VALUES (?, ?, ?)', [req.params.id, week_start, optOut]);
-        }
-
-        // Muda quem aparece como devendo na conferência
-        if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
-
-        console.log(`💊 ${req.session.user.name} marcou drogas opt-out=${optOut} para o membro ${req.params.id} na semana ${week_start}`);
-        res.json({ success: true, optOut: optOut === 1 });
-    } catch (error) {
-        console.error('Erro ao salvar opt-out de drogas:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1988,8 +1933,7 @@ router.post('/deliveries/:id/approve', requireAdmin, async (req, res) => {
 
             // Drogas opcional é a escolha do dono da entrega NAQUELA SEMANA:
             // se ele é "não optante", as drogas não contam (conclui só com as armas).
-            const optRow = await getOne('SELECT opt_out FROM week_drug_optout WHERE user_id = ? AND week_start = ?', [delivery.user_id, delivery.week_start]);
-            const drugsOptional = !!optRow && (optRow.opt_out === 1 || optRow.opt_out === true);
+            const drugsOptional = false; // drogas opcional foi removido do sistema
             const requiredMaterials = drugsOptional
                 ? materials.filter(m => normalizeFarmType(m.farm_type) !== 'drugs')
                 : materials;
@@ -2181,14 +2125,6 @@ router.get('/members', requireAdmin, async (req, res) => {
             }
             member.is_manager = accessProfiles.get(member.id)?.isManager || false;
         }
-
-        // Escolha "não optante de drogas" da SEMANA ATUAL (é por semana)
-        try {
-            const cw = getCurrentWeek();
-            const optRows = await getAll('SELECT user_id FROM week_drug_optout WHERE week_start = ? AND opt_out = 1', [cw.start]);
-            const optSet = new Set((optRows || []).map(r => Number(r.user_id)));
-            for (const member of members) member.drugs_opt_out = optSet.has(Number(member.id)) ? 1 : 0;
-        } catch (e) { /* tabela pode não existir ainda */ }
 
         res.json({ members, roleNames: roleNamesMap });
     } catch (error) {
@@ -2391,7 +2327,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
     try {
         const isSuperAdmin = isSuperAdminUser(req.session.user);
         const memberId = req.params.id;
-        const { name, passport, email, role, newPassword, member_slot, manager_slot, capital_nickname, drugs_opt_out } = req.body;
+        const { name, passport, email, role, newPassword, member_slot, manager_slot, capital_nickname } = req.body;
         
         const member = await getOne('SELECT * FROM users WHERE id = ?', [memberId]);
         if (!member) {
@@ -2465,19 +2401,6 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
             );
         }
         
-        // "Não optante de drogas" — o gerente marca a escolha da SEMANA ATUAL
-        // (o membro também pode mudar no painel dele). É por semana.
-        if (drugs_opt_out !== undefined) {
-            const val = (drugs_opt_out === true || drugs_opt_out === 1 || drugs_opt_out === '1' || drugs_opt_out === 'true') ? 1 : 0;
-            const cw = getCurrentWeek();
-            const existingOpt = await getOne('SELECT id FROM week_drug_optout WHERE user_id = ? AND week_start = ?', [memberId, cw.start]);
-            if (existingOpt) {
-                await runQuery('UPDATE week_drug_optout SET opt_out = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [val, existingOpt.id]);
-            } else {
-                await runQuery('INSERT INTO week_drug_optout (user_id, week_start, opt_out) VALUES (?, ?, ?)', [memberId, cw.start, val]);
-            }
-        }
-
         if (typeof global.__clearWeeklyStatusCache === 'function') {
             global.__clearWeeklyStatusCache();
         }
@@ -2655,6 +2578,8 @@ router.get('/materials-stats', requireAdmin, async (req, res) => {
 router.get('/materials', requireAdmin, async (req, res) => {
     try {
         let materials = await getAll('SELECT * FROM materials ORDER BY name');
+        // Lista única: sem tipo de farm nem destino por cargo (a meta 0 é que decide)
+        materials = (materials || []).map(m => ({ ...m, farm_type: normalizeFarmType(m.farm_type), target_role: 'both' }));
         const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings').catch(() => []);
         const farmSettingsObj = {};
         (settingsRows || []).forEach(s => {
@@ -2805,17 +2730,21 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
 
 router.post('/materials', requireAdmin, async (req, res) => {
     try {
-        const { name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, farm_type } = req.body;
         
         if (!name) {
             return res.status(400).json({ error: 'Nome do material é obrigatório' });
         }
         
         const trimmedName = name.trim();
-        const goal = parseInt(weekly_goal) || 700;
-        const managerGoal = !isNaN(parseInt(manager_weekly_goal)) ? parseInt(manager_weekly_goal) : goal;
-        const targetRole = ['member', 'manager', 'both'].includes(target_role) ? target_role : 'both';
-        const farmType = ['drugs', 'weapons', 'general'].includes(farm_type) ? farm_type : 'drugs';
+        // Lista única: meta de membro e de gerente no mesmo material (0 = aquele público não farma)
+        const goal = Math.max(0, parseInt(weekly_goal, 10) || 0);
+        const managerGoal = Math.max(0, parseInt(manager_weekly_goal, 10) || 0);
+        if (goal === 0 && managerGoal === 0) {
+            return res.status(400).json({ error: 'Informe a meta de membros ou de gerentes (pelo menos uma maior que 0)' });
+        }
+        const targetRole = 'both';
+        const farmType = normalizeFarmType(farm_type); // 'weapons' ou 'money'
         
         const existing = await getOne('SELECT id, active FROM materials WHERE name = ?', [trimmedName]);
         if (existing) {
@@ -2849,7 +2778,7 @@ router.post('/materials', requireAdmin, async (req, res) => {
 router.put('/materials/:id', requireAdmin, async (req, res) => {
     try {
         const materialId = req.params.id;
-        const { name, icon, weekly_goal, manager_weekly_goal, target_role, farm_type } = req.body;
+        const { name, icon, weekly_goal, manager_weekly_goal, farm_type } = req.body;
         
         const material = await getOne('SELECT * FROM materials WHERE id = ?', [materialId]);
         if (!material) {
@@ -2858,17 +2787,15 @@ router.put('/materials/:id', requireAdmin, async (req, res) => {
         
         const newName = name || material.name;
         const newIcon = icon || material.icon;
-        const newGoal = weekly_goal !== undefined ? parseInt(weekly_goal) : material.weekly_goal;
-        const parsedManagerGoal = parseInt(manager_weekly_goal);
-        const newManagerGoal = manager_weekly_goal !== undefined && !isNaN(parsedManagerGoal)
-            ? parsedManagerGoal
-            : (material.manager_weekly_goal ?? material.weekly_goal);
-        const newTargetRole = ['member', 'manager', 'both'].includes(target_role)
-            ? target_role
-            : (material.target_role || 'both');
-        const newFarmType = ['drugs', 'weapons', 'general'].includes(farm_type)
-            ? farm_type
-            : normalizeFarmType(material.farm_type);
+        const newGoal = weekly_goal !== undefined ? Math.max(0, parseInt(weekly_goal, 10) || 0) : (material.weekly_goal ?? 0);
+        const newManagerGoal = manager_weekly_goal !== undefined
+            ? Math.max(0, parseInt(manager_weekly_goal, 10) || 0)
+            : (material.manager_weekly_goal ?? 0);
+        if (newGoal === 0 && newManagerGoal === 0) {
+            return res.status(400).json({ error: 'Informe a meta de membros ou de gerentes (pelo menos uma maior que 0)' });
+        }
+        const newTargetRole = 'both';
+        const newFarmType = farm_type !== undefined ? normalizeFarmType(farm_type) : normalizeFarmType(material.farm_type);
         
         if (newName.trim() !== (material.name || '').trim()) {
             const existing = await getOne('SELECT id FROM materials WHERE name = ? AND id != ?', [newName.trim(), materialId]);
@@ -2906,115 +2833,6 @@ router.post('/materials/:id/toggle', requireAdmin, async (req, res) => {
     }
 });
 
-// ===== ROTAS DE TIPOS DE PAGAMENTO (Dinheiro Sujo, Dinheiro Limpo, etc.) =====
-
-// Listar todos os tipos de pagamento
-router.get('/payment-types', requireAdmin, async (req, res) => {
-    try {
-        const paymentTypes = await getAll('SELECT * FROM payment_types ORDER BY name');
-        res.json({ paymentTypes });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Adicionar novo tipo de pagamento
-router.post('/payment-types', requireAdmin, async (req, res) => {
-    try {
-        const { name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role } = req.body;
-        
-        if (!name) {
-            return res.status(400).json({ error: 'Nome do tipo de pagamento é obrigatório' });
-        }
-        
-        const trimmedName = name.trim();
-        const unitType = (unit_type === 'unidade') ? 'unidade' : 'R$';
-        const defaultGoal = unitType === 'unidade' ? 700 : 50000;
-        const goal = parseInt(weekly_goal) || defaultGoal;
-        const managerGoal = !isNaN(parseInt(manager_weekly_goal)) ? parseInt(manager_weekly_goal) : goal;
-        const targetRole = ['member', 'manager', 'both'].includes(target_role) ? target_role : 'both';
-        
-        const existing = await getOne('SELECT id, active FROM payment_types WHERE name = ?', [trimmedName]);
-        if (existing) {
-            const isInactive = existing.active === 0 || existing.active === '0' || existing.active === false || existing.active == null;
-            if (isInactive) {
-                await runQuery(
-                    'UPDATE payment_types SET active = 1, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, unit_type = ?, target_role = ? WHERE id = ?',
-                    [icon || '💰', goal, managerGoal, unitType, targetRole, existing.id]
-                );
-                return res.json({ success: true, message: 'Tipo de pagamento reativado e meta atualizada' });
-            }
-            return res.status(400).json({ error: 'Este tipo já está na tabela abaixo. Use "Editar metas" ou "Excluir da meta" na linha dele.' });
-        }
-        
-        await runQuery(
-            'INSERT INTO payment_types (name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role) VALUES (?, ?, ?, ?, ?, ?)',
-            [trimmedName, icon || '💰', goal, managerGoal, unitType, targetRole]
-        );
-        
-        res.json({ success: true, message: 'Tipo de pagamento adicionado' });
-    } catch (error) {
-        const msg = (error && error.message) ? String(error.message) : '';
-        if (msg.includes('UNIQUE constraint failed') || (msg.includes('SQLITE_CONSTRAINT') && msg.includes('payment_types'))) {
-            return res.status(400).json({ error: 'Este tipo já está na tabela. Use a tabela para editar ou excluir da meta.' });
-        }
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Atualizar tipo de pagamento
-router.put('/payment-types/:id', requireAdmin, async (req, res) => {
-    try {
-        const id = req.params.id;
-        const { name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role } = req.body;
-        
-        const paymentType = await getOne('SELECT * FROM payment_types WHERE id = ?', [id]);
-        if (!paymentType) {
-            return res.status(404).json({ error: 'Tipo de pagamento não encontrado' });
-        }
-        
-        const newName = name || paymentType.name;
-        const newIcon = icon || paymentType.icon;
-        const newUnitType = (unit_type === 'unidade') ? 'unidade' : (paymentType.unit_type || 'R$');
-        const newGoal = weekly_goal !== undefined ? parseInt(weekly_goal) : paymentType.weekly_goal;
-        const parsedManagerGoal = parseInt(manager_weekly_goal);
-        const newManagerGoal = manager_weekly_goal !== undefined && !isNaN(parsedManagerGoal)
-            ? parsedManagerGoal
-            : (paymentType.manager_weekly_goal ?? paymentType.weekly_goal);
-        const newTargetRole = ['member', 'manager', 'both'].includes(target_role)
-            ? target_role
-            : (paymentType.target_role || 'both');
-        
-        await runQuery(
-            'UPDATE payment_types SET name = ?, icon = ?, weekly_goal = ?, manager_weekly_goal = ?, unit_type = ?, target_role = ? WHERE id = ?',
-            [newName, newIcon, newGoal, newManagerGoal, newUnitType, newTargetRole, id]
-        );
-        
-        res.json({ success: true, message: 'Tipo de pagamento atualizado' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Ativar/Desativar tipo de pagamento
-router.post('/payment-types/:id/toggle', requireAdmin, async (req, res) => {
-    try {
-        const id = req.params.id;
-        
-        const paymentType = await getOne('SELECT * FROM payment_types WHERE id = ?', [id]);
-        if (!paymentType) {
-            return res.status(404).json({ error: 'Tipo de pagamento não encontrado' });
-        }
-        
-        const newStatus = paymentType.active ? 0 : 1;
-        await runQuery('UPDATE payment_types SET active = ? WHERE id = ?', [newStatus, id]);
-        
-        res.json({ success: true, message: newStatus ? 'Tipo de pagamento ativado' : 'Tipo de pagamento desativado' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // ===== CONFIGURAÇÕES DO FARM =====
 
 // Buscar configurações do farm
@@ -3025,9 +2843,7 @@ router.get('/farm-settings', requireAdmin, async (req, res) => {
         settings.forEach(s => {
             settingsObj[s.setting_key] = s.setting_value;
         });
-        if (!settingsObj.farm_materials_enabled) settingsObj.farm_materials_enabled = 'true';
-        if (!settingsObj.member_drug_farm_enabled) settingsObj.member_drug_farm_enabled = 'true';
-        if (!settingsObj.member_weapon_farm_enabled) settingsObj.member_weapon_farm_enabled = 'true';
+        if (!settingsObj.weapon_sales_enabled) settingsObj.weapon_sales_enabled = 'false';
         res.json({ settings: settingsObj });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -3040,7 +2856,7 @@ router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
         const { key } = req.params;
         const { value } = req.body;
         
-        const validKeys = ['farm_materials_enabled', 'member_drug_farm_enabled', 'member_weapon_farm_enabled', 'drugs_optional', 'farm_payment_enabled', 'farm_payment_mode', 'competition_enabled', 'meta_exempt_members', 'meta_exempt_managers', 'elite_weekly_goal'];
+        const validKeys = ['competition_enabled', 'meta_exempt_members', 'meta_exempt_managers', 'elite_weekly_goal', 'weapon_sales_enabled'];
         if (!validKeys.includes(key)) {
             return res.status(400).json({ error: 'Configuração inválida' });
         }
@@ -3055,7 +2871,7 @@ router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
 
         // A isenção e o "drogas opcional" mudam quem aparece como concluído —
         // invalidar cache do status semanal
-        if ((key === 'meta_exempt_members' || key === 'meta_exempt_managers' || key === 'drugs_optional') && typeof global.__clearWeeklyStatusCache === 'function') {
+        if ((key === 'meta_exempt_members' || key === 'meta_exempt_managers') && typeof global.__clearWeeklyStatusCache === 'function') {
             global.__clearWeeklyStatusCache();
         }
 
@@ -3249,13 +3065,6 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
         const notDelivered = [];
         const justified = [];
 
-        // Quem escolheu "não optante de drogas" NESTA semana (só armas conclui)
-        const drugsOptOutSet = new Set();
-        try {
-            const optRows = await getAll('SELECT user_id FROM week_drug_optout WHERE week_start = ? AND opt_out = 1', [weekStart]);
-            for (const r of optRows || []) drugsOptOutSet.add(Number(r.user_id));
-        } catch (e) { /* tabela pode não existir ainda */ }
-
         // Isenção de meta por público (fica ligada até desmarcar)
         const exemptMembers = farmSettingsObj.meta_exempt_members === 'true';
         const exemptManagers = farmSettingsObj.meta_exempt_managers === 'true';
@@ -3434,15 +3243,9 @@ router.get('/weekly-status', requireAdmin, async (req, res) => {
                             }
                         }
                         // Completo = TODOS os materiais do CARGO com total >= meta; senão = Em progresso
-                        // Drogas opcional: ignora drogas na conta (conclui só com as armas),
-                        // desde que exista algum material que não seja droga.
-                        const drugsOptional = drugsOptOutSet.has(Number(member.id));
-                        let applicableMaterials = allMaterials
+                        const applicableMaterials = allMaterials
                             .filter(mat => productAppliesToRole(mat, isManager))
                             .filter(mat => materialAppliesToFarmWeek(mat, isManager, farmSettingsObj, weekStart));
-                        if (drugsOptional && applicableMaterials.some(m => normalizeFarmType(m.farm_type) !== 'drugs')) {
-                            applicableMaterials = applicableMaterials.filter(m => normalizeFarmType(m.farm_type) !== 'drugs');
-                        }
                         if (applicableMaterials.length === 0) {
                             effectiveIsPartial = sumByMaterial.size === 0;
                         } else {
@@ -4744,7 +4547,6 @@ const availableTabs = [
     { id: 'edit-permissions', name: 'Liberar Edição', section: 'Configurações', icon: '✏️' },
     { id: 'goals', name: 'Metas (Membros e Gerentes)', section: 'Configurações', icon: '🎯' },
     { id: 'manage-materials', name: 'Gerenciar Materiais', section: 'Configurações', icon: '📦' },
-    { id: 'manage-payment-types', name: 'Tipos de Pagamento', section: 'Configurações', icon: '💰' },
     { id: 'manager-goals', name: 'Metas de Gerentes', section: 'Metas', icon: '🎯' },
     { id: 'whitelist', name: 'Whitelist (Isentos)', section: 'Configurações', icon: '🛡️' },
     { id: 'role-permissions', name: 'Permissões de Grupos', section: 'Configurações', icon: '🔐' }
@@ -4770,7 +4572,6 @@ const availableTabs = [
 // - edit-permissions: Liberar Edição (requer can_config)
 // - goals: Metas (Membros e Gerentes)
 // - manage-materials: Gerenciar Materiais (requer can_config)
-// - manage-payment-types: Tipos de Pagamento (requer can_config)
 // - manager-goals: Metas de Gerentes
 // - whitelist: Whitelist (requer can_config)
 // - role-permissions: Permissões de Grupos (requer can_config)
@@ -4802,7 +4603,7 @@ const defaultRolePermissions = [
             'pending', 'absences', 
             'members', 'members-adv', 'new-member', 
             'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies', 'weapon-catalog',
-            'farm-settings', 'family-commandments', 'edit-permissions', 'goals', 'manage-materials', 'manage-payment-types', 'manager-goals', 'whitelist'
+            'farm-settings', 'family-commandments', 'edit-permissions', 'goals', 'manage-materials', 'manager-goals', 'whitelist'
         ]),
         can_config: 1
     },

@@ -105,7 +105,7 @@
                 <button class="sidebar-item" data-tab="weapon-catalog">🔫 Armas e Valores</button>
                 <button class="sidebar-item" data-tab="family-commandments">📜 Mandamentos da Familia</button>
                 <button class="sidebar-item" data-tab="edit-permissions">✏️ Liberar Edição</button>
-                <button class="sidebar-item" data-tab="goals">🎯 Metas (Membros e Gerentes)</button>
+                <button class="sidebar-item" data-tab="goals">🎯 Metas</button>
                 <button class="sidebar-item" data-tab="whitelist">🛡️ Whitelist (Isentos)</button>
                 <button class="sidebar-item" data-tab="competition" style="display:none;">🏆 Competição</button>
                 <button class="sidebar-item" data-tab="role-permissions">🔐 Permissões de Grupos</button>
@@ -1069,17 +1069,7 @@
             <div id="farm-settings-tab" class="tab-content">
                 <div class="card">
                     <h2>🎛️ Configurações do Farm</h2>
-                    <p class="subtitle">Configure quais tipos de pagamento estão habilitados e se o membro precisa pagar um ou outro</p>
-
-                    <div class="settings-section">
-                        <h3>📧 Recuperação por Email</h3>
-                        <p class="setting-description" style="margin-bottom:12px;">Teste se o envio de emails está funcionando. Digite um email seu, clique em testar — se o email chegar, a recuperação de senha está 100% funcionando.</p>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                            <input type="email" id="testEmailInput" placeholder="seu-email@exemplo.com" style="flex:1; min-width:220px; padding:10px 12px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:8px; color:#fff;">
-                            <button id="testEmailBtn" onclick="testEmailSend()" style="padding:10px 18px; border:none; border-radius:8px; background:#6c5ce7; color:#fff; font-weight:600; cursor:pointer;">📤 Testar Email</button>
-                        </div>
-                        <div id="testEmailResult" style="margin-top:12px; font-size:14px; line-height:1.5;"></div>
-                    </div>
+                    <p class="subtitle">Liga e desliga a competição semanal e as vendas de armas. As metas ficam na aba Metas.</p>
 
                     <div class="settings-section competition-section">
                         <h3>🏆 Competição Semanal (Ranking)</h3>
@@ -1099,76 +1089,16 @@
                     </div>
 
                     <div class="settings-section">
-                        <h3>📦 Farm de Materiais</h3>
+                        <h3>🔫 Vendas de Armas</h3>
                         <div class="setting-item">
                             <div class="setting-info">
-                                <span class="setting-label">Habilitar Farm de Materiais</span>
-                                <span class="setting-description">Permite que membros entreguem materiais (Folha, Ópio, etc.)</span>
+                                <span class="setting-label">Habilitar Vendas de Armas</span>
+                                <span class="setting-description">Liga o Extrato de Vendas, Armas Gratuitas e Armas e Valores. Desligado, essas telas somem do painel e as rotas ficam bloqueadas.</span>
                             </div>
                             <label class="toggle-switch">
-                                <input type="checkbox" id="farmMaterialsEnabled" onchange="updateFarmSetting('farm_materials_enabled', this.checked)">
+                                <input type="checkbox" id="weaponSalesEnabled" onchange="updateFarmSetting('weapon_sales_enabled', this.checked)">
                                 <span class="toggle-slider"></span>
                             </label>
-                        </div>
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <span class="setting-label">Habilitar Materiais de Drogas</span>
-                                <span class="setting-description">Liga ou desliga a meta de drogas dos membros</span>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="memberDrugFarmEnabled" onchange="updateFarmSetting('member_drug_farm_enabled', this.checked)">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <span class="setting-label">Habilitar Materiais de Armas</span>
-                                <span class="setting-description">Liga ou desliga a meta de armas dos membros</span>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="memberWeaponFarmEnabled" onchange="updateFarmSetting('member_weapon_farm_enabled', this.checked)">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="settings-section">
-                        <h3>💰 Pagamento em Dinheiro</h3>
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <span class="setting-label">Habilitar Pagamento em Dinheiro</span>
-                                <span class="setting-description">Permite que membros paguem com Dinheiro Sujo, Limpo, etc.</span>
-                            </div>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="farmPaymentEnabled" onchange="updateFarmSetting('farm_payment_enabled', this.checked)">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="settings-section">
-                        <h3>⚖️ Modo de Pagamento</h3>
-                        <div class="setting-item mode-setting">
-                            <div class="setting-info">
-                                <span class="setting-label">Modo de Conclusão do Farm</span>
-                                <span class="setting-description">Define se o membro precisa completar um tipo ou ambos</span>
-                            </div>
-                            <div class="mode-options">
-                                <label class="mode-option">
-                                    <input type="radio" name="paymentMode" value="either" onchange="updateFarmSetting('farm_payment_mode', 'either')">
-                                    <span class="mode-label">
-                                        <strong>Um OU Outro</strong>
-                                        <small>Membro pode escolher pagar com materiais OU dinheiro</small>
-                                    </span>
-                                </label>
-                                <label class="mode-option">
-                                    <input type="radio" name="paymentMode" value="both" onchange="updateFarmSetting('farm_payment_mode', 'both')">
-                                    <span class="mode-label">
-                                        <strong>Ambos Obrigatórios</strong>
-                                        <small>Membro precisa pagar materiais E dinheiro</small>
-                                    </span>
-                                </label>
-                            </div>
                         </div>
                     </div>
 
@@ -1256,7 +1186,7 @@
             <div id="goals-tab" class="tab-content">
                 <div class="card goals-card">
                     <h2>🎯 Metas</h2>
-                    <p class="subtitle">Materiais e tipos de pagamento do farm. Defina a meta semanal para membros e gerentes.</p>
+                    <p class="subtitle">Dois tipos de farm: 🔫 Armas e 💰 Dinheiro. Cada material tem a meta semanal de membros e de gerência. A Elite paga em ações e só vale pra quem tem a tag.</p>
 
                     <!-- Isenção de meta -->
                     <div class="goals-section meta-exempt-section">
@@ -1310,95 +1240,46 @@
                         </div>
                     </div>
 
-                    <!-- Materiais -->
+                    <!-- Materiais (lista única: meta de membros + meta de gerência) -->
                     <div class="goals-section">
-                        <h3>📦 Materiais e Produtos</h3>
-
-                        <!-- MEMBROS -->
-                        <h4 class="goals-subsection-title">👤 Metas dos Membros</h4>
+                        <h3>📦 Materiais da Meta</h3>
+                        <p class="subtitle" style="margin-top:-6px;">Cada material tem a meta dos membros e a meta da gerência. Meta 0 = aquele grupo não farma esse material.</p>
                         <div class="goals-add-form">
-                            <label class="goals-label">Material/Produto</label>
-                            <select id="matSelectMembros" class="goals-input goals-dropdown"></select>
-                            <span id="matNewFieldsMembros" class="goals-new-name-wrap" style="display:none;">
+                            <label class="goals-label">Material</label>
+                            <select id="matSelect" class="goals-input goals-dropdown"></select>
+                            <span id="matNewFields" class="goals-new-name-wrap" style="display:none;">
                                 <label class="goals-label">Novo</label>
-                                <input type="text" id="matNameMembros" placeholder="Ex: Agulha, Seringa" class="goals-input goals-name">
+                                <input type="text" id="matName" placeholder="Ex: Dinheiro Sujo, Agulha" class="goals-input goals-name">
                                 <label class="goals-label">Ícone</label>
-                                <select id="matIconMembros" class="goals-input goals-icon"></select>
+                                <select id="matIcon" class="goals-input goals-icon"></select>
                             </span>
                             <label class="goals-label">Tipo</label>
-                            <select id="matFarmTypeMembros" class="goals-input goals-dropdown goals-type">
-                                <option value="drugs">Drogas</option>
-                                <option value="weapons">Armas</option>
+                            <select id="matFarmType" class="goals-input goals-dropdown goals-type">
+                                <option value="weapons">🔫 Armas</option>
+                                <option value="money">💰 Dinheiro</option>
                             </select>
-                            <label class="goals-label">Meta</label>
-                            <input type="number" id="matGoalMembros" value="700" min="1" max="999999" class="goals-input goals-number">
-                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMatMembros">➕ Adicionar ao membro</button>
+                            <label class="goals-label">👤 Meta membros</label>
+                            <input type="number" id="matGoalMembros" value="700" min="0" max="9999999" class="goals-input goals-number">
+                            <label class="goals-label">🛡️ Meta gerência</label>
+                            <input type="number" id="matGoalGerentes" value="500" min="0" max="9999999" class="goals-input goals-number">
+                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMat">➕ Adicionar</button>
                         </div>
-                        <div id="matMsgMembros" class="goals-message"></div>
-                        <h5 class="goals-subsection-title">Materiais de Drogas</h5>
+                        <div id="matMsg" class="goals-message"></div>
                         <div class="goals-table-wrap">
                             <table class="goals-table">
                                 <thead>
                                     <tr>
                                         <th>Ícone</th>
                                         <th>Nome</th>
-                                        <th>Meta (Membros)</th>
+                                        <th>Tipo</th>
+                                        <th>👤 Meta membros</th>
+                                        <th>🛡️ Meta gerência</th>
                                         <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody id="goalsMaterialsBodyMembros">
-                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <h5 class="goals-subsection-title">Materiais de Armas</h5>
-                        <div class="goals-table-wrap">
-                            <table class="goals-table">
-                                <thead>
-                                    <tr>
-                                        <th>Ícone</th>
-                                        <th>Nome</th>
-                                        <th>Meta (Membros)</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="goalsMaterialsBodyMembrosArmas">
-                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- GERÊNCIA -->
-                        <h4 class="goals-subsection-title">🛡️ Metas da Gerência (01, 02, Gerentes)</h4>
-                        <div class="goals-add-form">
-                            <label class="goals-label">Material/Produto</label>
-                            <select id="matSelectGerentes" class="goals-input goals-dropdown"></select>
-                            <span id="matNewFieldsGerentes" class="goals-new-name-wrap" style="display:none;">
-                                <label class="goals-label">Novo</label>
-                                <input type="text" id="matNameGerentes" placeholder="Ex: Capofol" class="goals-input goals-name">
-                                <label class="goals-label">Ícone</label>
-                                <select id="matIconGerentes" class="goals-input goals-icon"></select>
-                            </span>
-                            <label class="goals-label">Meta</label>
-                            <input type="number" id="matGoalGerentes" value="500" min="1" max="999999" class="goals-input goals-number">
-                            <button type="button" class="btn btn-primary goals-btn-add" id="btnAddMatGerentes">➕ Adicionar à gerência</button>
-                        </div>
-                        <div id="matMsgGerentes" class="goals-message"></div>
-                        <div class="goals-table-wrap">
-                            <table class="goals-table">
-                                <thead>
-                                    <tr>
-                                        <th>Ícone</th>
-                                        <th>Nome</th>
-                                        <th>Meta (Gerentes)</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="goalsMaterialsBodyGerentes">
-                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
+                                <tbody id="goalsMaterialsBody">
+                                    <tr><td colspan="7" class="loading">Carregando...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1962,11 +1843,6 @@
                         </div>
                     </div>
                     <p style="margin-bottom: 10px;"><strong style="color: #aaa;">Status:</strong> <span id="editDeliveryStatus">Status separado por farm abaixo</span></p>
-                    <label class="drugs-optout-flag" title="Marque se o membro não vai pagar a meta de drogas nesta semana">
-                        <input type="checkbox" id="editDeliveryDrugsOptOut" onchange="saveMemberDrugsOptOut()">
-                        <span>🚫 Não paga <strong>drogas</strong> nesta semana (só a meta de armas)</span>
-                        <span class="drugs-optout-state" id="editDeliveryDrugsOptOutState"></span>
-                    </label>
                 </div>
                 <div id="editDeliveryEnvioSelector" style="margin-bottom: 16px; display: none;"></div>
                 
@@ -2001,11 +1877,6 @@
                     <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Membro:</strong> <span id="createDeliveryMemberName" style="color: #fff;">-</span></p>
                     <p style="margin-bottom: 8px;"><strong style="color: #aaa;">Semana:</strong> <span id="createDeliveryWeek" style="color: #fff;">-</span></p>
                     <p style="margin-bottom: 10px;"><strong style="color: #aaa;">Status:</strong> <span id="createDeliveryStatusContainer">-</span></p>
-                    <label class="drugs-optout-flag" title="Marque se o membro não vai pagar a meta de drogas nesta semana">
-                        <input type="checkbox" id="createDeliveryDrugsOptOut" onchange="saveCreateDrugsOptOut()">
-                        <span>🚫 Não paga <strong>drogas</strong> nesta semana (só a meta de armas)</span>
-                        <span class="drugs-optout-state" id="createDeliveryDrugsOptOutState"></span>
-                    </label>
                 </div>
                 
                 <!-- Seção de Screenshots para nova entrega -->
@@ -2046,7 +1917,7 @@
     </script>
     <script src="js/family-commandments.js?v=20260608gate"></script>
     <script src="js/capital-nickname.js?v=20260616vulgo1"></script>
-    <script src="js/admin.js?v=20260820badges1"></script>
+    <script src="js/admin.js?v=20260928metas2"></script>
     <script>
         if (typeof updateWeeklyStatusSortHeaders === 'function') {
             updateWeeklyStatusSortHeaders();

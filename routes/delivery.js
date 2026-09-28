@@ -76,18 +76,6 @@ const getCompetitionRecipe = async () => {
 };
 
 // A meta da semana está paga? (mesma regra usada para liberar o farm extra)
-// Drogas opcional e escolha do membro POR SEMANA — precisa valer tambem aqui,
-// senao "meta paga" teria duas definicoes diferentes no sistema.
-const isDrugsOptOut = async (userId, weekStart) => {
-    try {
-        const row = await getOne(
-            'SELECT opt_out FROM week_drug_optout WHERE user_id = ? AND week_start = ?',
-            [userId, weekStart]
-        );
-        return !!row && (row.opt_out === 1 || row.opt_out === true);
-    } catch (e) { return false; }
-};
-
 const isWeekMetaPaid = async (userId, week, isManager, allMaterials) => {
     const latestCompleteApproved = await getOne(`
         SELECT * FROM deliveries
@@ -115,16 +103,7 @@ const isWeekMetaPaid = async (userId, week, isManager, allMaterials) => {
             byMaterial.set(mid, (byMaterial.get(mid) || 0) + (parseInt(it.amount, 10) || 0));
         }
     }
-    // Mesma regra do /current-week: se o membro optou por nao pagar drogas nesta
-    // semana, as drogas saem da conta — desde que sobre algum material que nao seja
-    // droga (senao nao haveria meta nenhuma a cumprir).
-    let required = allMaterials;
-    if (await isDrugsOptOut(userId, week.start)) {
-        const semDrogas = allMaterials.filter(m => normalizeFarmType(m.farm_type) !== 'drugs');
-        if (semDrogas.length > 0) required = semDrogas;
-    }
-
-    return required.length > 0 && required.every(m =>
+    return allMaterials.length > 0 && allMaterials.every(m =>
         (byMaterial.get(Number(m.id)) || 0) >= resolveMaterialGoal(m, isManager));
 };
 
@@ -206,38 +185,22 @@ const resolvePaymentGoal = (paymentType, isManager) => {
     return paymentType.weekly_goal ?? 50000;
 };
 
-// Separação total por cargo:
-// - Gerente (gerência/01/02) farma SOMENTE produtos marcados como 'manager'
-// - Membro farma o resto ('member' e os legados 'both')
+// Lista única de materiais: cada um tem meta de membro (weekly_goal) e de
+// gerente (manager_weekly_goal). Meta 0 = aquele público não farma o material.
 const productAppliesToRole = (product, isManager) => {
-    const t = (product && product.target_role) || 'both';
-    if (isManager) return t === 'manager';
-    return t !== 'manager';
+    if (!product) return false;
+    const goal = isManager
+        ? (product.manager_weekly_goal ?? product.weekly_goal ?? 0)
+        : (product.weekly_goal ?? 0);
+    return (parseInt(goal, 10) || 0) > 0;
 };
 
-const normalizeFarmType = (farmType = '') => {
-    const normalized = normalizeGroupName(farmType);
-    return ['drugs', 'weapons', 'general'].includes(normalized) ? normalized : 'drugs';
-};
+// Dois tipos de farm: armas e dinheiro (qualquer valor legado cai em armas).
+const normalizeFarmType = (farmType = '') => String(farmType || '').trim().toLowerCase() === 'money' ? 'money' : 'weapons';
 
-const materialAppliesToFarmSettings = (material, isManager, settings = {}) => {
-    if (isManager) return true;
-    if ((settings.farm_materials_enabled || 'true') !== 'true') return false;
-    const farmType = normalizeFarmType(material.farm_type);
-    if (farmType === 'weapons') return (settings.member_weapon_farm_enabled || 'true') === 'true';
-    if (farmType === 'drugs') return (settings.member_drug_farm_enabled || 'true') === 'true';
-    return true;
-};
-
-const MEMBER_WEAPON_FARM_START_WEEK = process.env.MEMBER_WEAPON_FARM_START_WEEK || '2026-06-22';
-
-const materialAppliesToFarmWeek = (material, isManager, settings = {}, weekStart = null) => {
-    if (!materialAppliesToFarmSettings(material, isManager, settings)) return false;
-    if (!isManager && normalizeFarmType(material.farm_type) === 'weapons' && weekStart && String(weekStart) < MEMBER_WEAPON_FARM_START_WEEK) {
-        return false;
-    }
-    return true;
-};
+// Sem interruptores por tipo de farm nem data de início: material ativo vale sempre.
+const materialAppliesToFarmSettings = () => true;
+const materialAppliesToFarmWeek = () => true;
 
 const getFarmTypeSetFromItems = (items = []) => {
     const types = new Set();
@@ -385,9 +348,6 @@ router.get('/current-week', requireAuth, async (req, res) => {
         const week = getWeekWithOffset(offset);
         const userId = req.session.user.id;
         const isManager = await isManagerUser(userId, req.session.user);
-        // Drogas opcional é escolha do MEMBRO POR SEMANA (tabela week_drug_optout)
-        const optRow = await getOne('SELECT opt_out FROM week_drug_optout WHERE user_id = ? AND week_start = ?', [userId, week.start]).catch(() => null);
-        const drugsOptOut = !!optRow && (optRow.opt_out === 1 || optRow.opt_out === true);
         const settingsRows = await getAll('SELECT setting_key, setting_value FROM farm_settings');
         const settingsObj = {};
         (settingsRows || []).forEach(s => {
@@ -687,12 +647,7 @@ router.get('/current-week', requireAuth, async (req, res) => {
                 effectiveIsPartial = !isComplete;
             } else if (approvedProgress) {
                 // Usar approvedProgress para verificar se foi aprovado como completo.
-                // Drogas opcional (por membro): ignora as drogas na conta (conclui só
-                // com as armas), desde que exista algum material que não seja droga.
-                const base = (drugsOptOut && approvedProgress.some(p => p.farm_type !== 'drugs'))
-                    ? approvedProgress.filter(p => p.farm_type !== 'drugs')
-                    : approvedProgress;
-                const isComplete = base.every(p => p.complete);
+                const isComplete = approvedProgress.every(p => p.complete);
                 effectiveIsPartial = !isComplete;
             }
         }
@@ -789,7 +744,6 @@ router.get('/current-week', requireAuth, async (req, res) => {
             paymentType: paymentType,
             paymentTypeId: paymentTypeId,
             dirtyMoneyAmount: dirtyMoneyAmount,
-            drugsOptOut: drugsOptOut,
             farmTypeStatus
         });
     } catch (error) {
@@ -797,30 +751,6 @@ router.get('/current-week', requireAuth, async (req, res) => {
     }
 });
 
-// Membro escolhe, POR SEMANA, se é "não optante de drogas" (conclui só com armas)
-router.post('/drugs-optout', requireAuth, async (req, res) => {
-    try {
-        const userId = req.session.user.id;
-        const offset = parseInt(req.body?.offset, 10) || 0;
-        const week = getWeekWithOffset(offset);
-        const optOut = (req.body?.opt_out === true || req.body?.opt_out === 1 || req.body?.opt_out === '1' || req.body?.opt_out === 'true') ? 1 : 0;
-
-        const existing = await getOne('SELECT id FROM week_drug_optout WHERE user_id = ? AND week_start = ?', [userId, week.start]);
-        if (existing) {
-            await runQuery('UPDATE week_drug_optout SET opt_out = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [optOut, existing.id]);
-        } else {
-            await runQuery('INSERT INTO week_drug_optout (user_id, week_start, opt_out) VALUES (?, ?, ?)', [userId, week.start, optOut]);
-        }
-        if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
-        res.json({ success: true, drugsOptOut: optOut === 1 });
-    } catch (error) {
-        console.error('Erro ao salvar escolha de drogas da semana:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Hierarquia da família — para o card lateral no dashboard do membro.
-// Ordem: 01, 02, gerente geral, demais gerentes e, abaixo, os membros.
 router.get('/family-hierarchy', requireAuth, async (req, res) => {
     try {
         const users = await getAll(`
@@ -1692,33 +1622,6 @@ router.get('/materials', requireAuth, async (req, res) => {
     }
 });
 
-// Buscar tipos de pagamento ativos
-router.get('/payment-types', requireAuth, async (req, res) => {
-    try {
-        const isManager = await isManagerUser(req.session.user.id, req.session.user);
-        let paymentTypes = [];
-        try {
-            paymentTypes = await getAll('SELECT id, name, icon, weekly_goal, manager_weekly_goal, unit_type, target_role FROM payment_types WHERE active = 1 ORDER BY name');
-        } catch (e) {
-            paymentTypes = await getAll('SELECT id, name, icon, weekly_goal, unit_type FROM payment_types WHERE active = 1 ORDER BY name');
-        }
-        paymentTypes = (paymentTypes || [])
-            .filter(pt => productAppliesToRole(pt, isManager))
-            .map(pt => ({
-                ...pt,
-                weekly_goal: resolvePaymentGoal(pt, isManager)
-            }));
-        res.json({ paymentTypes: paymentTypes || [] });
-    } catch (error) {
-        console.error('❌ Erro ao buscar tipos de pagamento:', error);
-        // Retornar lista padrão se a tabela não existir
-        res.json({ paymentTypes: [
-            { id: 1, name: 'Dinheiro Sujo', icon: '💰', weekly_goal: 50000 },
-            { id: 2, name: 'Dinheiro Limpo', icon: '💵', weekly_goal: 50000 }
-        ]});
-    }
-});
-
 // Buscar configurações do farm (para membros)
 router.get('/farm-settings', requireAuth, async (req, res) => {
     try {
@@ -1728,12 +1631,9 @@ router.get('/farm-settings', requireAuth, async (req, res) => {
             settingsObj[s.setting_key] = s.setting_value;
         });
         
-        // Valores padrão caso não existam
-        if (!settingsObj.farm_materials_enabled) settingsObj.farm_materials_enabled = 'true';
-        if (!settingsObj.member_drug_farm_enabled) settingsObj.member_drug_farm_enabled = 'true';
-        if (!settingsObj.member_weapon_farm_enabled) settingsObj.member_weapon_farm_enabled = 'true';
-        if (!settingsObj.farm_payment_enabled) settingsObj.farm_payment_enabled = 'true';
-        if (!settingsObj.farm_payment_mode) settingsObj.farm_payment_mode = 'either';
+        // Farm simplificado: só materiais (dinheiro é um material com ícone de dinheiro).
+        settingsObj.farm_materials_enabled = 'true';
+        settingsObj.farm_payment_enabled = 'false';
         if (!settingsObj.competition_enabled) settingsObj.competition_enabled = 'false';
         
         res.json({ settings: settingsObj });
@@ -1743,10 +1643,7 @@ router.get('/farm-settings', requireAuth, async (req, res) => {
         res.json({ 
             settings: {
                 farm_materials_enabled: 'true',
-                member_drug_farm_enabled: 'true',
-                member_weapon_farm_enabled: 'true',
-                farm_payment_enabled: 'true',
-                farm_payment_mode: 'either',
+                farm_payment_enabled: 'false',
                 competition_enabled: 'false'
             }
         });
