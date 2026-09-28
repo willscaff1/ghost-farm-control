@@ -742,30 +742,25 @@ function showEliteMsg(el, text, type) {
     el.className = 'form-message ' + type;
 }
 
-// Nomes de exibição dos grupos (carregados dinamicamente do banco)
-let roleNames = {};
+// Nomes de exibição dos grupos: começa com o mapa padrão e o banco só
+// sobrescreve quando a leitura é permitida. Membro comum recebe 403 em
+// /api/admin/role-permissions (esperado) e antes ficava com o mapa vazio.
+let roleNames = { ...DEFAULT_ROLE_LABELS };
 
 // Carregar nomes de exibição dos grupos do banco
 async function loadRoleNames() {
     try {
         const response = await fetch('/api/admin/role-permissions');
-        if (response.ok) {
-            const data = await response.json();
-            roleNames = {};
-            data.roles.forEach(role => {
-                roleNames[role.role_name] = role.display_name;
-            });
-        }
+        if (!response.ok) return; // sem permissão: fica com o padrão
+        const data = await response.json();
+        const fromDb = {};
+        (data.roles || []).forEach(role => {
+            if (role && role.role_name) fromDb[role.role_name] = role.display_name || role.role_name;
+        });
+        roleNames = { ...DEFAULT_ROLE_LABELS, ...fromDb };
     } catch (error) {
         console.error('Erro ao carregar nomes dos grupos:', error);
-        // Fallback básico
-        roleNames = {
-            'member': 'Membro',
-            'super_admin': 'Super Admin',
-            'gerente_vendas': 'Gerente de Vendas',
-            'gerente_de_vendas': 'Gerente de Vendas',
-            'gerente_geral': 'Gerente Geral'
-        };
+        roleNames = { ...DEFAULT_ROLE_LABELS };
     }
 }
 
@@ -857,7 +852,8 @@ async function checkAuth() {
             
             // Dropdown info
             document.getElementById('dropdownUserName').textContent = currentUser.name;
-            document.getElementById('dropdownUserRole').textContent = roleNames[primaryRole] || primaryRole;
+            document.getElementById('dropdownUserRole').textContent =
+                roleNames[primaryRole] || DEFAULT_ROLE_LABELS[normalizeRoleName(primaryRole)] || primaryRole;
 
             // Badge do cargo ao lado do nome (cabeçalho) — cargo real: 1o grupo que não seja "member"
             const badgeRole = userGroups.find(g => g && g !== 'member') || data.user.role || 'member';

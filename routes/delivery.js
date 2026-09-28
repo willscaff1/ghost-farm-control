@@ -76,6 +76,18 @@ const getCompetitionRecipe = async () => {
 };
 
 // A meta da semana está paga? (mesma regra usada para liberar o farm extra)
+// Drogas opcional e escolha do membro POR SEMANA — precisa valer tambem aqui,
+// senao "meta paga" teria duas definicoes diferentes no sistema.
+const isDrugsOptOut = async (userId, weekStart) => {
+    try {
+        const row = await getOne(
+            'SELECT opt_out FROM week_drug_optout WHERE user_id = ? AND week_start = ?',
+            [userId, weekStart]
+        );
+        return !!row && (row.opt_out === 1 || row.opt_out === true);
+    } catch (e) { return false; }
+};
+
 const isWeekMetaPaid = async (userId, week, isManager, allMaterials) => {
     const latestCompleteApproved = await getOne(`
         SELECT * FROM deliveries
@@ -103,7 +115,16 @@ const isWeekMetaPaid = async (userId, week, isManager, allMaterials) => {
             byMaterial.set(mid, (byMaterial.get(mid) || 0) + (parseInt(it.amount, 10) || 0));
         }
     }
-    return allMaterials.length > 0 && allMaterials.every(m =>
+    // Mesma regra do /current-week: se o membro optou por nao pagar drogas nesta
+    // semana, as drogas saem da conta — desde que sobre algum material que nao seja
+    // droga (senao nao haveria meta nenhuma a cumprir).
+    let required = allMaterials;
+    if (await isDrugsOptOut(userId, week.start)) {
+        const semDrogas = allMaterials.filter(m => normalizeFarmType(m.farm_type) !== 'drugs');
+        if (semDrogas.length > 0) required = semDrogas;
+    }
+
+    return required.length > 0 && required.every(m =>
         (byMaterial.get(Number(m.id)) || 0) >= resolveMaterialGoal(m, isManager));
 };
 
