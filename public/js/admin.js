@@ -45,7 +45,6 @@ const advRemovalRoles = new Set([
 
 function canRemoveAdvWarnings() {
     if (!currentUser) return false;
-    if (currentUser.passport === '6999') return true;
 
     const groups = Array.isArray(currentUser.groups) && currentUser.groups.length > 0
         ? currentUser.groups
@@ -148,9 +147,6 @@ async function loadRoleNames() {
 function canChangeRoles() {
     if (!currentUser) return false;
     
-    // Passaporte 6999 (superadmin) sempre pode
-    if (currentUser.passport === '6999') return true;
-    
     if (currentUserPermissions?.can_config) return true;
 
     // Fallback enquanto as permissões ainda estão carregando
@@ -237,7 +233,6 @@ function renderRoleBadgesHtml(groups, fallbackRole) {
 // Não basta ter permissão 'all': tem que estar no grupo super_admin.
 function isSuperAdminUser() {
     if (!currentUser) return false;
-    if (currentUser.passport === '6999') return true;
     const groups = currentUser.groups || [currentUser.group || currentUser.role];
     return groups.includes('super_admin');
 }
@@ -251,7 +246,6 @@ const competitionViewerTabs = ['competition', 'competition-ranking'];
 const COMPETITION_VIEWER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
 function isCompetitionViewer() {
     if (!currentUser) return false;
-    if (currentUser.passport === '6999') return true;
     const groups = currentUser.groups || [currentUser.group || currentUser.role];
     return groups.some(g => COMPETITION_VIEWER_ROLES.includes(g));
 }
@@ -261,7 +255,6 @@ const eliteApproverTabs = ['elite-actions', 'elite-catalog', 'elite-ranking'];
 const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'gerente_acao', 'super_admin'];
 function isEliteApproverUser() {
     if (!currentUser) return false;
-    if (currentUser.passport === '6999') return true;
     const groups = currentUser.groups || [currentUser.group || currentUser.role];
     return groups.some(g => ELITE_APPROVER_ROLES.includes(g));
 }
@@ -6002,7 +5995,7 @@ function renderMembersTable() {
         
         return `
             <tr class="${statusClass}" data-name="${escapeHtml(member.name.toLowerCase())}" data-passport="${escapeHtml(member.passport || '')}" data-member-id="${member.id}">
-                <td><input type="checkbox" class="member-checkbox" ${member.passport === '6999' ? 'disabled' : ''} data-member-id="${member.id}" data-member-name="${escapeHtml(member.name)}" onchange="updateBulkActions()"></td>
+                <td><input type="checkbox" class="member-checkbox" data-member-id="${member.id}" data-member-name="${escapeHtml(member.name)}" onchange="updateBulkActions()"></td>
                 <td>${escapeHtml(member.passport || '-')}</td>
                 <td>${renderMemberSlotCell(member)}</td>
                 <td><span class="member-avatar">${initial}</span><span class="member-name">${statusIcon}${escapeHtml(member.name)}</span></td>
@@ -6010,7 +6003,7 @@ function renderMembersTable() {
                     ${groupsDisplay}
                 </td>
                 <td>
-                    ${isManager && member.passport !== '6999' ? `
+                    ${isManager ? `
                         <button class="action-btn-small edit" onclick="openEditMemberModal(${member.id}, '${escapeHtml(member.name.replace(/'/g, "\\'"))}', '${escapeHtml(member.passport)}', '${escapeHtml(member.email || '')}')">✏️ Editar</button>
                         <button class="action-btn-small ${member.active ? 'toggle' : 'activate'}" onclick="toggleMember(${member.id})">
                             ${member.active ? '🚫 Desativar' : '✅ Ativar'}
@@ -9502,7 +9495,7 @@ async function loadMembersForWarning() {
         
         if (data.members) {
             data.members
-                .filter(m => m.passport !== '6999' && m.active)
+                .filter(m => m.active)
                 .forEach(member => {
                     select.innerHTML += `<option value="${member.id}">${escapeHtml(member.name)} (${escapeHtml(member.passport)})</option>`;
                 });

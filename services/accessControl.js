@@ -107,9 +107,9 @@ function buildAccessProfile(user, groups, rolesByName = roleAccessCache) {
         canConfig = canConfig || role.can_config;
     }
 
+    // Super admin é só quem está no grupo (sem passaporte fixo — o 6999 legado acabou com o reset)
     const isSuperAdmin = normalizedGroups.includes('super_admin') ||
-        normalizeGroupName(user?.role) === 'super_admin' ||
-        String(user?.passport || '') === '6999';
+        normalizeGroupName(user?.role) === 'super_admin';
     const allPermissions = [...permissions];
 
     return {

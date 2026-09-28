@@ -103,11 +103,6 @@ const isSuperAdminUser = (user) => {
         return true;
     }
 
-    // Fallback de compatibilidade: passaporte 6999 ainda tratado como super admin
-    if (user.passport === '6999') {
-        return true;
-    }
-
     return false;
 };
 
@@ -2258,7 +2253,7 @@ router.put('/members/:id/groups', requireAdmin, async (req, res) => {
         if (!member) {
             return res.status(404).json({ error: 'Membro não encontrado' });
         }
-        if (member.role === 'super_admin' || member.passport === '6999') {
+        if (member.role === 'super_admin') {
             return res.status(400).json({ error: 'Não é possível alterar este usuário' });
         }
         if (!Array.isArray(req.body?.groups)) {
@@ -2309,7 +2304,7 @@ router.post('/members/:id/role', requireAdmin, async (req, res) => {
         }
         
         // Não pode alterar usuários de super admin
-        if (member.role === 'super_admin' || member.passport === '6999') {
+        if (member.role === 'super_admin') {
             return res.status(400).json({ error: 'Não é possível alterar este usuário' });
         }
         
@@ -2335,7 +2330,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
         }
         
         // Não pode editar usuários de super admin
-        if (member.role === 'super_admin' || member.passport === '6999') {
+        if (member.role === 'super_admin') {
             return res.status(400).json({ error: 'Não é possível editar este usuário' });
         }
         
@@ -2426,7 +2421,7 @@ router.delete('/members/:id', requireAdmin, async (req, res) => {
         }
         
         // Não pode deletar o usuário Admin (passaporte 0) nem super admins
-        if (member.passport === '0' || member.role === 'super_admin' || member.passport === '6999') {
+        if (member.passport === '0' || member.role === 'super_admin') {
             return res.status(400).json({ error: 'Não é possível deletar este usuário protegido' });
         }
         
@@ -4165,7 +4160,7 @@ router.post('/members/:id/warnings', requireAdmin, async (req, res) => {
         }
         
         // Não pode dar ADV em usuários de super admin
-        if (member.role === 'super_admin' || member.passport === '6999') {
+        if (member.role === 'super_admin') {
             return res.status(400).json({ error: 'Não é possível advertir este usuário protegido' });
         }
         
