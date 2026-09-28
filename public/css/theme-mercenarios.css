@@ -1,0 +1,304 @@
+/* ============================================================
+   TEMA MERCENÁRIOS — preto + dourado, a partir da logo
+   Carregado por último em todas as páginas: só sobrescreve cor,
+   fundo, borda e brilho. Layout continua o dos outros CSS.
+   ============================================================ */
+
+:root {
+    --mc-gold: #f5b91c;
+    --mc-gold-2: #ffd54a;
+    --mc-gold-deep: #b8860b;
+    --mc-gold-dark: #7a5a08;
+    --mc-black: #060606;
+    --mc-ink: #0c0a06;
+    --mc-ink-2: #15110a;
+    --mc-gold-a06: rgba(245, 185, 28, 0.06);
+    --mc-gold-a10: rgba(245, 185, 28, 0.10);
+    --mc-gold-a18: rgba(245, 185, 28, 0.18);
+    --mc-gold-a28: rgba(245, 185, 28, 0.28);
+    --mc-gold-a45: rgba(245, 185, 28, 0.45);
+    --mc-text: #f3ecd8;
+    --mc-muted: #b9ad8c;
+
+    /* variáveis do style.css */
+    --primary: var(--mc-gold);
+    --primary-dark: var(--mc-gold-deep);
+    --secondary: var(--mc-gold-2);
+    --light: #e9dfc2;
+    --bg: var(--mc-black);
+    --card-bg: rgba(18, 14, 6, 0.86);
+    --border: var(--mc-gold-a18);
+
+    /* variáveis do theme-polish.css */
+    --tp-border: var(--mc-gold-a18);
+    --tp-border-strong: var(--mc-gold-a45);
+    --tp-accent: var(--mc-gold);
+    --tp-accent-soft: rgba(245, 185, 28, 0.35);
+    --tp-card-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 213, 74, 0.08);
+    --tp-focus-ring: 0 0 0 3px rgba(245, 185, 28, 0.28);
+}
+
+/* ---------- Fundo geral: preto com brilho dourado e a logo em marca d'água ---------- */
+html { background: var(--mc-black); }
+body {
+    background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(245, 185, 28, 0.16), transparent 60%),
+        radial-gradient(900px 500px at 100% 100%, rgba(184, 134, 11, 0.12), transparent 60%),
+        var(--mc-black) !important;
+    color: var(--mc-text);
+}
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: url('/img/logo-mercenarios-login.webp') no-repeat center 55% / min(70vw, 720px);
+    opacity: 0.045;
+    filter: grayscale(20%);
+}
+body > * { position: relative; z-index: 1; }
+
+a { color: var(--mc-gold-2); }
+a:hover { color: #fff; }
+::selection { background: var(--mc-gold-a45); color: #fff; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0a0906; }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--mc-gold-deep), var(--mc-gold-dark)); border-radius: 10px; border: 2px solid #0a0906; }
+
+/* ---------- Logo ---------- */
+.brand-logo {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto 6px;
+    filter: drop-shadow(0 6px 22px rgba(245, 185, 28, 0.35));
+}
+.logo p { color: var(--mc-muted); letter-spacing: 3px; text-transform: uppercase; font-size: 12px; }
+
+.nav-brand {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    color: var(--mc-gold) !important;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-shadow: 0 0 18px rgba(245, 185, 28, 0.45);
+}
+.nav-logo {
+    height: 44px;
+    width: auto;
+    filter: drop-shadow(0 2px 10px rgba(245, 185, 28, 0.45));
+}
+.nav-brand small {
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: var(--mc-muted);
+    text-shadow: none;
+    font-size: 12px;
+}
+
+/* ---------- Login / registro ---------- */
+.login-container { background: transparent; }
+.login-box {
+    background: linear-gradient(165deg, rgba(28, 22, 8, 0.92), rgba(10, 8, 4, 0.96)) !important;
+    border: 1px solid var(--mc-gold-a28) !important;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(245, 185, 28, 0.08), 0 0 60px rgba(245, 185, 28, 0.12) !important;
+    max-width: 440px;
+    backdrop-filter: blur(6px);
+}
+.register-box { max-width: 500px; }
+.logo h1 { color: var(--mc-gold) !important; }
+
+/* ---------- Barra de navegação ---------- */
+.navbar {
+    background: rgba(8, 6, 2, 0.88) !important;
+    border-bottom: 1px solid var(--mc-gold-a28) !important;
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 213, 74, 0.08) inset;
+    backdrop-filter: blur(10px);
+}
+.user-dropdown-trigger { border-color: var(--mc-gold-a18) !important; }
+.user-dropdown-trigger:hover { background: var(--mc-gold-a10) !important; border-color: var(--mc-gold-a45) !important; }
+.user-dropdown {
+    background: linear-gradient(145deg, #1a1408, #0b0904) !important;
+    border: 1px solid var(--mc-gold-a28) !important;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.7) !important;
+}
+.dropdown-item:hover { background: var(--mc-gold-a10) !important; color: var(--mc-gold-2) !important; }
+.dropdown-user-role, .user-role-badge { border-color: var(--mc-gold-a28) !important; }
+.notification-bell:hover { background: var(--mc-gold-a10) !important; }
+
+/* ---------- Sidebar do admin ---------- */
+.sidebar {
+    background: linear-gradient(180deg, #0f0c05 0%, #070604 100%) !important;
+    border-right: 1px solid var(--mc-gold-a18) !important;
+}
+.sidebar-section-title { color: var(--mc-gold-deep) !important; letter-spacing: 2px; }
+.sidebar-item { color: #cfc4a3 !important; border-left-color: transparent !important; }
+.sidebar-item:hover { background: var(--mc-gold-a10) !important; color: var(--mc-gold-2) !important; }
+.sidebar-item.active {
+    background: linear-gradient(135deg, rgba(245, 185, 28, 0.92), rgba(184, 134, 11, 0.92)) !important;
+    color: #120d02 !important;
+    font-weight: 700;
+    box-shadow: 0 6px 18px rgba(245, 185, 28, 0.3) !important;
+}
+
+/* ---------- Cards, painéis, modais ---------- */
+.card, .panel, .summary-card, .goals-card, .weekly-status-group-card, .weekly-status-controls-card,
+.settings-section, .elite-rank-panel, .hierarchy-card, .member-summary, .competition-invite {
+    background: linear-gradient(160deg, rgba(28, 22, 8, 0.90), rgba(11, 9, 4, 0.95)) !important;
+    border: 1px solid var(--mc-gold-a18) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 213, 74, 0.07) !important;
+}
+.card h2, .panel-header h2, .card h3, .panel h3 { color: #fff !important; }
+.card .subtitle, .panel .subtitle, .subtitle { color: var(--mc-muted) !important; }
+.material-card, .elite-action-card, .competition-material, .hierarchy-item, .delivery-item, .extract-material-group {
+    background: rgba(0, 0, 0, 0.35) !important;
+    border: 1px solid var(--mc-gold-a10) !important;
+}
+.material-card.complete { border-color: rgba(46, 204, 113, 0.45) !important; }
+.material-group-title, .goals-subsection-title, .hierarchy-section-title, .settings-section h3 { color: var(--mc-gold) !important; }
+
+.edit-modal-content, .modal-content, .confirmation-modal, .approval-modal-content {
+    background: linear-gradient(160deg, #1a1408, #0b0904) !important;
+    border: 1px solid var(--mc-gold-a45) !important;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.8), 0 0 40px rgba(245, 185, 28, 0.12) !important;
+}
+.edit-modal-content h3, .modal-content h3, .modal-content h2 { color: var(--mc-gold) !important; }
+.edit-modal-overlay, .modal-overlay, .modal { background: rgba(0, 0, 0, 0.78) !important; }
+
+/* ---------- Botões ---------- */
+.btn-primary, .btn-submit, .goals-btn-add, .btn-approve, .competition-btn.yes, .filter-btn.active,
+.payment-type-btn.active, .week-nav-btn:hover, .btn.primary {
+    background: linear-gradient(135deg, var(--mc-gold-2) 0%, var(--mc-gold) 45%, var(--mc-gold-deep) 100%) !important;
+    color: #140f02 !important;
+    border: none !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.3px;
+    box-shadow: 0 6px 20px rgba(245, 185, 28, 0.28) !important;
+    text-shadow: none !important;
+}
+.btn-primary:hover, .btn-submit:hover, .goals-btn-add:hover, .btn.primary:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 8px 26px rgba(245, 185, 28, 0.4) !important;
+}
+.btn-submit.secondary, .btn.secondary, .btn-secondary {
+    background: var(--mc-gold-a10) !important;
+    color: var(--mc-gold-2) !important;
+    border: 1px solid var(--mc-gold-a28) !important;
+    box-shadow: none !important;
+}
+.filter-btn { border-color: var(--mc-gold-a18) !important; color: #cfc4a3 !important; }
+.filter-btn:hover { background: var(--mc-gold-a10) !important; color: var(--mc-gold-2) !important; }
+.action-btn.view, .action-btn.edit { background: var(--mc-gold-a18) !important; color: var(--mc-gold-2) !important; }
+.action-btn.approve { background: rgba(46, 204, 113, 0.18) !important; }
+.week-nav-btn, .elite-rank-close, .comp-rank-search { border-color: var(--mc-gold-a28) !important; }
+.week-display { background: var(--mc-gold-a10) !important; border: 1px solid var(--mc-gold-a28) !important; color: var(--mc-gold-2) !important; }
+
+/* ---------- Formulários ---------- */
+input[type="text"], input[type="password"], input[type="number"], input[type="email"], input[type="date"],
+select, textarea, .goals-input, .edit-input {
+    background: rgba(0, 0, 0, 0.45) !important;
+    border: 1px solid var(--mc-gold-a18) !important;
+    color: var(--mc-text) !important;
+}
+input:focus, select:focus, textarea:focus, .goals-input:focus, .edit-input:focus {
+    border-color: var(--mc-gold) !important;
+    box-shadow: var(--tp-focus-ring) !important;
+    outline: none;
+}
+input::placeholder, textarea::placeholder { color: #7d7458 !important; }
+label, .form-group label, .goals-label { color: #d8cfb0 !important; }
+.toggle-switch input:checked + .toggle-slider { background: var(--mc-gold) !important; }
+.toggle-slider { background: rgba(255, 255, 255, 0.12) !important; }
+.meta-exempt-toggle input:checked + .meta-exempt-label { color: var(--mc-gold-2) !important; }
+
+/* ---------- Tabelas ---------- */
+.weekly-table th, .goals-table th, table th {
+    color: var(--mc-gold) !important;
+    border-bottom: 2px solid var(--mc-gold-a28) !important;
+    background: rgba(245, 185, 28, 0.05) !important;
+    letter-spacing: 0.5px;
+}
+.weekly-table td, .goals-table td, table td { border-bottom: 1px solid rgba(245, 185, 28, 0.08) !important; }
+.weekly-table tbody tr:hover, .goals-table tbody tr:hover, table tbody tr:hover { background: var(--mc-gold-a06) !important; }
+.weekly-sort-btn { color: var(--mc-gold) !important; }
+.member-avatar { background: linear-gradient(135deg, var(--mc-gold), var(--mc-gold-deep)) !important; color: #140f02 !important; }
+.weekly-group-count { background: var(--mc-gold-a18) !important; color: var(--mc-gold-2) !important; }
+
+/* ---------- Cards de resumo do Status da Semana ---------- */
+.summary-card .summary-label { color: var(--mc-muted) !important; }
+.summary-card.completed { border-color: rgba(46, 204, 113, 0.35) !important; }
+.summary-card.pending { border-color: rgba(243, 156, 18, 0.4) !important; }
+.summary-card.missing { border-color: rgba(231, 76, 60, 0.35) !important; }
+
+/* ---------- Progresso, chips e badges ---------- */
+.progress-fill, .progress-bar-fill, .progress-week-bar.complete { background: linear-gradient(90deg, var(--mc-gold-deep), var(--mc-gold-2)) !important; }
+.progress-track, .progress-bar, .progress-week-bar-wrap { background: rgba(255, 255, 255, 0.08) !important; }
+.badge-super_admin, .badge-gerente_geral, .badge-01, .badge-02 {
+    background: linear-gradient(135deg, var(--mc-gold), var(--mc-gold-deep)) !important;
+    color: #140f02 !important;
+    border-color: transparent !important;
+}
+.pending-extra-badge, .elite-progress-chip { border-color: var(--mc-gold-a28) !important; }
+.message.success { border-color: rgba(46, 204, 113, 0.5) !important; }
+.message.error { border-color: rgba(231, 76, 60, 0.5) !important; }
+.goals-message.show.success { color: #2ecc71 !important; }
+
+/* ---------- Dashboard do membro ---------- */
+.member-summary-tile { background: rgba(0, 0, 0, 0.3) !important; border: 1px solid var(--mc-gold-a10) !important; }
+.member-summary-label { color: var(--mc-muted) !important; }
+.week-pill, .status-pill { border-color: var(--mc-gold-a28) !important; }
+.locked-panel { border-color: rgba(231, 76, 60, 0.35) !important; }
+.hierarchy-item.leader, .hierarchy-item.leadership { border-color: var(--mc-gold-a28) !important; background: var(--mc-gold-a06) !important; }
+
+/* ---------- Abas / seletores ---------- */
+.tab-btn.active, .comp-tab.active, .elite-tab.active { color: var(--mc-gold) !important; border-bottom-color: var(--mc-gold) !important; }
+.mode-option input:checked + .mode-label { border-color: var(--mc-gold) !important; }
+.icon-select { background: rgba(0, 0, 0, 0.45) !important; border-color: var(--mc-gold-a18) !important; color: var(--mc-text) !important; }
+
+/* ---------- Detalhe dourado nos títulos principais ---------- */
+.week-header h2 span, #currentWeekLabel, #selectedWeekLabel { color: var(--mc-gold-2) !important; }
+h1.page-title, .page-title { color: var(--mc-gold) !important; }
+
+@media (max-width: 768px) {
+    .brand-logo { max-width: 240px; }
+    .nav-logo { height: 34px; }
+    body::before { background-size: 90vw; }
+}
+
+/* ---------- Sobras roxas do tema antigo (dashboard) ---------- */
+.welcome-name, .welcome-slot-value, .member-summary-value.slot, .material-tag, .comp-points-value,
+.elite-rank-count, .extract-mat-tag { color: var(--mc-gold-2) !important; }
+.welcome-slot, .material-tag, .extract-mat-tag {
+    background: var(--mc-gold-a10) !important;
+    border-color: var(--mc-gold-a28) !important;
+}
+.week-nav-btn {
+    background: var(--mc-gold-a10) !important;
+    color: var(--mc-gold-2) !important;
+    border: 1px solid var(--mc-gold-a28) !important;
+}
+.btn-add-screenshot, .screenshots-area .btn-add-screenshot {
+    background: var(--mc-gold-a10) !important;
+    color: var(--mc-gold-2) !important;
+    border: 1px dashed var(--mc-gold-a45) !important;
+}
+.btn-add-screenshot:hover { background: var(--mc-gold-a18) !important; }
+
+/* ---------- Sobras roxas/azuis do tema antigo (admin) ---------- */
+.justif-tab-btn.active, .tab-button.active, .att-tab.active {
+    background: linear-gradient(135deg, var(--mc-gold-2), var(--mc-gold-deep)) !important;
+    color: #140f02 !important;
+    border-color: transparent !important;
+}
+.justif-tab-btn, .tab-button { border-color: var(--mc-gold-a18) !important; }
+.count, .badge-count, .tab-count { background: var(--mc-gold-a18) !important; color: var(--mc-gold-2) !important; }
+.action-btn-small.edit, .action-btn-small.toggle { background: var(--mc-gold-a18) !important; color: var(--mc-gold-2) !important; border-color: var(--mc-gold-a28) !important; }
+.modal-header.farm-header, .modal-header {
+    background: linear-gradient(135deg, rgba(245, 185, 28, 0.18), rgba(184, 134, 11, 0.10)) !important;
+    border-bottom: 1px solid var(--mc-gold-a28) !important;
+}
+.modal-header h3, .modal-header h2 { color: var(--mc-gold) !important; }
+.btn-close-warnings, .btn-close { background: var(--mc-gold-a10) !important; color: var(--mc-gold-2) !important; border: 1px solid var(--mc-gold-a28) !important; }

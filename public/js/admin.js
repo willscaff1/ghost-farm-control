@@ -10932,7 +10932,7 @@ async function generateReportPDF() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Relatório Semanal - Farm Ghosts</title>
+            <title>Relatório Semanal - Mercenários</title>
             <style>
                 body { font-family: Arial, sans-serif; padding: 20px; }
                 h1 { color: #333; text-align: center; }
