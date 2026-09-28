@@ -1347,9 +1347,44 @@ db.initialize().then(async () => {
         }
     }
 
+    // ============================================================
+    // PERMISSÕES PADRÃO POR GRUPO (cidade nova, 28/09/2026) — one-shot
+    // - Super Admin e Gerente Geral: tudo (['all'], can_config)
+    // - Todos os outros gerentes, 01 e 02: Status da Semana, Farms e
+    //   Justificativas (aprovam/recusam metas), Lista de Membros, Ponto,
+    //   Gerenciar ADV e Relatório Semanal. Sem Configurações.
+    // - member e elite: nada (só o dashboard)
+    // ============================================================
+    async function runRolePermissionsV3OneShot() {
+        const { runQuery, getOne, getAll } = require('./database/db');
+        const markerKey = 'role_permissions_v3_2026_09_28_done';
+        const MANAGER_TABS = ['weekly-status', 'pending', 'absences', 'members', 'attendance', 'members-overview', 'weekly-report'];
+        try {
+            const done = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [markerKey]);
+            if (done?.setting_value === 'true') return;
+
+            const roles = await getAll('SELECT role_name FROM role_permissions');
+            for (const r of roles || []) {
+                const name = String(r.role_name || '').trim().toLowerCase();
+                let perms, canConfig;
+                if (name === 'super_admin' || name === 'gerente_geral') { perms = ['all']; canConfig = 1; }
+                else if (name === 'member' || name === 'elite') { perms = []; canConfig = 0; }
+                else { perms = MANAGER_TABS; canConfig = 0; }
+                await runQuery('UPDATE role_permissions SET permissions = ?, can_config = ? WHERE role_name = ?',
+                    [JSON.stringify(perms), canConfig, r.role_name]);
+            }
+            await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [markerKey, 'true']);
+            try { require('./services/accessControl').invalidateRoleAccessCache(); } catch (e) { /* cache opcional */ }
+            console.log('🔐 Permissões padrão por grupo aplicadas (v3): ' + (roles || []).length + ' grupos');
+        } catch (e) {
+            console.error('⚠️ Permissões v3:', e.message);
+        }
+    }
+
     app.listen(PORT, async () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
         await runSystemResetOneShot();
+        await runRolePermissionsV3OneShot();
 
         
         // Criar super admin "Admin Admin" se não existir (one-shot, remover depois)

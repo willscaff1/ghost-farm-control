@@ -70,6 +70,20 @@ const normalizeFarmType = () => 'general';
 const materialAppliesToFarmSettings = () => true;
 const materialAppliesToFarmWeek = () => true;
 
+// Só quem tem can_config (Super Admin e Gerente Geral) mexe em configurações.
+// Gerentes, 01 e 02 aprovam/recusam metas e cuidam dos membros, mas não configuram.
+const requireConfig = async (req, res, next) => {
+    try {
+        const profile = await getUserAccessProfile(req.session.user);
+        if (!profile.canConfig && !profile.isSuperAdmin) {
+            return res.status(403).json({ error: 'Apenas Super Admin e Gerente Geral alteram configurações' });
+        }
+        next();
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao verificar permissão' });
+    }
+};
+
 const weeklyStatusCache = new Map();
 const WEEKLY_STATUS_CACHE_TTL_MS = parseInt(process.env.WEEKLY_STATUS_CACHE_TTL_MS, 10) || 60000;
 
@@ -849,7 +863,7 @@ router.get('/competition/week', requireAdmin, async (req, res) => {
     }
 });
 
-router.put('/competition/week', requireAdmin, requireCompetitionViewer, async (req, res) => {
+router.put('/competition/week', requireAdmin, requireCompetitionViewer, requireConfig, async (req, res) => {
     try {
         const weekStart = req.body?.week_start || getCurrentWeek().start;
         const enabled = (req.body?.enabled === true || req.body?.enabled === 'true') ? 1 : 0;
@@ -877,7 +891,7 @@ router.get('/competition/recipe', requireAdmin, requireCompetitionViewer, async 
     }
 });
 
-router.post('/competition/recipe', requireAdmin, requireCompetitionViewer, async (req, res) => {
+router.post('/competition/recipe', requireAdmin, requireCompetitionViewer, requireConfig, async (req, res) => {
     try {
         const materialId = parseInt(req.body?.material_id, 10);
         const amount = Math.max(1, parseInt(req.body?.amount, 10) || 0);
@@ -898,7 +912,7 @@ router.post('/competition/recipe', requireAdmin, requireCompetitionViewer, async
     }
 });
 
-router.delete('/competition/recipe/:materialId', requireAdmin, requireCompetitionViewer, async (req, res) => {
+router.delete('/competition/recipe/:materialId', requireAdmin, requireCompetitionViewer, requireConfig, async (req, res) => {
     try {
         await runQuery('DELETE FROM competition_recipe WHERE material_id = ?', [req.params.materialId]);
         res.json({ success: true });
@@ -918,7 +932,7 @@ router.get('/competition/prizes', requireAdmin, requireCompetitionViewer, async 
 });
 
 // Prêmio com foto opcional (multipart)
-router.post('/competition/prizes', requireAdmin, requireCompetitionViewer, (req, res) => {
+router.post('/competition/prizes', requireAdmin, requireCompetitionViewer, requireConfig, (req, res) => {
     uploadPrizeImage(req, res, async (err) => {
         if (err) return res.status(400).json({ error: err.message || 'Falha no upload da imagem' });
         try {
@@ -947,7 +961,7 @@ router.post('/competition/prizes', requireAdmin, requireCompetitionViewer, (req,
     });
 });
 
-router.delete('/competition/prizes/:position', requireAdmin, requireCompetitionViewer, async (req, res) => {
+router.delete('/competition/prizes/:position', requireAdmin, requireCompetitionViewer, requireConfig, async (req, res) => {
     try {
         await runQuery('DELETE FROM competition_prizes WHERE position = ?', [req.params.position]);
         res.json({ success: true });
@@ -1628,7 +1642,7 @@ router.get('/family-commandments', requireAdmin, async (req, res) => {
     }
 });
 
-router.put('/family-commandments', requireAdmin, async (req, res) => {
+router.put('/family-commandments', requireAdmin, requireConfig, async (req, res) => {
     try {
         const { title, content, active } = req.body || {};
         const saved = await saveCommandments({ title, content, active }, req.session.user.id);
@@ -2208,7 +2222,7 @@ router.post('/test-email', requireAdmin, async (req, res) => {
 });
 
 // Ativar/Desativar membro
-router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
+router.post('/members/:id/toggle', requireAdmin, requireConfig, async (req, res) => {
     try {
         const memberId = req.params.id;
         
@@ -2246,7 +2260,7 @@ router.post('/members/:id/toggle', requireAdmin, async (req, res) => {
 });
 
 // Alterar todos os cargos/grupos de um membro de uma vez.
-router.put('/members/:id/groups', requireAdmin, async (req, res) => {
+router.put('/members/:id/groups', requireAdmin, requireConfig, async (req, res) => {
     try {
         const sessionUser = req.session.user || {};
         if (!await canManageMemberGroups(sessionUser)) {
@@ -2284,7 +2298,7 @@ router.put('/members/:id/groups', requireAdmin, async (req, res) => {
 });
 
 // Alterar cargo único (compatibilidade com clientes antigos)
-router.post('/members/:id/role', requireAdmin, async (req, res) => {
+router.post('/members/:id/role', requireAdmin, requireConfig, async (req, res) => {
     try {
         const sessionUser = req.session.user || {};
         if (!await canManageMemberGroups(sessionUser)) {
@@ -2412,7 +2426,7 @@ router.put('/members/:id', requireAdmin, async (req, res) => {
 });
 
 // Deletar membro (somente super admin)
-router.delete('/members/:id', requireAdmin, async (req, res) => {
+router.delete('/members/:id', requireAdmin, requireConfig, async (req, res) => {
     try {
         if (!isSuperAdminUser(req.session.user)) {
             return res.status(403).json({ error: 'Apenas o super admin pode deletar membros' });
@@ -2728,7 +2742,7 @@ router.get('/members-farm-status', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/materials', requireAdmin, async (req, res) => {
+router.post('/materials', requireAdmin, requireConfig, async (req, res) => {
     try {
         // Cadastro livre: nome (material, dinheiro, produto...), ícone, quantidade e pra quem
         const { name, icon, quantity, audience } = req.body;
@@ -2770,7 +2784,7 @@ router.post('/materials', requireAdmin, async (req, res) => {
 });
 
 // Atualizar material (nome, ícone, meta)
-router.put('/materials/:id', requireAdmin, async (req, res) => {
+router.put('/materials/:id', requireAdmin, requireConfig, async (req, res) => {
     try {
         const materialId = req.params.id;
         const { name, icon, quantity, audience, weekly_goal, manager_weekly_goal } = req.body;
@@ -2811,7 +2825,7 @@ router.put('/materials/:id', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/materials/:id/toggle', requireAdmin, async (req, res) => {
+router.post('/materials/:id/toggle', requireAdmin, requireConfig, async (req, res) => {
     try {
         const materialId = req.params.id;
         
@@ -2849,7 +2863,7 @@ router.get('/farm-settings', requireAdmin, async (req, res) => {
 });
 
 // Atualizar configuração do farm
-router.put('/farm-settings/:key', requireAdmin, async (req, res) => {
+router.put('/farm-settings/:key', requireAdmin, requireConfig, async (req, res) => {
     try {
         const { key } = req.params;
         const { value } = req.body;
@@ -4329,7 +4343,7 @@ router.get('/whitelist', requireAdmin, async (req, res) => {
 });
 
 // Adicionar à whitelist
-router.post('/whitelist', requireAdmin, async (req, res) => {
+router.post('/whitelist', requireAdmin, requireConfig, async (req, res) => {
     try {
         const { user_id, reason } = req.body;
         const addedBy = req.session.user.id;
@@ -4358,7 +4372,7 @@ router.post('/whitelist', requireAdmin, async (req, res) => {
 });
 
 // Remover da whitelist
-router.delete('/whitelist/:userId', requireAdmin, async (req, res) => {
+router.delete('/whitelist/:userId', requireAdmin, requireConfig, async (req, res) => {
     try {
         const userId = req.params.userId;
         
@@ -4457,7 +4471,7 @@ router.get('/edit-permissions', requireAdmin, async (req, res) => {
 });
 
 // Conceder permissão de edição
-router.post('/edit-permissions/grant', requireAdmin, async (req, res) => {
+router.post('/edit-permissions/grant', requireAdmin, requireConfig, async (req, res) => {
     try {
         const { user_id, reason } = req.body;
         const grantedBy = req.session.user.id;
@@ -4501,7 +4515,7 @@ router.post('/edit-permissions/grant', requireAdmin, async (req, res) => {
 });
 
 // Revogar permissão de edição
-router.post('/edit-permissions/revoke', requireAdmin, async (req, res) => {
+router.post('/edit-permissions/revoke', requireAdmin, requireConfig, async (req, res) => {
     try {
         const { user_id } = req.body;
         
@@ -4776,7 +4790,7 @@ router.get('/role-permissions/:roleName', requireAuth, async (req, res) => {
 });
 
 // Atualizar permissões de um grupo
-router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
+router.put('/role-permissions/:roleName', requireAdmin, requireConfig, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
         if (!await canConfigureGroups(req.session.user)) {
@@ -4814,7 +4828,7 @@ router.put('/role-permissions/:roleName', requireAdmin, async (req, res) => {
 });
 
 // Renomear grupo (nome técnico e nome de exibição)
-router.put('/role-permissions/:roleName/rename', requireAdmin, async (req, res) => {
+router.put('/role-permissions/:roleName/rename', requireAdmin, requireConfig, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
         if (!await canConfigureGroups(req.session.user)) {
@@ -4874,7 +4888,7 @@ router.put('/role-permissions/:roleName/rename', requireAdmin, async (req, res) 
 });
 
 // Criar novo grupo
-router.post('/role-permissions', requireAdmin, async (req, res) => {
+router.post('/role-permissions', requireAdmin, requireConfig, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
         if (!await canConfigureGroups(req.session.user)) {
@@ -4914,7 +4928,7 @@ router.post('/role-permissions', requireAdmin, async (req, res) => {
 });
 
 // Deletar grupo customizado
-router.delete('/role-permissions/:roleName', requireAdmin, async (req, res) => {
+router.delete('/role-permissions/:roleName', requireAdmin, requireConfig, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
         if (!await canConfigureGroups(req.session.user)) {
@@ -4944,7 +4958,7 @@ router.delete('/role-permissions/:roleName', requireAdmin, async (req, res) => {
 });
 
 // Resetar permissões para os valores padrão
-router.post('/role-permissions/reset', requireAdmin, async (req, res) => {
+router.post('/role-permissions/reset', requireAdmin, requireConfig, async (req, res) => {
     try {
         // Verificar se o usuário atual tem permissão de config
         if (!await canConfigureGroups(req.session.user)) {
@@ -4992,7 +5006,7 @@ router.get('/role-permissions/:roleName/members', requireAdmin, async (req, res)
 });
 
 // Adicionar usuário a um grupo
-router.post('/role-permissions/:roleName/members', requireAdmin, async (req, res) => {
+router.post('/role-permissions/:roleName/members', requireAdmin, requireConfig, async (req, res) => {
     try {
         if (!await canManageMemberGroups(req.session.user)) {
             return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral, 01 e 02 podem adicionar membros a grupos' });
@@ -5039,7 +5053,7 @@ router.post('/role-permissions/:roleName/members', requireAdmin, async (req, res
 });
 
 // Remover usuário de um grupo
-router.delete('/role-permissions/:roleName/members/:userId', requireAdmin, async (req, res) => {
+router.delete('/role-permissions/:roleName/members/:userId', requireAdmin, requireConfig, async (req, res) => {
     try {
         if (!await canManageMemberGroups(req.session.user)) {
             return res.status(403).json({ error: 'Apenas Super Admin, Gerente Geral, 01 e 02 podem remover membros de grupos' });
@@ -6757,7 +6771,7 @@ router.get('/weapon-stock', requireAdmin, requireWeaponSalesAccess, async (req, 
     }
 });
 
-router.post('/weapon-stock', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+router.post('/weapon-stock', requireAdmin, requireWeaponSalesAccess, requireConfig, async (req, res) => {
     try {
         await ensureWeaponSalesTable();
 
@@ -6798,7 +6812,7 @@ router.post('/weapon-stock', requireAdmin, requireWeaponSalesAccess, async (req,
     }
 });
 
-router.post('/weapon-stock/:id/adjust', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+router.post('/weapon-stock/:id/adjust', requireAdmin, requireWeaponSalesAccess, requireConfig, async (req, res) => {
     try {
         await ensureWeaponSalesTable();
 
@@ -6839,7 +6853,7 @@ router.post('/weapon-stock/:id/adjust', requireAdmin, requireWeaponSalesAccess, 
     }
 });
 
-router.post('/weapon-stock/:id/toggle', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+router.post('/weapon-stock/:id/toggle', requireAdmin, requireWeaponSalesAccess, requireConfig, async (req, res) => {
     try {
         await ensureWeaponSalesTable();
 
@@ -6862,7 +6876,7 @@ router.post('/weapon-stock/:id/toggle', requireAdmin, requireWeaponSalesAccess, 
 });
 
 // Atualizar valor de venda de uma arma do catálogo
-router.post('/weapon-stock/:id/price', requireAdmin, requireWeaponSalesAccess, async (req, res) => {
+router.post('/weapon-stock/:id/price', requireAdmin, requireWeaponSalesAccess, requireConfig, async (req, res) => {
     try {
         await ensureWeaponSalesTable();
 
