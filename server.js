@@ -1205,14 +1205,20 @@ db.initialize().then(async () => {
         // Criar tabela de extrato de vendas de armas
         await createWeaponSalesTable();
 
-        // Atualizar permissões do extrato de vendas
-        await updateWeaponSalesPermissions();
-
-        // Atualizar permissoes dos mandamentos da familia
-        await updateFamilyCommandmentsPermissions();
-
-        // Garantir que todos os gerentes editem status da entrega e vejam o Ponto
-        await updateManagerFarmPermissions();
+        // Rotinas legadas que ADICIONAVAM permissões a cada boot (vendas, mandamentos, farm).
+        // Com o modelo novo de permissões (v3+, 28/09/2026) elas não rodam mais — senão
+        // devolviam abas extras a cada reinício (01/02 ficavam com 11 em vez de 7).
+        {
+            const { getOne } = require('./database/db');
+            const novoModelo = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', ['role_permissions_v3_2026_09_28_done']).catch(() => null);
+            if (!(novoModelo && novoModelo.setting_value === 'true')) {
+                await updateWeaponSalesPermissions();
+                await updateFamilyCommandmentsPermissions();
+                await updateManagerFarmPermissions();
+            } else {
+                console.log('🔐 Rotinas legadas de permissão puladas (modelo novo ativo)');
+            }
+        }
         
         // Migrar farms in_progress para pending (novo fluxo de aprovação)
         await migrateInProgressToPending();
