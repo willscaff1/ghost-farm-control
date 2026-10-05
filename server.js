@@ -205,6 +205,19 @@ db.initialize().then(async () => {
                 console.log('⚔️ Grupo elite criado');
             }
 
+            // Gerente Geral 01: gerente geral no RP, mas no sistema so com os privilegios padrao
+            // de gerencia (sem Configuracoes). O gerente_geral "cheio" continua existindo.
+            const gg01 = await getOne('SELECT role_name FROM role_permissions WHERE role_name = ?', ['gerente_geral_01']);
+            if (!gg01) {
+                const MANAGER_TABS = ['weekly-status', 'pending', 'absences', 'members', 'attendance', 'members-overview', 'weekly-report'];
+                await runQuery(
+                    'INSERT INTO role_permissions (role_name, display_name, permissions, can_config) VALUES (?, ?, ?, ?)',
+                    ['gerente_geral_01', 'Gerente Geral 01', JSON.stringify(MANAGER_TABS), 0]
+                );
+                try { require('./services/accessControl').invalidateRoleAccessCache(); } catch (e) { /* cache opcional */ }
+                console.log('🧭 Grupo gerente_geral_01 criado (privilégios padrão de gerência)');
+            }
+
             // Meta padrão da Elite (3 ações/semana), só cria se não existir
             const goal = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', ['elite_weekly_goal']);
             if (!goal) {

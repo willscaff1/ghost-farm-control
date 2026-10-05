@@ -55,6 +55,7 @@ const DEFAULT_ROLE_LABELS = {
     '02': '02',
     super_admin: 'Super Admin',
     gerente_geral: 'Gerente Geral',
+    gerente_geral_01: 'Gerente Geral 01',
     gerente_farm: 'Gerente de Farm',
     gerente_acao: 'Gerente de Ação',
     gerente_recrutamento: 'Gerente de Recrutamento',
