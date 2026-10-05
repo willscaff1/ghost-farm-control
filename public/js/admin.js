@@ -211,6 +211,8 @@ function renderRoleBadgesHtml(groups, fallbackRole) {
     let roles = list.filter(g => g && g !== 'elite');
     // 'member' só aparece se for o único cargo
     if (roles.length > 1) roles = roles.filter(g => g !== 'member');
+    // super_admin é sobreposição: com outro cargo junto, mostra só o cargo do RP
+    if (roles.length > 1 && roles.includes('super_admin')) roles = roles.filter(g => g !== 'super_admin');
 
     const eliteBadge = isElite ? '<span class="role-badge badge-elite">⚔️ Elite</span>' : '';
 
@@ -428,7 +430,9 @@ async function checkAuth() {
             }
             
             // Usar o primeiro grupo administrativo para display
-            const primaryAdminRole = userGroups.find(g => g && g !== 'member' && g !== 'elite') || userGroups[0];
+            // Cargo visível: o do RP. super_admin é sobreposição de privilégios, só aparece se for o único.
+            const primaryAdminRole = userGroups.find(g => g && g !== 'member' && g !== 'elite' && g !== 'super_admin')
+                || userGroups.find(g => g && g !== 'member' && g !== 'elite') || userGroups[0];
             
             document.getElementById('userName').textContent = currentUser.name;
             document.getElementById('userRole').textContent = roleNames[primaryAdminRole] || primaryAdminRole;

@@ -205,18 +205,11 @@ db.initialize().then(async () => {
                 console.log('⚔️ Grupo elite criado');
             }
 
-            // Gerente Geral 01: gerente geral no RP, mas no sistema so com os privilegios padrao
-            // de gerencia (sem Configuracoes). O gerente_geral "cheio" continua existindo.
-            const gg01 = await getOne('SELECT role_name FROM role_permissions WHERE role_name = ?', ['gerente_geral_01']);
-            if (!gg01) {
-                const MANAGER_TABS = ['weekly-status', 'pending', 'absences', 'members', 'attendance', 'members-overview', 'weekly-report'];
-                await runQuery(
-                    'INSERT INTO role_permissions (role_name, display_name, permissions, can_config) VALUES (?, ?, ?, ?)',
-                    ['gerente_geral_01', 'Gerente Geral 01', JSON.stringify(MANAGER_TABS), 0]
-                );
-                try { require('./services/accessControl').invalidateRoleAccessCache(); } catch (e) { /* cache opcional */ }
-                console.log('🧭 Grupo gerente_geral_01 criado (privilégios padrão de gerência)');
-            }
+            // Cargo gerente_geral_01 foi descartado (05/10/2026): some se tiver sido criado
+            try {
+                await runQuery("DELETE FROM user_groups WHERE group_name = 'gerente_geral_01'");
+                await runQuery("DELETE FROM role_permissions WHERE role_name = 'gerente_geral_01'");
+            } catch (e) { /* nada a limpar */ }
 
             // Meta padrão da Elite (3 ações/semana), só cria se não existir
             const goal = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', ['elite_weekly_goal']);
@@ -1424,10 +1417,28 @@ db.initialize().then(async () => {
         }
     }
 
+    // v4 (05/10/2026): so o Super Admin e master. Gerente Geral desce pros privilegios padrao de gerencia.
+    async function runRolePermissionsV4OneShot() {
+        const { runQuery, getOne } = require('./database/db');
+        const markerKey = 'role_permissions_v4_2026_10_05_done';
+        const MANAGER_TABS = ['weekly-status', 'pending', 'absences', 'members', 'attendance', 'members-overview', 'weekly-report'];
+        try {
+            const done = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [markerKey]);
+            if (done?.setting_value === 'true') return;
+            await runQuery('UPDATE role_permissions SET permissions = ?, can_config = 0 WHERE role_name = ?', [JSON.stringify(MANAGER_TABS), 'gerente_geral']);
+            await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [markerKey, 'true']);
+            try { require('./services/accessControl').invalidateRoleAccessCache(); } catch (e) { /* cache opcional */ }
+            console.log('🔐 Permissões v4: gerente_geral sem privilégios master (só o Super Admin é master)');
+        } catch (e) {
+            console.error('⚠️ Permissões v4:', e.message);
+        }
+    }
+
     app.listen(PORT, async () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
         await runSystemResetOneShot();
         await runRolePermissionsV3OneShot();
+        await runRolePermissionsV4OneShot();
         await runNamesTitleCaseOneShot();
 
         

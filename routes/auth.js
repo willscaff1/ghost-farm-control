@@ -142,7 +142,10 @@ router.get('/me', async (req, res) => {
             // Atualizar a sessão com os grupos mais recentes
             // role = primeiro grupo QUE NÃO SEJA 'member' (senão gerentes promovidos,
             // que têm 'member' antes na lista, ficariam com role 'member' e sem permissão)
-            const primaryRole = groups.find(g => g && g !== 'member') || groups[0] || userCheck.role;
+            // Cargo visível: o cargo do RP. super_admin é sobreposição de privilégios, só aparece se for o único.
+            const primaryRole = groups.find(g => g && g !== 'member' && g !== 'elite' && g !== 'super_admin')
+                || groups.find(g => g && g !== 'member' && g !== 'elite')
+                || groups[0] || userCheck.role;
             req.session.user.groups = groups;
             req.session.user.role = primaryRole; // Atualizar role também
             req.session.user.name = userCheck.capital_nickname || userCheck.name;

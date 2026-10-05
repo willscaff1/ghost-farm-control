@@ -55,7 +55,6 @@ const DEFAULT_ROLE_LABELS = {
     '02': '02',
     super_admin: 'Super Admin',
     gerente_geral: 'Gerente Geral',
-    gerente_geral_01: 'Gerente Geral 01',
     gerente_farm: 'Gerente de Farm',
     gerente_acao: 'Gerente de Ação',
     gerente_recrutamento: 'Gerente de Recrutamento',
@@ -835,7 +834,10 @@ async function checkAuth() {
 
             // Usar grupos se disponível, senão usar role
             const userGroups = data.user.groups || [data.user.role];
-            const primaryRole = userGroups[0] || data.user.role;
+            // Cargo visível: o do RP (super_admin é sobreposição, só aparece se for o único)
+            const visibleRole = (groups) => groups.find(g => g && g !== 'member' && g !== 'elite' && g !== 'super_admin')
+                || groups.find(g => g && g !== 'member' && g !== 'elite') || groups[0];
+            const primaryRole = visibleRole(userGroups) || data.user.role;
             
             console.log('👤 Usuário logado:', currentUser.name);
             console.log('📋 Grupos do usuário:', userGroups);
@@ -847,7 +849,7 @@ async function checkAuth() {
                 roleNames[primaryRole] || DEFAULT_ROLE_LABELS[normalizeRoleName(primaryRole)] || primaryRole;
 
             // Badge do cargo ao lado do nome (cabeçalho) — cargo real: 1o grupo que não seja "member"
-            const badgeRole = userGroups.find(g => g && g !== 'member') || data.user.role || 'member';
+            const badgeRole = visibleRole(userGroups) || data.user.role || 'member';
             renderUserRoleBadge(badgeRole);
             
             // Mostrar link de admin se tiver qualquer grupo que não seja apenas "member"
@@ -3975,7 +3977,8 @@ function showEditProfile() {
     const groups = (currentUser.groups && currentUser.groups.length)
         ? currentUser.groups
         : (currentUser.role ? [currentUser.role] : []);
-    const badgeRole = groups.find(g => g && g !== 'member') || currentUser.role || 'member';
+    const badgeRole = groups.find(g => g && g !== 'member' && g !== 'elite' && g !== 'super_admin')
+        || groups.find(g => g && g !== 'member' && g !== 'elite') || currentUser.role || 'member';
     const roleKey = normalizeRoleName(badgeRole) || 'member';
     document.getElementById('editRoleDisplay').value =
         roleNames[badgeRole] || roleNames[roleKey] || DEFAULT_ROLE_LABELS[roleKey] || badgeRole || 'Membro';

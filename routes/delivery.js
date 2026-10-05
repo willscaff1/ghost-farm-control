@@ -777,7 +777,7 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
 
         const DEFAULT_LABELS = {
             member: 'Membro', '01': '01', '02': '02', super_admin: 'Super Admin',
-            gerente_geral: 'Gerente Geral', gerente_geral_01: 'Gerente Geral 01', gerente_farm: 'Gerente de Farm',
+            gerente_geral: 'Gerente Geral', gerente_farm: 'Gerente de Farm',
             gerente_acao: 'Gerente de Ação', gerente_recrutamento: 'Gerente de Recrutamento',
             gerente_encomendas: 'Gerente de Encomendas', gerente_vendas: 'Gerente de Vendas',
             gerente_de_vendas: 'Gerente de Vendas', gerente_de_fabricacao: 'Gerente de Fabricação'
@@ -789,7 +789,6 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
             if (role === '01') return 1;
             if (role === '02') return 2;
             if (role === 'gerente_geral') return 3;
-            if (role === 'gerente_geral_01') return 3.5;
             if (String(role).startsWith('gerente')) return 4;
             return 9; // membro
         };
@@ -797,7 +796,9 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
         const list = users.map(u => {
             const ug = groupsByUser.get(u.id) || (u.role ? [u.role] : []);
             // 'elite' é marcador de trilha, não o cargo — não pode virar o cargo principal
-            const primaryRole = ug.find(g => g && g !== 'member' && g !== 'elite') || u.role || 'member';
+            // super_admin é sobreposição de privilégios: na hierarquia vale o cargo do RP
+            const primaryRole = ug.find(g => g && g !== 'member' && g !== 'elite' && g !== 'super_admin')
+                || ug.find(g => g && g !== 'member' && g !== 'elite') || u.role || 'member';
             const isElite = ug.includes('elite');
             const rank = rankOf(primaryRole);
             const isLeader = rank < 9;
