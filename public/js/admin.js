@@ -33,6 +33,7 @@ const advRemovalRoles = new Set([
     'super_admin',
     '01',
     '02',
+    'gerente',
     'gerente_geral',
     'gerente_farm',
     'gerente_acao',
@@ -245,7 +246,7 @@ const superAdminOnlyTabs = ['password-reset-log'];
 // Competição: configuração e ranking só para 01, 02 e gerente geral.
 // A fila de aprovação (competition-farms) fica aberta a qualquer gerente.
 const competitionViewerTabs = ['competition', 'competition-ranking'];
-const COMPETITION_VIEWER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
+const COMPETITION_VIEWER_ROLES = ['01', '02', 'gerente', 'super_admin'];
 function isCompetitionViewer() {
     if (!currentUser) return false;
     const groups = currentUser.groups || [currentUser.group || currentUser.role];
@@ -254,7 +255,7 @@ function isCompetitionViewer() {
 
 // Abas restritas aos aprovadores de ações da Elite: 01, 02, gerente geral, gerente de ação (+ super admin)
 const eliteApproverTabs = ['elite-actions', 'elite-catalog', 'elite-ranking'];
-const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'gerente_acao', 'super_admin'];
+const ELITE_APPROVER_ROLES = ['01', '02', 'gerente', 'super_admin'];
 function isEliteApproverUser() {
     if (!currentUser) return false;
     const groups = currentUser.groups || [currentUser.group || currentUser.role];
@@ -9735,7 +9736,7 @@ async function loadRolePermissions() {
     window.permRoles = data.roles;
     window.permTabs = data.availableTabs || [];
     
-    var icons = {'gerente_geral':'👑','01':'🥇','02':'🥈','gerente_farm':'🌾','gerente_acao':'⚡','gerente_recrutamento':'📋','gerente_encomendas':'📦','gerente_vendas':'💼','gerente_de_vendas':'💼'};
+    var icons = {'gerente':'🛡️','gerente_geral':'👑','01':'🥇','02':'🥈','gerente_farm':'🌾','gerente_acao':'⚡','gerente_recrutamento':'📋','gerente_encomendas':'📦','gerente_vendas':'💼','gerente_de_vendas':'💼'};
     var h = '';
     
     for (var i = 0; i < data.roles.length; i++) {
@@ -10029,6 +10030,7 @@ function formatRole(role) {
         'member': 'Membro',
         '01': 'Oficial 01',
         '02': 'Oficial 02',
+        'gerente': 'Gerente',
         'gerente_farm': 'Gerente de Farm',
         'gerente_acao': 'Gerente de Ação',
         'gerente_recrutamento': 'Gerente de Recrutamento',

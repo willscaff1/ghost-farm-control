@@ -777,7 +777,7 @@ router.get('/family-hierarchy', requireAuth, async (req, res) => {
 
         const DEFAULT_LABELS = {
             member: 'Membro', '01': '01', '02': '02', super_admin: 'Super Admin',
-            gerente_geral: 'Gerente Geral', gerente_farm: 'Gerente de Farm',
+            gerente: 'Gerente', gerente_geral: 'Gerente Geral', gerente_farm: 'Gerente de Farm',
             gerente_acao: 'Gerente de Ação', gerente_recrutamento: 'Gerente de Recrutamento',
             gerente_encomendas: 'Gerente de Encomendas', gerente_vendas: 'Gerente de Vendas',
             gerente_de_vendas: 'Gerente de Vendas', gerente_de_fabricacao: 'Gerente de Fabricação'
@@ -1141,7 +1141,7 @@ router.get('/elite/rankings', requireAuth, async (req, res) => {
         const primaryRole = (groups) => {
             const g = (groups || []).filter(x => x && x !== 'elite' && x !== 'member');
             if (g.length === 0) return 'member';
-            for (const p of ['super_admin', 'gerente_geral', '01', '02']) if (g.includes(p)) return p;
+            for (const p of ['super_admin', 'gerente', 'gerente_geral', '01', '02']) if (g.includes(p)) return p;
             const ger = g.find(x => {
                 const c = String(x).toLowerCase();
                 return c.startsWith('gerente') || c.includes('lider');

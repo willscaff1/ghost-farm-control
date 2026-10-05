@@ -395,3 +395,12 @@ th { background: rgba(245, 185, 28, 0.06) !important; }
     background: var(--mc-gold-a10) !important; border-color: var(--mc-gold-a45) !important;
     color: var(--mc-gold-2) !important; font-weight: 800; cursor: default;
 }
+
+/* ---------- Cargo "Gerente": badge dourada ---------- */
+.badge-gerente, .role-badge.badge-gerente, .user-role-badge.badge-gerente, .role-badge-mini.badge-gerente {
+    background: linear-gradient(135deg, var(--mc-gold-2), var(--mc-gold-deep)) !important;
+    color: #140f02 !important;
+    border-color: transparent !important;
+    font-weight: 800;
+    box-shadow: 0 2px 10px rgba(245, 185, 28, 0.35);
+}

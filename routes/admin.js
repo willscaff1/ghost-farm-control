@@ -540,14 +540,12 @@ async function getAllRoles() {
             { role_name: 'member', display_name: 'Membro' },
             { role_name: '01', display_name: '01' },
             { role_name: '02', display_name: '02' },
-            { role_name: 'gerente_farm', display_name: 'Gerente de Farm' },
-            { role_name: 'gerente_vendas', display_name: 'Gerente de Vendas' },
-            { role_name: 'gerente_geral', display_name: 'Gerente Geral' }
+            { role_name: 'gerente', display_name: 'Gerente' }
         ];
     }
 }
 
-const memberGroupManagerRoles = new Set(['super_admin', 'gerente_geral', '01', '02']);
+const memberGroupManagerRoles = new Set(['super_admin', 'gerente', 'gerente_geral', '01', '02']);
 
 async function canManageMemberGroups(user) {
     if (!user) return false;
@@ -638,7 +636,9 @@ async function getRoleNames() {
             'member': 'Membro',
             '01': '01',
             '02': '02',
-            'gerente_farm': 'Gerente de Farm',
+            'gerente': 'Gerente',
+            'gerente': 'Gerente',
+    'gerente_farm': 'Gerente de Farm',
             'gerente_acao': 'Gerente de Ação',
             'gerente_recrutamento': 'Gerente de Recrutamento',
             'gerente_encomendas': 'Gerente de Encomendas',
@@ -654,6 +654,7 @@ const roleNames = {
     'member': 'Membro',
     '01': '01',
     '02': '02',
+    'gerente': 'Gerente',
     'gerente_farm': 'Gerente de Farm',
     'gerente_acao': 'Gerente de Ação',
     'gerente_recrutamento': 'Gerente de Recrutamento',
@@ -742,7 +743,7 @@ const requireSuperAdmin = (req, res, next) => {
 };
 
 // Aprovadores de ações da Elite: 01, 02, gerente geral, gerente de ação (e super admin)
-const ELITE_APPROVER_ROLES = ['01', '02', 'gerente_geral', 'gerente_acao', 'super_admin'];
+const ELITE_APPROVER_ROLES = ['01', '02', 'gerente', 'super_admin'];
 const requireEliteApprover = async (req, res, next) => {
     if (!req.session.user) {
         return res.status(401).json({ error: 'Não autenticado' });
@@ -764,7 +765,7 @@ const requireEliteApprover = async (req, res, next) => {
 
 // Competição: configuração e ranking são restritos a 01, 02 e gerente geral.
 // A APROVAÇÃO dos farms continua com qualquer gerente (requireAdmin).
-const COMPETITION_VIEWER_ROLES = ['01', '02', 'gerente_geral', 'super_admin'];
+const COMPETITION_VIEWER_ROLES = ['01', '02', 'gerente', 'super_admin'];
 const requireCompetitionViewer = async (req, res, next) => {
     if (!req.session.user) {
         return res.status(401).json({ error: 'Não autenticado' });
@@ -3977,7 +3978,7 @@ router.post('/edit-member-status', requireAdmin, async (req, res) => {
         const adminUser = req.session.user;
         
         // Roles/grupos permitidos para editar status
-        const allowedRoles = ['gerente_geral', 'gerente_farm', '01', '02', 'super_admin'];
+        const allowedRoles = ['gerente', '01', '02', 'super_admin'];
         const isSuperAdmin = isSuperAdminUser(adminUser);
         if (!allowedRoles.includes(adminUser.role) && !isSuperAdmin) {
             return res.status(403).json({ error: 'Você não tem permissão para editar status de pagamento' });
@@ -4611,84 +4612,21 @@ const defaultRolePermissions = [
         can_config: 1
     },
     {
-        role_name: 'gerente_geral',
-        display_name: 'Gerente Geral',
-        permissions: JSON.stringify(['all']),
-        can_config: 1
+        role_name: 'gerente',
+        display_name: 'Gerente',
+        permissions: JSON.stringify(['weekly-status', 'pending', 'absences', 'members', 'attendance', 'members-overview', 'weekly-report']),
+        can_config: 0
     },
     {
         role_name: '01',
         display_name: '01 (Primeiro Líder)',
-        permissions: JSON.stringify([
-            'weekly-status', 'weekly-ranking', 'members-panel', 'members-overview', 
-            'pending', 'absences', 
-            'members', 'members-adv', 'new-member', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies', 'weapon-catalog',
-            'farm-settings', 'family-commandments', 'edit-permissions', 'goals', 'manage-materials', 'manager-goals', 'whitelist'
-        ]),
-        can_config: 1
+        permissions: JSON.stringify(['weekly-status', 'pending', 'absences', 'members', 'attendance', 'members-overview', 'weekly-report']),
+        can_config: 0
     },
     {
         role_name: '02',
         display_name: '02 (Segundo Líder)',
-        permissions: JSON.stringify([
-            'weekly-status', 'weekly-ranking', 'members-panel', 'members-overview', 
-            'pending', 'absences', 
-            'members', 'members-adv', 'new-member', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'weapon-sales', 'weapon-freebies', 'weapon-catalog',
-            'family-commandments', 'edit-permissions', 'goals', 'manager-goals'
-        ]),
-        can_config: 1
-    },
-    {
-        role_name: 'gerente_farm',
-        display_name: 'Gerente de Farm',
-        permissions: JSON.stringify([
-            'weekly-status', 'members-panel', 'members-overview', 
-            'pending', 'absences', 
-            'members', 'members-adv', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'goals', 'manager-goals'
-        ]),
-        can_config: 0
-    },
-    {
-        role_name: 'gerente_acao',
-        display_name: 'Gerente de Ação',
-        permissions: JSON.stringify([
-            'weekly-status', 'members-panel', 'members-overview', 
-            'members', 'members-adv', 
-            'ranking', 'materials-stats', 'all-deliveries', 'weekly-report', 'goals', 'manager-goals'
-        ]),
-        can_config: 0
-    },
-    {
-        role_name: 'gerente_recrutamento',
-        display_name: 'Gerente de Recrutamento',
-        permissions: JSON.stringify([
-            'weekly-status', 'members-panel', 'members-overview', 
-            'members', 'members-adv', 'new-member',
-            'ranking', 'all-deliveries', 'goals', 'manager-goals'
-        ]),
-        can_config: 0
-    },
-    {
-        role_name: 'gerente_encomendas',
-        display_name: 'Gerente de Encomendas',
-        permissions: JSON.stringify([
-            'weekly-status', 'members-panel', 'members-overview', 
-            'members', 'members-adv', 
-            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals'
-        ]),
-        can_config: 0
-    },
-    {
-        role_name: 'gerente_vendas',
-        display_name: 'Gerente de Vendas',
-        permissions: JSON.stringify([
-            'weekly-status', 'members-panel', 'members-overview',
-            'members', 'members-adv',
-            'ranking', 'materials-stats', 'all-deliveries', 'goals', 'manager-goals', 'weapon-sales', 'weapon-freebies', 'weapon-catalog'
-        ]),
+        permissions: JSON.stringify(['weekly-status', 'pending', 'absences', 'members', 'attendance', 'members-overview', 'weekly-report']),
         can_config: 0
     }
 ];

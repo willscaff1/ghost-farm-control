@@ -4,6 +4,7 @@ const BASE_MANAGER_GROUPS = new Set([
     'super_admin',
     '01',
     '02',
+    'gerente',
     'gerente_farm',
     'gerente_acao',
     'gerente_recrutamento',

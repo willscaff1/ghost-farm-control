@@ -369,7 +369,7 @@ router.post('/register', async (req, res) => {
             }
         } catch (err) {
             console.log('Usando validRoles padrão:', err.message);
-            validRoles = ['member', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
+            validRoles = ['member', '01', '02', 'gerente'];
         }
         
         const userRole = validRoles.includes(role) ? role : 'member';

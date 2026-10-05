@@ -54,6 +54,7 @@ const DEFAULT_ROLE_LABELS = {
     '01': '01',
     '02': '02',
     super_admin: 'Super Admin',
+    gerente: 'Gerente',
     gerente_geral: 'Gerente Geral',
     gerente_farm: 'Gerente de Farm',
     gerente_acao: 'Gerente de Ação',
@@ -69,9 +70,10 @@ const ROLE_BADGE_COLORS = {
     super_admin:            { bg: 'rgba(147,51,234,0.2)',  bd: 'rgba(147,51,234,0.4)',  fg: '#c084fc' },
     '01':                   { bg: 'rgba(239,68,68,0.2)',   bd: 'rgba(239,68,68,0.4)',   fg: '#fca5a5' },
     '02':                   { bg: 'rgba(249,115,22,0.2)',  bd: 'rgba(249,115,22,0.4)',  fg: '#fdba74' },
+    gerente:                { bg: 'rgba(245,185,28,0.22)', bd: 'rgba(245,185,28,0.5)',  fg: '#ffd54a' },
     gerente_geral:          { bg: 'rgba(59,130,246,0.2)',  bd: 'rgba(59,130,246,0.4)',  fg: '#93c5fd' },
     gerente_farm:           { bg: 'rgba(34,197,94,0.2)',   bd: 'rgba(34,197,94,0.4)',   fg: '#86efac' },
-    _gerente:               { bg: 'rgba(245,185,28,0.2)',  bd: 'rgba(245,185,28,0.4)',  fg: '#c4b5fd' },
+    _gerente:               { bg: 'rgba(245,185,28,0.2)',  bd: 'rgba(245,185,28,0.4)',  fg: '#ffd54a' },
     member:                 { bg: 'rgba(107,114,128,0.2)', bd: 'rgba(107,114,128,0.4)', fg: '#9ca3af' }
 };
 
@@ -152,7 +154,7 @@ function renderUserRoleBadge(role) {
     el.style.display = '';
 }
 
-const adminRoles = ['super_admin', '01', '02', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
+const adminRoles = ['super_admin', '01', '02', 'gerente', 'gerente_farm', 'gerente_acao', 'gerente_recrutamento', 'gerente_encomendas', 'gerente_vendas', 'gerente_de_vendas', 'gerente_geral'];
 
 // ===== Competição semanal =====
 let competitionData = null;

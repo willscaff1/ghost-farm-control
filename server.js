@@ -640,7 +640,7 @@ db.initialize().then(async () => {
     async function updateWeaponSalesPermissions() {
         try {
             const { runQuery, getAll } = require('./database/db');
-            const groupsWithAccess = ['super_admin', 'gerente_geral', '01', '02', 'gerente_vendas', 'gerente_de_vendas'];
+            const groupsWithAccess = ['super_admin', 'gerente', 'gerente_geral', '01', '02', 'gerente_vendas', 'gerente_de_vendas'];
             const roles = await getAll('SELECT * FROM role_permissions');
             let updated = 0;
 
@@ -686,7 +686,7 @@ db.initialize().then(async () => {
     async function updateFamilyCommandmentsPermissions() {
         try {
             const { runQuery, getAll } = require('./database/db');
-            const groupsWithAccess = ['super_admin', 'gerente_geral', '01', '02'];
+            const groupsWithAccess = ['super_admin', 'gerente', 'gerente_geral', '01', '02'];
             const roles = await getAll('SELECT * FROM role_permissions');
             let updated = 0;
 
@@ -720,7 +720,7 @@ db.initialize().then(async () => {
     async function updateManagerFarmPermissions() {
         try {
             const { runQuery, getAll } = require('./database/db');
-            const baseGroups = ['super_admin', 'gerente_geral', '01', '02'];
+            const baseGroups = ['super_admin', 'gerente', 'gerente_geral', '01', '02'];
             const permsToGrant = ['weekly-status', 'attendance'];
             const roles = await getAll('SELECT * FROM role_permissions');
             let updated = 0;
@@ -1434,11 +1434,50 @@ db.initialize().then(async () => {
         }
     }
 
+    // v5 (05/10/2026): um cargo so de gerencia — "Gerente". Quem estava em qualquer gerente_* migra;
+    // os cargos antigos somem (as divisoes voltam depois, pela tela de Permissoes).
+    async function runSingleManagerRoleV5OneShot() {
+        const { runQuery, getOne, getAll } = require('./database/db');
+        const markerKey = 'single_manager_role_v5_2026_10_05_done';
+        const MANAGER_TABS = ['weekly-status', 'pending', 'absences', 'members', 'attendance', 'members-overview', 'weekly-report'];
+        try {
+            const done = await getOne('SELECT setting_value FROM farm_settings WHERE setting_key = ?', [markerKey]);
+            if (done?.setting_value === 'true') return;
+
+            const exists = await getOne('SELECT role_name FROM role_permissions WHERE role_name = ?', ['gerente']);
+            if (!exists) {
+                await runQuery('INSERT INTO role_permissions (role_name, display_name, permissions, can_config) VALUES (?, ?, ?, ?)',
+                    ['gerente', 'Gerente', JSON.stringify(MANAGER_TABS), 0]);
+            } else {
+                await runQuery('UPDATE role_permissions SET display_name = ?, permissions = ?, can_config = 0 WHERE role_name = ?',
+                    ['Gerente', JSON.stringify(MANAGER_TABS), 'gerente']);
+            }
+
+            // "gerente\_%" com ESCAPE: pega gerente_geral, gerente_farm... mas nao o proprio 'gerente'
+            const users = await getAll("SELECT DISTINCT user_id FROM user_groups WHERE group_name LIKE 'gerente\\_%' ESCAPE '\\'");
+            for (const u of users || []) {
+                const has = await getOne("SELECT id FROM user_groups WHERE user_id = ? AND group_name = 'gerente'", [u.user_id]);
+                if (!has) await runQuery("INSERT INTO user_groups (user_id, group_name) VALUES (?, 'gerente')", [u.user_id]);
+                await runQuery("DELETE FROM user_groups WHERE user_id = ? AND group_name LIKE 'gerente\\_%' ESCAPE '\\'", [u.user_id]);
+            }
+            await runQuery("UPDATE users SET role = 'gerente' WHERE role LIKE 'gerente\\_%' ESCAPE '\\'");
+            await runQuery("DELETE FROM role_permissions WHERE role_name LIKE 'gerente\\_%' ESCAPE '\\'");
+
+            await runQuery('INSERT INTO farm_settings (setting_key, setting_value) VALUES (?, ?)', [markerKey, 'true']);
+            try { require('./services/accessControl').invalidateRoleAccessCache(); } catch (e) { /* cache opcional */ }
+            if (typeof global.__clearWeeklyStatusCache === 'function') global.__clearWeeklyStatusCache();
+            console.log('🛡️ Cargo unico de gerencia aplicado: ' + (users || []).length + ' usuario(s) migrado(s) para "Gerente"');
+        } catch (e) {
+            console.error('⚠️ Cargo unico de gerencia:', e.message);
+        }
+    }
+
     app.listen(PORT, async () => {
         console.log(`🎮 Ghosts Farm Control rodando em http://localhost:${PORT}`);
         await runSystemResetOneShot();
         await runRolePermissionsV3OneShot();
         await runRolePermissionsV4OneShot();
+        await runSingleManagerRoleV5OneShot();
         await runNamesTitleCaseOneShot();
 
         
